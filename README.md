@@ -41,6 +41,7 @@ The documentation consists of smaller information units with the following chara
 * example: yast2-register-sles.png
 
 ## IDs
+
 * use hyphens as separators
 * root ID:  
     * use type as prefix (task-|concept-|reference-)
@@ -50,4 +51,32 @@ The documentation consists of smaller information units with the following chara
 
 ## DC files
 
-## Categories
+* one DC file per information unit
+* should match root ID of file
+
+## Metadata
+
+* add the following metadata as comment at the top of a file:
+   * productname (e.g. SLES) - can be multiple 
+   * product version (e.g. 15 SP3) - can be multiple 
+   * topic category/ies (see below Categories) - can be multiple
+   * target group(s) - can be multiple
+   * initially published
+   * last modified 
+
+## Topic categories
+
+Each information unit should be marked as belonging to one or more of the following categories:
+* architecture
+* planning
+* installation
+* deployment
+* upgrade
+* system administration
+* network
+* tuning
+* security
+* public cloud
+* storage
+* container
+* virtualization
