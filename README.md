@@ -1,7 +1,7 @@
 Modular Documentation
 =====================
 
-# What it is?
+# What is it?
 
 This repository contains modular documentation for SUSE products. 
 The documentation consists of smaller information units with the following characteristics:
