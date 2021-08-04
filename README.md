@@ -1,7 +1,7 @@
 Modular Documentation
 =====================
 
-# What is it?
+# What is this about?
 
 This repository contains modular documentation for SUSE products. 
 The documentation consists of smaller information units with the following characteristics:
@@ -47,7 +47,17 @@ The documentation consists of smaller information units with the following chara
     * use type as prefix (task-|concept-|reference-)
     * for task type, use verb in infinitive: e.g. task-register-product-after-installation
     * for concept/reference type, use nouns: e.g. reference-zypper-options, concept-fencing
-* section IDs: must *not* reflect structure 
+* section IDs: 
+    * must *not* reflect structure, but need to reflect content
+    * for the sake of unique IDs for recurring sections per topic type (e.g. Introduction, Requirements, Summary, Troubleshooting, Next steps, Related topics), the section IDs should match the pattern `SECTIONTITLE-ROOTID`, e.g.
+
+
+        + `introduction-register-product-after-installation`
+        + `requirements-register-product-after-installation`
+        + `summary-register-product-after-installation`
+        + `troubleshooting-register-product-after-installation`
+        + `next-register-product-after-installation`
+        + `related-register-product-after-installation`
 
 ## DC files
 
