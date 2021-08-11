@@ -15,9 +15,9 @@ The documentation consists of smaller information units with the following chara
 
   Rather than covering a complete technology or a set of problems, each information unit covers only one distinct topic. 
   We provide three different types of information units: 
-   * Task (how to?) - [XML template](https://github.com/SUSE/doc-modular/blob/main/templates/task.xml)
-   * Concept (what is?) - [XML template](https://github.com/SUSE/doc-modular/blob/main/templates/concept.xml)
-   * Reference (e.g. list of options, table with config files, default settings) - [XML template](https://github.com/SUSE/doc-modular/blob/main/templates/reference.xml)
+   * Task (how to?) - [XML template](https://github.com/SUSE/doc-modular/blob/main/templates/xml/task.xml)
+   * Concept (what is?) - [XML template](https://github.com/SUSE/doc-modular/blob/main/templates/xml/concept.xml)
+   * Reference (e.g. list of options, table with config files, default settings) - [XML template](https://github.com/SUSE/doc-modular/blob/main/templates/xml/reference.xml)
 
 
 * For re-use in different contexts:
