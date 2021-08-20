@@ -11,8 +11,6 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xml:lang="en">
  <!--metadata
-  * product(s): SLES, SLED, SLE-HA (?), SLES-SAP (?), SLE-HPC (?), SLE-RT (?)
-  * product version(s): 15 SP3, 15 SP2, 15 SP1
   * topic category/ies: system administration
   * target group(s): system operators, home PC users
   * initially published: ?
@@ -229,7 +227,7 @@
    </para>
 <screen>
 server 0.europe.pool.ntp.org offline
-server 1.europe.pool.ntp.org prefer
+server 1.europe.pool.ntp.org offline prefer
 server &dhcpip;
 </screen>
    <tip>
@@ -274,10 +272,113 @@ peer &ntpip;
 peer &ntpname;
 </screen>
   </section>
+  <section xml:id="configure-ntp-server">
+   <title>Running &chronyd; as an &ntp; server</title>
+   <para>
+    By default, &chronyd; works as a client to specified &ntp; servers. To make
+    it operate as an &ntp; server as well, add the <literal>allow</literal>
+    directive to the <filename>/etc/chrony.conf</filename> file. It opens the
+    server &ntp; port (123 by default) and responds to client requests.
+   </para>
+   <para>
+    You can either specify a single IP of an &ntp; client, or a subnet to
+    include multiple clients. You can use the <literal>allow</literal>
+    directive multiple times:
+   </para>
+<screen>
+allow 1.2.3.4
+allow 3.4.5.0/24
+</screen>
+   <tip>
+    <para>
+     If you do not specify an IP address or a subnet, the standalone
+     <literal>allow</literal> directive allows access from all IPv4 and IPv6
+     addresses.
+    </para>
+   </tip>
+   <para>
+    To limit the access of the previous <literal>allow</literal> directive, use
+    the <literal>deny</literal> directive:
+   </para>
+<screen>
+allow 1.2.3.4
+deny 1.2.3.0/24
+allow 1.2.0.0/16
+</screen>
+   <para>
+    In the above example, the effect is the same regardless of the order of the
+    three directives. The <literal>1.2.0.0/16</literal> subnet is allowed
+    access except for the <literal>1.2.3.0/24</literal> subnet which is denied
+    access However, the host <literal>1.2.3.4</literal> is allowed access.
+   </para>
+  </section>
  </section>
  <section xml:id="configure-ntp-command-line-chronyc">
   <title>Managing &chronyd; at runtime using &chronyc;</title>
-  <para></para>
+  <para>
+   You can use &chronyc; to change the behavior of &chronyd; at runtime. It
+   also generates status reports about the operation of &chronyd;.
+  </para>
+  <note>
+   <title>Temporary changes</title>
+   <para>
+    Changes made using &chronyc; are not permanent. They will be lost after the
+    next &chronyd; restart. For permanent changes, modify
+    <filename>/etc/chrony.conf</filename> as described in
+    <xref linkend="configure-ntp-command-line-chronyd-conf"/>.
+   </para>
+  </note>
+  <para>
+   You can run &chronyc; either in interactive or non-interactive mode. To run
+   &chronyc; interactively, enter &chronyc; on the command line and press
+   <keycap function="enter"/>. It displays a prompt and waits for your command
+   input. For example, to check how many &ntp; sources are online or offline,
+   run the <command>activity</command> command:
+  </para>
+<screen>
+&prompt.root;&chronyc;
+chronyc> activity
+200 OK
+4 sources online
+2 sources offline
+1 sources doing burst (return to online)
+1 sources doing burst (return to offline)
+0 sources with unknown address
+</screen>
+  <para>
+   To exit &chronyc;'s prompt, enter <command>quit</command> or
+   <command>exit</command>.
+  </para>
+  <para>
+   If you do not need to use the interactive prompt, enter the command
+   directly:
+  </para>
+<screen>&prompt.root;&chronyc; activity</screen>
+  <section xml:id="configure-ntp-command-line-chronyc-online">
+   <title>Activating offline time sources</title>
+   <para>
+    Although &chronyd; starts up normally on a system that boots without a
+    network connection, it cannot access the time servers specified in
+    <filename>/etc/chrony.conf</filename>. To prevent &chronyd; from trying to
+    query inaccessible time servers, use the <option>offline</option> option
+    next to the time source directive, for example:
+   </para>
+<screen>server ntp.example.org offline</screen>
+   <para>
+    &chronyd; will then not try to poll the server until it is enabled using
+    the following command:
+   </para>
+<screen>&prompt.root;chronyc online ntp.example.org</screen>
+   <tip>
+    <para>
+     When the <option>auto_offline</option> option is set instead of the
+     <option>offline</option> option, &chronyd; assumes that the time server
+     has gone offline when two requests have been sent to it without receiving
+     a response. This option avoids the need to run the 'offline' command from
+     &chronyc; when disconnecting the network link.
+    </para>
+   </tip>
+  </section>
  </section>
  <section xml:id="summary-configure-ntp">
   <title>Summary</title>
@@ -336,13 +437,13 @@ PING pool.ntp.org (85.199.214.101) 56(84) bytes of data.
 </screen>
    </listitem>
    <!-- add the following to the troubleshooting:
-   * https://www.suse.com/support/kb/doc/?id=000018421
-   * https://www.suse.com/support/kb/doc/?id=000016157
-   * https://www.suse.com/support/kb/doc/?id=000016215
-   * https://www.suse.com/support/kb/doc/?id=000019833
-   * https://www.suse.com/support/kb/doc/?id=000019557
-   * https://www.suse.com/support/kb/doc/?id=000018760 (adapt to chrony)
-   -->
+    * https://www.suse.com/support/kb/doc/?id=000018421
+    * https://www.suse.com/support/kb/doc/?id=000016157
+    * https://www.suse.com/support/kb/doc/?id=000016215
+    * https://www.suse.com/support/kb/doc/?id=000019833
+    * https://www.suse.com/support/kb/doc/?id=000019557
+    * https://www.suse.com/support/kb/doc/?id=000018760 (adapt to chrony)
+    -->
   </itemizedlist>
  </section>
  <!--
@@ -366,6 +467,23 @@ PING pool.ntp.org (85.199.214.101) 56(84) bytes of data.
    <listitem>
     <para>
      Most often used &systemd; commands.
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     For a complete reference, see related manual pages:
+    </para>
+    <para>
+     For a complete list of configuration directives, run <command>man 1
+     chrony.conf</command>.
+    </para>
+    <para>
+     For a complete list of &chronyc; commands, run <command>man 1
+     chronyc</command>.
+    </para>
+    <para>
+     For a complete list &chronyd; command line options, run <command>man 8
+     chronyd</command>.
     </para>
    </listitem>
   </itemizedlist>
