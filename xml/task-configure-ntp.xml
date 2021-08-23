@@ -15,7 +15,58 @@
   * target group(s): system operators, home PC users
   * initially published: ?
   * last modified: ?-->
- <title>Configuring &ntp; time synchronization</title>
+ <info>
+  <title>Configuring &ntp; time synchronization</title>
+  <dm:docmanager xmlns:dm="urn:x-suse:ns:docmanager">
+   <dm:bugtracker>
+    <dm:url>https://bugzilla.suse.com/enter_bug.cgi</dm:url>
+    <dm:component>Documentation</dm:component>
+    <dm:product>&productname;</dm:product>
+    <dm:assignee>assignee@suse.com</dm:assignee>
+   </dm:bugtracker>
+   <dm:translation>no</dm:translation>
+  </dm:docmanager>
+ </info>
+ <section xml:id="environment-">
+  <!--to create unique section IDs, amend the TOPIC-ID (without prefix)-->
+  <!--example: environment-register-product-after-installation-->
+  <title>Environment</title>
+  <para>
+   This document applies to the following products and product versions:
+  </para>
+  <itemizedlist>
+   <listitem>
+    <para>
+     &sles;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     &sles4sap;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     &sleha;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     &slehpc;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     &sled;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     &slert;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA
+    </para>
+   </listitem>
+  </itemizedlist>
+ </section>
  <section xml:id="introduction-configure-ntp">
   <title>Introduction</title>
   <para>
@@ -226,39 +277,47 @@
     host as a time server by its name or IP address.
    </para>
 <screen>
-server 0.europe.pool.ntp.org offline
-server 1.europe.pool.ntp.org offline prefer
+server 0.europe.pool.ntp.org offline<co xml:id="co-ntp-offline"/>
+server 1.europe.pool.ntp.org offline prefer<co xml:id="co-ntp-prefer"/>
 server &dhcpip;
 </screen>
-   <tip>
-    <para>
-     The <option>prefer</option> options tells &chronyd; to prefer the time
-     source over other that do not include such option.
-    </para>
-    <para>
-     The <option>offline</option> option will prevent &chronyd; from querying
-     the time server. This option is useful if the server is not reachable when
-     &chronyd; is started. You need to put the time server online when it is
-     reachable by using &chronyc;. Refer to
-     <xref linkend="configure-ntp-command-line-chronyc"/> for more details.
-    </para>
-   </tip>
+   <calloutlist>
+    <callout arearefs="co-ntp-offline">
+     <para>
+      The <option>offline</option> option will prevent &chronyd; from querying
+      the time server. This option is useful if the server is not reachable
+      when &chronyd; is started. You need to put the time server online when it
+      is reachable by using &chronyc;. Refer to
+      <xref linkend="configure-ntp-command-line-chronyc"/> for more details.
+     </para>
+    </callout>
+    <callout arearefs="co-ntp-prefer">
+     <para>
+      The <option>prefer</option> options tells &chronyd; to prefer the time
+      source over other that do not include such option.
+     </para>
+    </callout>
+   </calloutlist>
    <para>
     The <literal>pool</literal> directive lets you specify a network name that
     resolves to multiple IP addresses that may change over time.
    </para>
-<screen>pool pool.ntp.org iburst maxsources 3</screen>
-   <tip>
-    <para>
-     The <option>iburst</option> option means that &chronyd; will start with a
-     burst of 4 to 8 requests in order to make the first update of the clock
-     sooner.
-    </para>
-    <para>
-     The <option>maxsources</option> option specifies that three sources from
-     the pool will be used.
-    </para>
-   </tip>
+<screen>pool pool.ntp.org iburst<co xml:id="co-ntp-iburst"/> maxsources 3<co xml:id="co-ntp-maxsources"/></screen>
+   <calloutlist>
+    <callout arearefs="co-ntp-iburst">
+     <para>
+      The <option>iburst</option> option means that &chronyd; will start with a
+      burst of 4 to 8 requests in order to make the first update of the clock
+      sooner.
+     </para>
+    </callout>
+    <callout arearefs="co-ntp-maxsources">
+     <para>
+      The <option>maxsources</option> option specifies that three sources from
+      the pool will be used.
+     </para>
+    </callout>
+   </calloutlist>
    <para>
     The <literal>peer</literal> directive specifies an &ntp; peer host instead
     of a time server. Synchronizing system time among
@@ -311,6 +370,54 @@ allow 1.2.0.0/16
     access except for the <literal>1.2.3.0/24</literal> subnet which is denied
     access However, the host <literal>1.2.3.4</literal> is allowed access.
    </para>
+  </section>
+  <section xml:id="configure-ntp-server-reference-clock">
+   <title>Configuring a local reference clock</title>
+   <para>
+    &chronyd; relies on other programs (such as <systemitem>gpsd</systemitem>)
+    to access the timing data via a specific driver. Use the
+    <option>refclock</option> directive in
+    <filename>/etc/chrony.conf</filename> to specify a hardware reference clock
+    to be used as a time source. It has two mandatory parameters: a driver name
+    and a driver-specific parameter. The two parameters are followed by zero or
+    more <option>refclock</option> options. &chronyd; includes the following
+    drivers:
+   </para>
+   <itemizedlist>
+    <listitem>
+     <para>
+      PPS - driver for the kernel 'pulse per second' API. For example:
+     </para>
+<screen>refclock PPS /dev/pps0 lock NMEA refid GPS</screen>
+    </listitem>
+    <listitem>
+     <para>
+      SHM - NTP shared memory driver. For example:
+     </para>
+<screen>refclock SHM 0 poll 3 refid GPS1
+refclock SHM 1:perm=0644 refid GPS2</screen>
+    </listitem>
+    <listitem>
+     <para>
+      SOCK - Unix domain socket driver. For example:
+     </para>
+<screen>refclock SOCK /var/run/chrony.ttyS0.sock</screen>
+    </listitem>
+    <listitem>
+     <para>
+      PHC - PTP hardware clock driver. For example:
+     </para>
+<screen>refclock PHC /dev/ptp0 poll 0 dpoll -2 offset -37
+refclock PHC /dev/ptp1:nocrossts poll 3 pps</screen>
+    </listitem>
+   </itemizedlist>
+   <tip>
+    <para>
+     For more information on individual drivers' options, see <command>man 8
+     chrony.conf</command>.
+    </para>
+   </tip>
+   <para></para>
   </section>
  </section>
  <section xml:id="configure-ntp-command-line-chronyc">
