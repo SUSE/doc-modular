@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<?xml-stylesheet href="urn:x-suse:xslt:profiling:docbook51-profile.xsl"
+ type="text/xml"
+ title="Profiling step"?>
+<!DOCTYPE article
+[
+  <!ENTITY % entities SYSTEM "generic-entities.ent">
+    %entities;
+]>
+<article xml:id="task-create-systemd-timers" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.1"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+ <info>
+  <title>Working with &systemd; timers</title>
+  <dm:docmanager xmlns:dm="urn:x-suse:ns:docmanager">
+   <dm:bugtracker>
+    <dm:url>https://bugzilla.suse.com/enter_bug.cgi</dm:url>
+    <dm:component>Documentation</dm:component>
+    <dm:product>Product Name</dm:product>
+    <dm:assignee>dpopov@suse.com</dm:assignee>
+   </dm:bugtracker>
+   <dm:translation>no</dm:translation>
+  </dm:docmanager>
+ </info>
+ <section xml:id="environment-systemd-timers">
+  <title>Environment</title>
+  <para>
+   This document applies to the following products and product versions:
+  </para>
+  <itemizedlist>
+   <listitem>
+    <para>
+     &sles;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA,
+     12&nbsp;SP5, 12&nbsp;SP4, 12&nbsp;SP3
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     &sles4sap;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA,
+     12&nbsp;SP5, 12&nbsp;SP4, 12&nbsp;SP3
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     &sleha;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA,
+     12&nbsp;SP5, 12&nbsp;SP4, 12&nbsp;SP3
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     &slehpc;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     &sled;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA,
+     12&nbsp;SP5, 12&nbsp;SP4, 12&nbsp;SP3
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     &slert;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA,
+     12&nbsp;SP5, 12&nbsp;SP4, 12&nbsp;SP3
+    </para>
+   </listitem>
+  </itemizedlist>
+ </section>
+ <section>
+  <title>Introduction</title>
+  <para>
+   From running a backup script at regular intervals to starting a specific
+   process as soon as the machine boots, there are plenty of tasks that require
+   scheduling on a Linux system. cron has long been the go-to tool for all
+   scheduling needs, but the switch to &systemd; introduced another way to
+   schedule tasks: &systemd; timer units.
+  </para>
+  <para>
+   Similar to cron, &systemd; timer units provide a mechanism for scheduling
+   jobs on Linux. Following the instruction below, you can learn how to create
+   a &systemd; timer.
+  </para>
+ </section>
+ <section>
+  <title>Requirements</title>
+  <itemizedlist>
+   <listitem>
+    <para>
+     Basic understanding of &systemd;.
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     Root privileges.
+    </para>
+   </listitem>
+  </itemizedlist>
+ </section>
+ <section>
+  <title>Creating a &systemd; timer</title>
+  <para>
+   The following procedure describes how to set up a timer that triggers the
+   <filename>helloworld.sh</filename> shell script.
+  </para>
+  <procedure>
+   <title>Creating a &systemd; timer</title>
+   <step>
+    <para>
+     Before you set up a &systemd; timer unit, you need to create a &systemd;
+     service unit that controls the shell script. To do this, open a new text
+     file for editing and add the following service unit definition:
+    </para>
+<screen>[Unit]
+Description="Hello World script"
+
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh</screen>
+   </step>
+   <step>
+    <para>
+     Save the file under the name <filename>helloworld.service</filename> in
+     the directory <filename>/etc/systemd/system/</filename>.
+    </para>
+   </step>
+   <step>
+    <para>
+     Open a new text file for editing and add the following timer definition:
+    </para>
+<screen>[Unit]
+Description="Run Hello World script"
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=24h
+Unit=helloworld.service
+
+[Install]
+WantedBy=multi-user.target</screen>
+    <para>
+     The <literal>[Timer]</literal> section in the example above specifies what
+     service to trigger (<literal>helloworld.service</literal>) and when to
+     trigger it. In this case, the option <option>OnBootSec</option> specifies
+     a monotonic timer that triggers the service five minutes after the system
+     boot, while the option <option>OnUnitActiveSec</option> triggers the
+     service 24 hours after the service has been activated (that is, the timer
+     will trigger the service once a day). Finally the option
+     <option>WantedBy</option> specifies that the timer should start when the
+     system has reached the multi-user target.
+    </para>
+   </step>
+   <step>
+    <para>
+     Save the timer unit file under the name
+     <filename>helloworld.timer</filename> in the
+     <filename>/etc/systemd/system/</filename> directory. To check the
+     correctness of the created unit files, run the following command:
+    </para>
+<screen>&prompt.sudo; systemd-analyze verify /etc/systemd/system/helloworld.*</screen>
+    <para>
+     If the command returns no output, the files have passed the verification
+     successfully.
+    </para>
+   </step>
+   <step>
+    <para>
+     To start the timer, use the command <command>sudo systemctl start
+     helloworld.timer</command>. To enable the timer on boot, run the command
+     <command>sudo systemctl enable helloworld.timer</command>.
+    </para>
+   </step>
+  </procedure>
+ </section>
+ <!-- <section>
+  <title>Summary</title>
+  <para>
+  A paragraph of text, summing up the result of the task.
+  </para>
+  </section> -->
+ <section>
+  <title>Troubleshooting</title>
+  <para>
+   The best way to make sure that you catch all issues beforehand, is to verify
+   &systemd; timer units before enabling them. Running the
+   <command>systemd-analyze verify</command> command can help you to identify
+   and fix potential problems.
+  </para>
+ </section>
+ <section>
+  <title>Next steps</title>
+  <itemizedlist>
+   <listitem>
+    <para>
+     Learn more about &systemd;
+    </para>
+   </listitem>
+  </itemizedlist>
+ </section>
+ <section>
+  <title>Related topics</title>
+  <itemizedlist>
+   <listitem>
+    <para>
+     &systemd; conceptual overview
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     Creating and managing &systemd; service units
+    </para>
+   </listitem>
+  </itemizedlist>
+ </section>
+</article>
