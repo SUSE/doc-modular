@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?xml-stylesheet href="urn:x-suse:xslt:profiling:docbook51-profile.xsl"
+ type="text/xml"
+ title="Profiling step"?>
+<!DOCTYPE article
+[
+  <!ENTITY % entities SYSTEM "generic-entities.ent">
+    %entities;
+]>
+
+
+<article xml:id="task-debug-failed-systemd-services" xml:lang="en" role="task"
+ xmlns="http://docbook.org/ns/docbook" version="5.1"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+
+ <info>
+  <title>Debugging failed &systemd; services</title>
+  <dm:docmanager xmlns:dm="urn:x-suse:ns:docmanager">
+   <dm:bugtracker>
+    <dm:url>https://bugzilla.suse.com/enter_bug.cgi</dm:url>
+    <dm:component>Documentation</dm:component>
+    <dm:product>Product Name</dm:product>
+    <dm:assignee>docteam@suse.com</dm:assignee>
+   </dm:bugtracker>
+   <dm:translation>no</dm:translation>
+  </dm:docmanager>
+ </info>
+
+ <section xml:id="environment-debug-systemd-unit-files">
+  <title>Environment</title>
+  <para>This document applies to the following products and product
+   versions:</para>
+  <itemizedlist>
+   <listitem>
+    <para>&sles;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA,
+     12&nbsp;SP5, 12&nbsp;SP4, 12&nbsp;SP3</para>
+   </listitem>
+   <listitem>
+    <para>&sles4sap;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA,
+     12&nbsp;SP5, 12&nbsp;SP4, 12&nbsp;SP3</para>
+   </listitem>
+   <listitem>
+    <para>&sleha;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA,
+     12&nbsp;SP5, 12&nbsp;SP4, 12&nbsp;SP3</para>
+   </listitem>
+   <listitem>
+    <para>&slehpc;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA</para>
+   </listitem>
+   <listitem>
+    <para>&sled;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA,
+     12&nbsp;SP5, 12&nbsp;SP4, 12&nbsp;SP3</para>
+   </listitem>
+   <listitem>
+    <para>&slert;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA,
+     12&nbsp;SP5, 12&nbsp;SP4, 12&nbsp;SP3</para>
+   </listitem>
+  </itemizedlist>
+ </section>
+
+ <section xml:id="introduction-debug-systemd">
+  <title>Introduction</title>
+  <para> If you are experiencing problems with a failed service, &systemd; gives
+   you commands to help further investigate the issue. Following the
+   instructions below, you can learn how to debug your failed &systemd; services.
+  </para>
+ </section>
+
+ <section>
+  <title>Requirements</title>
+  <itemizedlist>
+   <listitem>
+    <para>
+     Basic understanding of &systemd;.
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     Root privileges.
+    </para>
+   </listitem>
+  </itemizedlist>
+ </section>
+
+ <section xml:id="systemd-more-info-on-failed-services">
+  <title>Getting more information on failed services</title>
+  <remark>toms 2021-08-20: maybe find a better example than Docker?</remark>
+  <para>
+   When &systemd; fails to start a service, you usually get this very generic
+   error message (shown with &docker; as an example):
+  </para>
+  <screen>&prompt.root;<command>systemctl</command> start docker
+Job for docker.service failed because the control process exited with error code.
+See "systemctl status docker.service" and "journalctl -xe" for details.</screen>
+  <para>
+   To investigate how to solve such failed service, proceed as follows:
+  </para>
+  <procedure>
+   <step>
+    <para>Check the status first of the failed service:</para>
+    <screen>&prompt.root;<command>systemctl</command> status --full --lines=50 docker
+● docker.service - Docker Application Container Engine
+     Loaded: loaded (/usr/lib/systemd/system/docker.service; enabled; vendor preset: disabled)
+     Active: failed (Result: exit-code) since Fri 2021-08-20 10:24:15 CEST; 2min 24s ago
+       Docs: http://docs.docker.com
+    Process: 2491 ExecStart=/usr/bin/dockerd --add-runtime oci=/usr/sbin/docker-runc $DOCKER_NETWORK_OPTIONS $DOCKER_OPTS >
+   Main PID: 2491 (code=exited, status=1/FAILURE)</screen>
+    <para>
+     In the above example, the service ran as process ID 2491, but failed.
+     Often you will already see a hint in the error message output. In such a
+     case, follow this hint, fix the issue, and you are done.
+    </para>
+    <para>
+     However, this is not always possible like in the above example. If
+     the the above output does not reveal anything useful, proceed further.
+    </para>
+   </step>
+   <step>
+    <para> Check the log of the failed &docker; service:</para>
+    <screen>&prompt.root;<command>journalctl</command> --catalog --pager-end --unit=docker
+[...]
+Aug 20 10:24:15 localhost.localdomain dockerd[2479]: unable to configure the Docker daemon with file /etc/docker/daemon.json:
+  cannot unmarshal string into Go value of type map[string]interface {}</screen>
+    <para>
+     With the option <option>--unit</option> you limit the log entries only to the failed &docker;
+     serice.
+    </para>
+    <para>
+     As hinted by the error message, it is a good idea to look into the
+     file <filename>/etc/docker/daemon.json</filename>. In this case, the error
+     was caused by a syntax error. If you fix it and restart &docker; you will
+     not get any further errors and can stop with this procedure.
+    </para>
+   </step>
+   <step>
+    <para> If this procedure does not help, proceed further with <xref
+      linkend="systemd-manually-debugging-failed-services"/>.</para>
+   </step>
+  </procedure>
+ </section>
+
+ <section xml:id="systemd-manually-debugging-failed-services">
+  <title>Manually debugging failed &systemd; services</title>
+  <para>
+   If the procedure in <xref linkend="systemd-more-info-on-failed-services"/> did not work,
+   debug the failed service manually. Generally, use this command:
+  </para>
+  <screen>sudo runuser -l <replaceable>USER</replaceable> --group=<replaceable>GROUP</replaceable> -c "cd <replaceable>WD</replaceable> &amp;&amp; <replaceable>ENVFILE_CONTENTS</replaceable> <replaceable>ENV</replaceable> <replaceable>COMMAND</replaceable>"</screen>
+
+  <para>
+   The placeholders have the following meaning:
+  </para>
+  <variablelist>
+   <varlistentry>
+    <term><replaceable>USER</replaceable> and <replaceable>GROUP</replaceable></term>
+    <listitem>
+     <para>
+      The user and group that the &systemd; service is using.
+      For example, the <systemitem class="service">mariadb</systemitem> service
+      uses the user and group <systemitem class="username">mysql</systemitem>.
+      If the &systemd; unit file does not contain a user nor a group,
+      remove the <option>-l</option> and <option>-g</option> options.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term><replaceable>WD</replaceable></term>
+    <listitem>
+     <para>
+      The working directory. Only needed if it's set in the  &systemd; unit file.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term><replaceable>ENVFILE_CONTENTS</replaceable></term>
+    <listitem>
+     <para>
+      Contains a list of key-value pairs without quotes around. Find the key-value pairs
+      in the file <filename>/etc/sysconfig/<replaceable>SERVICE_NAME</replaceable></filename>.
+      &systemd; does not need quotes around values. However, if you really need them,
+      escape the quotes with <literal>\"</literal>.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term><replaceable>ENV</replaceable></term>
+    <listitem>
+     <para>
+      Basically the same as <replaceable>ENVFILE_CONTENTS</replaceable>
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term><replaceable>COMMAND</replaceable></term>
+    <listitem>
+     <para>
+      The command to run. It's usually the <varname>ExecStart</varname> key
+      in the &systemd; unit file.
+     </para>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+
+  <para> To demonstrate how to use it, investigate it with the &docker; service.
+   Use the following procedure: </para>
+
+  <procedure>
+   <step xml:id="step-systemd-env-file">
+    <para>
+     Show the environment file <filename>/etc/sysconfig/docker</filename>. In most cases
+     you will find this line:
+    </para>
+    <screen>DOCKER_OPTS=""</screen>
+    <para>
+     If you have other options, memorize them.
+    </para>
+   </step>
+   <step xml:id="step-systemd-cat-docker">
+    <para>
+     Show the content of the &systemd; &docker; unit:
+    </para>
+    <screen>&prompt.root;<command>systemctl</command> cat docker</screen>
+   </step>
+   <step>
+    <para>
+     Extract the <varname>ExecStart</varname> from <xref linkend="step-systemd-cat-docker"/>.
+    </para>
+   </step>
+   <step>
+    <para>
+     Replace the placeholder and type the following command (replace <envar>DOCKER_OPTS</envar>
+     with the values from <xref linkend="step-systemd-env-file"/>):
+    </para>
+    <screen>&prompt.sudo;<command>runuser</command> -c "/usr/bin/dockerd --add-runtime oci=/usr/sbin/docker-runc $DOCKER_OPTS"</screen>
+   </step>
+   <step>
+    <para>
+     Investigate the log and act accordingly. If you want to stop the manual call,
+     press <keycombo>
+      <keycap function="control"/> <keycap>C</keycap>
+     </keycombo>.
+    </para>
+   </step>
+  </procedure>
+ </section>
+
+ <section>
+  <title>Next steps</title>
+  <itemizedlist>
+   <listitem>
+    <para> Learn more about &systemd; </para>
+   </listitem>
+  </itemizedlist>
+ </section>
+
+</article>
