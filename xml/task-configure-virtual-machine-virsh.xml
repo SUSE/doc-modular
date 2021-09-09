@@ -126,8 +126,7 @@
 <screen>&prompt.sudo;<command>virsh edit <replaceable>NAME_OF_VM_GUEST</replaceable></command>
     </screen>
   <para>
-   Before saving the changes, &virsh; validates your input against a RelaxNG
-   schema.
+   Before saving the changes, &virsh; validates your input.
   </para>
  </section>
  <section xml:id="sec-libvirt-config-machinetype-virsh">
@@ -142,10 +141,8 @@
   <para>
    As an example, the following procedure shows how to change this value to the
    machine type <literal>q35</literal>. The value <literal>q35</literal> is an
-   Intel* chipset and includes <xref linkend="gloss-vt-acronym-pcie"/>,
-   supports up to 12 USB ports, and has support for
-   <xref linkend="gloss-vt-acronym-sata"/> and
-   <xref linkend="gloss-vt-acronym-iommu"/>.
+   Intel* chipset and includes PCIe, supports up to 12 USB ports, and has
+   support for SATA and IOMMU.
    <!-- IRQ routing has also
     been improved. -->
   </para>
@@ -833,7 +830,7 @@ Used memory:    8388608 KiB
   </section>
  </section>
  <section xml:id="sec-libvirt-config-usb-virsh">
-  <title>Adding a USB device</title>
+  <title>Adding USB devices</title>
   <para>
    To assign a USB device to &vmguest; using &virsh;, follow these steps:
   </para>
@@ -888,534 +885,528 @@ Bus 001 Device 003: ID <emphasis role="bold">0557:2221</emphasis> ATEN Internati
    </step>
   </procedure>
  </section>
- <section xml:id="sec-libvirt-config-io">
+ <!-- 2021-09-08 tbazant: seems the following is worth individual topics
+  <section xml:id="sec-libvirt-config-io">
   <title>Adding SR-IOV devices</title>
   <para>
-   Single Root I/O Virtualization (<xref linkend="vt-io-sriov"/>) capable
-   <xref linkend="gloss-vt-acronym-pcie"/> devices can replicate their
-   resources, so they appear to be multiple devices. Each of these
-   <quote>pseudo-devices</quote> can be assigned to a &vmguest;.
+  Single Root I/O Virtualization (SR-IOV) capable
+  PCIe devices can replicate their
+  resources, so they appear to be multiple devices. Each of these
+  <quote>pseudo-devices</quote> can be assigned to a &vmguest;.
   </para>
   <para>
-   <xref linkend="vt-io-sriov"/> is an industry specification that was created
-   by the Peripheral Component Interconnect Special Interest Group (PCI-SIG)
-   consortium. It introduces physical functions (PF) and virtual functions
-   (VF). PFs are full <xref linkend="gloss-vt-acronym-pcie"/> functions used to
-   manage and configure the device. PFs also can move data. VFs lack the
-   configuration and management part—they only can move data and a reduced set
-   of configuration functions. As VFs do not have all
-   <xref linkend="gloss-vt-acronym-pcie"/> functions, the host operating system
-   or the <xref linkend="gloss-vt-hypervisor"/> must support
-   <xref linkend="vt-io-sriov"/> to be able to access and initialize VFs. The
-   theoretical maximum for VFs is 256 per device (consequently the maximum for
-   a dual-port Ethernet card would be 512). In practice this maximum is much
-   lower, since each VF consumes resources.
+  SR-IOV is an industry specification that was created
+  by the Peripheral Component Interconnect Special Interest Group (PCI-SIG)
+  consortium. It introduces physical functions (PF) and virtual functions
+  (VF). PFs are full PCIe functions used to
+  manage and configure the device. PFs also can move data. VFs lack the
+  configuration and management part—they only can move data and a reduced set
+  of configuration functions. As VFs do not have all
+  PCIe functions, the host operating system
+  or the hypervisor needs to support
+  SR-IOV to be able to access and initialize VFs. The
+  theoretical maximum for VFs is 256 per device (consequently the maximum for
+  a dual-port Ethernet card would be 512). In practice this maximum is much
+  lower, since each VF consumes resources.
   </para>
   <section xml:id="sec-libvirt-config-io-requirements">
-   <title>Requirements</title>
-   <para>
-    The following requirements must be met to use
-    <xref linkend="vt-io-sriov"/>:
-   </para>
-   <itemizedlist mark="bullet" spacing="normal">
-    <listitem>
-     <para>
-      An <xref linkend="vt-io-sriov"/>-capable network card (as of
-      <phrase role="productname"><phrase os="sles">SUSE Linux Enterprise
-      Server</phrase></phrase>
-      <phrase role="productnumber"><phrase os="sles;sled">15</phrase></phrase>,
-      only network cards support <xref linkend="vt-io-sriov"/>)
-     </para>
-    </listitem>
-    <listitem>
-     <para>
-      An AMD64/Intel 64 host supporting hardware virtualization (AMD-V or Intel
-      VT-x)<phrase os="sles;sled">, see
-      <xref linkend="sec-kvm-requires-hardware"/> for more information</phrase>
-     </para>
-    </listitem>
-    <listitem>
-     <para>
-      A chipset that supports device assignment (AMD-Vi or Intel
-      <xref linkend="gloss-vt-acronym-vtd"/>)
-     </para>
-    </listitem>
-    <listitem>
-     <para>
-      &libvirt; 0.9.10 or better
-     </para>
-    </listitem>
-    <listitem>
-     <para>
-      <xref linkend="vt-io-sriov"/> drivers must be loaded and configured on
-      the host system
-     </para>
-    </listitem>
-    <listitem>
-     <para>
-      A host configuration that meets the requirements listed at
-      <xref linkend="ann-vt-io-require"/>
-     </para>
-    </listitem>
-    <listitem>
-     <para>
-      A list of the PCI addresses of the VF(s) that will be assigned to
-      &vmguest;s
-     </para>
-    </listitem>
-   </itemizedlist>
-   <tip>
-    <title>Checking if a device is SR-IOV-capable</title>
-    <para>
-     The information whether a device is SR-IOV-capable can be obtained from
-     its PCI descriptor by running <command>lspci</command>. A device that
-     supports <xref linkend="vt-io-sriov"/> reports a capability similar to the
-     following:
-    </para>
-<screen>Capabilities: [160 v1] Single Root I/O Virtualization (<xref linkend="vt-io-sriov"/>)</screen>
-   </tip>
-   <note>
-    <title>Adding an SR-IOV device at &vmguest; creation</title>
-    <para>
-     Before adding an SR-IOV device to a &vmguest; when initially setting it
-     up, the &vmhost; already needs to be configured as described in
-     <xref linkend="sec-libvirt-config-io-config"/>.
-    </para>
-   </note>
+  <title>Requirements</title>
+  <para>
+  The following requirements must be met to use
+  SR-IOV:
+  </para>
+  <itemizedlist mark="bullet" spacing="normal">
+  <listitem>
+  <para>
+  An SR-IOV-capable network card (as of
+  <phrase role="productname"><phrase os="sles">SUSE Linux Enterprise
+  Server</phrase></phrase>
+  <phrase role="productnumber"><phrase os="sles;sled">15</phrase></phrase>,
+  only network cards support SR-IOV)
+  </para>
+  </listitem>
+  <listitem>
+  <para>
+  An AMD64/Intel 64 host supporting hardware virtualization (AMD-V or Intel
+  VT-x)
+  </para>
+  </listitem>
+  <listitem>
+  <para>
+  A chipset that supports device assignment (AMD-Vi or Intel
+  VT-d)
+  </para>
+  </listitem>
+  <listitem>
+  <para>
+  &libvirt; 0.9.10 or better
+  </para>
+  </listitem>
+  <listitem>
+  <para>
+  SR-IOV drivers must be loaded and configured on
+  the host system
+  </para>
+  </listitem>
+  <listitem>
+  <para>
+  A list of the PCI addresses of the VF(s) that will be assigned to
+  &vmguest;s
+  </para>
+  </listitem>
+  </itemizedlist>
+  <tip>
+  <title>Checking if a device is SR-IOV-capable</title>
+  <para>
+  The information whether a device is SR-IOV-capable can be obtained from
+  its PCI descriptor by running <command>lspci</command>. A device that
+  supports SR-IOV reports a capability similar to the
+  following:
+  </para>
+  <screen>Capabilities: [160 v1] Single Root I/O Virtualization (SR-IOV)</screen>
+  </tip>
+  <note>
+  <title>Adding an SR-IOV device at &vmguest; creation</title>
+  <para>
+  Before adding an SR-IOV device to a &vmguest; when initially setting it
+  up, the &vmhost; already needs to be configured as described in
+  <xref linkend="sec-libvirt-config-io-config"/>.
+  </para>
+  </note>
   </section>
   <section xml:id="sec-libvirt-config-io-config">
-   <title>Loading and configuring the SR-IOV host drivers</title>
-   <para>
-    To access and initialize VFs, an SR-IOV-capable driver needs to be loaded
-    on the host system.
-   </para>
-   <procedure>
-    <step>
-     <para>
-      Before loading the driver, make sure the card is properly detected by
-      running <command>lspci</command>. The following example shows the
-      <command>lspci</command> output for the dual-port Intel 82576NS network
-      card:
-     </para>
-<screen>&prompt.sudo;<command>/sbin/lspci | grep 82576</command>
-01:00.0 Ethernet controller: Intel Corporation 82576NS Gigabit Network Connection (rev 01)
-01:00.1 Ethernet controller: Intel Corporation 82576NS Gigabit Network Connection (rev 01)
-04:00.0 Ethernet controller: Intel Corporation 82576NS Gigabit Network Connection (rev 01)
-04:00.1 Ethernet controller: Intel Corporation 82576NS Gigabit Network Connection (rev 01)</screen>
-     <para>
-      In case the card is not detected, it is likely that the hardware
-      virtualization support in the BIOS/EFI has not been enabled. To check if
-      hardware virtualization support is enabled, look at the settings in the
-      host's BIOS.
-     </para>
-    </step>
-    <step>
-     <para>
-      Check whether the <xref linkend="vt-io-sriov"/> driver is already loaded
-      by running <command>lsmod</command>. In the following example a check for
-      the igb driver (for the Intel 82576NS network card) returns a result.
-      That means the driver is already loaded. If the command returns nothing,
-      the driver is not loaded.
-     </para>
-<screen>&prompt.sudo;<command>/sbin/lsmod | egrep "^igb "</command>
-igb                   185649  0</screen>
-    </step>
-    <step>
-     <para>
-      Skip the following step if the driver is already loaded. If the
-      <xref linkend="vt-io-sriov"/> driver is not yet loaded, the
-      non-<xref linkend="vt-io-sriov"/> driver needs to be removed first,
-      before loading the new driver. Use <command>rmmod</command> to unload a
-      driver. The following example unloads the
-      non-<xref linkend="vt-io-sriov"/> driver for the Intel 82576NS network
-      card:
-     </para>
-<screen>&prompt.sudo;<command>/sbin/rmmod igbvf</command></screen>
-    </step>
-    <step>
-     <para>
-      Load the <xref linkend="vt-io-sriov"/> driver subsequently using the
-      <command>modprobe</command> command—the VF parameter
-      (<literal>max_vfs</literal>) is mandatory:
-     </para>
-<screen>&prompt.sudo;<command>/sbin/modprobe igb max_vfs=8</command></screen>
-    </step>
-   </procedure>
-   <remark>Unsure if the following procedure is really needed.</remark>
-   <para>
-    As an alternative, you can also load the driver via SYSFS:
-   </para>
-   <procedure>
-    <step>
-     <para>
-      Find the PCI ID of the physical NIC by listing Ethernet devices:
-     </para>
-<screen>&prompt.sudo;<command>lspci | grep Eth</command>
-06:00.0 Ethernet controller: Emulex Corporation OneConnect NIC (Skyhawk) (rev 10)
-06:00.1 Ethernet controller: Emulex Corporation OneConnect NIC (Skyhawk) (rev 10)</screen>
-    </step>
-    <step>
-     <para>
-      To enable VFs, echo the number of desired VFs to load to the
-      <literal>sriov_numvfs</literal> parameter:
-     </para>
-<screen>&prompt.sudo;<command>echo 1 &gt; /sys/bus/pci/devices/0000:06:00.1/sriov_numvfs</command></screen>
-    </step>
-    <step>
-     <para>
-      Verify that the VF NIC was loaded:
-     </para>
-<screen>&prompt.sudo;<command>lspci | grep Eth</command>
-06:00.0 Ethernet controller: Emulex Corporation OneConnect NIC (Skyhawk) (rev 10)
-06:00.1 Ethernet controller: Emulex Corporation OneConnect NIC (Skyhawk) (rev 10)
-06:08.0 Ethernet controller: Emulex Corporation OneConnect NIC (Skyhawk) (rev 10)</screen>
-    </step>
-    <step>
-     <para>
-      Obtain the maximum number of VFs available:
-     </para>
-<screen>&prompt.sudo;<command>lspci -vvv -s 06:00.1 | grep 'Initial VFs'</command>
-                       Initial VFs: 32, Total VFs: 32, Number of VFs: 0,
-Function Dependency Link: 01</screen>
-    </step>
-    <step>
-     <para>
-      Create a <filename>/etc/systemd/system/before.service</filename> file
-      which loads VF via SYSFS on boot:
-     </para>
-<screen>[Unit]
-Before=
-[Service]
-Type=oneshot
-RemainAfterExit=true
-ExecStart=/bin/bash -c "echo 1 &gt; /sys/bus/pci/devices/0000:06:00.1/sriov_numvfs"
-# beware, executable is run directly, not through a shell, check the man pages
-# systemd.service and systemd.unit for full syntax
-[Install]
-# target in which to start the service
-WantedBy=multi-user.target
-#WantedBy=graphical.target</screen>
-    </step>
-    <step>
-     <para>
-      Prior to starting the VM, it is required to create another service file
-      (<filename>after-local.service</filename>) pointing to the
-      <filename>/etc/init.d/after.local</filename> script that detaches the
-      NIC. Otherwise the VM would fail to start:
-     </para>
-<screen>[Unit]
-Description=/etc/init.d/after.local Compatibility
-After=libvirtd.service
-Requires=libvirtd.service
-[Service]
-Type=oneshot
-ExecStart=/etc/init.d/after.local
-RemainAfterExit=true
-
-[Install]
-WantedBy=multi-user.target</screen>
-    </step>
-    <step>
-     <para>
-      Copy it to <filename>/etc/systemd/system</filename>.
-     </para>
-<screen>#! /bin/sh
-# ...
-virsh nodedev-detach pci_0000_06_08_0</screen>
-     <para>
-      Save it as <filename>/etc/init.d/after.local</filename>.
-     </para>
-    </step>
-    <step>
-     <para>
-      Reboot the machine and check if the SR-IOV driver is loaded by re-running
-      the <command>lspci</command> command from the first step of this
-      procedure. If the SR-IOV driver was loaded successfully you should see
-      additional lines for the VFs:
-     </para>
-<screen>01:00.0 Ethernet controller: Intel Corporation 82576NS Gigabit Network Connection (rev 01)
-01:00.1 Ethernet controller: Intel Corporation 82576NS Gigabit Network Connection (rev 01)
-01:10.0 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
-01:10.1 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
-01:10.2 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
-[...]
-04:00.0 Ethernet controller: Intel Corporation 82576NS Gigabit Network Connection (rev 01)
-04:00.1 Ethernet controller: Intel Corporation 82576NS Gigabit Network Connection (rev 01)
-04:10.0 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
-04:10.1 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
-04:10.2 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
-[...]</screen>
-    </step>
-   </procedure>
+  <title>Loading and configuring the SR-IOV host drivers</title>
+  <para>
+  To access and initialize VFs, an SR-IOV-capable driver needs to be loaded
+  on the host system.
+  </para>
+  <procedure>
+  <step>
+  <para>
+  Before loading the driver, make sure the card is properly detected by
+  running <command>lspci</command>. The following example shows the
+  <command>lspci</command> output for the dual-port Intel 82576NS network
+  card:
+  </para>
+  <screen>&prompt.sudo;<command>/sbin/lspci | grep 82576</command>
+  01:00.0 Ethernet controller: Intel Corporation 82576NS Gigabit Network Connection (rev 01)
+  01:00.1 Ethernet controller: Intel Corporation 82576NS Gigabit Network Connection (rev 01)
+  04:00.0 Ethernet controller: Intel Corporation 82576NS Gigabit Network Connection (rev 01)
+  04:00.1 Ethernet controller: Intel Corporation 82576NS Gigabit Network Connection (rev 01)</screen>
+  <para>
+  In case the card is not detected, it is likely that the hardware
+  virtualization support in the BIOS/EFI has not been enabled. To check if
+  hardware virtualization support is enabled, look at the settings in the
+  host's BIOS.
+  </para>
+  </step>
+  <step>
+  <para>
+  Check whether the SR-IOV driver is already loaded
+  by running <command>lsmod</command>. In the following example a check for
+  the igb driver (for the Intel 82576NS network card) returns a result.
+  That means the driver is already loaded. If the command returns nothing,
+  the driver is not loaded.
+  </para>
+  <screen>&prompt.sudo;<command>/sbin/lsmod | egrep "^igb "</command>
+  igb                   185649  0</screen>
+  </step>
+  <step>
+  <para>
+  Skip the following step if the driver is already loaded. If the
+  SR-IOV driver is not yet loaded, the
+  non-SR-IOV driver needs to be removed first,
+  before loading the new driver. Use <command>rmmod</command> to unload a
+  driver. The following example unloads the
+  non-SR-IOV driver for the Intel 82576NS network
+  card:
+  </para>
+  <screen>&prompt.sudo;<command>/sbin/rmmod igbvf</command></screen>
+  </step>
+  <step>
+  <para>
+  Load the SR-IOV driver subsequently using the
+  <command>modprobe</command> command—the VF parameter
+  (<literal>max_vfs</literal>) is mandatory:
+  </para>
+  <screen>&prompt.sudo;<command>/sbin/modprobe igb max_vfs=8</command></screen>
+  </step>
+  </procedure>
+  <remark>Unsure if the following procedure is really needed.</remark>
+  <para>
+  As an alternative, you can also load the driver via SYSFS:
+  </para>
+  <procedure>
+  <step>
+  <para>
+  Find the PCI ID of the physical NIC by listing Ethernet devices:
+  </para>
+  <screen>&prompt.sudo;<command>lspci | grep Eth</command>
+  06:00.0 Ethernet controller: Emulex Corporation OneConnect NIC (Skyhawk) (rev 10)
+  06:00.1 Ethernet controller: Emulex Corporation OneConnect NIC (Skyhawk) (rev 10)</screen>
+  </step>
+  <step>
+  <para>
+  To enable VFs, echo the number of desired VFs to load to the
+  <literal>sriov_numvfs</literal> parameter:
+  </para>
+  <screen>&prompt.sudo;<command>echo 1 &gt; /sys/bus/pci/devices/0000:06:00.1/sriov_numvfs</command></screen>
+  </step>
+  <step>
+  <para>
+  Verify that the VF NIC was loaded:
+  </para>
+  <screen>&prompt.sudo;<command>lspci | grep Eth</command>
+  06:00.0 Ethernet controller: Emulex Corporation OneConnect NIC (Skyhawk) (rev 10)
+  06:00.1 Ethernet controller: Emulex Corporation OneConnect NIC (Skyhawk) (rev 10)
+  06:08.0 Ethernet controller: Emulex Corporation OneConnect NIC (Skyhawk) (rev 10)</screen>
+  </step>
+  <step>
+  <para>
+  Obtain the maximum number of VFs available:
+  </para>
+  <screen>&prompt.sudo;<command>lspci -vvv -s 06:00.1 | grep 'Initial VFs'</command>
+  Initial VFs: 32, Total VFs: 32, Number of VFs: 0,
+  Function Dependency Link: 01</screen>
+  </step>
+  <step>
+  <para>
+  Create a <filename>/etc/systemd/system/before.service</filename> file
+  which loads VF via SYSFS on boot:
+  </para>
+  <screen>[Unit]
+  Before=
+  [Service]
+  Type=oneshot
+  RemainAfterExit=true
+  ExecStart=/bin/bash -c "echo 1 &gt; /sys/bus/pci/devices/0000:06:00.1/sriov_numvfs"
+  # beware, executable is run directly, not through a shell, check the man pages
+  # systemd.service and systemd.unit for full syntax
+  [Install]
+  # target in which to start the service
+  WantedBy=multi-user.target
+  #WantedBy=graphical.target</screen>
+  </step>
+  <step>
+  <para>
+  Prior to starting the VM, it is required to create another service file
+  (<filename>after-local.service</filename>) pointing to the
+  <filename>/etc/init.d/after.local</filename> script that detaches the
+  NIC. Otherwise the VM would fail to start:
+  </para>
+  <screen>[Unit]
+  Description=/etc/init.d/after.local Compatibility
+  After=libvirtd.service
+  Requires=libvirtd.service
+  [Service]
+  Type=oneshot
+  ExecStart=/etc/init.d/after.local
+  RemainAfterExit=true
+  [Install]
+  WantedBy=multi-user.target</screen>
+  </step>
+  <step>
+  <para>
+  Copy it to <filename>/etc/systemd/system</filename>.
+  </para>
+  <screen>#! /bin/sh
+  # ...
+  virsh nodedev-detach pci_0000_06_08_0</screen>
+  <para>
+  Save it as <filename>/etc/init.d/after.local</filename>.
+  </para>
+  </step>
+  <step>
+  <para>
+  Reboot the machine and check if the SR-IOV driver is loaded by re-running
+  the <command>lspci</command> command from the first step of this
+  procedure. If the SR-IOV driver was loaded successfully you should see
+  additional lines for the VFs:
+  </para>
+  <screen>01:00.0 Ethernet controller: Intel Corporation 82576NS Gigabit Network Connection (rev 01)
+  01:00.1 Ethernet controller: Intel Corporation 82576NS Gigabit Network Connection (rev 01)
+  01:10.0 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
+  01:10.1 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
+  01:10.2 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
+  [...]
+  04:00.0 Ethernet controller: Intel Corporation 82576NS Gigabit Network Connection (rev 01)
+  04:00.1 Ethernet controller: Intel Corporation 82576NS Gigabit Network Connection (rev 01)
+  04:10.0 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
+  04:10.1 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
+  04:10.2 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
+  [...]</screen>
+  </step>
+  </procedure>
   </section>
   <section xml:id="sec-libvirt-config-io-attach">
-   <title>Adding a VF network device to a &vmguest;</title>
-   <para>
-    When the <xref linkend="vt-io-sriov"/> hardware is properly set up on the
-    &vmhost;, you can add VFs to &vmguest;s. To do so, you need to collect some
-    data first.
-   </para>
-   <procedure>
-    <title>Adding a VF network device to an existing &vmguest;</title>
-    <para>
-     The following procedure uses example data. Make sure to replace it by
-     appropriate data from your setup.
-    </para>
-    <step>
-     <para>
-      Use the <command>virsh nodedev-list</command> command to get the PCI
-      address of the VF you want to assign and its corresponding PF. Numerical
-      values from the <command>lspci</command> output shown in
-      <xref linkend="sec-libvirt-config-io-config"/> (for example
-      <literal>01:00.0</literal> or <literal>04:00.1</literal>) are transformed
-      by adding the prefix "pci_0000_" and by replacing colons and dots with
-      underscores. So a PCI ID listed as "04:00.0" by <command>lspci</command>
-      is listed as "pci_0000_04_00_0" by virsh. The following example lists the
-      PCI IDs for the second port of the Intel 82576NS network card:
-     </para>
-<screen>&prompt.sudo;<command>virsh nodedev-list | grep 0000_04_</command>
-<emphasis role="bold">pci_0000_04_00_0</emphasis>
-<emphasis role="bold">pci_0000_04_00_1</emphasis>
-pci_0000_04_10_0
-pci_0000_04_10_1
-pci_0000_04_10_2
-pci_0000_04_10_3
-pci_0000_04_10_4
-pci_0000_04_10_5
-pci_0000_04_10_6
-pci_0000_04_10_7
-pci_0000_04_11_0
-pci_0000_04_11_1
-pci_0000_04_11_2
-pci_0000_04_11_3
-pci_0000_04_11_4
-pci_0000_04_11_5</screen>
-     <para>
-      The first two entries represent the <emphasis role="bold">PFs</emphasis>,
-      whereas the other entries represent the VFs.
-     </para>
-    </step>
-    <step>
-     <para>
-      Run the following <command>virsh nodedev-dumpxml</command> command on the
-      PCI ID of the VF you want to add:
-     </para>
-<screen>&prompt.sudo;<command>virsh nodedev-dumpxml pci_0000_04_10_0</command>
-&lt;device&gt;
+  <title>Adding a VF network device to a &vmguest;</title>
+  <para>
+  When the SR-IOV hardware is properly set up on the
+  &vmhost;, you can add VFs to &vmguest;s. To do so, you need to collect some
+  data first.
+  </para>
+  <procedure>
+  <title>Adding a VF network device to an existing &vmguest;</title>
+  <para>
+  The following procedure uses example data. Make sure to replace it by
+  appropriate data from your setup.
+  </para>
+  <step>
+  <para>
+  Use the <command>virsh nodedev-list</command> command to get the PCI
+  address of the VF you want to assign and its corresponding PF. Numerical
+  values from the <command>lspci</command> output shown in
+  <xref linkend="sec-libvirt-config-io-config"/> (for example
+  <literal>01:00.0</literal> or <literal>04:00.1</literal>) are transformed
+  by adding the prefix "pci_0000_" and by replacing colons and dots with
+  underscores. So a PCI ID listed as "04:00.0" by <command>lspci</command>
+  is listed as "pci_0000_04_00_0" by virsh. The following example lists the
+  PCI IDs for the second port of the Intel 82576NS network card:
+  </para>
+  <screen>&prompt.sudo;<command>virsh nodedev-list | grep 0000_04_</command>
+  <emphasis role="bold">pci_0000_04_00_0</emphasis>
+  <emphasis role="bold">pci_0000_04_00_1</emphasis>
+  pci_0000_04_10_0
+  pci_0000_04_10_1
+  pci_0000_04_10_2
+  pci_0000_04_10_3
+  pci_0000_04_10_4
+  pci_0000_04_10_5
+  pci_0000_04_10_6
+  pci_0000_04_10_7
+  pci_0000_04_11_0
+  pci_0000_04_11_1
+  pci_0000_04_11_2
+  pci_0000_04_11_3
+  pci_0000_04_11_4
+  pci_0000_04_11_5</screen>
+  <para>
+  The first two entries represent the <emphasis role="bold">PFs</emphasis>,
+  whereas the other entries represent the VFs.
+  </para>
+  </step>
+  <step>
+  <para>
+  Run the following <command>virsh nodedev-dumpxml</command> command on the
+  PCI ID of the VF you want to add:
+  </para>
+  <screen>&prompt.sudo;<command>virsh nodedev-dumpxml pci_0000_04_10_0</command>
+  &lt;device&gt;
   &lt;name&gt;pci_0000_04_10_0&lt;/name&gt;
   &lt;parent&gt;pci_0000_00_02_0&lt;/parent&gt;
   &lt;capability type='pci'&gt;
-    <emphasis role="bold">&lt;domain&gt;0&lt;/domain&gt;
-    &lt;bus&gt;4&lt;/bus&gt;
-    &lt;slot&gt;16&lt;/slot&gt;
-    &lt;function&gt;0&lt;/function&gt;</emphasis>
-    &lt;product id='0x10ca'&gt;82576 Virtual Function&lt;/product&gt;
-    &lt;vendor id='0x8086'&gt;Intel Corporation&lt;/vendor&gt;
-    &lt;capability type='phys_function'&gt;
-      &lt;address domain='0x0000' bus='0x04' slot='0x00' function='0x0'/&gt;
-    &lt;/capability&gt;
+  <emphasis role="bold">&lt;domain&gt;0&lt;/domain&gt;
+  &lt;bus&gt;4&lt;/bus&gt;
+  &lt;slot&gt;16&lt;/slot&gt;
+  &lt;function&gt;0&lt;/function&gt;</emphasis>
+  &lt;product id='0x10ca'&gt;82576 Virtual Function&lt;/product&gt;
+  &lt;vendor id='0x8086'&gt;Intel Corporation&lt;/vendor&gt;
+  &lt;capability type='phys_function'&gt;
+  &lt;address domain='0x0000' bus='0x04' slot='0x00' function='0x0'/&gt;
   &lt;/capability&gt;
-&lt;/device&gt;</screen>
-     <para>
-      The following data is needed for the next step:
-     </para>
-     <itemizedlist>
-      <listitem>
-       <para>
-        <literal>&lt;domain&gt;0&lt;/domain&gt;</literal>
-       </para>
-      </listitem>
-      <listitem>
-       <para>
-        <literal>&lt;bus&gt;4&lt;/bus&gt;</literal>
-       </para>
-      </listitem>
-      <listitem>
-       <para>
-        <literal>&lt;slot&gt;16&lt;/slot&gt;</literal>
-       </para>
-      </listitem>
-      <listitem>
-       <para>
-        <literal>&lt;function&gt;0&lt;/function&gt;</literal>
-       </para>
-      </listitem>
-     </itemizedlist>
-    </step>
-    <step>
-     <para>
-      Create a temporary XML file (for example
-      <filename>/tmp/vf-interface.xml</filename> containing the data necessary
-      to add a VF network device to an existing &vmguest;. The minimal content
-      of the file needs to look like the following:
-     </para>
-<screen>&lt;interface type='hostdev'&gt;<co xml:id="sriov-iface"/>
- &lt;source&gt;
+  &lt;/capability&gt;
+  &lt;/device&gt;</screen>
+  <para>
+  The following data is needed for the next step:
+  </para>
+  <itemizedlist>
+  <listitem>
+  <para>
+  <literal>&lt;domain&gt;0&lt;/domain&gt;</literal>
+  </para>
+  </listitem>
+  <listitem>
+  <para>
+  <literal>&lt;bus&gt;4&lt;/bus&gt;</literal>
+  </para>
+  </listitem>
+  <listitem>
+  <para>
+  <literal>&lt;slot&gt;16&lt;/slot&gt;</literal>
+  </para>
+  </listitem>
+  <listitem>
+  <para>
+  <literal>&lt;function&gt;0&lt;/function&gt;</literal>
+  </para>
+  </listitem>
+  </itemizedlist>
+  </step>
+  <step>
+  <para>
+  Create a temporary XML file (for example
+  <filename>/tmp/vf-interface.xml</filename> containing the data necessary
+  to add a VF network device to an existing &vmguest;. The minimal content
+  of the file needs to look like the following:
+  </para>
+  <screen>&lt;interface type='hostdev'&gt;<co xml:id="sriov-iface"/>
+  &lt;source&gt;
   &lt;address type='pci' domain='0' bus='11' slot='16' function='0'2/&gt;<co xml:id="sriov-data"/>
- &lt;/source&gt;
-&lt;/interface&gt;</screen>
-     <calloutlist>
-      <callout arearefs="sriov-iface">
-       <para>
-        VFs do not get a fixed MAC address; it changes every time the host
-        reboots. When adding network devices the <quote>traditional</quote> way
-        with <tag class="attribute">hostdev</tag>, it would require to
-        reconfigure the &vmguest;'s network device after each reboot of the
-        host, because of the MAC address change. To avoid this kind of problem,
-        &libvirt; introduced the <tag class="attvalue">hostdev</tag> value,
-        which sets up network-specific data <emphasis>before</emphasis>
-        assigning the device.
-       </para>
-      </callout>
-      <callout arearefs="sriov-data">
-       <para>
-        Specify the data you acquired in the previous step here.
-       </para>
-      </callout>
-     </calloutlist>
-    </step>
-    <step>
-     <para>
-      In case a device is already attached to the host, it cannot be attached
-      to a &vmguest;. To make it available for guests, detach it from the host
-      first:
-     </para>
-<screen>&prompt.sudo;<command>virsh nodedev-detach pci_0000_04_10_0</command></screen>
-    </step>
-    <step>
-     <para>
-      Add the VF interface to an existing &vmguest;:
-     </para>
-<screen>&prompt.sudo;<command>virsh attach-device <replaceable>GUEST</replaceable> /tmp/vf-interface.xml --<replaceable>OPTION</replaceable></command></screen>
-     <para>
-      <replaceable>GUEST</replaceable> needs to be replaced by the domain name,
-      ID or UUID of the &vmguest;. --<replaceable>OPTION</replaceable> can be
-      one of the following:
-     </para>
-     <variablelist>
-      <varlistentry>
-       <term><option>--persistent</option></term>
-       <listitem>
-        <para>
-         This option will always add the device to the domain's persistent XML.
-         In addition, if the domain is running, it will be hotplugged.
-        </para>
-       </listitem>
-      </varlistentry>
-      <varlistentry>
-       <term><option>--config</option></term>
-       <listitem>
-        <para>
-         This option will only affect the persistent XML, even if the domain is
-         running. The device will only show up in the &vmguest; on next boot.
-        </para>
-       </listitem>
-      </varlistentry>
-      <varlistentry>
-       <term><option>--live</option></term>
-       <listitem>
-        <para>
-         This option will only affect a running domain. If the domain is
-         inactive, the operation will fail. The device is not persisted in the
-         XML and will not be available in the &vmguest; on next boot.
-        </para>
-       </listitem>
-      </varlistentry>
-      <varlistentry>
-       <term><option>--current</option></term>
-       <listitem>
-        <para>
-         This option affects the current state of the domain. If the domain is
-         inactive, the device is added to the persistent XML and will be
-         available on next boot. If the domain is active, the device is
-         hotplugged but not added to the persistent XML.
-        </para>
-       </listitem>
-      </varlistentry>
-     </variablelist>
-    </step>
-    <step>
-     <para>
-      To detach a VF interface, use the <command>virsh detach-device</command>
-      command, which also takes the options listed above.
-     </para>
-    </step>
-   </procedure>
+  &lt;/source&gt;
+  &lt;/interface&gt;</screen>
+  <calloutlist>
+  <callout arearefs="sriov-iface">
+  <para>
+  VFs do not get a fixed MAC address; it changes every time the host
+  reboots. When adding network devices the <quote>traditional</quote> way
+  with <tag class="attribute">hostdev</tag>, it would require to
+  reconfigure the &vmguest;'s network device after each reboot of the
+  host, because of the MAC address change. To avoid this kind of problem,
+  &libvirt; introduced the <tag class="attvalue">hostdev</tag> value,
+  which sets up network-specific data <emphasis>before</emphasis>
+  assigning the device.
+  </para>
+  </callout>
+  <callout arearefs="sriov-data">
+  <para>
+  Specify the data you acquired in the previous step here.
+  </para>
+  </callout>
+  </calloutlist>
+  </step>
+  <step>
+  <para>
+  In case a device is already attached to the host, it cannot be attached
+  to a &vmguest;. To make it available for guests, detach it from the host
+  first:
+  </para>
+  <screen>&prompt.sudo;<command>virsh nodedev-detach pci_0000_04_10_0</command></screen>
+  </step>
+  <step>
+  <para>
+  Add the VF interface to an existing &vmguest;:
+  </para>
+  <screen>&prompt.sudo;<command>virsh attach-device <replaceable>GUEST</replaceable> /tmp/vf-interface.xml \-\-<replaceable>OPTION</replaceable></command></screen>
+  <para>
+  <replaceable>GUEST</replaceable> needs to be replaced by the domain name,
+  ID or UUID of the &vmguest;. \-\-<replaceable>OPTION</replaceable> can be
+  one of the following:
+  </para>
+  <variablelist>
+  <varlistentry>
+  <term><option>\-\-persistent</option></term>
+  <listitem>
+  <para>
+  This option will always add the device to the domain's persistent XML.
+  In addition, if the domain is running, it will be hotplugged.
+  </para>
+  </listitem>
+  </varlistentry>
+  <varlistentry>
+  <term><option>\-\-config</option></term>
+  <listitem>
+  <para>
+  This option will only affect the persistent XML, even if the domain is
+  running. The device will only show up in the &vmguest; on next boot.
+  </para>
+  </listitem>
+  </varlistentry>
+  <varlistentry>
+  <term><option>\-\-live</option></term>
+  <listitem>
+  <para>
+  This option will only affect a running domain. If the domain is
+  inactive, the operation will fail. The device is not persisted in the
+  XML and will not be available in the &vmguest; on next boot.
+  </para>
+  </listitem>
+  </varlistentry>
+  <varlistentry>
+  <term><option>\-\-current</option></term>
+  <listitem>
+  <para>
+  This option affects the current state of the domain. If the domain is
+  inactive, the device is added to the persistent XML and will be
+  available on next boot. If the domain is active, the device is
+  hotplugged but not added to the persistent XML.
+  </para>
+  </listitem>
+  </varlistentry>
+  </variablelist>
+  </step>
+  <step>
+  <para>
+  To detach a VF interface, use the <command>virsh detach-device</command>
+  command, which also takes the options listed above.
+  </para>
+  </step>
+  </procedure>
   </section>
   <section xml:id="libvirt-config-io-pool">
-   <title>Dynamic allocation of VFs from a pool</title>
-   <para>
-    If you define the PCI address of a VF into a &vmguest;'s configuration
-    statically as described in <xref linkend="sec-libvirt-config-io-attach"/>,
-    it is hard to migrate such guest to another host. The host must have
-    identical hardware in the same location on the PCI bus, or the &vmguest;
-    configuration must be modified prior to each start.
-   </para>
-   <para>
-    Another approach is to create a &libvirt; network with a device pool that
-    contains all the VFs of an <xref linkend="vt-io-sriov"/> device. The
-    &vmguest; then references this network, and each time it is started, a
-    single VF is dynamically allocated to it. When the &vmguest; is stopped,
-    the VF is returned to the pool, available for another guest.
-   </para>
-   <section xml:id="libvirt-config-io-pool-host">
-    <title>Defining network with pool of VFs on &vmhost;</title>
-    <para>
-     The following example of network definition creates a pool of all VFs for
-     the <xref linkend="vt-io-sriov"/> device with its physical function (PF)
-     at the network interface <literal>eth0</literal> on the host:
-    </para>
-<screen>&lt;network&gt;
+  <title>Dynamic allocation of VFs from a pool</title>
+  <para>
+  If you define the PCI address of a VF into a &vmguest;'s configuration
+  statically as described in <xref linkend="sec-libvirt-config-io-attach"/>,
+  it is hard to migrate such guest to another host. The host must have
+  identical hardware in the same location on the PCI bus, or the &vmguest;
+  configuration must be modified prior to each start.
+  </para>
+  <para>
+  Another approach is to create a &libvirt; network with a device pool that
+  contains all the VFs of an SR-IOV device. The
+  &vmguest; then references this network, and each time it is started, a
+  single VF is dynamically allocated to it. When the &vmguest; is stopped,
+  the VF is returned to the pool, available for another guest.
+  </para>
+  <section xml:id="libvirt-config-io-pool-host">
+  <title>Defining network with pool of VFs on &vmhost;</title>
+  <para>
+  The following example of network definition creates a pool of all VFs for
+  the SR-IOV device with its physical function (PF)
+  at the network interface <literal>eth0</literal> on the host:
+  </para>
+  <screen>&lt;network&gt;
   &lt;name&gt;passthrough&lt;/name&gt;
-    &lt;forward mode='hostdev' managed='yes'&gt;
-      &lt;pf dev='eth0'/&gt;
-    &lt;/forward&gt;
+  &lt;forward mode='hostdev' managed='yes'&gt;
+  &lt;pf dev='eth0'/&gt;
+  &lt;/forward&gt;
   &lt;/network&gt;</screen>
-    <para>
-     To use this network on the host, save the above code to a file, for
-     example <filename>/tmp/passthrough.xml</filename>, and execute the
-     following commands. Remember to replace <literal>eth0</literal> with the
-     real network interface name of your <xref linkend="vt-io-sriov"/> device's
-     PF:
-    </para>
-<screen>&prompt.sudo;<command>virsh net-define /tmp/passthrough.xml</command>
-&prompt.sudo;<command>virsh net-autostart passthrough</command>
-&prompt.sudo;<command>virsh net-start passthrough</command></screen>
-   </section>
-   <section xml:id="libvirt-config-io-pool-guest">
-    <title>Configuring &vmguest;s to use VF from the pool</title>
-    <para>
-     The following example of &vmguest; device interface definition uses a VF
-     of the <xref linkend="vt-io-sriov"/> device from the pool created in
-     <xref linkend="libvirt-config-io-pool-host"/>. &libvirt; automatically
-     derives the list of all VFs associated with that PF the first time the
-     guest is started.
-    </para>
-<screen>&lt;interface type='network'&gt;
+  <para>
+  To use this network on the host, save the above code to a file, for
+  example <filename>/tmp/passthrough.xml</filename>, and execute the
+  following commands. Remember to replace <literal>eth0</literal> with the
+  real network interface name of your SR-IOV device's
+  PF:
+  </para>
+  <screen>&prompt.sudo;<command>virsh net-define /tmp/passthrough.xml</command>
+  &prompt.sudo;<command>virsh net-autostart passthrough</command>
+  &prompt.sudo;<command>virsh net-start passthrough</command></screen>
+  </section>
+  <section xml:id="libvirt-config-io-pool-guest">
+  <title>Configuring &vmguest;s to use VF from the pool</title>
+  <para>
+  The following example of &vmguest; device interface definition uses a VF
+  of the SR-IOV device from the pool created in
+  <xref linkend="libvirt-config-io-pool-host"/>. &libvirt; automatically
+  derives the list of all VFs associated with that PF the first time the
+  guest is started.
+  </para>
+  <screen>&lt;interface type='network'&gt;
   &lt;source network='passthrough'&gt;
-&lt;/interface&gt;</screen>
-    <para>
-     After the first &vmguest; starts that uses the network with the pool of
-     VFs, verify the list of associated VFs. Do so by running <command>virsh
-     net-dumpxml passthrough</command> on the host.
-    </para>
-<screen>&lt;network connections='1'&gt;
+  &lt;/interface&gt;</screen>
+  <para>
+  After the first &vmguest; starts that uses the network with the pool of
+  VFs, verify the list of associated VFs. Do so by running <command>virsh
+  net-dumpxml passthrough</command> on the host.
+  </para>
+  <screen>&lt;network connections='1'&gt;
   &lt;name&gt;passthrough&lt;/name&gt;
   &lt;uuid&gt;a6a26429-d483-d4ed-3465-4436ac786437&lt;/uuid&gt;
   &lt;forward mode='hostdev' managed='yes'&gt;
-    &lt;pf dev='eth0'/&gt;
-    &lt;address type='pci' domain='0x0000' bus='0x02' slot='0x10' function='0x1'/&gt;
-    &lt;address type='pci' domain='0x0000' bus='0x02' slot='0x10' function='0x3'/&gt;
-    &lt;address type='pci' domain='0x0000' bus='0x02' slot='0x10' function='0x5'/&gt;
-    &lt;address type='pci' domain='0x0000' bus='0x02' slot='0x10' function='0x7'/&gt;
-    &lt;address type='pci' domain='0x0000' bus='0x02' slot='0x11' function='0x1'/&gt;
-    &lt;address type='pci' domain='0x0000' bus='0x02' slot='0x11' function='0x3'/&gt;
-    &lt;address type='pci' domain='0x0000' bus='0x02' slot='0x11' function='0x5'/&gt;
+  &lt;pf dev='eth0'/&gt;
+  &lt;address type='pci' domain='0x0000' bus='0x02' slot='0x10' function='0x1'/&gt;
+  &lt;address type='pci' domain='0x0000' bus='0x02' slot='0x10' function='0x3'/&gt;
+  &lt;address type='pci' domain='0x0000' bus='0x02' slot='0x10' function='0x5'/&gt;
+  &lt;address type='pci' domain='0x0000' bus='0x02' slot='0x10' function='0x7'/&gt;
+  &lt;address type='pci' domain='0x0000' bus='0x02' slot='0x11' function='0x1'/&gt;
+  &lt;address type='pci' domain='0x0000' bus='0x02' slot='0x11' function='0x3'/&gt;
+  &lt;address type='pci' domain='0x0000' bus='0x02' slot='0x11' function='0x5'/&gt;
   &lt;/forward&gt;
   &lt;/network&gt;</screen>
-   </section>
   </section>
- </section>
+  </section>
+  </section>
+  -->
  <section xml:id="libvirt-config-listing-host-devs">
   <title>Listing attached devices</title>
   <para>
@@ -1717,8 +1708,6 @@ domid=3: nr_frames=3, max_nr_frames=40
    <para>
     The multiqueue virtio-net feature scales the network performance by
     allowing the &vmguest;'s virtual CPUs to transfer packets in parallel.
-    Refer to <xref linkend="kvm-qemu-multiqueue"/> for more general
-    information.
    </para>
    <para>
     To enable multiqueue virtio-net for a specific &vmguest;, edit its XML
@@ -1918,231 +1907,231 @@ domid=3: nr_frames=3, max_nr_frames=40
    </step>
   </procedure>
  </section>
- <section xml:id="virsh-kvm-zseries-crypto">
+ <!-- 2021-09-08 tbazant: seems the following is worth individual topics
+  <section xml:id="virsh-kvm-zseries-crypto">
   <title>Crypto adapter pass-through to &kvm; guests on &zseries;</title>
   <section xml:id="virsh-kvm-zseries-crypto-intro">
-   <title>Introduction</title>
-   <para>
-    &zseries; machines include cryptographic hardware with useful functions
-    such as random number generation, digital signature generation, or
-    encryption. &kvm; allows dedicating these crypto adapters to guests as
-    pass-through devices. The means that the hypervisor cannot observe
-    communications between the guest and the device.
-   </para>
+  <title>Introduction</title>
+  <para>
+  &zseries; machines include cryptographic hardware with useful functions
+  such as random number generation, digital signature generation, or
+  encryption. &kvm; allows dedicating these crypto adapters to guests as
+  pass-through devices. The means that the hypervisor cannot observe
+  communications between the guest and the device.
+  </para>
   </section>
   <section xml:id="virsh-kvm-zseries-crypto-cover">
-   <title>What is covered</title>
-   <para>
-    You will learn how to dedicate a crypto adapter and domains on a &zseries;
-    host to a &kvm; guest. The procedure includes the following basic steps:
-   </para>
-   <itemizedlist>
-    <listitem>
-     <para>
-      Mask the crypto adapter and domains from the default driver on the host.
-     </para>
-    </listitem>
-    <listitem>
-     <para>
-      Load the <literal>vfio-ap</literal> driver.
-     </para>
-    </listitem>
-    <listitem>
-     <para>
-      Assign the crypto adapter and domains to the <literal>vfio-ap</literal>
-      driver.
-     </para>
-    </listitem>
-    <listitem>
-     <para>
-      Configure the guest to use the crypto adapter.
-     </para>
-    </listitem>
-   </itemizedlist>
+  <title>What is covered</title>
+  <para>
+  You will learn how to dedicate a crypto adapter and domains on a &zseries;
+  host to a &kvm; guest. The procedure includes the following basic steps:
+  </para>
+  <itemizedlist>
+  <listitem>
+  <para>
+  Mask the crypto adapter and domains from the default driver on the host.
+  </para>
+  </listitem>
+  <listitem>
+  <para>
+  Load the <literal>vfio-ap</literal> driver.
+  </para>
+  </listitem>
+  <listitem>
+  <para>
+  Assign the crypto adapter and domains to the <literal>vfio-ap</literal>
+  driver.
+  </para>
+  </listitem>
+  <listitem>
+  <para>
+  Configure the guest to use the crypto adapter.
+  </para>
+  </listitem>
+  </itemizedlist>
   </section>
   <section xml:id="virsh-kvm-zseries-crypto-reqs">
-   <title>Requirements</title>
-   <itemizedlist>
-    <listitem>
-     <para>
-      You need to have the &qemu; / &libvirt; virtualization environment
-      correctly installed and functional.
-     </para>
-    </listitem>
-    <listitem>
-     <para>
-      The <literal>vfio_ap</literal> and <literal>vfio_mdev</literal> modules
-      for the running kernel need to be available on the host operating system.
-     </para>
-    </listitem>
-   </itemizedlist>
+  <title>Requirements</title>
+  <itemizedlist>
+  <listitem>
+  <para>
+  You need to have the &qemu; / &libvirt; virtualization environment
+  correctly installed and functional.
+  </para>
+  </listitem>
+  <listitem>
+  <para>
+  The <literal>vfio_ap</literal> and <literal>vfio_mdev</literal> modules
+  for the running kernel need to be available on the host operating system.
+  </para>
+  </listitem>
+  </itemizedlist>
   </section>
   <section xml:id="virsh-kvm-zseries-crypto-proc">
-   <title>Dedicate a crypto adapter to a &kvm; host</title>
-   <procedure>
-    <step>
-     <para>
-      Verify that the <literal>vfio_ap</literal> and
-      <literal>vfio_mdev</literal> kernel modules are loaded on the host:
-     </para>
-<screen>&prompt.user;lsmod | grep vfio_</screen>
-     <para>
-      If any of them is not listed, load it manually, for example:
-     </para>
-<screen>&prompt.sudo;modprobe vfio_mdev</screen>
-    </step>
-    <step>
-     <para>
-      Create a new MDEV device on the host and verify that it was added:
-     </para>
-<screen>
-uuid=$(uuidgen)
-$ echo ${uuid} | sudo tee /sys/devices/vfio_ap/matrix/mdev_supported_types/vfio_ap-passthrough/create
-dmesg | tail
-[...]
-[272197.818811] iommu: Adding device 24f952b3-03d1-4df2-9967-0d5f7d63d5f2 to group 0
-[272197.818815] vfio_mdev 24f952b3-03d1-4df2-9967-0d5f7d63d5f2: MDEV: group_id = 0
-</screen>
-    </step>
-    <step>
-     <para>
-      Identify the device on the host's logical partition that you intend to
-      dedicate to a &kvm; guest:
-     </para>
-<screen>&prompt.user;ls -l /sys/bus/ap/devices/
-[...]
-lrwxrwxrwx 1 root root 0 Nov 23 03:29 00.0016 -> ../../../devices/ap/card00/00.0016/
-lrwxrwxrwx 1 root root 0 Nov 23 03:29 card00 -> ../../../devices/ap/card00/
-</screen>
-     <para>
-      In this example, it is card <literal>0</literal> queue
-      <literal>16</literal>. To match the Hardware Management Console (HMC)
-      configuration, you need to convert from <literal>16</literal> hexadecimal
-      to <literal>22</literal> decimal.
-     </para>
-    </step>
-    <step>
-     <para>
-      Mask the adapter from the <literal>zcrypt</literal> use:
-     </para>
-<screen>
-&prompt.user;lszcrypt
-CARD.DOMAIN TYPE MODE STATUS REQUEST_CNT
--------------------------------------------------
-00 CEX5C CCA-Coproc online 5
-00.0016 CEX5C CCA-Coproc online 5
-</screen>
-     <para>
-      Mask the adapter:
-     </para>
-<screen>
-&prompt.user;cat /sys/bus/ap/apmask
-0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-echo -0x0 | sudo tee /sys/bus/ap/apmask
-0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-</screen>
-     <para>
-      Mask the domain:
-     </para>
-<screen>
-&prompt.user;cat /sys/bus/ap/aqmask
-0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-echo -0x0 | sudo tee /sys/bus/ap/aqmask
-0xfffffdffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-</screen>
-    </step>
-    <step>
-     <para>
-      Assign adapter 0 and domain 16 (22 decimal) to
-      <literal>vfio-ap</literal>:
-     </para>
-<screen>
-&prompt.sudo;echo +0x0 > /sys/devices/vfio_ap/matrix/${uuid}/assign_adapter
-&prompt.user;echo +0x16 | sudo tee /sys/devices/vfio_ap/matrix/${uuid}/assign_domain
-&prompt.user;echo +0x16 | sudo tee /sys/devices/vfio_ap/matrix/${uuid}/assign_control_domain
-</screen>
-    </step>
-    <step>
-     <para>
-      Verify the matrix that you have configured:
-     </para>
-<screen>
-&prompt.user;cat /sys/devices/vfio_ap/matrix/${uuid}/matrix
-00.0016
-</screen>
-    </step>
-    <step>
-     <para>
-      Either create a new VM (refer to <xref linkend="cha-kvm-inst"/>) and wait
-      until it is initialized, or use an existing VM. In both cases, make sure
-      the VM is shut down.
-     </para>
-    </step>
-    <step>
-     <para>
-      Change its configuration to use the MDEV device:
-     </para>
-<screen>
-&prompt.sudo;virsh edit <replaceable>VM_NAME</replaceable>
-[...]
-&lt;hostdev mode='subsystem' type='mdev' model='vfio-ap'>
- &lt;source>
+  <title>Dedicate a crypto adapter to a &kvm; host</title>
+  <procedure>
+  <step>
+  <para>
+  Verify that the <literal>vfio_ap</literal> and
+  <literal>vfio_mdev</literal> kernel modules are loaded on the host:
+  </para>
+  <screen>&prompt.user;lsmod | grep vfio_</screen>
+  <para>
+  If any of them is not listed, load it manually, for example:
+  </para>
+  <screen>&prompt.sudo;modprobe vfio_mdev</screen>
+  </step>
+  <step>
+  <para>
+  Create a new MDEV device on the host and verify that it was added:
+  </para>
+  <screen>
+  uuid=$(uuidgen)
+  $ echo ${uuid} | sudo tee /sys/devices/vfio_ap/matrix/mdev_supported_types/vfio_ap-passthrough/create
+  dmesg | tail
+  [...]
+  [272197.818811] iommu: Adding device 24f952b3-03d1-4df2-9967-0d5f7d63d5f2 to group 0
+  [272197.818815] vfio_mdev 24f952b3-03d1-4df2-9967-0d5f7d63d5f2: MDEV: group_id = 0
+  </screen>
+  </step>
+  <step>
+  <para>
+  Identify the device on the host's logical partition that you intend to
+  dedicate to a &kvm; guest:
+  </para>
+  <screen>&prompt.user;ls -l /sys/bus/ap/devices/
+  [...]
+  lrwxrwxrwx 1 root root 0 Nov 23 03:29 00.0016 -> ../../../devices/ap/card00/00.0016/
+  lrwxrwxrwx 1 root root 0 Nov 23 03:29 card00 -> ../../../devices/ap/card00/
+  </screen>
+  <para>
+  In this example, it is card <literal>0</literal> queue
+  <literal>16</literal>. To match the Hardware Management Console (HMC)
+  configuration, you need to convert from <literal>16</literal> hexadecimal
+  to <literal>22</literal> decimal.
+  </para>
+  </step>
+  <step>
+  <para>
+  Mask the adapter from the <literal>zcrypt</literal> use:
+  </para>
+  <screen>
+  &prompt.user;lszcrypt
+  CARD.DOMAIN TYPE MODE STATUS REQUEST_CNT
+  00 CEX5C CCA-Coproc online 5
+  00.0016 CEX5C CCA-Coproc online 5
+  </screen>
+  <para>
+  Mask the adapter:
+  </para>
+  <screen>
+  &prompt.user;cat /sys/bus/ap/apmask
+  0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+  echo -0x0 | sudo tee /sys/bus/ap/apmask
+  0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+  </screen>
+  <para>
+  Mask the domain:
+  </para>
+  <screen>
+  &prompt.user;cat /sys/bus/ap/aqmask
+  0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+  echo -0x0 | sudo tee /sys/bus/ap/aqmask
+  0xfffffdffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+  </screen>
+  </step>
+  <step>
+  <para>
+  Assign adapter 0 and domain 16 (22 decimal) to
+  <literal>vfio-ap</literal>:
+  </para>
+  <screen>
+  &prompt.sudo;echo +0x0 > /sys/devices/vfio_ap/matrix/${uuid}/assign_adapter
+  &prompt.user;echo +0x16 | sudo tee /sys/devices/vfio_ap/matrix/${uuid}/assign_domain
+  &prompt.user;echo +0x16 | sudo tee /sys/devices/vfio_ap/matrix/${uuid}/assign_control_domain
+  </screen>
+  </step>
+  <step>
+  <para>
+  Verify the matrix that you have configured:
+  </para>
+  <screen>
+  &prompt.user;cat /sys/devices/vfio_ap/matrix/${uuid}/matrix
+  00.0016
+  </screen>
+  </step>
+  <step>
+  <para>
+  Either create a new VM (refer to <xref linkend="cha-kvm-inst"/>) and wait
+  until it is initialized, or use an existing VM. In both cases, make sure
+  the VM is shut down.
+  </para>
+  </step>
+  <step>
+  <para>
+  Change its configuration to use the MDEV device:
+  </para>
+  <screen>
+  &prompt.sudo;virsh edit <replaceable>VM_NAME</replaceable>
+  [...]
+  &lt;hostdev mode='subsystem' type='mdev' model='vfio-ap'>
+  &lt;source>
   &lt;address uuid='24f952b3-03d1-4df2-9967-0d5f7d63d5f2'/>
- &lt;/source>
-&lt;/hostdev>
-[...]
-</screen>
-    </step>
-    <step>
-     <para>
-      Restart the VM:
-     </para>
-<screen>&prompt.sudo;virsh reboot <replaceable>VM_NAME</replaceable></screen>
-    </step>
-    <step>
-     <para>
-      Log in to the guest and verify that the adapter is present:
-     </para>
-<screen>
-&prompt.user;lszcrypt
-CARD.DOMAIN TYPE MODE STATUS REQUEST_CNT
--------------------------------------------------
-00 CEX5C CCA-Coproc online 1
-00.0016 CEX5C CCA-Coproc online 1
-</screen>
-    </step>
-   </procedure>
+  &lt;/source>
+  &lt;/hostdev>
+  [...]
+  </screen>
+  </step>
+  <step>
+  <para>
+  Restart the VM:
+  </para>
+  <screen>&prompt.sudo;virsh reboot <replaceable>VM_NAME</replaceable></screen>
+  </step>
+  <step>
+  <para>
+  Log in to the guest and verify that the adapter is present:
+  </para>
+  <screen>
+  &prompt.user;lszcrypt
+  CARD.DOMAIN TYPE MODE STATUS REQUEST_CNT
+  00 CEX5C CCA-Coproc online 1
+  00.0016 CEX5C CCA-Coproc online 1
+  </screen>
+  </step>
+  </procedure>
   </section>
   <section xml:id="virsh-kvm-zseries-crypto-moreinfo">
-   <title>Further reading</title>
-   <itemizedlist>
-    <listitem>
-     <para>
-      The installation of virtualization components is detailed in
-      <xref linkend="cha-vt-installation"/>.
-     </para>
-    </listitem>
-    <listitem>
-     <para>
-      The <literal>vfio_ap</literal> architecture is detailed in
-      <link xlink:href="https://www.kernel.org/doc/Documentation/s390/vfio-ap.txt"/>.
-     </para>
-    </listitem>
-    <listitem>
-     <para>
-      A general outline together with a detailed procedure is described in
-      <link xlink:href="https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1787405"/>.
-     </para>
-    </listitem>
-    <listitem>
-     <para>
-      The architecture of VFIO Mediated devices (MDEVs) is detailed in
-      <link xlink:href="https://www.kernel.org/doc/html/latest/driver-api/vfio-mediated-device.html"/>.
-     </para>
-    </listitem>
-   </itemizedlist>
+  <title>Further reading</title>
+  <itemizedlist>
+  <listitem>
+  <para>
+  The installation of virtualization components is detailed in
+  <xref linkend="cha-vt-installation"/>.
+  </para>
+  </listitem>
+  <listitem>
+  <para>
+  The <literal>vfio_ap</literal> architecture is detailed in
+  <link xlink:href="https://www.kernel.org/doc/Documentation/s390/vfio-ap.txt"/>.
+  </para>
+  </listitem>
+  <listitem>
+  <para>
+  A general outline together with a detailed procedure is described in
+  <link xlink:href="https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1787405"/>.
+  </para>
+  </listitem>
+  <listitem>
+  <para>
+  The architecture of VFIO Mediated devices (MDEVs) is detailed in
+  <link xlink:href="https://www.kernel.org/doc/html/latest/driver-api/vfio-mediated-device.html"/>.
+  </para>
+  </listitem>
+  </itemizedlist>
   </section>
- </section>
+  </section>
+  -->
  <section xml:id="summary-configure-virtual-machine-virsh">
   <title>Summary</title>
   <para>
@@ -2213,6 +2202,18 @@ CARD.DOMAIN TYPE MODE STATUS REQUEST_CNT
    <listitem>
     <para>
      Configuring VM with VMM.
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     <!-- <xref linkend="sec-kvm-requires-hardware"/> -->
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     Refer to FIXME
+     <!-- <xref linkend="kvm-qemu-multiqueue"/> -->
+     for more general information about a multiqueue virtio-net feature.
     </para>
    </listitem>
   </itemizedlist>
