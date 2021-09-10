@@ -53,50 +53,51 @@ https://documentation.suse.com/sles/15-SP3/html/SLES-all/cha-deployment-prep-uef
 
  <section xml:id="introduction-set-up-uefi-http-boot-server">
   <title>Introduction</title>
-   <para><!--TODO improve this intro-->
-    HTTP Boot combines DNS, DHCP, and HTTP to make it possible to boot and
-    deploy systems over the network. HTTP Boot can be used as a high-performance
-    replacement for PXE. HTTP Boot allows to boot a server from a URI over HTTP,
-    quickly transferring large files, such as the Linux kernel and root file
-    system from servers outside of your local network.
-   </para>
+  <para><!--TODO improve this intro-->
+   HTTP Boot combines DNS, DHCP, and HTTP to make it possible to boot and
+   deploy systems over the network. HTTP Boot can be used as a high-performance
+   replacement for PXE. HTTP Boot allows to boot a server from a URI over HTTP,
+   quickly transferring large files, such as the Linux kernel and root file
+   system from servers outside of your local network.
+  </para>
+  <para>
+   The setup described here uses 192.168.111.0/24 (IPv4) and
+   2001:db8:f00f:cafe::/64 (IPv6) IP subnets and the server IP addresses are
+   192.168.111.1(IPv4) and 2001:db8:f00f:cafe::1/64 (IPv6) as examples. Adjust
+   these values to match your specific setup.
+  </para><!-- Note about manually setting up HTTP repo? -->
+  <!-- With DNS, the firmware and the bootloader can resolve the domain name so it's possible to pass a well-known HTTP URL to download the image across different domains, while tftp (PXE) is only for the local network.-->
  </section>
 
  <section xml:id="requirements-set-up-uefi-http-boot-server">
   <title>Requirements</title>
-  <itemizedlist><!-- TODO Make proper sentences -->
+  <itemizedlist>
    <listitem>
     <para>
-     The setup described here uses 192.168.111.0/24 (IPv4) and
-     2001:db8:f00f:cafe::/64 (IPv6) IP subnets and the server IP addresses are
-     192.168.111.1(IPv4) and 2001:db8:f00f:cafe::1/64 (IPv6) as examples. Adjust
-     these values to match your specific setup.
+     &sles; is installed and up to date.
     </para>
    </listitem>
    <listitem>
     <para>
-     &sle; installed and up to date
+     Networking is configured on your server.
     </para>
    </listitem>
    <listitem>
     <para>
-     Network configured
+     You have a &sles; ISO image available, either on a media drive or downloaded
+     on your server.
     </para>
    </listitem>
    <listitem>
     <para>
-     ISO available
-    </para>
-   </listitem>
-   <listitem>
-    <para>
-     SSL certificate on server?
+     If you want to enable SSL support, you must have an SSL certificate
+     installed on your server.
     </para>
    </listitem>
   </itemizedlist>
  </section>
 
- <section xml:id="configure-dns-server">
+ <section xml:id="configure-dns-server-set-up-uefi-http-boot-server">
   <title>Configuring the DNS server (optional)</title>
   <para>
    Configuring the DNS server allows you to assign a user-friendly name to the
@@ -141,10 +142,13 @@ addn-hosts=/etc/dnsmasq.d/hosts.conf</screen>
   </note>
  </section>
 
- <section xml:id="configure-dhcp-server">
+ <section xml:id="configure-dhcp-server-set-up-uefi-http-boot-server">
   <title>Configuring the DHCP server</title>
   <para>
-   This procedure configures DHCPv4 and DHCPv6 for both HTTP Boot and PXE Boot.
+   This procedure uses the IP subnets 192.168.111.0/24 (IPv4) and
+   2001:db8:f00f:cafe::/64 (IPv6), and the server IP addresses
+   192.168.111.1 (IPv4) and 2001:db8:f00f:cafe::1/64 (IPv6).
+   Adjust these values to match your specific setup.
   </para>
   <procedure>
    <step>
@@ -156,15 +160,15 @@ addn-hosts=/etc/dnsmasq.d/hosts.conf</screen>
    <step>
     <para>
      Specify the network interface for the DHCPv4 and DHCPv6 servers
-     in the <filename>/etc/sysconfig/dhcpd</filename> file:
+     in the <filename>/etc/sysconfig/dhcpd</filename> file.
     </para>
 <screen>DHCPD_INTERFACE="eth0"
 DHCPD6_INTERFACE="eth0"</screen>
    </step>
    <step>
     <para>
-     To set up a DHCPv4 server for both PXE Boot and HTTP Boot, add the
-    following configuration to the <filename>/etc/dhcpd.conf</filename> file:
+     To set up the DHCPv4 server, edit the <filename>/etc/dhcpd.conf</filename>
+     file to add the following configuration:
     </para>
 <screen>option domain-name-servers 192.168.111.1;
 option routers 192.168.111.1;
@@ -174,27 +178,21 @@ subnet 192.168.111.0 netmask 255.255.255.0 {
   range dynamic-bootp 192.168.111.100 192.168.111.120;
   default-lease-time 14400;
   max-lease-time 172800;
-  class "pxeclients"{
-    match if substring (option vendor-class-identifier, 0, 9) = "PXEClient";
-    next-server 192.168.111.1;
-    filename "/bootx64.efi";
-  }
-  class "httpclients" {
-    match if substring (option vendor-class-identifier, 0, 10) = "HTTPClient";
-    option vendor-class-identifier "HTTPClient";
-    filename "http://www.httpboot.local/sle/EFI/BOOT/bootx64.efi";
-  }
+  option vendor-class-identifier "HTTPClient";
+  filename "http://www.httpboot.local/sle/EFI/BOOT/bootx64.efi";
 }</screen>
     <para>
-     Note that the DHCPv4 server must use the <literal>HTTPClient</literal>
-     parameter for the vendor class ID, as the client uses it to identify an
-     HTTP Boot offer.
+     The vendor class ID must be <literal>HTTPClient</literal>. The client uses
+     this ID to identify an HTTP Boot offer.
+    </para>
+    <para>
+     Something something the boot URL.
     </para>
    </step>
    <step>
     <para>
-     To set up the DHCPv6 server, add the following configuration to
-    <filename>/etc/dhcpd6.conf</filename>:
+     To set up the DHCPv6 server, edit the <filename>/etc/dhcpd6.conf</filename>
+     file to add the following configuration:
     </para>
 <screen>option dhcp6.bootfile-url code 59 = string;
 option dhcp6.vendor-class code 16 = {integer 32, integer 16, string};
@@ -204,54 +202,17 @@ subnet6 2001:db8:f00f:cafe::/64 {
         option dhcp6.name-servers 2001:db8:f00f:cafe::1;
         option dhcp6.vendor-class 0 10 "HTTPClient";
 }</screen>
-    <para>
-     This configuration defines the type of the boot URL, the vendor class, and
-     other required options. Similar to the DHCPv4 settings, it is necessary to
-     provide the boot URL, which must have an IPv6 address. It is also
-     necessary to specify the vendor class option. In DHCPv6, it consists of
-     the enterprise number and the vendor class data (length and the content).
-     Since the HTTP Boot driver ignores the enterprise number, you can set it
-     to <literal>0</literal>. The content of the vendor class data needs to be
-     <literal>HTTPClient</literal>; otherwise, the client ignores the offer.
-    </para>
-    <para>
-     Using the following configuration, it is possible to configure the DHCPv6
-     server for both PXE Boot and HTTP Boot:
-    </para>
-<screen>option dhcp6.bootfile-url code 59 = string;
-option dhcp6.vendor-class code 16 = {integer 32, integer 16, string};
-
-subnet6 2001:db8:f00f:cafe::/64 {
-        range6 2001:db8:f00f:cafe::42:10 2001:db8:f00f:cafe::42:99;
-
-        class "PXEClient" {
-                match substring (option dhcp6.vendor-class, 6, 9);
-        }
-
-        subclass "PXEClient" "PXEClient" {
-                option dhcp6.bootfile-url "tftp://[2001:db8:f00f:cafe::1]/bootloader.efi";
-        }
-
-        class "HTTPClient"; {
-                match substring (option dhcp6.vendor-class, 6, 10);
-        }
-
-        subclass "HTTPClient" "HTTPClient" {
-                option dhcp6.bootfile-url "http://www.httpboot.local/sle/EFI/BOOT/bootx64.efi";
-                option dhcp6.name-servers 2001:db8:f00f:cafe::1;
-                option dhcp6.vendor-class 0 10 "HTTPClient";
-        }
- }</screen>
-    <para>
-     You can also match the vendor class to a specific architecture by changing
-     the following line:
-    </para>
-<screen>        subclass "HTTPClient" "HTTPClient":Arch:00016 {</screen>
-    <para>
-     In this example, <literal>HTTPClient:Arch:00016</literal> refers to an
-     &x86-64; HTTP Boot client. This configuration allows the server to serve
-     different architectures simultaneously.
-    </para>
+      <para>
+       Something something the boot URL, which must have an IPv6 address.
+      </para>
+      <para>
+       The vendor class option must consist of
+       the enterprise number and the vendor class data (length and the content).
+       Since the HTTP Boot driver ignores the enterprise number, you can set it
+       to <literal>0</literal>. The content of the vendor class data must be
+       <literal>HTTPClient</literal>. The client uses
+       this ID to identify an HTTP Boot offer.
+      </para>
    </step>
    <step>
     <para>
@@ -263,54 +224,7 @@ subnet6 2001:db8:f00f:cafe::/64 {
   </procedure>
  </section>
 
- <section xml:id="configure-tftp-server">
-  <title>Configuring the TFTP server (optional)</title>
-  <para>
-   You must configure a TFTP server if you want to use both PXE Boot and HTTP Boot.
-  </para>
-  <procedure>
-   <step>
-    <para>
-     Install the <package>tftp</package> package:
-    </para>
-<screen>&prompt.root;zypper install tftp</screen>
-   </step>
-   <step>
-    <para>
-     Enable and start the TFTP service:
-    </para>
-<screen>&prompt.root;systemctl enable --now tftp.socket
-&prompt.root;systemctl enable --now tftp.service</screen>
-   </step>
-   <step>
-    <para>
-     List the available <package>tftpboot-installation</package> packages:
-    </para>
-<screen>&prompt.root;zypper se tftpboot</screen>
-   </step>
-   <step>
-    <para>
-     Install the appropriate package for your version and architecture.
-     For example:
-    </para>
-<screen>&prompt.root;zypper install tftpboot-installation-SLE-15-SP3-x86_64</screen>
-   </step>
-   <step>
-    <para>
-     Copy the content of the
-     <filename>SLE-<replaceable>VERSION</replaceable>-<replaceable>ARCH</replaceable></filename>
-     directory to the root directory of the TFTP server. For example:
-    </para>
-<screen>&prompt.root;cp -r /usr/share/tftpboot-installation/SLE-15-SP3-x86_64 /srv/tftpboot</screen>
-   </step>
-  </procedure>
-  <para>
-   For more information, see
-   <filename>/usr/share/tftpboot-installation/SLE-<replaceable>VERSION</replaceable>-<replaceable>ARCH</replaceable>/README</filename>.
-  </para>
- </section>
-
- <section xml:id="httpboot-http-server">
+ <section xml:id="configure-http-server-set-up-uefi-http-boot-server">
   <title>Configuring the HTTP server</title>
   <procedure>
    <step>
@@ -320,18 +234,16 @@ subnet6 2001:db8:f00f:cafe::/64 {
 <screen>&prompt.root;zypper install apache2</screen>
    </step>
    <step>
-    <para>
-     In the HTTP boot server directory (<literal>/srv/www/htdocs/</literal>),
+    <para><!--Keep here but refer to DHCP section-->
+     In the root directory of the HTTP Boot server (<literal>/srv/www/htdocs/</literal>),
      create a subdirectory for the installation content. For example,
      <literal>/srv/www/htdocs/sle/</literal>:
     </para>
-<screen>&prompt.user;cd /srv/www/htdocs
-&prompt.user;mkdir sle</screen>
+<screen>&prompt.root;mkdir /srv/www/htdocs/sle</screen>
    </step>
    <step>
-    <para>
-     Copy all of the contents of the ISO image to the
-     <literal>/srv/www/htdocs/sle/</literal> directory.
+    <para><!-- Must be all files contained in it, not just the .iso file -->
+     Copy or extract the content of the ISO image to the new directory.
     </para>
    </step>
    <step>
@@ -365,49 +277,50 @@ subnet6 2001:db8:f00f:cafe::/64 {
   </procedure>
  </section>
 
- <section xml:id="httpboot-http-server-ssl-support">
+ <section xml:id="enable-ssl-support-set-up-uefi-http-boot-server">
   <title>Enabling SSL support for the HTTP server (optional)</title>
   <para>
-   HTTPS Boot is only supported on &sle; 15 and newer. To use HTTPS Boot, you must convert an existing server certificate
-   into the <literal>DER</literal> format and enroll it into the client's
-   firmware.
+   HTTPS Boot is only supported on &sle; 15 and newer. To use HTTPS Boot, you
+   must convert an SSL certificate into the <literal>DER</literal>
+   format and enroll it into the client's firmware.
+  </para>
+  <para>
+   This procedure assumes that you already have an SSL certificate installed on
+   your server.
   </para>
   <procedure>
    <step>
     <para>
-     Assuming you already have a certificate installed on your server, convert
-     it into the <literal>DER</literal> format for use with the client:
+     Convert the certificate into the <literal>DER</literal> format:
     </para>
-<screen>&prompt.root;openssl x509 -in <replaceable>CERTIFICATE</replaceable>.crt \
--outform der -out <replaceable>CERTIFICATE</replaceable>.der</screen>
+<screen>&prompt.root;openssl x509 -in <replaceable>CERTIFICATE</replaceable>.crt -outform der -out <replaceable>CERTIFICATE</replaceable>.der</screen>
    </step>
    <step>
     <para>
-     Enroll the server certificate into the client firmware.
-    </para>
-    <para>
-     The exact procedure for enrolling the converted certificate depends on the
-     specific implementation of the client's firmware. For certain hardware,
-     you must enroll the certificate manually via the firmware UI using an
-     external storage device with the certificate on it. Machines with Redfish
-     support can enroll the certificate remotely. Consult the documentation for
-     your specific hardware for more information on enrolling certificates.
+     Enroll the server certificate into the client firmware. The procedure
+     for enrolling the converted certificate depends on the client. For some
+     hardware, you must enroll the certificate manually using an external
+     storage device with the certificate on it. For machines with Redfish
+     support, you can enroll the certificate remotely. Consult the
+     documentation for your specific client for more information on
+     enrolling certificates.
     </para>
    </step>
    <step>
     <para>
-     Add the SSL flag to the <filename>/etc/sysconfig/apache2</filename> file:
+     Edit the <filename>/etc/sysconfig/apache2</filename> file to add the SSL flag:
     </para>
 <screen>APACHE_SERVER_FLAGS="SSL"</screen>
    </step>
    <step>
     <para>
-     In the same file, ensure that the <literal>ssl</literal> module is listed in
-     <literal>APACHE_MODULES</literal>. For example:
+     In the same file, ensure that the <literal>ssl</literal> module appears in
+     the <literal>APACHE_MODULES</literal> list:
     </para>
-<screen>APACHE_MODULES="actions alias auth_basic authn_file authz_host authz_groupfile authz_core
-authz_user autoindex cgi dir env expires include log_config mime negotiation setenvif <emphasis role="bold">ssl</emphasis>
-socache_shmcb userdir reqtimeout authn_core headers proxy proxy_http proxy_wstunnel"</screen>
+<screen>&prompt.root;<command>grep 'APACHE_MODULES.*ssl' /etc/sysconfig/apache2</command>
+APACHE_MODULES="actions alias auth_basic authn_core authn_file authz_host
+authz_groupfile authz_core authz_user autoindex cgi dir env expires include
+log_config mime negotiation setenvif ssl socache_shmcb userdir reqtimeout"</screen>
    </step>
    <step>
     <para>
@@ -428,9 +341,8 @@ socache_shmcb userdir reqtimeout authn_core headers proxy proxy_http proxy_wstun
    </step>
    <step>
     <para>
-     Change the private key and the certificate in the
-     <filename>/etc/apache2/vhosts.d/vhost-ssl.conf</filename>
-     file to the following values:
+     Edit the <filename>/etc/apache2/vhosts.d/vhost-ssl.conf</filename> file to
+     change the private key and the certificate to the following values:
     </para>
 <screen>SSLCertificateFile /etc/apache2/ssl.crt/server.crt
 SSLCertificateKeyFile /etc/apache2/ssl.key/server.key</screen>
@@ -443,14 +355,16 @@ SSLCertificateKeyFile /etc/apache2/ssl.key/server.key</screen>
    </step>
    <step>
     <para>
-     Replace the <literal>http://</literal> prefix with
-     <literal>https://</literal> in <filename>dhcpd.conf</filename>
-     and <filename>dhcpd6.conf</filename>.
+     Edit the <filename>dhcpd.conf</filename> and <filename>dhcpd6.conf</filename>
+     files to replace the <literal>http://</literal> prefix with
+     <literal>https://</literal>:
     </para>
+<screen>filename "http<emphasis role="bold">s</emphasis>://www.httpboot.local/sle/EFI/BOOT/bootx64.efi";</screen>
+<screen>option dhcp6.bootfile-url "http<emphasis role="bold">s</emphasis>://www.httpboot.local/sle/EFI/BOOT/bootx64.efi";</screen>
    </step>
    <step>
     <para>
-     Restart the DHCP server:
+     Restart the DHCP servers:
     </para>
 <screen>&prompt.root;systemctl restart dhcpd
 &prompt.root;systemctl restart dhcpd6</screen>
@@ -460,14 +374,14 @@ SSLCertificateKeyFile /etc/apache2/ssl.key/server.key</screen>
 
  <section xml:id="summary-set-up-uefi-http-boot-server">
   <title>Summary</title>
-  <para><!-- TODO Expand and improve -->
-   Enabling HTTP Boot on a physical client machine depends on your specific
-   hardware. Consult the documentation for further information on how to
-   enable HTTP Boot on your particular machine.
+  <para>
+   You can now use this server to boot client machines over HTTP, if the client
+   firmware supports HTTP Boot.
   </para>
   <para>
-   If the firmware already supports HTTP boot, plug in the cable and choose the
-   correct boot option.
+   Enabling HTTP Boot on a physical client machine depends on your specific
+   hardware. Consult the relevant documentation for information on how to
+   enable HTTP Boot on your particular machine.
   </para>
  </section>
 
@@ -475,7 +389,7 @@ SSLCertificateKeyFile /etc/apache2/ssl.key/server.key</screen>
   <title>Troubleshooting</title>
   <variablelist>
    <varlistentry>
-    <term>Problem phrased as question</term>
+    <term>RP filter dropping DHCPv6 packets</term>
     <listitem>
      <para>
       If DHCPv6 packets are dropped by the RP filter in the firewall, check its
@@ -486,14 +400,6 @@ SSLCertificateKeyFile /etc/apache2/ssl.key/server.key</screen>
      <screen>IPv6_rpfilter=no</screen>
     </listitem>
    </varlistentry>
-   <varlistentry>
-    <term>Another problem phrased as question</term>
-    <listitem>
-     <para>
-      Another paragraph of text.
-     </para>
-    </listitem>
-   </varlistentry>
   </variablelist>
  </section>
 
@@ -502,17 +408,22 @@ SSLCertificateKeyFile /etc/apache2/ssl.key/server.key</screen>
   <itemizedlist>
    <listitem>
     <para>
-     An
+     Installing UEFI support (on VMs)
     </para>
    </listitem>
    <listitem>
     <para>
-     Unordered
+     Guest installation
     </para>
    </listitem>
    <listitem>
     <para>
-     List
+     Booting the installation system
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     Remote installation
     </para>
    </listitem>
   </itemizedlist>
@@ -528,12 +439,12 @@ SSLCertificateKeyFile /etc/apache2/ssl.key/server.key</screen>
    </listitem>
    <listitem>
     <para>
-     Unordered
+     Customizing installation images
     </para>
    </listitem>
    <listitem>
     <para>
-     List
+     Setting up a network installation source
     </para>
    </listitem>
   </itemizedlist>
