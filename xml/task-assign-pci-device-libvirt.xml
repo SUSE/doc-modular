@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<?xml-stylesheet href="urn:x-suse:xslt:profiling:docbook51-profile.xsl"
+ type="text/xml"
+ title="Profiling step"?>
+<!DOCTYPE article
+[
+  <!ENTITY % entities SYSTEM "generic-entities.ent">
+    %entities;
+]>
+<article xml:id="task-assign-pci-device-libvirt" xml:lang="en"
+ role="task"
+ xmlns="http://docbook.org/ns/docbook" version="5.1"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+ <info>
+  <title>Assigning PCI device with &libvirt;</title>
+  <dm:docmanager xmlns:dm="urn:x-suse:ns:docmanager">
+   <dm:bugtracker>
+    <dm:url>https://bugzilla.suse.com/enter_bug.cgi</dm:url>
+    <dm:component>Documentation</dm:component>
+    <dm:product>Product Name</dm:product>
+    <dm:assignee>assignee@suse.com</dm:assignee>
+   </dm:bugtracker>
+   <dm:translation>no</dm:translation>
+  </dm:docmanager>
+ </info>
+ <section xml:id="environment-assign-pci-device-libvirt">
+  <!--to create unique section IDs, amend the TOPIC-ID (without prefix)-->
+  <!--example: environment-register-product-after-installation-->
+  <title>Environment</title>
+  <para>
+   This document applies to the following products and product versions:
+  </para>
+  <itemizedlist>
+   <listitem>
+    <para>
+     &sles;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA,
+     12&nbsp;SP5, 12&nbsp;SP4, 12&nbsp;SP3
+    </para>
+   </listitem>
+  </itemizedlist>
+ </section>
+ <section xml:id="introduction-assign-pci-device-libvirt">
+  <title>Introduction</title>
+  <para>
+   &libvirt; is a unified interface to various virtualization solutions.
+   &libvirt; virtual machines are typically managed by a command line utility
+   called &virsh; or an application with a graphical user interface called
+   &vmm;. This article describes how to assign &vmhost;'s PCI device to a
+   &vmguest; using both &virsh; and &vmm;.
+  </para>
+ </section>
+ <section xml:id="requirements-assign-pci-device-libvirt">
+  <title>Requirements</title>
+  <itemizedlist>
+   <listitem>
+    <para>
+     A &sle;-based client machine with <package>libvirt-client</package> and
+     <package>virt-manager</package> installed.
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     At least one connection to a valid &vmhost; configured by &vmm; or
+     &libvirt;.
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     An existing &libvirt;-based virtual machine on the &vmhost;.
+    </para>
+   </listitem>
+  </itemizedlist>
+ </section>
+ <section xml:id="assign-pci-device-virsh">
+  <title>Assigning PCI device with &virsh;</title>
+  <para>
+   To assign a PCI device to &vmguest; with &virsh;, follow these steps:
+  </para>
+  <procedure>
+   <step>
+    <para>
+     Identify the host PCI device to assign to the &vmguest;. In the following
+     example, we are assigning a DEC network card to the guest:
+    </para>
+<screen>&prompt.sudo;<command>lspci -nn</command>
+[...]
+<emphasis role="bold">03:07.0</emphasis> Ethernet controller [0200]: Digital Equipment Corporation DECchip \
+21140 [FasterNet] [1011:0009] (rev 22)
+[...]</screen>
+    <para>
+     Write down the device ID (<literal>03:07.0</literal> in this case).
+    </para>
+   </step>
+   <step>
+    <para>
+     Gather detailed information about the device using <command>virsh
+     nodedev-dumpxml <replaceable>ID</replaceable></command>. To get the
+     <replaceable>ID</replaceable>, replace the colon and the period in the
+     device ID (<literal>03:07.0</literal>) with underscores. Prefix the result
+     with <quote>pci_0000_</quote>: <literal>pci_0000_03_07_0</literal>.
+    </para>
+<screen>&prompt.sudo;<command>virsh nodedev-dumpxml pci_0000_03_07_0</command>
+&lt;device&gt;
+  &lt;name&gt;pci_0000_03_07_0&lt;/name&gt;
+  &lt;path&gt;/sys/devices/pci0000:00/0000:00:14.4/0000:03:07.0&lt;/path&gt;
+  &lt;parent&gt;pci_0000_00_14_4&lt;/parent&gt;
+  &lt;driver&gt;
+    &lt;name&gt;tulip&lt;/name&gt;
+  &lt;/driver&gt;
+  &lt;capability type='pci'&gt;
+    <emphasis role="bold">&lt;domain&gt;0&lt;/domain&gt;
+    &lt;bus&gt;3&lt;/bus&gt;
+    &lt;slot&gt;7&lt;/slot&gt;
+    &lt;function&gt;0&lt;/function&gt;</emphasis>
+    &lt;product id='0x0009'&gt;DECchip 21140 [FasterNet]&lt;/product&gt;
+    &lt;vendor id='0x1011'&gt;Digital Equipment Corporation&lt;/vendor&gt;
+    &lt;numa node='0'/&gt;
+  &lt;/capability&gt;
+&lt;/device&gt;</screen>
+    <para>
+     Write down the values for domain, bus, and function (see the previous XML
+     code printed in bold).
+    </para>
+   </step>
+   <step>
+    <para>
+     Detach the device from the host system prior to attaching it to the
+     &vmguest;:
+    </para>
+<screen>&prompt.sudo;<command>virsh nodedev-detach pci_0000_03_07_0</command>
+  Device pci_0000_03_07_0 detached</screen>
+    <tip>
+     <title>Multi-function PCI devices</title>
+     <para>
+      When using a multi-function PCI device that does not support FLR
+      (function level reset) or PM (power management) reset, you need to detach
+      all its functions from the &vmhost;. The whole device must be reset for
+      security reasons. <systemitem>libvirt</systemitem> will refuse to assign
+      the device if one of its functions is still in use by the &vmhost; or
+      another &vmguest;.
+     </para>
+    </tip>
+   </step>
+   <step>
+    <para>
+     Convert the domain, bus, slot, and function value from decimal to
+     hexadecimal. In our example, domain = 0, bus = 3, slot = 7, and function =
+     0. Ensure that the values are inserted in the right order:
+    </para>
+<screen>&prompt.user;<command>printf "&lt;address domain='0x%x' bus='0x%x' slot='0x%x' function='0x%x'/&gt;\n" 0 3 7 0</command></screen>
+    <para>
+     This results in:
+    </para>
+<screen>&lt;address domain='0x0' bus='0x3' slot='0x7' function='0x0'/&gt;</screen>
+   </step>
+   <step>
+    <para>
+     Run <command>virsh edit</command> on your domain, and add the following
+     device entry in the <literal>&lt;devices&gt;</literal> section using the
+     result from the previous step:
+    </para>
+<screen>&lt;hostdev mode='subsystem' type='pci' managed='yes'&gt;
+  &lt;source&gt;
+    &lt;address domain='0x0' bus='0x03' slot='0x07' function='0x0'/&gt;
+  &lt;/source&gt;
+&lt;/hostdev&gt;</screen>
+    <tip xml:id="tip-libvirt-config-pci-virsh-managed">
+     <title><literal>managed</literal> compared to <literal>unmanaged</literal></title>
+     <para>
+      <systemitem>libvirt</systemitem> recognizes two modes for handling PCI
+      devices: they can be either <literal>managed</literal> or
+      <literal>unmanaged</literal>. In the managed case,
+      <systemitem>libvirt</systemitem> handles all details of unbinding the
+      device from the existing driver if needed, resetting the device, binding
+      it to <systemitem>vfio-pci</systemitem> before starting the domain, etc.
+      When the domain is terminated or the device is removed from the domain,
+      <systemitem>libvirt</systemitem> unbinds from
+      <systemitem>vfio-pci</systemitem> and rebinds to the original driver in
+      the case of a managed device. If the device is unmanaged, the user must
+      ensure all of these management aspects of the device are done before
+      assigning it to a domain, and after the device is no longer used by the
+      domain.
+     </para>
+    </tip>
+    <para>
+     In the example above, the <literal>managed='yes'</literal> option means
+     that the device is managed. To switch the device mode to unmanaged, set
+     <literal>managed='no'</literal> in the listing above. If you do so, you
+     need to take care of the related driver with the <command>virsh
+     nodedev-detach</command> and <command>virsh nodedev-reattach</command>
+     commands. Prior to starting the &vmguest; you need to detach the device
+     from the host by running <command>virsh nodedev-detach
+     pci_0000_03_07_0</command>. In case the &vmguest; is not running, you can
+     make the device available for the host by running <command>virsh
+     nodedev-reattach pci_0000_03_07_0</command>.
+    </para>
+   </step>
+   <step>
+    <para>
+     Shut down the &vmguest; and disable &selnx; if it is running on the host.
+    </para>
+<screen>&prompt.sudo;<command>setsebool -P virt_use_sysfs 1</command></screen>
+   </step>
+   <step>
+    <para>
+     Start your &vmguest; to make the assigned PCI device available:
+    </para>
+<screen>&prompt.sudo;<command>virsh start sles15</command></screen>
+   </step>
+  </procedure>
+  <important>
+   <title>&slsa;11 SP4 &kvm; guests</title>
+   <para>
+    On a newer &qemu; machine type (pc-i440fx-2.0 or higher) with &slsa;11 SP4
+    &kvm; guests, the <systemitem class="resource">acpiphp</systemitem> module
+    is not loaded by default in the guest. This module must be loaded to enable
+    hotplugging of disk and network devices. To load the module manually, use
+    the command <command>modprobe acpiphp</command>. It is also possible to
+    autoload the module by adding <literal>install acpiphp /bin/true</literal>
+    to the <filename>/etc/modprobe.conf.local</filename> file.
+   </para>
+  </important>
+  <important>
+   <title>&kvm; guests using &qemu; Q35 machine type</title>
+   <para>
+    &kvm; guests using the &qemu; Q35 machine type have a PCI topology that
+    includes a <literal>pcie-root</literal> controller and seven
+    <literal>pcie-root-port</literal> controllers. The
+    <literal>pcie-root</literal> controller does not support hotplugging. Each
+    <literal>pcie-root-port</literal> controller supports hotplugging a single
+    PCIe device. PCI controllers cannot be hotplugged, so plan accordingly and
+    add more <literal>pcie-root-port</literal>s if more than seven PCIe devices
+    will be hotplugged. A <literal>pcie-to-pci-bridge</literal> controller can
+    be added to support hotplugging legacy PCI devices. See
+    <link xlink:href="https://libvirt.org/pci-hotplug.html"/> for more
+    information about PCI topology between &qemu; machine types.
+   </para>
+  </important>
+ </section>
+ <section xml:id="summary-assign-pci-device-libvirt">
+  <!--to create unique section IDs, amend the TOPIC-ID (without prefix)-->
+  <!--example: summary-register-product-after-installation-->
+  <title>Summary</title>
+  <para>
+   A paragraph of text, summing up the result of the task.
+  </para>
+ </section>
+ <section xml:id="troubleshooting-assign-pci-device-libvirt">
+  <!--to create unique section IDs, amend the TOPIC-ID (without prefix)-->
+  <!--example: troubleshooting-register-product-after-installation-->
+  <title>Troubleshooting</title>
+  <para>
+   A paragraph of text.
+  </para>
+  <variablelist>
+   <varlistentry>
+    <term>Problem phrased as question</term>
+    <listitem>
+     <para>
+      A paragraph of text.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>Another problem phrased as question</term>
+    <listitem>
+     <para>
+      Another paragraph of text.
+     </para>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+ </section>
+ <section xml:id="related-assign-pci-device-libvirt">
+  <title>Related topics</title>
+  <itemizedlist>
+   <listitem>
+    <para>
+     An
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     Unordered
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     List
+    </para>
+   </listitem>
+  </itemizedlist>
+ </section>
+</article>
