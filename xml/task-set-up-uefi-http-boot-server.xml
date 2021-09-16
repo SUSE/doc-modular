@@ -53,20 +53,16 @@ https://documentation.suse.com/sles/15-SP3/html/SLES-all/cha-deployment-prep-uef
 
  <section xml:id="introduction-set-up-uefi-http-boot-server">
   <title>Introduction</title>
-  <para><!--TODO improve this intro-->
-   HTTP Boot combines DNS, DHCP, and HTTP to make it possible to boot and
-   deploy systems over the network. HTTP Boot can be used as a high-performance
-   replacement for PXE. HTTP Boot allows to boot a server from a URI over HTTP,
-   quickly transferring large files, such as the Linux kernel and root file
-   system from servers outside of your local network.
+  <para>
+   HTTP Boot can remotely install operating systems from an HTTP URL. While PXE
+   can only deploy images to servers in a local subnet, HTTP Boot can deploy
+   images to servers across different subnets in routed networks, and can
+   quickly transfer larger files, such as the Linux kernel and root file system.
   </para>
   <para>
-   The setup described here uses 192.168.111.0/24 (IPv4) and
-   2001:db8:f00f:cafe::/64 (IPv6) IP subnets and the server IP addresses are
-   192.168.111.1(IPv4) and 2001:db8:f00f:cafe::1/64 (IPv6) as examples. Adjust
-   these values to match your specific setup.
-  </para><!-- Note about manually setting up HTTP repo? -->
-  <!-- With DNS, the firmware and the bootloader can resolve the domain name so it's possible to pass a well-known HTTP URL to download the image across different domains, while tftp (PXE) is only for the local network.-->
+   This article shows you how to configure DNS, DHCP, and HTTP on a single
+   machine to act as an HTTP Boot server.
+  </para>
  </section>
 
  <section xml:id="requirements-set-up-uefi-http-boot-server">
@@ -74,7 +70,7 @@ https://documentation.suse.com/sles/15-SP3/html/SLES-all/cha-deployment-prep-uef
   <itemizedlist>
    <listitem>
     <para>
-     &sles; is installed and up to date.
+     &sles; is installed and up to date on your server.
     </para>
    </listitem>
    <listitem>
@@ -97,18 +93,18 @@ https://documentation.suse.com/sles/15-SP3/html/SLES-all/cha-deployment-prep-uef
   </itemizedlist>
  </section>
 
- <section xml:id="configure-dns-server-set-up-uefi-http-boot-server">
-  <title>Configuring the DNS server (optional)</title>
+ <section xml:id="configure-dns-set-up-uefi-http-boot-server">
+  <title>Configuring the DNS server</title>
   <para>
-   Configuring the DNS server allows you to assign a user-friendly name to the
-   HTTP Boot server.
+   In this procedure, replace the example IP addresses with the appropriate
+   values for your server.
   </para>
   <procedure>
    <step>
     <para>
      Install the <package>dnsmasq</package> package:
     </para>
-<screen>&prompt.root;zypper install dnsmasq</screen>
+<screen>&prompt.user;sudo zypper install dnsmasq</screen>
    </step>
    <step>
     <para>
@@ -120,16 +116,16 @@ addn-hosts=/etc/dnsmasq.d/hosts.conf</screen>
    <step>
     <para>
      Assign a domain name to the IP addresses in the
-     <filename>/etc/dnsmasq.d/hosts.conf</filename> file. For example:
+     <filename>/etc/dnsmasq.d/hosts.conf</filename> file:
     </para>
 <screen>192.168.111.1 www.httpboot.local
 2001:db8:f00f:cafe::1 www.httpboot.local</screen>
    </step>
    <step>
     <para>
-     Start the DNS server:
+     Enable and start the DNS server:
     </para>
- <screen>&prompt.root;systemctl start dnsmasq</screen>
+ <screen>&prompt.user;sudo systemctl enable --now dnsmasq</screen>
    </step>
   </procedure>
   <note>
@@ -142,114 +138,32 @@ addn-hosts=/etc/dnsmasq.d/hosts.conf</screen>
   </note>
  </section>
 
- <section xml:id="configure-dhcp-server-set-up-uefi-http-boot-server">
-  <title>Configuring the DHCP server</title>
-  <para>
-   This procedure uses the IP subnets 192.168.111.0/24 (IPv4) and
-   2001:db8:f00f:cafe::/64 (IPv6), and the server IP addresses
-   192.168.111.1 (IPv4) and 2001:db8:f00f:cafe::1/64 (IPv6).
-   Adjust these values to match your specific setup.
-  </para>
-  <procedure>
-   <step>
-    <para>
-     Install the <package>dhcp-server</package> package:
-    </para>
-<screen>&prompt.root;zypper install dhcp-server</screen>
-   </step>
-   <step>
-    <para>
-     Specify the network interface for the DHCPv4 and DHCPv6 servers
-     in the <filename>/etc/sysconfig/dhcpd</filename> file.
-    </para>
-<screen>DHCPD_INTERFACE="eth0"
-DHCPD6_INTERFACE="eth0"</screen>
-   </step>
-   <step>
-    <para>
-     To set up the DHCPv4 server, edit the <filename>/etc/dhcpd.conf</filename>
-     file to add the following configuration:
-    </para>
-<screen>option domain-name-servers 192.168.111.1;
-option routers 192.168.111.1;
-default-lease-time 14400;
-ddns-update-style none;
-subnet 192.168.111.0 netmask 255.255.255.0 {
-  range dynamic-bootp 192.168.111.100 192.168.111.120;
-  default-lease-time 14400;
-  max-lease-time 172800;
-  option vendor-class-identifier "HTTPClient";
-  filename "http://www.httpboot.local/sle/EFI/BOOT/bootx64.efi";
-}</screen>
-    <para>
-     The vendor class ID must be <literal>HTTPClient</literal>. The client uses
-     this ID to identify an HTTP Boot offer.
-    </para>
-    <para>
-     Something something the boot URL.
-    </para>
-   </step>
-   <step>
-    <para>
-     To set up the DHCPv6 server, edit the <filename>/etc/dhcpd6.conf</filename>
-     file to add the following configuration:
-    </para>
-<screen>option dhcp6.bootfile-url code 59 = string;
-option dhcp6.vendor-class code 16 = {integer 32, integer 16, string};
-subnet6 2001:db8:f00f:cafe::/64 {
-        range6 2001:db8:f00f:cafe::42:10 2001:db8:f00f:cafe::42:99;
-        option dhcp6.bootfile-url "http://www.httpboot.local/sle/EFI/BOOT/bootx64.efi";
-        option dhcp6.name-servers 2001:db8:f00f:cafe::1;
-        option dhcp6.vendor-class 0 10 "HTTPClient";
-}</screen>
-      <para>
-       Something something the boot URL, which must have an IPv6 address.
-      </para>
-      <para>
-       The vendor class option must consist of
-       the enterprise number and the vendor class data (length and the content).
-       Since the HTTP Boot driver ignores the enterprise number, you can set it
-       to <literal>0</literal>. The content of the vendor class data must be
-       <literal>HTTPClient</literal>. The client uses
-       this ID to identify an HTTP Boot offer.
-      </para>
-   </step>
-   <step>
-    <para>
-     Start the DHCP servers:
-    </para>
-<screen>&prompt.root;systemctl enable --now dhcpd
-&prompt.root;systemctl enable --now dhcpd6</screen>
-   </step>
-  </procedure>
- </section>
-
- <section xml:id="configure-http-server-set-up-uefi-http-boot-server">
+ <section xml:id="configure-http-set-up-uefi-http-boot-server">
   <title>Configuring the HTTP server</title>
   <procedure>
    <step>
     <para>
      Install the <package>apache2</package> package:
     </para>
-<screen>&prompt.root;zypper install apache2</screen>
+<screen>&prompt.user;sudo zypper install apache2</screen>
    </step>
    <step>
-    <para><!--Keep here but refer to DHCP section-->
+    <para>
      In the root directory of the HTTP Boot server (<literal>/srv/www/htdocs/</literal>),
      create a subdirectory for the installation content. For example,
      <literal>/srv/www/htdocs/sle/</literal>:
     </para>
-<screen>&prompt.root;mkdir /srv/www/htdocs/sle</screen>
+<screen>&prompt.user;sudo mkdir /srv/www/htdocs/sle</screen>
    </step>
    <step>
-    <para><!-- Must be all files contained in it, not just the .iso file -->
-     Copy or extract the content of the ISO image to the new directory.
+    <para>
+     Copy or extract all of the files from the ISO to the new directory.
     </para>
    </step>
    <step>
     <para>
      To configure the boot menu, edit the
-     <filename>/srv/www/htdocs/sle/EFI/BOOT/grub.cfg</filename> file. Use the
+     <filename>/srv/www/htdocs/sle/EFI/BOOT/grub.cfg</filename> file using the
      following example as a reference:
     </para>
 <screen> menuentry 'Installation IPv4' --class opensuse --class gnu-linux --class gnu --class os {
@@ -272,12 +186,106 @@ subnet6 2001:db8:f00f:cafe::/64 {
     <para>
      Enable and start <literal>apache2</literal>:
     </para>
-<screen>&prompt.root;systemctl enable --now apache2</screen>
+<screen>&prompt.user;sudo systemctl enable --now apache2</screen>
    </step>
   </procedure>
  </section>
 
- <section xml:id="enable-ssl-support-set-up-uefi-http-boot-server">
+ <section xml:id="configure-dhcp-set-up-uefi-http-boot-server">
+  <title>Configuring the DHCP server</title>
+  <para>
+   In this procedure, replace the example IP addresses and subnets with the
+   appropriate values for your system.
+  </para>
+  <procedure>
+   <step>
+    <para>
+     Install the <package>dhcp-server</package> package:
+    </para>
+<screen>&prompt.user;sudo zypper install dhcp-server</screen>
+   </step>
+   <step>
+    <para>
+     Edit the <filename>/etc/sysconfig/dhcpd</filename> file to specify the
+     network interface for the DHCPv4 and DHCPv6 servers:
+    </para>
+<screen>DHCPD_INTERFACE="eth0"
+DHCPD6_INTERFACE="eth0"</screen>
+   </step>
+   <step>
+    <para>
+     To set up the DHCPv4 server, edit the <filename>/etc/dhcpd.conf</filename>
+     file to add the following configuration:
+    </para>
+<screen>option domain-name-servers 192.168.111.1;
+option routers 192.168.111.1;
+default-lease-time 14400;
+ddns-update-style none;
+subnet 192.168.111.0 netmask 255.255.255.0 {
+  range dynamic-bootp 192.168.111.100 192.168.111.120;
+  default-lease-time 14400;
+  max-lease-time 172800;
+  option vendor-class-identifier "HTTPClient"; <co xml:id="co-venclassID-v4"/>
+  filename "http://www.httpboot.local/sle/EFI/BOOT/bootx64.efi"; <co xml:id="co-booturl-v4"/>
+}</screen>
+    <calloutlist>
+     <callout arearefs="co-venclassID-v4">
+      <para>
+       The vendor class ID must be <literal>HTTPClient</literal>. The client uses
+     this ID to identify an HTTP Boot offer.
+      </para>
+     </callout>
+     <callout arearefs="co-booturl-v4">
+      <para>
+       The boot URL must point to the directory you created in
+       <xref linkend="configure-http-set-up-uefi-http-boot-server"/>.
+      </para>
+     </callout>
+    </calloutlist>
+   </step>
+   <step>
+    <para>
+     To set up the DHCPv6 server, edit the <filename>/etc/dhcpd6.conf</filename>
+     file to add the following configuration:
+    </para>
+<screen>option dhcp6.bootfile-url code 59 = string;
+option dhcp6.vendor-class code 16 = {integer 32, integer 16, string};
+subnet6 2001:db8:f00f:cafe::/64 {
+        range6 2001:db8:f00f:cafe::42:10 2001:db8:f00f:cafe::42:99;
+        option dhcp6.bootfile-url "http://www.httpboot.local/sle/EFI/BOOT/bootx64.efi"; <co xml:id="co-booturl-v6"/>
+        option dhcp6.name-servers 2001:db8:f00f:cafe::1;
+        option dhcp6.vendor-class 0 10 "HTTPClient"; <co xml:id="co-venclassID-v6"/>
+}</screen>
+      <calloutlist>
+       <callout arearefs="co-booturl-v6">
+        <para>
+         The boot URL must point to the directory you created in
+         <xref linkend="configure-http-set-up-uefi-http-boot-server"/>.
+        </para>
+       </callout>
+       <callout arearefs="co-venclassID-v6">
+        <para>
+         The vendor class option must consist of the enterprise number, the
+         vendor class length, and the vendor class content. The HTTP Boot driver
+         ignores the enterprise number, so you can set it to <literal>0</literal>.
+         The vendor class length must <literal>10</literal>, and the content
+         must be <literal>HTTPClient</literal>. The client uses this ID
+         to identify an HTTP Boot offer.
+        </para>
+       </callout>
+      </calloutlist>
+   </step>
+   <step>
+    <para>
+     Start the DHCP servers:
+    </para>
+<screen>&prompt.user;sudo systemctl enable --now dhcpd
+&prompt.user;sudo systemctl enable --now dhcpd6</screen>
+   </step>
+  </procedure>
+ </section>
+
+ <section xml:id="enable-ssl-set-up-uefi-http-boot-server">
   <title>Enabling SSL support for the HTTP server (optional)</title>
   <para>
    HTTPS Boot is only supported on &sle; 15 and newer. To use HTTPS Boot, you
@@ -293,7 +301,7 @@ subnet6 2001:db8:f00f:cafe::/64 {
     <para>
      Convert the certificate into the <literal>DER</literal> format:
     </para>
-<screen>&prompt.root;openssl x509 -in <replaceable>CERTIFICATE</replaceable>.crt -outform der -out <replaceable>CERTIFICATE</replaceable>.der</screen>
+<screen>&prompt.user;sudo openssl x509 -in <replaceable>CERTIFICATE</replaceable>.crt -outform der -out <replaceable>CERTIFICATE</replaceable>.der</screen>
    </step>
    <step>
     <para>
@@ -317,27 +325,26 @@ subnet6 2001:db8:f00f:cafe::/64 {
      In the same file, ensure that the <literal>ssl</literal> module appears in
      the <literal>APACHE_MODULES</literal> list:
     </para>
-<screen>&prompt.root;<command>grep 'APACHE_MODULES.*ssl' /etc/sysconfig/apache2</command>
-APACHE_MODULES="actions alias auth_basic authn_core authn_file authz_host
+<screen>&prompt.user;sudo <command>grep 'APACHE_MODULES.*ssl' /etc/sysconfig/apache2</command>
+<emphasis role="bold">APACHE_MODULES</emphasis>="actions alias auth_basic authn_core authn_file authz_host
 authz_groupfile authz_core authz_user autoindex cgi dir env expires include
-log_config mime negotiation setenvif ssl socache_shmcb userdir reqtimeout"</screen>
+log_config mime negotiation setenvif <emphasis role="bold">ssl</emphasis> socache_shmcb userdir reqtimeout"</screen>
    </step>
    <step>
     <para>
      Copy the private key and the certificate to the
      <filename>/etc/apache2/</filename> directory:
     </para>
-<screen>&prompt.root;cp server.key /etc/apache2/ssl.key/
-&prompt.root;chown wwwrun /etc/apache2/ssl.key/server.key
-&prompt.root;chmod 600 /etc/apache2/ssl.key/server.key
-&prompt.root;cp server.crt /etc/apache2/ssl.crt/</screen>
+<screen>&prompt.user;sudo cp server.key /etc/apache2/ssl.key/
+&prompt.user;sudo chown wwwrun /etc/apache2/ssl.key/server.key
+&prompt.user;sudo chmod 600 /etc/apache2/ssl.key/server.key
+&prompt.user;sudo cp server.crt /etc/apache2/ssl.crt/</screen>
    </step>
    <step>
     <para>
      Create the SSL vhost configuration:
     </para>
-<screen>&prompt.root;cd /etc/apache2/vhosts.d
-&prompt.root;cp vhost-ssl.template vhost-ssl.conf</screen>
+<screen>&prompt.user;sudo cp /etc/apache2/vhosts.d/vhost-ssl.template /etc/apache2/vhosts.d/vhost-ssl.conf</screen>
    </step>
    <step>
     <para>
@@ -351,13 +358,13 @@ SSLCertificateKeyFile /etc/apache2/ssl.key/server.key</screen>
     <para>
      Restart Apache to activate the SSL support:
     </para>
-<screen>&prompt.root;systemctl restart apache2</screen>
+<screen>&prompt.user;sudo systemctl restart apache2</screen>
    </step>
    <step>
     <para>
-     Edit the <filename>dhcpd.conf</filename> and <filename>dhcpd6.conf</filename>
-     files to replace the <literal>http://</literal> prefix with
-     <literal>https://</literal>:
+     Replace the <literal>http://</literal> prefix with
+     <literal>https://</literal> in the <filename>/etc/dhcpd.conf</filename>
+     and <filename>/etc/dhcpd6.conf</filename> files:
     </para>
 <screen>filename "http<emphasis role="bold">s</emphasis>://www.httpboot.local/sle/EFI/BOOT/bootx64.efi";</screen>
 <screen>option dhcp6.bootfile-url "http<emphasis role="bold">s</emphasis>://www.httpboot.local/sle/EFI/BOOT/bootx64.efi";</screen>
@@ -366,8 +373,8 @@ SSLCertificateKeyFile /etc/apache2/ssl.key/server.key</screen>
     <para>
      Restart the DHCP servers:
     </para>
-<screen>&prompt.root;systemctl restart dhcpd
-&prompt.root;systemctl restart dhcpd6</screen>
+<screen>&prompt.user;sudo systemctl restart dhcpd
+&prompt.user;sudo systemctl restart dhcpd6</screen>
    </step>
   </procedure>
  </section>
@@ -375,13 +382,9 @@ SSLCertificateKeyFile /etc/apache2/ssl.key/server.key</screen>
  <section xml:id="summary-set-up-uefi-http-boot-server">
   <title>Summary</title>
   <para>
-   You can now use this server to boot client machines over HTTP, if the client
-   firmware supports HTTP Boot.
-  </para>
-  <para>
-   Enabling HTTP Boot on a physical client machine depends on your specific
-   hardware. Consult the relevant documentation for information on how to
-   enable HTTP Boot on your particular machine.
+   You can now use this server to remotely install operating systems from an
+   HTTP URL, if the client firmware supports HTTP Boot. Consult the relevant
+   documentation for information on how to enable HTTP Boot on client machines.
   </para>
  </section>
 
@@ -408,22 +411,22 @@ SSLCertificateKeyFile /etc/apache2/ssl.key/server.key</screen>
   <itemizedlist>
    <listitem>
     <para>
-     Installing UEFI support (on VMs)
+     Installing UEFI support (VMs)
     </para>
    </listitem>
    <listitem>
     <para>
-     Guest installation
-    </para>
-   </listitem>
-   <listitem>
-    <para>
-     Booting the installation system
+     Guest installation (VMs)
     </para>
    </listitem>
    <listitem>
     <para>
      Remote installation
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     Booting the installation system
     </para>
    </listitem>
   </itemizedlist>
