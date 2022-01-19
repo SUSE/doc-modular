@@ -1,0 +1,354 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet href="urn:x-suse:xslt:profiling:docbook51-profile.xsl"
+ type="text/xml"
+ title="Profiling step"?>
+<!DOCTYPE article
+[
+  <!ENTITY % entities SYSTEM "generic-entities.ent">
+    %entities;
+]>
+
+<!--metadata
+ * product all
+ * product version all
+ * topic category/ies sysadmin, network
+ * target group(s)
+ * initially published
+ * last modified-->
+
+<!-- Adapted from net_bonding.xml
+https://documentation.suse.com/sles/15-SP3/html/SLES-all/cha-network.html#sec-network-iface-bonding
+
+Does not include 'Hotplugging of bonding slaves', which should be a separate article -->
+
+<article xml:id="task-configure-network-bonding" xml:lang="en"
+ role="task"
+ xmlns="http://docbook.org/ns/docbook" version="5.1"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+
+ <info>
+   <title>Configuring network bonding</title>
+   <dm:docmanager xmlns:dm="urn:x-suse:ns:docmanager">
+    <dm:bugtracker>
+     <dm:url>https://bugzilla.suse.com/enter_bug.cgi</dm:url>
+     <dm:component>Smart Docs</dm:component>
+     <dm:product>Documentation</dm:product>
+     <dm:assignee>tahlia.richardson@suse.com</dm:assignee>
+    </dm:bugtracker>
+    <dm:translation>no</dm:translation>
+   </dm:docmanager>
+ </info>
+
+ <section xml:id="environment-configure-network-bonding">
+  <title>Environment</title>
+   <para>This document applies to the following products and product versions:</para>
+   <itemizedlist>
+   <listitem>
+    <para>&sles;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA, 12&nbsp;SP5, 12&nbsp;SP4, 12&nbsp;SP3</para>
+   </listitem>
+   <listitem>
+    <para>&sles4sap;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA, 12&nbsp;SP5, 12&nbsp;SP4, 12&nbsp;SP3</para>
+   </listitem>
+   <listitem>
+    <para>&sleha;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA, 12&nbsp;SP5, 12&nbsp;SP4, 12&nbsp;SP3</para>
+   </listitem>
+   <listitem>
+    <para>&slehpc;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA</para>
+   </listitem>
+   <listitem>
+    <para>&sled;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA, 12&nbsp;SP5, 12&nbsp;SP4, 12&nbsp;SP3</para>
+   </listitem>
+   <listitem>
+    <para>&slert;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA, 12&nbsp;SP5, 12&nbsp;SP4, 12&nbsp;SP3</para>
+   </listitem>
+  </itemizedlist>
+ </section>
+
+ <section xml:id="introduction-configure-network-bonding">
+  <title>Introduction</title>
+  <para>
+   For some systems, there is a desire to implement network connections that
+   comply to more than the standard data security or availability requirements
+   of a typical Ethernet device. In these cases, several Ethernet devices can be
+   aggregated to a single bonding device.
+  </para>
+  <para>
+   The configuration of the bonding device is done by means of bonding module
+   options. The behavior is mainly affected by the mode of the bonding device.
+   By default, this is <systemitem>active-backup</systemitem> which means
+   that a different slave device will become active if the active slave fails.
+   The following bonding modes are available:
+  </para>
+  <variablelist>
+   <varlistentry>
+    <term><guimenu>0</guimenu> (balance-rr)</term>
+    <listitem>
+     <para>
+      Packets are transmitted in round-robin fashion from the first to the last
+      available interface. Provides fault tolerance and load balancing.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term><guimenu>1</guimenu> (active-backup)</term>
+    <listitem>
+     <para>
+      Only one network interface is active. If it fails, a different interface
+      becomes active. This setting is the default for &productname;. Provides
+      fault tolerance.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term><guimenu>2</guimenu> (balance-xor)</term>
+    <listitem>
+     <para>
+      Traffic is split between all available interfaces based on the following
+      policy: <literal>[(source MAC address XOR'd with destination MAC address
+      XOR packet type ID) modulo slave count]</literal> Requires support from
+      the switch. Provides fault tolerance and load balancing.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term><guimenu>3</guimenu> (broadcast)</term>
+    <listitem>
+     <para>
+      All traffic is broadcast on all interfaces. Requires support from the
+      switch. Provides fault tolerance.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term><guimenu>4</guimenu> (802.3ad)</term>
+    <listitem>
+     <para>
+      Aggregates interfaces into groups that share the same speed and duplex
+      settings. Requires <command>ethtool</command> support in the interface
+      drivers, and a switch that supports and is configured for IEEE 802.3ad
+      Dynamic link aggregation. Provides fault tolerance and load balancing.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term><guimenu>5</guimenu> (balance-tlb)</term>
+    <listitem>
+     <para>
+      Adaptive transmit load balancing. Requires <command>ethtool</command>
+      support in the interface drivers but not switch support. Provides fault
+      tolerance and load balancing.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term><guimenu>6</guimenu> (balance-alb)</term>
+    <listitem>
+     <para>
+      Adaptive load balancing. Requires <command>ethtool</command> support in
+      the interface drivers but not switch support. Provides fault tolerance and
+      load balancing.
+     </para>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+  <para>
+   For a more detailed description of the modes, see
+   <link
+     xlink:href="https://www.kernel.org/doc/Documentation/networking/bonding.txt"/>.
+  </para>
+  <tip>
+   <title>Bonding and &xen;</title>
+   <para>
+    Using bonding devices is only of interest for machines where you have
+    multiple real network cards available. In most configurations, this means
+    that you should use the bonding configuration only in &dom0;. Only if you
+    have multiple network cards assigned to a &vmguest; system it may also be
+    useful to set up the bond in a &vmguest;.
+   </para>
+  </tip>
+  <note arch="power">
+   <title>
+    IBM &power;: Bonding modes 5 and 6 (balance-tlb / balance-alb) unsupported
+    by ibmveth
+   </title>
+   <para>
+    There is a conflict with the tlb/alb bonding configuration and Power
+    firmware.  In short, the bonding driver in tlb/alb mode sends Ethernet
+    Loopback packets with both the source and destination MAC addresses listed
+    as the Virtual Ethernet MAC address. These packets are not supported by
+    Power firmware. Therefore bonding modes 5 and 6 are unsupported by ibmveth.
+   </para>
+  </note>
+ </section>
+
+ <section xml:id="requirements-configure-network-bonding">
+  <title>Requirements</title>
+  <itemizedlist>
+   <listitem>
+    <para>
+     An
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     Unordered
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     List
+    </para>
+   </listitem>
+  </itemizedlist>
+  <para>
+   A paragraph of text.
+  </para>
+ </section>
+
+ <section xml:id="configure-network-bonding">
+  <title>Configuring network bonding</title>
+  <para>
+   A paragraph of text.
+  </para>
+  <procedure>
+   <step>
+    <para>
+     Run <menuchoice><guimenu>&yast;</guimenu> <guimenu>System</guimenu>
+     <guimenu>Network Settings</guimenu></menuchoice>.
+    </para>
+   </step>
+   <step>
+    <para>
+     Use <guimenu>Add</guimenu> and change the <guimenu>Device Type</guimenu> to
+     <guimenu>Bond</guimenu>. Proceed with <guimenu>Next</guimenu>.
+    </para>
+   </step>
+   <step>
+    <para>
+     Select how to assign the IP address to the bonding device. Three methods
+     are at your disposal:
+    </para>
+    <itemizedlist mark="bullet" spacing="normal">
+     <listitem>
+      <para>
+       No IP Address
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+       Dynamic Address (with DHCP or Zeroconf)
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+       Statically assigned IP Address
+      </para>
+     </listitem>
+    </itemizedlist>
+    <para>
+     Use the method that is appropriate for your environment.
+    </para>
+   </step>
+   <step>
+    <para>
+     In the <guimenu>Bond Slaves</guimenu> tab, select the Ethernet devices that
+     should be included into the bond by activating the related check box.
+    </para>
+   </step>
+   <step>
+    <para>
+     Edit the <guimenu>Bond Driver Options</guimenu> and choose a bonding mode.
+    </para>
+   </step>
+   <step>
+    <para>
+     Make sure that the parameter <literal>miimon=100</literal> is added to the
+     <guimenu>Bond Driver Options</guimenu>. Without this parameter, the data
+     integrity is not checked regularly.
+    </para>
+   </step>
+   <step>
+    <para>
+     Click <guimenu>Next</guimenu> and leave &yast; with <guimenu>OK</guimenu>
+     to create the device.
+    </para>
+   </step>
+  </procedure>
+ </section>
+
+ <!-- Include ifcfg procedure too? -->
+
+ <section xml:id="summary-configure-network-bonding">
+  <title>Summary</title>
+  <para>
+   A paragraph of text, summing up the result of the task.
+  </para>
+ </section>
+
+ <section xml:id="troubleshooting-configure-network-bonding">
+  <title>Troubleshooting</title>
+  <para>A paragraph of text.</para>
+  <variablelist>
+   <varlistentry>
+    <term>Problem phrased as question</term>
+    <listitem>
+     <para>
+      A paragraph of text.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>Another problem phrased as question</term>
+    <listitem>
+     <para>
+      Another paragraph of text.
+     </para>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+ </section>
+
+ <section xml:id="next-configure-network-bonding">
+  <title>Next steps</title>
+  <itemizedlist>
+   <listitem>
+    <para>
+     Hotplugging network interfaces into an existing network bond
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     Unordered
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     List
+    </para>
+   </listitem>
+  </itemizedlist>
+ </section>
+
+ <section xml:id="related-configure-network-bonding">
+  <title>Related topics</title>
+  <itemizedlist>
+   <listitem>
+    <para>
+     Configuring network teaming
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     Differences between bonding and teaming (title TBD)
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     List
+    </para>
+   </listitem>
+  </itemizedlist>
+ </section>
+</article>
