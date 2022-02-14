@@ -69,10 +69,9 @@ Does not include 'Use case: VLAN over team device', which should be a separate a
  <section xml:id="introduction-configure-network-teaming">
   <title>Introduction</title>
   <para>
-   network teaming can be used for different use cases. The two most important use
+   Network teaming can be used for different use cases. The two most important use
    cases are explained later and involve:
   </para>
-
   <itemizedlist>
    <listitem>
     <para>
@@ -86,12 +85,59 @@ Does not include 'Use case: VLAN over team device', which should be a separate a
     </para>
    </listitem>
   </itemizedlist>
-
   <para>
-   <remark>toms 2016-06-21: FATE#320947 for Teaming in/with YaST</remark>
-   Currently, there is no &yast; module to support creating a teaming device.
-   You need to configure network teaming manually. The general procedure is shown
-   below which can be applied for all your network teaming configurations:
+   The following teaming modes are available:
+  </para>
+  <variablelist>
+   <varlistentry>
+    <term>broadcast</term>
+    <listitem>
+     <para>
+      The team device transmits packets via all its ports.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>roundrobin</term>
+    <listitem>
+     <para>
+      The team device transmits packets via all its ports with round-robin method.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>activebackup</term>
+    <listitem>
+     <para>
+      The team device monitors ports' link changes and uses a port with an active
+      link to transmit packets.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>loadbalance</term>
+    <listitem>
+     <para>
+      The team device transmits packets via all its ports, performing load
+      balancing (passive or active) with a use of hash functions. For passive
+      load balancing, only the BPF hash function is used. For active load
+      balancing, the runner finds the best balance by moving hashes between
+      available ports.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>lacp</term>
+    <listitem>
+     <para>
+      Implements the 802.3ad LACP protocol.
+     </para>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+  <para>
+   Currently, &yast; cannot create a teaming device. You must configure network
+   teaming manually using an <filename>ifcfg</filename> file.
   </para>
  </section>
 
@@ -100,41 +146,29 @@ Does not include 'Use case: VLAN over team device', which should be a separate a
   <itemizedlist>
    <listitem>
     <para>
-     An
-    </para>
-   </listitem>
-   <listitem>
-    <para>
-     Unordered
-    </para>
-   </listitem>
-   <listitem>
-    <para>
-     List
-    </para>
-   </listitem>
-  </itemizedlist>
-  <para>
-   A paragraph of text.
-  </para>
- </section>
-
- <section xml:id="configure-network-teaming">
-  <title>Configuring network teaming</title>
-  <para>
-   A paragraph of text.
-  </para>
-  <procedure xml:id="pro-team-general">
-   <title>General procedure</title>
-   <step>
-    <para>
      Make sure you have all the necessary packages installed. Install the
      packages
      <package>libteam-tools</package>,
      <package>libteamdctl0</package>, and
      <package>python-libteam</package>.
     </para>
-   </step>
+   </listitem>
+   <listitem>
+    <para>
+
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+
+    </para>
+   </listitem>
+  </itemizedlist>
+ </section>
+
+ <section xml:id="configure-network-teaming">
+  <title>Configuring network teaming</title>
+  <procedure>
    <step>
     <para>
      Create a configuration file under
@@ -148,190 +182,129 @@ Does not include 'Use case: VLAN over team device', which should be a separate a
      ifcfg-team</command>). An example configuration can be found in your
      system in the file <filename>/etc/sysconfig/network/ifcfg.template</filename>.
     </para>
-    <itemizedlist>
-     <listitem>
+<screen>STARTMODE=auto <co xml:id="co-team-startmode"/>
+BOOTPROTO=static <co xml:id="co-team-boot-and-ip"/>
+IPADDRESS="&subnetI;.1/24" <xref linkend="co-team-boot-and-ip"/>
+IPADDR6="fd00:deca:fbad:50::1/64" <xref linkend="co-team-boot-and-ip"/>
+
+TEAM_RUNNER="loadbalance" <co xml:id="co-team-loadbalance"/>
+
+TEAM_PORT_DEVICE_0="eth0" <co xml:id="co-team-dev"/>
+TEAM_PORT_DEVICE_1="eth1" <xref linkend="co-team-dev"/>
+
+TEAM_LW_NAME="ethtool" <co xml:id="co-team-name"/>
+TEAM_LW_ETHTOOL_DELAY_UP="10" <co xml:id="co-team-ethtool-delay"/>
+TEAM_LW_ETHTOOL_DELAY_DOWN="10" <xref linkend="co-team-ethtool-delay"/></screen>
+    <calloutlist>
+     <callout arearefs="co-team-startmode">
       <para>
-       Load balancing is used to improve bandwidth. Use the following configuration
-       file to create a network teaming device with load balancing capabilities. Proceed
-       with <xref linkend="pro-team-general"/> to set up the device. Check the
-       output with <command>teamdctl</command>.
-      </para>
-      <example xml:id="ex-team-lb">
-       <title>Configuration for load balancing with network teaming</title>
-    <screen>STARTMODE=auto <co xml:id="co-team-lb-startmode"/>
-    BOOTPROTO=static <co xml:id="co-team-lb-boot-and-ip"/>
-    IPADDRESS="&subnetI;.1/24" <xref linkend="co-team-lb-boot-and-ip"/>
-    IPADDR6="fd00:deca:fbad:50::1/64" <xref linkend="co-team-lb-boot-and-ip"/>
-
-    TEAM_RUNNER="loadbalance" <co xml:id="co-team-lb-loadbalance"/>
-    TEAM_LB_TX_HASH="ipv4,ipv6,eth,vlan"
-    TEAM_LB_TX_BALANCER_NAME="basic"
-    TEAM_LB_TX_BALANCER_INTERVAL="100"
-
-    TEAM_PORT_DEVICE_0="eth0" <co xml:id="co-team-lb-dev"/>
-    TEAM_PORT_DEVICE_1="eth1" <xref linkend="co-team-lb-dev"/>
-
-    TEAM_LW_NAME="ethtool" <co xml:id="co-team-lb-name"/>
-    TEAM_LW_ETHTOOL_DELAY_UP="10" <co xml:id="co-team-lb-ethtool-delay"/>
-    TEAM_LW_ETHTOOL_DELAY_DOWN="10" <xref linkend="co-team-lb-ethtool-delay"
-    /></screen>
-       <calloutlist>
-        <callout arearefs="co-team-lb-startmode">
-         <para>
-          Controls the start of the teaming device. The value of
-          <literal>auto</literal> means, the interface will be set up when the
-          network service is available and will be started automatically on every
-          reboot.
-         </para>
-         <para>
-          In case you need to control the device yourself (and prevent it from
-          starting automatically), set <varname>STARTMODE</varname> to
-          <literal>manual</literal>.
-         </para>
-        </callout>
-        <callout arearefs="co-team-lb-boot-and-ip">
-         <para>
-          Sets a static IP address (here
-          <systemitem
-           class="ipaddress">&subnetI;.1</systemitem>
-          for IPv4 and
-          <systemitem class="ipaddress">fd00:deca:fbad:50::1</systemitem> for
-          IPv6).
-         </para>
-         <para>
-          If the network teaming device should use a dynamic IP address, set
-          <literal>BOOTPROTO="dhcp"</literal> and remove (or comment) the line with
-          <varname>IPADDRESS</varname> and <varname>IPADDR6</varname>.
-         </para>
-        </callout>
-        <callout arearefs="co-team-lb-loadbalance">
-         <para>
-          Sets <varname>TEAM_RUNNER</varname> to <literal>loadbalance</literal> to
-          activate the load balancing mode.
-         </para>
-        </callout>
-        <callout arearefs="co-team-lb-dev">
-         <para>
-          Specifies one or more devices which should be aggregated to create the
-          network teaming device.
-         </para>
-        </callout>
-        <callout arearefs="co-team-lb-name">
-         <para>
-          Defines a link watcher to monitor the state of subordinate devices. The
-          default value <literal>ethtool</literal> checks only if the device is up
-          and accessible. This makes this check fast enough. However, it does not
-          check if the device can really send or receive packets.
-         </para>
-         <para>
-          If you need a higher confidence in the connection, use the
-          <literal>arp_ping</literal> option. This sends pings to an arbitrary host
-          (configured in the <varname>TEAM_LW_ARP_PING_TARGET_HOST</varname>
-          variable). The network teaming device is considered to be up only if the
-          replies are received.
-         </para>
-        </callout>
-        <callout arearefs="co-team-lb-ethtool-delay">
-         <para>
-          Defines the delay in milliseconds between the link coming up (or down)
-          and the runner being notified.
-         </para>
-        </callout>
-       </calloutlist>
-      </example>
-     </listitem>
-     <listitem>
-      <para>
-       Failover is used to ensure high availability of a critical network teaming device
-       by involving a parallel backup network device. The backup network device is
-       running all the time and takes over if and when the main device fails.
+       Controls the start of the teaming device. The value of
+       <literal>auto</literal> means, the interface will be set up when the
+       network service is available and will be started automatically on every
+       reboot.
       </para>
       <para>
-       Use the following configuration file to create a network teaming device with
-       failover capabilities. Proceed with <xref linkend="pro-team-general"/> to
-       set up the device. Check the output with <command>teamdctl</command>.
+       In case you need to control the device yourself (and prevent it from
+       starting automatically), set <varname>STARTMODE</varname> to
+       <literal>manual</literal>.
       </para>
-      <example xml:id="ex-team-failover">
-       <title>Configuration for DHCP network teaming device</title>
-    <screen>STARTMODE=auto <co xml:id="co-team-failover-startmode"/>
-    BOOTPROTO=static <co xml:id="co-team-failover-boot-and-ip"/>
-    IPADDR="&subnetI;.2/24" <xref linkend="co-team-failover-boot-and-ip"/>
-    IPADDR6="fd00:deca:fbad:50::2/64" <xref linkend="co-team-failover-boot-and-ip"/>
+     </callout>
+     <callout arearefs="co-team-boot-and-ip">
+      <para>
+       Sets a static IP address (here
+       <systemitem
+        class="ipaddress">&subnetI;.1</systemitem>
+       for IPv4 and
+       <systemitem class="ipaddress">fd00:deca:fbad:50::1</systemitem> for
+       IPv6).
+      </para>
+      <para>
+       If the network teaming device should use a dynamic IP address, set
+       <literal>BOOTPROTO="dhcp"</literal> and remove (or comment) the line with
+       <varname>IPADDRESS</varname> and <varname>IPADDR6</varname>.
+      </para>
+     </callout>
+     <callout arearefs="co-team-loadbalance">
+      <para>
+       Sets <varname>TEAM_RUNNER</varname> to <literal>loadbalance</literal> to
+       activate the load balancing mode.
+      </para>
+     </callout>
+     <callout arearefs="co-team-dev">
+      <para>
+       Specifies one or more devices which should be aggregated to create the
+       network teaming device.
+      </para>
+     </callout>
+     <callout arearefs="co-team-name">
+      <para>
+       Defines a link watcher to monitor the state of subordinate devices. The
+       default value <literal>ethtool</literal> checks only if the device is up
+       and accessible. This makes this check fast enough. However, it does not
+       check if the device can really send or receive packets.
+      </para>
+      <para>
+       If you need a higher confidence in the connection, use the
+       <literal>arp_ping</literal> option. This sends pings to an arbitrary host
+       (configured in the <varname>TEAM_LW_ARP_PING_TARGET_HOST</varname>
+       variable). The network teaming device is considered to be up only if the
+       replies are received.
+      </para>
+     </callout>
+     <callout arearefs="co-team-ethtool-delay">
+      <para>
+       Defines the delay in milliseconds between the link coming up (or down)
+       and the runner being notified.
+      </para>
+     </callout>
+    </calloutlist>
+    <para>
+     Load balancing is used to improve bandwidth. Use the following configuration
+     file to create a network teaming device with load balancing capabilities.
+    </para>
+    <example xml:id="ex-team-lb">
+     <title>Configuration for load balancing with network teaming</title>
+<screen>STARTMODE=auto
+BOOTPROTO=static
+IPADDRESS="&subnetI;.1/24"
+IPADDR6="fd00:deca:fbad:50::1/64"
 
-    TEAM_RUNNER=activebackup <co xml:id="co-team-failover-activebackup"/>
-    TEAM_PORT_DEVICE_0="eth0" <co xml:id="co-team-failover-dev"/>
-    TEAM_PORT_DEVICE_1="eth1" <xref linkend="co-team-failover-dev"/>
+TEAM_RUNNER="loadbalance"
+TEAM_LB_TX_HASH="ipv4,ipv6,eth,vlan"
+TEAM_LB_TX_BALANCER_NAME="basic"
+TEAM_LB_TX_BALANCER_INTERVAL="100"
 
-    TEAM_LW_NAME=ethtool <co xml:id="co-team-failover-name"/>
-    TEAM_LW_ETHTOOL_DELAY_UP="10" <co xml:id="co-team-failover-ethtool-delay"/>
-    TEAM_LW_ETHTOOL_DELAY_DOWN="10" <xref linkend="co-team-failover-ethtool-delay"
-    /></screen>
-       <calloutlist>
-        <callout arearefs="co-team-failover-startmode">
-         <para>
-          Controls the start of the teaming device. The value of
-          <literal>auto</literal> means the interface will be set up when the
-          network service is available and will be started automatically on every
-          reboot.
-         </para>
-         <para>
-          In case you need to control the device yourself (and prevent it from
-          starting automatically), set <varname>STARTMODE</varname> to
-          <literal>manual</literal>.
-         </para>
-        </callout>
-        <callout arearefs="co-team-failover-boot-and-ip">
-         <para>
-          Sets a static IP address (here
-          <systemitem
-           class="ipaddress">&subnetI;.2</systemitem>
-          for IPv4 and
-          <systemitem class="ipaddress">fd00:deca:fbad:50::2</systemitem> for
-          IPv6).
-         </para>
-         <para>
-          If the network teaming device should use a dynamic IP address, set
-          <literal>BOOTPROTO="dhcp"</literal> and remove (or comment) the line with
-          <varname>IPADDRESS</varname> and <varname>IPADDR6</varname>.
-         </para>
-        </callout>
-        <callout arearefs="co-team-failover-activebackup">
-         <para>
-          Sets <varname>TEAM_RUNNER</varname> to <literal>activebackup</literal> to
-          activate the failover mode.
-         </para>
-        </callout>
-        <callout arearefs="co-team-failover-dev">
-         <para>
-          Specifies one or more devices which should be aggregated to create the
-          network teaming device.
-         </para>
-        </callout>
-        <callout arearefs="co-team-failover-name">
-         <para>
-          Defines a link watcher to monitor the state of subordinate devices. The
-          default value <literal>ethtool</literal> checks only if the device is up
-          and accessible. This makes this check fast enough. However, it does not
-          check if the device can really send or receive packets.
-         </para>
-         <para>
-          If you need a higher confidence in the connection, use the
-          <literal>arp_ping</literal> option. This sends pings to an arbitrary host
-          (configured in the <varname>TEAM_LW_ARP_PING_TARGET_HOST</varname>
-          variable). Only if the replies are received, the network teaming device is
-          considered to be up.
-         </para>
-        </callout>
-        <callout arearefs="co-team-failover-ethtool-delay">
-         <para>
-          Defines the delay in milliseconds between the link coming up (or down)
-          and the runner being notified.
-         </para>
-        </callout>
-       </calloutlist>
-      </example>
-     </listitem>
-    </itemizedlist>
+TEAM_PORT_DEVICE_0="eth0"
+TEAM_PORT_DEVICE_1="eth1"
+
+TEAM_LW_NAME="ethtool"
+TEAM_LW_ETHTOOL_DELAY_UP="10"
+TEAM_LW_ETHTOOL_DELAY_DOWN="10"</screen>
+    </example>
+    <para>
+     Failover is used to ensure high availability of a critical network teaming device
+     by involving a parallel backup network device. The backup network device is
+     running all the time and takes over if and when the main device fails.
+    </para>
+    <para>
+     Use the following configuration file to create a network teaming device with
+     failover capabilities.
+    </para>
+    <example xml:id="ex-team-failover">
+     <title>Configuration for DHCP network teaming device</title>
+<screen>STARTMODE=auto
+BOOTPROTO=static
+IPADDR="&subnetI;.2/24"
+IPADDR6="fd00:deca:fbad:50::2/64"
+
+TEAM_RUNNER=activebackup
+TEAM_PORT_DEVICE_0="eth0"
+TEAM_PORT_DEVICE_1="eth1"
+
+TEAM_LW_NAME=ethtool
+TEAM_LW_ETHTOOL_DELAY_UP="10"
+TEAM_LW_ETHTOOL_DELAY_DOWN="10"</screen>
+    </example>
    </step>
    <step>
     <para>
@@ -473,12 +446,12 @@ Does not include 'Use case: VLAN over team device', which should be a separate a
    </listitem>
    <listitem>
     <para>
-     Unordered
+
     </para>
    </listitem>
    <listitem>
     <para>
-     List
+
     </para>
    </listitem>
   </itemizedlist>
@@ -499,7 +472,7 @@ Does not include 'Use case: VLAN over team device', which should be a separate a
    </listitem>
    <listitem>
     <para>
-     List
+
     </para>
    </listitem>
   </itemizedlist>
