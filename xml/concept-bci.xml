@@ -482,4 +482,75 @@ e.g. concept-fencing-->
    </varlistentry>
   </variablelist>
  </section>
+ <section xml:id="status-lifecycle-bci">
+  <title>Important note on status and lifecycle</title>
+  <para>
+   All container images, except for base, are currently classified as tech
+   preview, and SUSE doesn't provide official support for them. This
+   information is visible on the web on
+   <link xlink:href="https://registry.suse.com">registry.suse.com</link>. In
+   addition to that, it is also indicated via the
+   <literal>com.suse.techpreview</literal> label whether a container image
+   still has the tech preview status. You can use the skopeo and jq utilities
+   to check the status of the desired &bcia; as follows:
+  </para>
+<screen>skopeo inspect docker://registry.suse.com/bci/bci-micro:15.3 | jq '.Labels["com.suse.techpreview"]'
+skopeo inspect docker://registry.suse.com/bci/bci-base:15.3 | jq '.Labels["com.suse.techpreview"]'
+null</screen>
+  <para>
+   In the example above, the <literal>com.suse.techpreview</literal> label is
+   set to 1 in the <literal>bci-micro</literal> container image, indicating
+   that the image still has the tech preview status. Unlike like the general
+   purpose &bcia;, the language stack &bcia; may not follow the lifecycle of
+   the &slea; distribution: they are supported as long as the respective
+   language stack receives support. In other words, new versions of &bcia;
+   (indicated by the OCI tags) may be released during the lifecycle of a &slea;
+   Service Pack, while older versions may become unsupported. Refer to
+   <link xlink:href="https://suse.com/lifecycle">suse.com/lifecycle</link> to
+   find out whether the container in question is still under support.
+  </para>
+ </section>
+ <section xml:id="getting-started-bci">
+  <title>Getting started</title>
+  <para>
+   The &bcia; are available as OCI-compatible container images directly from
+   <link xlink:href="https://registry.suse.com">registry.suse.com</link> and
+   can be used like any other container image. For example, using one of the
+   general purpose containers:
+  </para>
+<screen>&prompt.user;podman run --rm -it registry.suse.com/bci/bci-base:15.3 grep '^NAME' /etc/os-release
+NAME="SLES"</screen>
+  <para>
+   Alternatively, you can use &bcia; in Dockerfile as follows:
+  </para>
+<screen>FROM registry.suse.com/bci/bci-base:15.3
+RUN zypper -n in python3 &amp;&amp; \
+    echo "Hello Green World!" > index.html
+ENTRYPOINT ["/usr/bin/python3", "-m", "http.server"]
+EXPOSE 8000</screen>
+  <para>
+   You can then build container images using the <command>docker build
+   .</command> or <command>buildah bud .</command> commands:
+  </para>
+<screen>&prompt.user;docker build .
+Sending build context to Docker daemon  2.048kB
+Step 1/4 : FROM registry.suse.com/bci/bci-base:15.3
+ ---> e34487b4c4e1
+Step 2/4 : RUN zypper -n in python3 &amp;&amp;     echo "Hello Green World!" > index.html
+ ---> Using cache
+ ---> 9b527dfa45e8
+Step 3/4 : ENTRYPOINT ["/usr/bin/python3", "-m", "http.server"]
+ ---> Using cache
+ ---> 953080e91e1e
+Step 4/4 : EXPOSE 8000
+ ---> Using cache
+ ---> 48b33ec590a6
+Successfully built 48b33ec590a6
+ 
+&prompt.user;docker run -p 8000:8000 --rm -d 48b33ec590a6
+575ad7edf43e11c2c9474055f7f6b7a221078739fc8ce5765b0e34a0c899b46a
+ 
+&prompt.user;curl localhost:8000
+Hello Green World!</screen>
+ </section>
 </article>
