@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<?xml-stylesheet href="urn:x-suse:xslt:profiling:docbook51-profile.xsl"
+ type="text/xml"
+ title="Profiling step"?>
+<!DOCTYPE article
+[
+  <!ENTITY % entities SYSTEM "generic-entities.ent">
+    %entities;
+]>
+<article xml:id="concept-configure-ignition" xml:lang="en"
+ role="concept"
+ xmlns="http://docbook.org/ns/docbook" version="5.1"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+ <info>
+  <title>Configuring with &ignition;: Concept</title>
+  <dm:docmanager xmlns:dm="urn:x-suse:ns:docmanager">
+   <dm:bugtracker>
+    <dm:url>https://bugzilla.suse.com/enter_bug.cgi</dm:url>
+    <dm:component>Smart Docs</dm:component>
+    <dm:product>Documentation</dm:product>
+    <dm:assignee>tbazant@suse.com</dm:assignee>
+   </dm:bugtracker>
+   <dm:translation>no</dm:translation>
+  </dm:docmanager>
+ </info>
+ <!-- highly inspired by sle/xml/deployment_images_ignition.xml -->
+ <section xml:id="what-is-ignition">
+  <title>What is &ignition;?</title>
+  <para>
+   &ignition; is a provisioning tool that enables you to configure a system according to your
+   specification on the first boot.
+  </para>
+ </section>
+ <section xml:id="how-it-works-ignition">
+  <title>How does &ignition; work?</title>
+  <para>
+   When the system is booted for the first time, &ignition; is loaded as part of an
+   <filename>initramfs</filename> and searches for a configuration file within a specific directory
+   (on a USB flash disk or you can provide a URL). All changes are performed before the kernel
+   switches from the temporal file system to the real root file system (before the
+   <literal>switch_root</literal> command is issued).
+  </para>
+  <para>
+   &ignition; uses a configuration file in the JSON format named <filename>config.ign</filename>.
+   For the purpose of better human readability, you can create a YAML file and convert this file to
+   JSON. For details, refer to <xref linkend="sec-converting-config"/>.
+  </para>
+  <section xml:id="sec-ignition-configuration">
+   <title><literal>config.ign</literal></title>
+   <para>
+    When installing on bare metal, the configuration file <filename>config.ign</filename> must
+    reside in the <filename>ignition</filename> subdirectory on the configuration media labeled
+    <literal>ignition</literal>. The directory structure must look as follows:
+   </para>
+<screen>
+&lt;root directory&gt;
+└── ignition
+    └── config.ign
+
+ </screen>
+   <para>
+    If you intend to configure a virtual machine with &vmm; (&libvirt;), provide the path to the
+    <filename>config.ign</filename> in its XML definition, for example:
+    </para>
+<screen>
+&lt;domain ... >
+  &lt;sysinfo type="fwcfg">
+    &lt;entry name="opt/com.coreos/config" file="/location/for/your/file/config.ign"/>
+  &lt;/sysinfo>
+&lt;/domain>
+</screen>
+    <para>
+    The <filename>config.ign</filename> contains various data types: objects, strings, integers,
+    booleans and lists of objects. For a complete specification, refer to
+    <link xlink:href="https://coreos.github.io/ignition/configuration-v3_3/">&ignition;
+    specification v3.3.0</link>.
+   </para>
+   <para>
+    The <literal>version</literal> attribute is mandatory and in case of &alpshort;, its value must
+    be set either to <literal>3.3.0</literal> or to any lower version. Otherwise &ignition; will
+    fail.
+   </para>
+   <para>
+    If you want to log in to your system as root, you must at least include a password for
+    &rootuser;. However, it is recommended to establish access via SSH keys. If you want to
+    configure a password, make sure to use a secure one. If you use a randomly generated password,
+    use at least 10 characters. If you create your password manually, use even more than 10
+    characters and combine uppercase and lowercase letters, and numbers.
+   </para>
+   <section xml:id="sec-ignition-examples">
+    <title>YAML configuration examples</title>
+    <para>
+     This section will provide you with some common examples of the &ignition; configuration in the
+     YAML format.
+    </para>
+    <note>
+     <title>The <literal>version</literal> attribute is mandatory</title>
+     <para>
+      Each <filename>config.fcc</filename> must include version 1.4.0 or lower that is then
+      converted to the corresponding &ignition; specification.
+     </para>
+    </note>
+    <section xml:id="sec-ignition-storage">
+     <title>Storage configuration</title>
+     <para>
+      The <literal>storage</literal> attribute is used to configure partitions, RAID, define file
+      systems, create files, etc. To define partitions, use the <literal>disks</literal> attribute.
+      The <literal>filesystem</literal> attribute is used to format partitions and define mount
+      points of particular partitions. The <literal>files</literal> attribute can be used to create
+      files in the file system. Each of the mentioned attributes is described in the following
+      sections.
+     </para>
+     <section xml:id="sec-storage-disks">
+      <title>The <literal>disks</literal> attribute</title>
+      <para>
+       The <literal>disks</literal> attribute is a list of devices that enables you to define
+       partitions on these devices. The <literal>disks</literal> attribute must contain at least one
+       <literal>device</literal>, other attributes are optional. The following example will use a
+       single virtual device and divide the disk into four partitions:
+      </para>
+<screen>
+variant: fcos
+version: 1.0.0
+storage:
+  disks:
+    - device:	"/dev/vda"
+      wipeTable: true
+      partitions: 
+      	- label: root
+      	  number: 1
+      	  typeGuid: 4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709
+      	- label: boot
+      	  number: 2
+      	  typeGuid: BC13C2FF-59E6-4262-A352-B275FD6F7172
+        - label: swap
+      	  number: 3
+      	  typeGuid: 0657FD6D-A4AB-43C4-84E5-0933C84B4F4F
+      	- label: home
+      	  number: 4
+      	  typeGuid: 933AC7E1-2EB4-4F13-B844-0E14E2AEF915
+ </screen>
+     </section>
+     <section xml:id="sec-storage-raid">
+      <title>The <literal>raid</literal> attribute</title>
+      <para>
+       The <literal>raid</literal> is a list of RAID arrays. The following attributes of
+       <literal>raid</literal> are mandatory:
+      </para>
+      <variablelist>
+       <varlistentry>
+        <term>level</term>
+        <listitem>
+         <para>
+          a level of the particular RAID array (linear, raid0, raid1, raid2, raid3, raid4, raid5,
+          raid6)
+         </para>
+        </listitem>
+       </varlistentry>
+       <varlistentry>
+        <term>devices</term>
+        <listitem>
+         <para>
+          a list of devices in the array referenced by their absolute paths
+         </para>
+        </listitem>
+       </varlistentry>
+       <varlistentry>
+        <term>name</term>
+        <listitem>
+         <para>
+          a name that will be used for the md device
+         </para>
+        </listitem>
+       </varlistentry>
+      </variablelist>
+<screen>
+variant: fcos
+version: 1.0.0
+storage:
+	- raid: data
+	  name: system
+	  level: raid1
+	  devices: "/dev/sda", "/dev/sdb"
+	  	
+ </screen>
+     </section>
+     <section xml:id="sec-storage-filesystem">
+      <title>The <literal>filesystem</literal> attribute</title>
+      <para>
+       <literal>filesystem</literal> must contain the following attributes:
+      </para>
+      <variablelist>
+       <varlistentry>
+        <term>device</term>
+        <listitem>
+         <para>
+          the absolute path to the device, typically <literal>/dev/sda</literal> in case of physical
+          disk
+         </para>
+        </listitem>
+       </varlistentry>
+       <varlistentry>
+        <term>format</term>
+        <listitem>
+         <para>
+          the file system format (btrfs, ext4, xfs, vfat or swap)
+         </para>
+         <note>
+          <para>
+           In case of &alpshort;, the <literal>root</literal> file system must be formatted to
+           btrfs.
+          </para>
+         </note>
+        </listitem>
+       </varlistentry>
+      </variablelist>
+      <para>
+       The following example demonstrates using the <literal>filesystem</literal> attribute. The
+       <filename>/opt</filename> directory will be mounted to the <literal>/dev/sda1</literal>
+       partition, which is formatted to btrfs. The partition table will not be erased.
+      </para>
+<screen>
+variant: fcos
+version: 1.0.0
+storage:
+  filesystems:
+    - path: /opt
+      device: "/dev/sda1"
+      format: btrfs
+      wipe_filesystem: false
+ </screen>
+     </section>
+     <section xml:id="sec-storage-files">
+      <title>The <literal>files</literal> attribute</title>
+      <para>
+       You can use the <literal>files</literal> attribute to create any files on your machine. Bear
+       in mind that if you want to create files outside the default partitioning schema, you need to
+       define the directories by using the <literal>filesystem</literal> attribute.
+      </para>
+      <para>
+       In the following example, a host name is created by using the <literal>files</literal>
+       attribute. The file <filename>/etc/hostname</filename> will be created with the
+       <emphasis>alp-1</emphasis> host name:
+      </para>
+<screen>
+variant: fcos
+version: 1.0.0
+storage:
+  files:
+    - path: /etc/hostname
+      mode: 0644
+      overwrite: true
+      contents:
+        inline: "alp-1"
+ </screen>
+     </section>
+     <section xml:id="sec-storage-directories">
+      <title>The <literal>directories</literal> attribute</title>
+      <para>
+       The <literal>directories</literal> attribute is a list of directories that will be created in
+       the file system. The <literal>directories</literal> attribute must contain at least one
+       <literal>path</literal> attribute.
+      </para>
+<screen>
+variant: fcos
+version: 1.0.0
+storage:
+  directories:
+  	- path: /home/tux/
+  	  user: 
+  	   - name: tux  	
+ </screen>
+     </section>
+    </section>
+    <section xml:id="sec-ignition-users">
+     <title>Users administration</title>
+     <para>
+      The <literal>passwd</literal> attribute is used to add users. If you intend to log in to your
+      system, create &rootuser; and set the &rootuser;'s password and/or add the SSH key to the
+      &ignition; configuration. You need to hash the &rootuser; password, for example by using the
+      <command>openssl</command> command:
+     </para>
+<screen>
+ openssl passwd -6
+ </screen>
+     <para>
+      The command creates a hash of the password you chose. Use this hash as the value of the
+      <literal>password_hash</literal> attribute.
+     </para>
+<screen>
+variant: fcos
+version: 1.0.0
+passwd:
+  users:
+   - name: root
+     password_hash: "$6$PfKm6Fv5WbqOvZ0C$g4kByYM.D2B5GCsgluuqDNL87oeXiHqctr6INNNmF75WPGgkLn9O9uVx4iEe3UdbbhaHbTJ1vpZymKWuDIrWI1"
+     ssh_authorized_keys: 
+       - ssh-rsa long...key user@host
+ </screen>
+     <para>
+      The <literal>users</literal> attribute must contain at least one <literal>name</literal>
+      attribute. <literal>ssh_authorized_keys</literal> is a list of ssh keys for the user.
+     </para>
+    </section>
+    <section xml:id="sec-ignition-systemd">
+     <title>Enabling <literal>systemd</literal> services</title>
+     <para>
+      You can enable &systemd; services by specifying them in the <literal>systemd</literal>
+      attribute.
+     </para>
+<screen>
+variant: fcos
+version: 1.0.0
+systemd:
+  units:
+  - name: sshd.service
+    enabled: true
+ </screen>
+     <para>
+      The <literal>name</literal> must be the exact name of a service to be enabled (including the
+      suffix).
+     </para>
+    </section>
+   </section>
+  </section>
+ </section>
+ <section xml:id="related-configure-ignition">
+  <title>Related topics</title>
+  <itemizedlist>
+   <listitem>
+    <para>
+     Configuring with &combustion;.
+    </para>
+   </listitem>
+  </itemizedlist>
+ </section>
+</article>
