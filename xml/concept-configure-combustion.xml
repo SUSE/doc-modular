@@ -31,66 +31,72 @@
  <section xml:id="what-is-combustion">
   <title>What is &combustion;?</title>
   <para>
-   &combustion; is a provisioning tool that enables you to configure a system according to your
-   specification on the first boot.
+   &combustion; is a dracut module that enables you to configure your system on
+   the first boot. You can use &combustion;, for example, to change the default
+   partitions, set user passwords, create files, or install packages.
   </para>
  </section>
  <section xml:id="how-it-works-combustion">
   <title>How does &combustion; work?</title>
   <para>
-   When the system is booted for the first time, &combustion; is loaded as part of an
-   <filename>initramfs</filename> and searches for a configuration file within a specific directory
-   (on a USB flash disk or you can provide a URL). All changes are performed before the kernel
-   switches from the temporal file system to the real root file system (before the
-   <literal>switch_root</literal> command is issued).
+   &combustion; is invoked after the <literal>ignition.firstboot</literal>
+   argument is passed to the kernel command line. &combustion; reads a provided
+   file named <filename>script</filename>, executes included commands, and thus
+   performs changes to the file system. If <filename>script</filename> includes
+   the network flag, &combustion; tries to configure the network. After
+   <literal>/sysroot</literal> is mounted, &combustion; tries to activate all
+   mount points in <filename>/etc/fstab</filename> and then calls
+   <command>transactional-update</command> to apply other changes, for example,
+   setting &rootuser; password or installing packages.
   </para>
-  <para>
-   &combustion; uses a configuration file in the JSON format named <filename>config.ign</filename>.
-   For the purpose of better human readability, you can create a YAML file and convert this file to
-   JSON. For details, refer to 'Task: Converting YAML file into JSON'.
-  </para>
-  <section xml:id="alp-combustion-configuration">
-   <title><literal>config.ign</literal></title>
+  <section xml:id="sec-combustion-configuration">
+   <title>The <filename>script</filename> file</title>
    <para>
-    When installing on bare metal, the configuration file <filename>config.ign</filename> must
-    reside in the <filename>combustion</filename> subdirectory on the configuration media labeled
-    <literal>combustion</literal>. The directory structure must look as follows:
+    When installing on bare metal, the configuration file
+    <filename>script</filename> must reside in the
+    <filename>combustion</filename> subdirectory on the configuration media
+    labeled <literal>combustion</literal>. The directory structure must look as
+    follows:
    </para>
 <screen>
 &lt;root directory&gt;
 └── combustion
-    └── config.ign
-
- </screen>
+    └── script
+    └── other files
+</screen>
    <para>
-    If you intend to configure a virtual machine with &vmm; (&libvirt;), provide the path to the
-    <filename>config.ign</filename> in its XML definition, for example:
+    If you intend to configure a virtual machine with &vmm; (&libvirt;),
+    provide the path to the <filename>script</filename> file in its XML
+    definition, for example:
    </para>
 <screen>
 &lt;domain ... >
   &lt;sysinfo type="fwcfg">
-    &lt;entry name="opt/com.coreos/config" file="/location/for/your/file/config.ign"/>
+    &lt;entry name="opt/org.opensuse.combustion/script" file="/location/to/script"/>
   &lt;/sysinfo>
 &lt;/domain>
 </screen>
-   <para>
-    The <filename>config.ign</filename> contains various data types: objects, strings, integers,
-    booleans and lists of objects. For a complete specification, refer to
-    <link xlink:href="https://coreos.github.io/combustion/configuration-v3_3/">&combustion;
-    specification v3.3.0</link>.
-   </para>
-   <para>
-    The <literal>version</literal> attribute is mandatory and in case of &alpshort;, its value must
-    be set either to <literal>3.3.0</literal> or to any lower version. Otherwise &combustion; will
-    fail.
-   </para>
-   <para>
-    If you want to log in to your system as root, you must at least include a password for
-    &rootuser;. However, it is recommended to establish access via SSH keys. If you want to
-    configure a password, make sure to use a secure one. If you use a randomly generated password,
-    use at least 10 characters. If you create your password manually, use even more than 10
-    characters and combine uppercase and lowercase letters, and numbers.
-   </para>
+   <tip>
+    <title>Using &combustion; together with &ignition;</title>
+    <para>
+     &combustion; can be used along with &ignition;. If you intend to do so,
+     label your configuration medium <literal>ignition</literal> and include
+     the <filename>ignition</filename> directory with the
+     <filename>config.ign</filename> to your directory structure as shown
+     below:
+    </para>
+<screen>
+&lt;root directory&gt;
+└── combustion
+    └── script
+    └── other files
+└── ignition
+    └── config.ign
+</screen>
+    <para>
+     In this scenario, &ignition; runs before &combustion;.
+    </para>
+   </tip>
   </section>
  </section>
  <section xml:id="related-configure-combustion">
@@ -98,17 +104,26 @@
   <itemizedlist>
    <listitem>
     <para>
-     Converting YAML to JSON.
+     Examples of &combustion; configuration are detailed in <xref
+     linkend="reference-combustion-configuration"/>.
     </para>
    </listitem>
    <listitem>
     <para>
-     Examples of combustion configuration.
+     General information about &alpshort; deployment is included in <xref
+     linkend="concept-alp-deployment"/>.
     </para>
    </listitem>
    <listitem>
     <para>
-     Configuring with &combustion;.
+     For more details about configuring the &alpshort; deployment with
+     &ignition;, refer to <xref linkend="concept-configure-ignition"/>.
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     Transactional updates are described in
+     <xref linkend="concept-transactional-update"/>.
     </para>
    </listitem>
   </itemizedlist>
