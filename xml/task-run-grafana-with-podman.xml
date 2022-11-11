@@ -19,7 +19,7 @@
   <section xml:id="introduction-run-grafana-with-podman">
     <title>Introduction</title>
     <para>
-      This article describes how to run &kvm; &vmhost; on the &alp;
+      This article describes how to run &grafana; on the &alp;
       (&alpshort;).
     </para>
   </section>
@@ -33,96 +33,87 @@
       </listitem>
       <listitem>
         <para>
-          When running &alpshort; in a virtualized environment, you need to
-          enable the nested &kvm; virtualization on the bare-metal host
-          operating system and use <literal>kernel-default</literal> kernel
-          instead of the default <literal>kernel-default-base</literal> in
-          &alpshort;.
-        </para>
-      </listitem>
-      <listitem>
-        <para>
           Installed and enabled &podman;.
         </para>
       </listitem>
     </itemizedlist>
   </section>
-  <section xml:id="alp-starting-kvm">
-    <title>Starting the &kvm; workload</title>
+  <section xml:id="alp-starting-grafana">
+    <title>Starting the &grafana; workload</title>
     <para>
-      &alpshort; can serve as a host running virtual machines. The following
-      procedure describes steps to prepare the &alpshort; host to run
-      containerized &kvm; &vmhost; and run an example &vmguest; on top of it.
+     This section describes how to start the &grafana; workload and set up a
+     client so that we can test it with real data.
     </para>
     <procedure>
       <step>
         <para>
-          Identify the &kvm; workload image:
+          Identify the &grafana; workload image:
         </para>
 <screen>
-&prompt.root;podman search kvm
-registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/kvm
+&prompt.root;podman search grafana
+ registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/grafana
 </screen>
       </step>
       <step>
         <para>
-          Pull the image from the registry and install all the wrapper scripts:
+          Pull the image from the registry and prepare the environment:
         </para>
-<screen>&prompt.root;podman container runlabel install registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/kvm:latest</screen>
+<screen>
+&prompt.root;podman container runlabel install 
+ registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/grafana:latest
+</screen>
       </step>
       <step>
         <para>
-          Create the <literal>libvirtd</literal> container from the downloaded
+          Create the <literal>grafana</literal> container from the downloaded
           image:
         </para>
-<screen>&prompt.root;kvm-container-manage.sh create</screen>
+<screen>&prompt.root;grafana-container-manage.sh create</screen>
       </step>
       <step>
         <para>
-          Start the container:
+          Start the container with the &grafana; server:
         </para>
-<screen>&prompt.root;kvm-container-manage.sh start</screen>
-      </step>
-      <step>
-        <para>
-          Optionally, run a &vmguest; on top of the started &kvm; &vmguest;
-          using the <command>virt-install.sh</command> script.
-        </para>
-        <tip>
-          <para>
-            <command>virt-install.sh</command> uses the
-            <filename>openSUSE-Tumbleweed-JeOS.x86_64-OpenStack-Cloud.qcow2</filename>
-            image by default. To specify another VM image, modify the
-            <option>APPLIANCE_MIRROR</option> and <option>APPLIANCE</option>
-            options in the <filename>/etc/kvm-container.conf</filename> file.
-          </para>
-        </tip>
-        <tip>
-          <para>
-            <command>virsh.sh</command> is a wrapper script to launch the
-            <command>virsh</command> command inside the container (the default
-            container name is <command>libvirtd</command>).
-          </para>
-        </tip>
-<screen>
-&prompt.user;virt-install.sh
-[...]
-Starting install...
-Password for first root login is: OPjQok1nlfKp5DRZ
-Allocating 'Tumbleweed-JeOS_5221fd7860.qcow2'            |    0 B  00:00:00 ...
-Creating domain...                                       |    0 B  00:00:00
-Running text console command: virsh --connect qemu:///system console Tumbleweed-JeOS_5221fd7860
-Connected to domain 'Tumbleweed-JeOS_5221fd7860'
-Escape character is ^] (Ctrl + ])
-
-Welcome to openSUSE Tumbleweed 20220919 - Kernel 5.19.8-1-default (hvc0).
-
-eth0: 192.168.10.67 fe80::5054:ff:fe5a:c416
-
-localhost login:
-</screen>
+<screen>&prompt.root;grafana-container-manage.sh start</screen>
       </step>
     </procedure>
+   </section>
+   <section xml:id="alp-setting-grafana-client">
+     <title>Setting up a &grafana; client</title>
+      <para>
+       To test &grafana;, you need to set up a client that will provide real
+       data to the &grafana; server.
+      </para>
+    <procedure>
+     <step>
+      <para>
+       Log in to the client host and install the
+       <package>golang-github-prometheus-node_exporter</package> and
+       <package>golang-github-prometheus-prometheus</package> packages:
+      </para>
+<screen>&prompt.root;zypper in golang-github-prometheus-node_exporter golang-github-prometheus-prometheus</screen>
+      <note>
+       <para>
+        If your &grafana; server and client hosts are virtualized by a &kvm;
+        containerized workload, use the <option>--network</option>
+        option while creating the POD because the <option>--publish</option>
+        option does not work in this scenario. To get the IP of the &vmhost;
+        default network, run the following command on the &vmhost;:
+       </para>
+<screen>&prompt.user;virsh net-dhcp-leases default</screen>
+      </note>
+     </step>
+     <step>
+      <para>
+       Restart the &prometheus; services on the client host:
+      </para>
+<screen>
+&prompt.root;systemctl restart prometheus-node_exporter.service
+&prompt.root;systemctl restart prometheus
+</screen>
+     </step>
+    </procedure>
+   </section>
   </section>
   <section xml:id="related-run-grafana-with-podman">
     <title>Related topics</title>
