@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<?xml-stylesheet href="urn:x-suse:xslt:profiling:docbook51-profile.xsl"
+ type="text/xml"
+ title="Profiling step"?>
+<!DOCTYPE article
+[
+  <!ENTITY % entities SYSTEM "generic-entities.ent">
+    %entities;
+]>
+<article xml:id="task-prepare-alp-vm" xml:lang="en"
+ role="task"
+ xmlns="http://docbook.org/ns/docbook" version="5.1"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+  <title>Preparing &alpshort; virtual machine</title>
+  <section xml:id="introduction-prepare-alp-vm">
+    <title>Introduction</title>
+    <para>
+      This article describes how to configure a new virtual machine suitable
+      for &alpshort; deployment by using the &vmm;.
+    </para>
+  </section>
+  <section xml:id="requirements-prepare-alp-vm">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          A &vmhost; with &kvm; hypervisor.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Depending on the installation method, download either the &alpshort;
+          raw disk image from &alp-dld-site; or the &dinstaller; image from
+          &alp-dinstaller-dld-site; on the &vmhost; where you will run
+          virtualized &alpshort;.
+        </para>
+        <note>
+          <para>
+            Note that for the raw disk image deployment, there are two types of
+            images, depending whether you intend to run &alpshort; on an
+            encrypted disk or an unencrypted disk.
+          </para>
+        </note>
+      </listitem>
+    </itemizedlist>
+    <important>
+      <title>Encrypted image does not expand to the full disk capacity</title>
+      <para>
+        As of now, the encrypted raw disk image does not expand to the full
+        disk capacity automatically. As a workaround, the following steps are
+        required:
+      </para>
+      <procedure>
+        <step>
+          <para>
+            Use the <command>qemu-img</command> command to increase the disk
+            image to the desired size.
+          </para>
+        </step>
+        <step>
+          <para>
+            Setup the virtual machine and boot it. When the &jeosfirstboot;
+            wizard asks you which method to use for encryption, select
+            <guimenu>passphrase</guimenu>.
+          </para>
+        </step>
+        <step>
+          <para>
+            When the system is ready, use the <command>parted</command> command
+            to resize the partition where the LUKS device resides (for example,
+            partition number 3) to the desired size.
+          </para>
+        </step>
+        <step>
+          <para>
+            Run the <command>cryptsetup resize luks</command> command. When
+            asked, enter the passphrase to resize the encrypted device.
+          </para>
+        </step>
+        <step>
+          <para>
+            Run the <command>transactional-update shell</command> command to
+            open a read-write shell in the current disk snapshot. Then resize
+            the BTRFS file system to the desired size, for example:
+          </para>
+<screen>&prompt.root;btrfs fi resize max /</screen>
+        </step>
+        <step>
+          <para>
+            Leave the shell with <command>exit</command> and reboot the system
+            with <command>reboot</command>.
+          </para>
+        </step>
+      </procedure>
+    </important>
+  </section>
+  <section xml:id="requirements-prepare-alp-vm-">
+    <title>Configuring a virtual machine for &alpshort; deployment</title>
+    <procedure>
+      <step>
+        <para>
+          Start &vmm; and select
+          <menuchoice><guimenu>File</guimenu><guimenu>New Virtual
+          Machine</guimenu></menuchoice>.
+        </para>
+        <substeps>
+          <step>
+            <para>
+              For deployment using &dinstaller;, select <guimenu>Local install
+              media</guimenu>.
+            </para>
+          </step>
+          <step>
+            <para>
+              For the raw disk deployment, select <guimenu>Import existing disk
+              image</guimenu>.
+            </para>
+          </step>
+        </substeps>
+      </step>
+      <step>
+        <para>
+          Confirm with <guimenu>Forward</guimenu>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Specify the path to the &alpshort; disk image that you previously
+          downloaded and the type of linux OS you are deploying, for example,
+          <literal>Generic Linux 2020</literal>. Confirm with
+          <guimenu>Forward</guimenu>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Specify the amount of memory and number of processors that you want
+          to assign to the &alpshort; virtual machine and confirm with
+          <guimenu>Forward</guimenu>.
+        </para>
+      </step>
+      <step>
+        <para>
+          For deployment using &dinstaller;, enable storage for the virtual
+          machine and specify the size of the disk image.
+        </para>
+      </step>
+      <step>
+        <para>
+          Specify the name for the virtual machine and the network to be used.
+        </para>
+      </step>
+      <step>
+        <para>
+          If you are deploying an encrypted &alpshort; image, perform these
+          additional steps:
+        </para>
+        <substeps>
+          <step>
+            <para>
+              Enable <guimenu>Customize configuration before install</guimenu>
+              and confirm with <guimenu>Finish</guimenu>.
+            </para>
+          </step>
+          <step>
+            <para>
+              Click <guimenu>Overview</guimenu> from the left menu and change
+              the boot method from BIOS to UEFI for secure boot. Confirm with
+              <guimenu>Apply</guimenu>.
+            </para>
+            <figure>
+              <title>Set UEFI firmware for the encrypted &alpshort; image</title>
+              <mediaobject>
+                <imageobject role="fo">
+                  <imagedata fileref="alp-deploy-encrypted-uefi.png" width="75%"/>
+                </imageobject>
+                <imageobject role="html">
+                  <imagedata fileref="alp-deploy-encrypted-uefi.png" width="75%"/>
+                </imageobject>
+                <textobject role="description"><phrase>Set UEFI firmware for the encrypted &alpshort; image</phrase>
+                </textobject>
+              </mediaobject>
+            </figure>
+          </step>
+          <step>
+            <para>
+              Add a Trusted Platform Module (TPM) device. Click <guimenu>Add
+              Hardware</guimenu>, select <guimenu>TPM</guimenu> from the left
+              menu, and select the <guimenu>Emulated</guimenu> type.
+            </para>
+            <figure>
+              <title>Add emulated TPM device</title>
+              <mediaobject>
+                <imageobject role="fo">
+                  <imagedata fileref="alp-deploy-encrypted-tpm.png" width="75%"/>
+                </imageobject>
+                <imageobject role="html">
+                  <imagedata fileref="alp-deploy-encrypted-tpm.png" width="75%"/>
+                </imageobject>
+                <textobject role="description"><phrase>Add emulated TPM device</phrase>
+                </textobject>
+              </mediaobject>
+            </figure>
+            <para>
+              Confirm with <guimenu>Finish</guimenu> and start the &alpshort;
+              deployment by clicking <guimenu>Begin Installation</guimenu> from
+              the top menu.
+            </para>
+          </step>
+        </substeps>
+      </step>
+      <step>
+        <substeps>
+          <step>
+            <para>
+              For the raw disk image deployment, to deploy &alpshort; with only
+              minimal setup options, confirm with <guimenu>Finish</guimenu>.
+              The disk image will be booted and &jeosfirstboot; will take care
+              of the deployment. Refer to
+              <xref
+             linkend="deploy-alp-jeos-firstboot"/> for next
+              steps.
+            </para>
+            <tip>
+              <para>
+                You can detail the deployment setup by using the &ignition; or
+                &combustion; tools. For more details, refer to
+                <xref
+             linkend="concept-configure-ignition"/> and
+                <xref
+             linkend="concept-configure-combustion"/>.
+              </para>
+            </tip>
+          </step>
+          <step>
+            <para>
+              To continue the deployment by using &dinstaller;, confirm with
+              <guimenu>finish</guimenu> and continue with
+              <xref
+            linkend="task-deploy-alp-dinstaller"/>.
+            </para>
+          </step>
+        </substeps>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="summary-prepare-alp-vm">
+    <title>Summary</title>
+    <para>
+      Now your virtualization environment is ready for &alpshort; deployment
+      process.
+    </para>
+  </section>
+  <section xml:id="next-prepare-alp-vm">
+    <title>Next steps</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          For deployment using &dinstaller;, refer to
+          <xref
+       linkend="task-deploy-alp-dinstaller"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          For raw disk deployment, continue with
+          <xref
+       linkend="deploy-alp-jeos-firstboot"/>.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="related-prepare-alp-vm">
+    <title>Related topics</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Advanced configuration of &alpshort; deployment is described in
+          <xref
+     linkend="concept-configure-ignition"/> and
+          <xref linkend="concept-configure-combustion"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Find detailed information about using the &vmm; in
+          <link
+     xlink:href="https://documentation.suse.com/sles/html/SLES-all/cha-kvm-inst.html"/>
+          and
+          <link
+     xlink:href="https://documentation.suse.com/sles/15-SP4/html/SLES-all/cha-libvirt-config-gui.html"/>.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+</article>
