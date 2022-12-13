@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<?xml-stylesheet href="urn:x-suse:xslt:profiling:docbook51-profile.xsl"
+ type="text/xml"
+ title="Profiling step"?>
+<!DOCTYPE article
+[
+  <!ENTITY % entities SYSTEM "generic-entities.ent">
+    %entities;
+]>
+<article xml:id="task-deploy-alp-raw-image" xml:lang="en"
+ role="task"
+ xmlns="http://docbook.org/ns/docbook" version="5.1"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+  <title>Deploying &alpshort; using a raw disk image</title>
+  <section xml:id="introduction-deploy-alp-raw-image">
+    <title>Introduction</title>
+    <para>
+      This article describes how to deploy the &alp; (&alpshort;) raw disk
+      image. It applies to &alpshort; running both on encrypted and unencrypted
+      disk.
+    </para>
+    <section xml:id="alp-deployment-firstboot-detection">
+      <title>First boot detection</title>
+      <para>
+        The deployment configuration runs on the first boot only. To
+        distinguish between the first and subsequent boots, the flag file
+        <filename>/boot/writable/firstboot_happened</filename> is created after
+        the first boot finishes. If the file is not present in the file system,
+        the attribute <literal>ignition.firstboot</literal> is passed to the
+        kernel command line, which triggers the creation of
+        <filename>initramfs</filename> (&ignition;) or running a specific
+        dracut module (&combustion;). After completing the first boot, the
+        <filename>/boot/writable/firstboot_happened</filename> flag file is
+        created.
+      </para>
+      <note>
+        <title>The flag file is always created</title>
+        <para>
+          Even though the configuration may not be successful due to improper
+          or missing configuration files, the
+          <filename>/boot/writable/firstboot_happened</filename> flag file is
+          created.
+        </para>
+      </note>
+      <tip>
+        <para>
+          You may force the first boot configuration on subsequent boot by
+          passing the <literal>ignition.firstboot</literal> attribute to the
+          kernel command line or by deleting the
+          <filename>/boot/writable/firstboot_happened</filename> flag file.
+        </para>
+      </tip>
+    </section>
+    <section xml:id="alp-deployment-default-partitioning">
+      <title>Default partitioning</title>
+      <para>
+        The pre-built images are delivered with a default partitioning scheme.
+        You can change it during the first boot by using &ignition; or
+        &combustion;.
+      </para>
+      <important>
+        <title>BTRFS is mandatory for the root file system</title>
+        <para>
+          If you intend to perform any changes to the default partitioning
+          scheme, the root file system must be BTRFS.
+        </para>
+      </important>
+      <para>
+        Each image has the following subvolumes:
+      </para>
+<screen>
+ /home
+ /root
+ /opt
+ /srv
+ /usr/local
+ /var
+ </screen>
+      <para>
+        The <literal>/etc</literal> directory is mounted as overlayfs, where
+        the upper directory is mounted to
+        <filename>/var/lib/overlay/1/etc/</filename>.
+      </para>
+      <para>
+        You can recognize the subvolumes mounted by default by the option
+        <literal>x-initrd.mount</literal> in <filename>/etc/fstab</filename>.
+        Other subvolumes or partitions must be configured either by &ignition;
+        or &combustion;.
+      </para>
+    </section>
+  </section>
+  <section xml:id="deploy-alp-jeos-firstboot">
+    <title>Deploying &alpshort; with &jeosfirstboot;</title>
+    <tip>
+      <para>
+        When booting the &alpshort; raw image for the first time,
+        <emphasis>&jeosfirstboot;</emphasis> enables you to perform a minimal
+        configuration of your system. If you need more control over the
+        deployment process, find more information in
+        <xref linkend="concept-configure-ignition"/> and
+        <xref linkend="concept-configure-combustion"/>.
+      </para>
+    </tip>
+    <procedure>
+      <step>
+        <para>
+          Download the &alpshort; raw disk image from &alp-dld-site;. There are
+          two types of images, depending on whether you intend to run &alpshort;
+          on an encrypted disk or an unencrypted disk.
+        </para>
+        <para>
+          For example, for the unencrypted image:
+        </para>
+<screen>&prompt.user;curl -LO &alp-dld-site;ALP-VM.x86_64-0.0.1-kvm-Build15.17.qcow2</screen>
+        <para>
+          And for the encrypted image:
+        </para>
+<screen>&prompt.user;curl -LO &alp-dld-site;ALP-VM.x86_64-0.0.1-kvm_encrypted-Build15.18.qcow2</screen>
+      </step>
+      <step>
+        <para>
+          If you are deploying &alpshort; as a &vmguest;, you need to first
+          prepare the virtual machine by following
+          <xref linkend="task-prepare-alp-vm"/>.
+        </para>
+      </step>
+      <step>
+        <para>
+          After booting the &alpshort; disk image, you will be presented with a
+          boot loader screen. Select <guimenu>&alpshort;</guimenu> and confirm
+          with <keycap function="enter"></keycap>.
+        </para>
+        <figure>
+          <title>&alpshort; boot screen</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="alp-deploy-1.png" width="75%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="alp-deploy-1.png" width="75%"/>
+            </imageobject>
+            <textobject role="description"><phrase>&alpshort; boot screen</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
+      </step>
+      <step>
+        <para>
+          <guimenu>&jeosfirstboot;</guimenu> displays a welcome screen. Confirm
+          with <keycap
+     function="enter"></keycap>.
+        </para>
+        <figure>
+          <title>&jeosfirstboot; screen</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="alp-deploy-firstboot.png" width="75%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="alp-deploy-firstboot.png" width="75%"/>
+            </imageobject>
+            <textobject role="description"><phrase>&jeosfirstboot; screen</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
+      </step>
+      <step>
+        <para>
+          On the next screens, select keyboard, confirm the license agreement
+          and select the time zone.
+        </para>
+      </step>
+      <step>
+        <para>
+          In the <guimenu>Enter root password</guimenu> dialog window, enter a
+          password for the &rootuser; and confirm it.
+        </para>
+        <figure>
+          <title>Enter root password</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="alp-deploy-rootpwd.png" width="75%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="alp-deploy-rootpwd.png" width="75%"/>
+            </imageobject>
+            <textobject role="description"><phrase>Enter root password</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
+      </step>
+      <step>
+        <para>
+          When deploying with an encrypted disk, follow these additional steps:
+        </para>
+        <substeps>
+          <step>
+            <para>
+              Select the desired protection method and confirm with
+              <guimenu>OK</guimenu>.
+            </para>
+            <figure>
+              <title>Select method for encryption</title>
+              <mediaobject>
+                <imageobject role="fo">
+                  <imagedata fileref="alp-deploy-encrypted-passkey.png" width="75%"/>
+                </imageobject>
+                <imageobject role="html">
+                  <imagedata fileref="alp-deploy-encrypted-passkey.png" width="75%"/>
+                </imageobject>
+                <textobject role="description"><phrase>Select method for encryption</phrase>
+                </textobject>
+              </mediaobject>
+            </figure>
+          </step>
+          <step>
+            <para>
+              Enter a recovery password for LUKS encryption and retype it. The
+              root file system re-encryption will begin.
+            </para>
+          </step>
+        </substeps>
+      </step>
+      <step>
+        <para>
+          &alpshort; is successfully deployed using a minimal initial
+          configuration.
+        </para>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="summary-deploy-alp-raw-image">
+    <title>Summary</title>
+    <para>
+      After the deployment of &alpshort; is finished, you are presented with
+      the login prompt. Log in as &rootuser;, and you are ready to set up the
+      system and install additional workloads.
+    </para>
+  </section>
+  <section xml:id="next-deploy-alp-raw-image">
+    <title>Next steps</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Install additional software with &tr-up;. Refer to
+          <xref
+     linkend="concept-transactional-update"/> for more details.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Install and run additional workloads. Refer to
+          <xref
+     linkend="reference-available-alp-workloads"/> for more
+          details.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="related-deploy-alp-raw-image">
+    <title>Related topics</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          General description of &alpshort; is included in
+          <xref
+     linkend="concept-alp"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Advanced configuration of &alpshort; deployment is described in
+          <xref
+     linkend="concept-configure-ignition"/> and
+          <xref linkend="concept-configure-combustion"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Find detailed information about using the &vmm; in
+          <link
+     xlink:href="https://documentation.suse.com/sles/html/SLES-all/cha-kvm-inst.html"/>
+          and
+          <link
+     xlink:href="https://documentation.suse.com/sles/15-SP4/html/SLES-all/cha-libvirt-config-gui.html"/>.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+</article>
