@@ -226,124 +226,35 @@
   <section xml:id="what-is-alp-deployment">
     <title>Introduction</title>
     <para>
-      The Adaptable Linux Platform (ALP) is distributed as a pre-built raw disk image. You
-      can download the latest published image from
-      <link xlink:href="https://download.opensuse.org/repositories/SUSE:/ALP:/PUBLISH/images/"/>. There are two types of ALP
-      images, depending whether you intend to run ALP on an encrypted
-      disk or an unencrypted disk. You can deploy ALP either with a
-      minimal initial configuration (JeOS Firstboot), or use additional
-      tools—Combustion and Ignition—to specify a detailed
-      system setup.
+      The Adaptable Linux Platform (ALP) is distributed either as a disk image of the
+      ALP installer named <emphasis>D-Installer</emphasis>, or as a
+      pre-built ALP raw disk image.
     </para>
-  </section>
-  <section xml:id="alp-deployment-firstboot-detection">
-    <title>First boot detection</title>
-    <para>
-      The deployment configuration runs on the first boot only. To distinguish
-      between the first and subsequent boots, the flag file
-      <filename>/boot/writable/firstboot_happened</filename> is created after
-      the first boot finishes. If the file is not present in the file system,
-      the attribute <literal>ignition.firstboot</literal> is passed to the
-      kernel command line, which triggers the creation of
-      <filename>initramfs</filename> (Ignition) or running a specific dracut
-      module (Combustion). After completing the first boot, the
-      <filename>/boot/writable/firstboot_happened</filename> flag file is
-      created.
-    </para>
-    <note>
-      <title>The flag file is always created</title>
+    <section xml:id="alp-deployment-dinstaller">
+      <title>D-Installer</title>
       <para>
-        Even though the configuration may not be successful, due to improper or
-        missing configuration files, the
-        <filename>/boot/writable/firstboot_happened</filename> flag file is
-        created.
+        While D-Installer handles both bare-metal and virtualized deployments,
+        it is a preferred method for bare-metal deployments. ALP
+        deployment using D-Installer is similar to a traditional operating
+        system setup. After booting the D-Installer image, the installer uses
+        a graphical user-friendly interface to walk you through the system
+        configuration and deployment.
       </para>
-    </note>
-    <tip>
+    </section>
+    <section xml:id="alp-deployment-raw-image">
+      <title>Raw disk image</title>
       <para>
-        You may force the first boot configuration on subsequent boot by
-        passing the <literal>ignition.firstboot</literal> attribute to the
-        kernel command line or by deleting the
-        <filename>/boot/writable/firstboot_happened</filename> flag file.
+        This method handles both bare-metal and virtualized deployment as well.
+        It is different from the D-Installer deployment in that you do not
+        boot an installer but the actual ALP image itself. On first
+        boot, you can configure basic system options using an
+        <emphasis>ncurses</emphasis> user interface. Using a raw disk image, you
+        can fine-tune the deployment setup with Combustion and Ignition
+        tools.
       </para>
-    </tip>
+    </section>
   </section>
-  <section xml:id="alp-deployment-default-partitioning">
-    <title>Default partitioning</title>
-    <para>
-      The pre-built images are delivered with a default partitioning scheme.
-      You can change it during the first boot by using Ignition or
-      Combustion.
-    </para>
-    <important>
-      <title>BTRFS is mandatory for the root file system</title>
-      <para>
-        If you intend to perform any changes to the default partitioning
-        scheme, the root file system must be BTRFS.
-      </para>
-    </important>
-    <para>
-      Each image has the following subvolumes:
-    </para>
-<screen>
- /home
- /root
- /opt
- /srv
- /usr/local
- /var
- </screen>
-    <para>
-      The <literal>/etc</literal> directory is mounted as overlayfs, where the
-      upper directory is mounted to
-      <filename>/var/lib/overlay/1/etc/</filename>.
-    </para>
-    <para>
-      You can recognize the subvolumes mounted by default by the option
-      <literal>x-initrd.mount</literal> in <filename>/etc/fstab</filename>.
-      Other subvolumes or partitions must be configured either by Ignition or
-      Combustion.
-    </para>
-  </section>
-  <section xml:id="related-alp-deployment">
-    <title>Related topics</title>
-    <itemizedlist>
-      <listitem>
-        <para>
-          For deploying with minimal configuration, refer to
-          <xref linkend="task-deploy-alp"/>.
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          For adjusting the deployment with Ignition, refer to
-          <xref linkend="concept-configure-ignition"/>.
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          For adjusting the deployment with Combustion, refer to
-          <xref linkend="concept-configure-combustion"/>.
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          List
-        </para>
-      </listitem>
-    </itemizedlist>
-  </section>
-<section xml:lang="en" role="task" version="5.1" xml:id="task-deploy-alp"><info><title xmlns:its="http://www.w3.org/2005/11/its">Deploying ALP</title></info>
-  
-  <section xml:id="introduction-deploy-alp">
-    <title>Introduction</title>
-    <para>
-      This article describes how to deploy the Adaptable Linux Platform (ALP) raw disk
-      image. It applies to ALP running both on encrypted and unencrypted
-      disk.
-    </para>
-  </section>
-  <section xml:id="requirements-deploy-alp">
+  <section xml:id="requirements-deploy-alp-raw-image">
     <title>Hardware requirements</title>
     <para>
       The minimum supported hardware requirements for deploying ALP
@@ -380,93 +291,159 @@
         <term>Hard disk</term>
         <listitem>
           <para>
-            The minimum hard disk space is 12GB, while the recommended value is
-            20GB of hard disk space. Adjust the value according to the
-            workloads of your containers.
+            The minimum hard disk space is 12 GB, while the recommended
+            value is 20 GB of hard disk space. Adjust the value according to
+            the workloads of your containers.
           </para>
-          <important>
-            <title>Encrypted image does not expand to the full disk capacity</title>
-            <para>
-              As of now, the encrypted image does not expand to the full disk
-              capacity automatically. As a workaround, the following steps are
-              required:
-            </para>
-            <procedure>
-              <step>
-                <para>
-                  Use the <command>qemu-img</command> command to increase the
-                  disk image to the desired size.
-                </para>
-              </step>
-              <step>
-                <para>
-                  Setup the virtual machine and boot it. When the
-                  JeOS Firstboot wizard asks you which method to use for
-                  encryption, select <guimenu>passphrase</guimenu>.
-                </para>
-              </step>
-              <step>
-                <para>
-                  When the system is ready, use the <command>parted</command>
-                  command to resize the partition where the LUKS device resides
-                  (for example, partition number 3) to the desired size.
-                </para>
-              </step>
-              <step>
-                <para>
-                  Run the <command>cryptsetup resize luks</command> command.
-                  When asked, enter the passphrase to resize the encrypted
-                  device.
-                </para>
-              </step>
-              <step>
-                <para>
-                  Run the <command>transactional-update shell</command> command
-                  to open a read-write shell in the current disk snapshot. Then
-                  resize the BTRFS file system to the desired size, for
-                  example:
-                </para>
-<screen><prompt role="root"># </prompt>btrfs fi resize max /</screen>
-              </step>
-              <step>
-                <para>
-                  Leave the shell with <command>exit</command> and reboot the
-                  system with <command>reboot</command>.
-                </para>
-              </step>
-            </procedure>
-          </important>
         </listitem>
       </varlistentry>
     </variablelist>
   </section>
-  <section xml:id="deploy-alp-kvm">
-    <title>Deploying ALP on a KVM VM Host Server</title>
+  <section xml:id="related-alp-deployment">
+    <title>Related topics</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          For deploying ALP with D-Installer, refer to
+          <xref linkend="task-deploy-alp-dinstaller"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          For deploying the raw disk image with minimal configuration, refer to
+          <xref linkend="task-deploy-alp-raw-image"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          For adjusting the deployment with Ignition, refer to
+          <xref linkend="concept-configure-ignition"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          For adjusting the deployment with Combustion, refer to
+          <xref linkend="concept-configure-combustion"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          List
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+<section xml:lang="en" role="task" version="5.1" xml:id="task-prepare-alp-vm"><info><title xmlns:its="http://www.w3.org/2005/11/its">Preparing an ALP virtual machine</title></info>
+  
+  <section xml:id="introduction-prepare-alp-vm">
+    <title>Introduction</title>
     <para>
-      This procedure describes steps to deploy ALP as a KVM virtual
-      machine using the Virtual Machine Manager.
+      This article describes how to configure a new virtual machine suitable
+      for the ALP deployment by using the Virtual Machine Manager.
     </para>
+  </section>
+  <section xml:id="requirements-prepare-alp-vm">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          A VM Host Server with KVM hypervisor.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Depending on the installation method, download either the ALP
+          raw disk image from https://download.opensuse.org/repositories/SUSE:/ALP:/PUBLISH/images or the D-Installer image from
+          https://download.opensuse.org/repositories/SUSE:/ALP:/PUBLISH/images/iso on the VM Host Server where you will run
+          virtualized ALP.
+        </para>
+        <note>
+          <para>
+            Note that for the raw disk image deployment, there are two types of
+            images, depending on whether you intend to run ALP on an
+            encrypted disk or an unencrypted disk.
+          </para>
+        </note>
+      </listitem>
+    </itemizedlist>
+    <important>
+      <title>Encrypted image does not expand to the full disk capacity</title>
+      <para>
+        As of now, the encrypted raw disk image does not expand to the full
+        disk capacity automatically. As a workaround, the following steps are
+        required:
+      </para>
+      <procedure>
+        <step>
+          <para>
+            Use the <command>qemu-img</command> command to increase the disk
+            image to the desired size.
+          </para>
+        </step>
+        <step>
+          <para>
+            Set up the virtual machine and boot it. When the JeOS Firstboot
+            wizard asks you which method to use for encryption, select
+            <guimenu>passphrase</guimenu>.
+          </para>
+        </step>
+        <step>
+          <para>
+            When the system is ready, use the <command>parted</command> command
+            to resize the partition where the LUKS device resides (for example,
+            partition number 3) to the desired size.
+          </para>
+        </step>
+        <step>
+          <para>
+            Run the <command>cryptsetup resize luks</command> command. When
+            asked, enter the passphrase to resize the encrypted device.
+          </para>
+        </step>
+        <step>
+          <para>
+            Run the <command>transactional-update shell</command> command to
+            open a read-write shell in the current disk snapshot. Then resize
+            the BTRFS file system to the desired size, for example:
+          </para>
+<screen><prompt role="root"># </prompt>btrfs fi resize max /</screen>
+        </step>
+        <step>
+          <para>
+            Leave the shell with <command>exit</command> and reboot the system
+            with <command>reboot</command>.
+          </para>
+        </step>
+      </procedure>
+    </important>
+  </section>
+  <section xml:id="requirements-prepare-alp-vm-">
+    <title>Configuring a virtual machine for ALP deployment</title>
     <procedure>
       <step>
         <para>
-          Download ALP virtual machine image on the host where you will
-          run ALP. Go to <link xlink:href="https://download.opensuse.org/repositories/SUSE:/ALP:/PUBLISH/images/"/> and download the latest disk
-          image of ALP.
+          Start Virtual Machine Manager and select
+          <menuchoice><guimenu>File</guimenu><guimenu>New Virtual
+          Machine</guimenu></menuchoice>.
         </para>
-        <para>
-          For example, for the unencrypted image:
-        </para>
-<screen><prompt>&gt; </prompt>curl -LO https://download.opensuse.org/repositories/SUSE:/ALP:/PUBLISH/images/ALP-VM.x86_64-0.0.1-kvm-Build15.17.qcow2</screen>
-        <para>
-          And for the encrypted image:
-        </para>
-<screen><prompt>&gt; </prompt>curl -LO https://download.opensuse.org/repositories/SUSE:/ALP:/PUBLISH/images/ALP-VM.x86_64-0.0.1-kvm_encrypted-Build15.18.qcow2</screen>
+        <substeps>
+          <step>
+            <para>
+              For deployment using D-Installer, select <guimenu>Local install
+              media</guimenu>.
+            </para>
+          </step>
+          <step>
+            <para>
+              For the raw disk deployment, select <guimenu>Import existing disk
+              image</guimenu>.
+            </para>
+          </step>
+        </substeps>
       </step>
       <step>
         <para>
-          Start Virtual Machine Manager, select <menuchoice><guimenu>File</guimenu><guimenu>New
-          VM</guimenu></menuchoice> and <guimenu>Import existing disk
-          image</guimenu>. Confirm with <guimenu>Forward</guimenu>.
+          Confirm with <guimenu>Forward</guimenu>.
         </para>
       </step>
       <step>
@@ -482,6 +459,12 @@
           Specify the amount of memory and number of processors that you want
           to assign to the ALP virtual machine and confirm with
           <guimenu>Forward</guimenu>.
+        </para>
+      </step>
+      <step>
+        <para>
+          For deployment using D-Installer, enable storage for the virtual
+          machine and specify the size of the disk image.
         </para>
       </step>
       <step>
@@ -528,7 +511,7 @@
               menu, and select the <guimenu>Emulated</guimenu> type.
             </para>
             <figure>
-              <title>Add emulated TPM device</title>
+              <title>Add an emulated TPM device</title>
               <mediaobject>
                 <imageobject role="fo">
                   <imagedata fileref="alp-deploy-encrypted-tpm.png" width="75%"/>
@@ -536,7 +519,8 @@
                 <imageobject role="html">
                   <imagedata fileref="alp-deploy-encrypted-tpm.png" width="75%"/>
                 </imageobject>
-                <textobject role="description"><phrase>Add emulated TPM device</phrase>
+                <textobject role="description"><phrase>Add an emulated
+                TPM device</phrase>
                 </textobject>
               </mediaobject>
             </figure>
@@ -552,38 +536,410 @@
         <substeps>
           <step>
             <para>
-              If you want to deploy ALP with only minimal setup options,
-              confirm with <guimenu>Finish</guimenu>. The ALP disk image
-              will be booted and JeOS Firstboot will take care of the
-              deployment. Refer to <xref linkend="deploy-alp-jeos-firstboot"/>
-              for next steps.
+              For the raw disk image deployment, to deploy ALP with only
+              minimal setup options, confirm with <guimenu>Finish</guimenu>.
+              The disk image will be booted and JeOS Firstboot will take care
+              of the deployment. Refer to
+              <xref linkend="deploy-alp-jeos-firstboot"/> for next
+              steps.
             </para>
+            <tip>
+              <para>
+                You can detail the deployment setup by using the Ignition or
+                Combustion tools. For more details, refer to
+                <xref linkend="concept-configure-ignition"/> and
+                <xref linkend="concept-configure-combustion"/>.
+              </para>
+            </tip>
           </step>
           <step>
             <para>
-              If you want to specify detailed deployment options, you need to
-              use Ignition or Combustion tools to supply your setup during
-              the disk image boot process. For more details, refer to
-              <xref linkend="concept-configure-ignition"/> and
-              <xref linkend="concept-configure-combustion"/>.
+              To continue the deployment by using D-Installer, confirm with
+              <guimenu>finish</guimenu> and continue with
+              <xref linkend="task-deploy-alp-dinstaller"/>.
             </para>
           </step>
         </substeps>
       </step>
     </procedure>
   </section>
-  <section xml:id="deploy-alp-jeos-firstboot">
-    <title>Deploying ALP with JeOS Firstboot</title>
+  <section xml:id="summary-prepare-alp-vm">
+    <title>Summary</title>
     <para>
-      When booting the ALP raw image for the first time,
-      <emphasis>JeOS Firstboot</emphasis> enables you to perform a minimal
-      configuration of your system:
+      Now your virtualization environment is ready for the ALP
+      deployment process.
     </para>
+  </section>
+  <section xml:id="next-prepare-alp-vm">
+    <title>Next steps</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          For deployment using D-Installer, refer to
+          <xref linkend="task-deploy-alp-dinstaller"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          For raw disk deployment, continue with
+          <xref linkend="deploy-alp-jeos-firstboot"/>.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="related-prepare-alp-vm">
+    <title>Related topics</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Advanced configuration of ALP deployment is described in
+          <xref linkend="concept-configure-ignition"/> and
+          <xref linkend="concept-configure-combustion"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Find detailed information about using the Virtual Machine Manager in
+          <link xlink:href="https://documentation.suse.com/sles/html/SLES-all/cha-kvm-inst.html"/>
+          and
+          <link xlink:href="https://documentation.suse.com/sles/15-SP4/html/SLES-all/cha-libvirt-config-gui.html"/>.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+</section><section xml:lang="en" role="task" version="5.1" xml:id="task-deploy-alp-dinstaller"><info><title xmlns:its="http://www.w3.org/2005/11/its">Deploying ALP using D-Installer</title></info>
+  
+  <section xml:id="introduction-deploy-alp-dinstaller">
+    <title>Introduction</title>
+    <para>
+      This article describes how to deploy the Adaptable Linux Platform (ALP) using
+      D-Installer.
+    </para>
+  </section>
+  <section xml:id="deploying-alp-using-dinstaller">
+    <title>Deploying ALP using D-Installer</title>
     <procedure>
       <step>
         <para>
+          Download the ALP D-Installer image from
+          https://download.opensuse.org/repositories/SUSE:/ALP:/PUBLISH/images/iso. For example:
+        </para>
+<screen><prompt>&gt; </prompt>curl -LO https://download.opensuse.org/repositories/SUSE:/ALP:/PUBLISH/images/isod-installer-live.x86_64-0.6-ALP-Build3.6.iso</screen>
+      </step>
+      <step>
+        <para>
+          If you are deploying ALP as a VM Guest, you need to first
+          prepare the virtual machine. To do this, follow the steps in
+          <xref linkend="task-prepare-alp-vm"/>.
+        </para>
+      </step>
+      <step>
+        <para>
+          After booting the D-Installer image, select
+          <guimenu>d-installer-live</guimenu> from the boot menu. A graphical
+          installer will appear with configuration options affecting the
+          ALP deployment.
+        </para>
+        <figure>
+          <title>The D-Installer GUI</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="alp-dinstaller-welcome.png" width="75%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="alp-dinstaller-welcome.png" width="75%"/>
+            </imageobject>
+            <textobject role="description"><phrase>The D-Installer GUI</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
+      </step>
+      <step>
+        <para>
+          Click the default language and select your preferred language from
+          the drop-down list.
+        </para>
+      </step>
+      <step>
+        <para>
+          Configure network settings. Click the default wired connection and
+          configure the network according to your needs. You can, for example,
+          change the networking mode to <guimenu>Manual</guimenu>, add IP
+          addresses and related prefixes or netmasks, gateway, and DNS servers.
+        </para>
+        <figure>
+          <title>Configuring a wired connection</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="alp-dinstaller-network-wired.png" width="50%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="alp-dinstaller-network-wired.png" width="50%"/>
+            </imageobject>
+            <textobject role="description"><phrase>Configuring a wired
+            connection</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
+        <para>
+          By clicking <guimenu>Connect to a Wi-Fi network</guimenu> you can
+          utilize your local wireless network.
+        </para>
+      </step>
+      <step>
+        <para>
+          Configure storage by clicking <guimenu>Edit storage
+          settings</guimenu>.
+        </para>
+        <figure>
+          <title>Configuring ALP storage</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="alp-dinstaller-storage.png" width="75%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="alp-dinstaller-storage.png" width="75%"/>
+            </imageobject>
+            <textobject role="description"><phrase>Configuring ALP storage</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
+        <para>
+          You can select a device for ALP installation or specify
+          advanced storage settings, for example, whether to use LVM or
+          encrypted devices.
+        </para>
+        <figure>
+          <title>Advanced storage settings</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="alp-dinstaller-storage-advanced.png" width="50%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="alp-dinstaller-storage-advanced.png" width="50%"/>
+            </imageobject>
+            <textobject role="description"><phrase>Advanced
+            storage settings</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
+      </step>
+      <step>
+        <para>
+          In the <guimenu>Users</guimenu> section, specify a <systemitem class="username">root</systemitem>
+          password, upload a <guimenu>Root SSH public key</guimenu>, or create
+          an additional user account and enable auto-login for it.
+        </para>
+        <figure>
+          <title>Creating a user account</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="alp-dinstaller-user.png" width="50%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="alp-dinstaller-user.png" width="50%"/>
+            </imageobject>
+            <textobject role="description"><phrase>Creating a user account</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
+      </step>
+      <step>
+        <para>
+          To begin the installation, click <guimenu>Install</guimenu> and
+          confirm with <guimenu>Continue</guimenu>. The installation process
+          will start.
+        </para>
+        <figure>
+          <title>ALP installation in progress</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="alp-dinstaller-installation.png" width="50%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="alp-dinstaller-installation.png" width="50%"/>
+            </imageobject>
+            <textobject role="description"><phrase>ALP installation in progress</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
+        <para>
+          After the installation is finished, click <guimenu>Reboot</guimenu>
+          and select <guimenu>ALP</guimenu> from the boot menu after reboot.
+        </para>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="summary-deploy-alp-dinstaller">
+    <title>Summary</title>
+    <para>
+      After the deployment of ALP is finished, you are presented with
+      the login prompt. Log in as <systemitem class="username">root</systemitem>, and you are ready to set up the
+      system and install additional workloads.
+    </para>
+  </section>
+  <section xml:id="next-deploy-alp-dinstaller">
+    <title>Next steps</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Install additional software with <command>transactional-update</command>. Refer to
+          <xref linkend="concept-transactional-update"/> for more details.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Install and run additional workloads. Refer to
+          <xref linkend="reference-available-alp-workloads"/> for more
+          details.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="related-deploy-alp-dinstaller">
+    <title>Related topics</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          General description of ALP is included in
+          <xref linkend="concept-alp"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Advanced configuration of ALP deployment is described in
+          <xref linkend="concept-configure-ignition"/> and
+          <xref linkend="concept-configure-combustion"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Find detailed information about using the Virtual Machine Manager in
+          <link xlink:href="https://documentation.suse.com/sles/html/SLES-all/cha-kvm-inst.html"/>
+          and
+          <link xlink:href="https://documentation.suse.com/sles/15-SP4/html/SLES-all/cha-libvirt-config-gui.html"/>.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+</section><section xml:lang="en" role="task" version="5.1" xml:id="task-deploy-alp-raw-image"><info><title xmlns:its="http://www.w3.org/2005/11/its">Deploying ALP using a raw disk image</title></info>
+  
+  <section xml:id="introduction-deploy-alp-raw-image">
+    <title>Introduction</title>
+    <para>
+      This article describes how to deploy the Adaptable Linux Platform (ALP) raw disk
+      image. It applies to ALP running both on encrypted and unencrypted
+      disk.
+    </para>
+    <section xml:id="alp-deployment-firstboot-detection">
+      <title>First boot detection</title>
+      <para>
+        The deployment configuration runs on the first boot only. To
+        distinguish between the first and subsequent boots, the flag file
+        <filename>/boot/writable/firstboot_happened</filename> is created after
+        the first boot finishes. If the file is not present in the file system,
+        the attribute <literal>ignition.firstboot</literal> is passed to the
+        kernel command line, which triggers the creation of
+        <filename>initramfs</filename> (Ignition) or running a specific
+        dracut module (Combustion). After completing the first boot, the
+        <filename>/boot/writable/firstboot_happened</filename> flag file is
+        created.
+      </para>
+      <note>
+        <title>The flag file is always created</title>
+        <para>
+          Even though the configuration may not be successful due to improper
+          or missing configuration files, the
+          <filename>/boot/writable/firstboot_happened</filename> flag file is
+          created.
+        </para>
+      </note>
+      <tip>
+        <para>
+          You may force the first boot configuration on subsequent boot by
+          passing the <literal>ignition.firstboot</literal> attribute to the
+          kernel command line or by deleting the
+          <filename>/boot/writable/firstboot_happened</filename> flag file.
+        </para>
+      </tip>
+    </section>
+    <section xml:id="alp-deployment-default-partitioning">
+      <title>Default partitioning</title>
+      <para>
+        The pre-built images are delivered with a default partitioning scheme.
+        You can change it during the first boot by using Ignition or
+        Combustion.
+      </para>
+      <important>
+        <title>BTRFS is mandatory for the root file system</title>
+        <para>
+          If you intend to perform any changes to the default partitioning
+          scheme, the root file system must be BTRFS.
+        </para>
+      </important>
+      <para>
+        Each image has the following subvolumes:
+      </para>
+<screen>
+ /home
+ /root
+ /opt
+ /srv
+ /usr/local
+ /var
+ </screen>
+      <para>
+        The <literal>/etc</literal> directory is mounted as overlayfs, where
+        the upper directory is mounted to
+        <filename>/var/lib/overlay/1/etc/</filename>.
+      </para>
+      <para>
+        You can recognize the subvolumes mounted by default by the option
+        <literal>x-initrd.mount</literal> in <filename>/etc/fstab</filename>.
+        Other subvolumes or partitions must be configured either by Ignition
+        or Combustion.
+      </para>
+    </section>
+  </section>
+  <section xml:id="deploy-alp-jeos-firstboot">
+    <title>Deploying ALP with JeOS Firstboot</title>
+    <tip>
+      <para>
+        When booting the ALP raw image for the first time,
+        <emphasis>JeOS Firstboot</emphasis> enables you to perform a minimal
+        configuration of your system. If you need more control over the
+        deployment process, find more information in
+        <xref linkend="concept-configure-ignition"/> and
+        <xref linkend="concept-configure-combustion"/>.
+      </para>
+    </tip>
+    <procedure>
+      <step>
+        <para>
+          Download the ALP raw disk image from https://download.opensuse.org/repositories/SUSE:/ALP:/PUBLISH/images. There are
+          two types of images, depending on whether you intend to run ALP
+          on an encrypted disk or an unencrypted disk.
+        </para>
+        <para>
+          For example, for the unencrypted image:
+        </para>
+<screen><prompt>&gt; </prompt>curl -LO https://download.opensuse.org/repositories/SUSE:/ALP:/PUBLISH/imagesALP-VM.x86_64-0.0.1-kvm-Build15.17.qcow2</screen>
+        <para>
+          And for the encrypted image:
+        </para>
+<screen><prompt>&gt; </prompt>curl -LO https://download.opensuse.org/repositories/SUSE:/ALP:/PUBLISH/imagesALP-VM.x86_64-0.0.1-kvm_encrypted-Build15.18.qcow2</screen>
+      </step>
+      <step>
+        <para>
+          If you are deploying ALP as a VM Guest, you need to first
+          prepare the virtual machine by following
+          <xref linkend="task-prepare-alp-vm"/>.
+        </para>
+      </step>
+      <step>
+        <para>
           After booting the ALP disk image, you will be presented with a
-          bootloader screen. Select <guimenu>ALP</guimenu> and confirm
+          boot loader screen. Select <guimenu>ALP</guimenu> and confirm
           with <keycap function="enter"/>.
         </para>
         <figure>
@@ -621,7 +977,7 @@
       </step>
       <step>
         <para>
-          On the next screens, select keyboard, confirm the license agreement,
+          On the next screens, select keyboard, confirm the license agreement
           and select the time zone.
         </para>
       </step>
@@ -684,7 +1040,7 @@
       </step>
     </procedure>
   </section>
-  <section xml:id="summary-deploy-alp">
+  <section xml:id="summary-deploy-alp-raw-image">
     <title>Summary</title>
     <para>
       After the deployment of ALP is finished, you are presented with
@@ -692,7 +1048,7 @@
       system and install additional workloads.
     </para>
   </section>
-  <section xml:id="next-deploy-alp">
+  <section xml:id="next-deploy-alp-raw-image">
     <title>Next steps</title>
     <itemizedlist>
       <listitem>
@@ -710,7 +1066,7 @@
       </listitem>
     </itemizedlist>
   </section>
-  <section xml:id="related-deploy-alp">
+  <section xml:id="related-deploy-alp-raw-image">
     <title>Related topics</title>
     <itemizedlist>
       <listitem>
@@ -736,7 +1092,7 @@
       </listitem>
     </itemizedlist>
   </section>
-</section><section xml:lang="en" role="concept" version="5.1" xml:id="concept-configure-ignition"><info><title xmlns:its="http://www.w3.org/2005/11/its">Configuring with Ignition</title></info>
+<section xml:lang="en" role="concept" version="5.1" xml:id="concept-configure-ignition"><info><title xmlns:its="http://www.w3.org/2005/11/its">Configuring with Ignition</title></info>
   
   <!-- highly inspired by sle/xml/deployment_images_ignition.xml -->
   <section xml:id="what-is-ignition">
@@ -1495,7 +1851,7 @@ cat id_rsa_new.pub &gt;&gt; /root/.ssh/authorized_keys
       </listitem>
     </itemizedlist>
   </section>
-</section></section></chapter><chapter xml:lang="en" role="concept" version="5.1" xml:id="concept-transactional-update"><info><title xmlns:its="http://www.w3.org/2005/11/its">Transactional updates</title></info>
+</section></section></section></chapter><chapter xml:lang="en" role="concept" version="5.1" xml:id="concept-transactional-update"><info><title xmlns:its="http://www.w3.org/2005/11/its">Transactional updates</title></info>
   
   <section xml:id="what-is-transactional-update">
     <title>What are transactional updates?</title>
@@ -2910,13 +3266,13 @@ df890193f651  localhost/opensuse/toolbox  /bin/bash  4 days ago    Created
   <section xml:id="introduction-available-alp-workloads">
     <title>Introduction</title>
     <para>
-     The Adaptable Linux Platform (ALP) runs containerized workloads instead of traditional
-     applications. Images of these containers are stored in image registries
-     online. ALP can run any containerized workload that is supported by
-     the default container manager Podman. This article lists and describes
-     workloads securely distributed and supported by SUSE. You can find the
-     source files of the workloads at
-     <link xlink:href="https://build.opensuse.org/project/show/SUSE:ALP:Workloads"/>.
+      The Adaptable Linux Platform (ALP) runs containerized workloads instead of
+      traditional applications. Images of these containers are stored in image
+      registries online. ALP can run any containerized workload that is
+      supported by the default container manager Podman. This article lists
+      and describes workloads securely distributed and supported by SUSE. You
+      can find the source files of the workloads at
+      <link xlink:href="https://build.opensuse.org/project/show/SUSE:ALP:Workloads"/>.
     </para>
   </section>
   <section xml:id="alp-workload-yast">
@@ -2972,13 +3328,36 @@ df890193f651  localhost/opensuse/toolbox  /bin/bash  4 days ago    Created
   <section xml:id="alp-workload-cockpit">
     <title>Cockpit Web server</title>
     <para>
-      This workload adds the Cockpit Web server to Adaptable Linux Platform so that you can
+      This workload adds the Cockpit Web server to ALP so that you can
       administer the system and container via a user-friendly interface in your
       Web browser.
     </para>
     <para>
       For more details, refer to
       <xref linkend="task-run-cockpit-with-podman"/>.
+    </para>
+  </section>
+  <section xml:id="alp-workload-fiewalld">
+    <title><systemitem class="daemon">firewalld</systemitem></title>
+    <para>
+      This workload adds firewall capability to ALP to define the trust
+      level of network connections or interfaces.
+    </para>
+    <para>
+      For more details, refer to
+      <xref linkend="task-run-firewalld-with-podman"/>.
+    </para>
+  </section>
+  <section xml:id="alp-workload-grafana">
+   <title>Grafana</title>
+   <para>
+    This workload adds a Web-based dashboard to the ALP host that lets
+    you query, monitor, visualize and better understand existing data residing
+    on any client host.
+   </para>
+    <para>
+      For more details, refer to
+      <xref linkend="task-run-grafana-with-podman"/>.
     </para>
   </section>
   <section xml:id="related-run-workloads-with-podman">
@@ -3609,6 +3988,546 @@ registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/work
         <para>
           The process of running the Cockpit container is described in
           <xref linkend="task-run-cockpit-with-podman"/>.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+</section></section><section xml:lang="en" role="task" version="5.1" xml:id="task-run-firewalld-with-podman"><info><title xmlns:its="http://www.w3.org/2005/11/its">Running <systemitem class="daemon">firewalld</systemitem> using Podman</title></info>
+  
+  <section xml:id="introduction-run-firewalld-with-podman">
+    <title>Introduction</title>
+    <para>
+      This article describes how to run a containerized <systemitem class="daemon">firewalld</systemitem> on the
+      Adaptable Linux Platform (ALP) using Podman.
+    </para>
+    <important>
+      <para>
+        The <systemitem class="daemon">firewalld</systemitem> container needs access to the host network and needs to
+        run as a privileged container. The container image uses the system dbus
+        instance. Therefore, you need to install <package>dbus</package> and
+        <package>polkit</package> configuration files first.
+      </para>
+    </important>
+  </section>
+  <section xml:id="requirements-run-firewalld-with-podman">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Deployed ALP base OS
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Installed and enabled Podman
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Installed <package>alp_cockpit</package> pattern
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="alp-running-firewalld">
+    <title>Running the <systemitem class="daemon">firewalld</systemitem> workload</title>
+    <procedure>
+      <step>
+        <para>
+          Identify the <systemitem class="daemon">firewalld</systemitem> workload image:
+        </para>
+<screen>
+<prompt role="root"># </prompt>podman search firewalld
+registry.opensuse.org/suse/alp/workloads/tumbleweed_images/suse/alp/workloads/firewalld
+</screen>
+      </step>
+      <step>
+        <para>
+          Verify that <package>firewalld</package> is not installed in the host
+          system. Remove it, if necessary, and reboot the ALP host:
+        </para>
+<screen>
+<prompt role="root"># </prompt>transactional-update pkg remove firewalld
+reboot
+</screen>
+      </step>
+      <step>
+        <para>
+          Initialize the environment:
+        </para>
+<screen><prompt role="root"># </prompt>podman container runlabel install \
+registry.opensuse.org/suse/alp/workloads/tumbleweed_images/suse/alp/workloads/firewalld</screen>
+        <para>
+          The command prepares the system and creates the following files on
+          the host system:
+        </para>
+<screen>
+/etc/dbus-1/system.d/FirewallD.conf
+/etc/polkit-1/actions/org.fedoraproject.FirewallD1.policy <co xml:id="alp-firewalld-polkit-policy"/>
+/etc/systemd/system/firewalld.service <co xml:id="alp-firewalld-systemd"/>
+/etc/default/container-firewalld
+/usr/local/bin/firewall-cmd <co xml:id="alp-firewalld-config"/>
+</screen>
+        <calloutlist>
+          <callout arearefs="alp-firewalld-polkit-policy">
+            <para>
+              The <package>polkit</package> policy file will only be installed
+              if <package>polkit</package> itself is installed. It may be
+              necessary to restart the
+              <systemitem class="daemon">dbus</systemitem> and
+              <systemitem class="daemon">polkit</systemitem> daemon afterwards.
+            </para>
+          </callout>
+          <callout arearefs="alp-firewalld-systemd">
+            <para>
+              The <systemitem class="daemon">systemd</systemitem> service and the corresponding configuration file
+              <filename>/etc/default/container-firewalld</filename> allow to
+              start and stop the container using <systemitem class="daemon">systemd</systemitem> if Podman is used
+              as a container manager.
+            </para>
+          </callout>
+          <callout arearefs="alp-firewalld-config">
+            <para>
+              <command>/usr/local/bin/firewall-cmd</command> is a wrapper to
+              call the <command>firewall-cmd</command> inside the container.
+              Docker and Podman are supported.
+            </para>
+          </callout>
+        </calloutlist>
+      </step>
+      <step>
+        <para>
+          Run the container:
+        </para>
+<screen><prompt role="root"># </prompt>podman container runlabel run \
+ registry.opensuse.org/suse/alp/workloads/tumbleweed_images/suse/alp/workloads/firewalld</screen>
+        <para>
+          The command will run the container as a privileged container with the
+          host network. Additionally, <filename>/etc/firewalld</filename> and
+          the <systemitem class="daemon">dbus</systemitem> socket are mounted
+          into the container.
+        </para>
+        <tip>
+          <para>
+            If your container manager is Podman, you can operate <systemitem class="daemon">firewalld</systemitem>
+            by using its <systemitem class="daemon">systemd</systemitem> unit files, for example:
+          </para>
+<screen><prompt role="root"># </prompt>systemctl start firewalld</screen>
+        </tip>
+      </step>
+      <step>
+        <para>
+          Optionally, you can remove the <systemitem class="daemon">firewalld</systemitem> workload and clean the
+          environment from all related files. Configuration files are left on
+          the system.
+        </para>
+<screen><prompt role="root"># </prompt>podman container runlabel uninstall \
+ registry.opensuse.org/suse/alp/workloads/tumbleweed_images/suse/alp/workloads/firewalld</screen>
+      </step>
+    </procedure>
+    <section xml:id="alp-manage-firewalld-instance">
+      <title>Managing the <systemitem class="daemon">firewalld</systemitem> instance</title>
+      <para>
+        After the <systemitem class="daemon">firewalld</systemitem> container is started, you can manage its
+        instance in two ways. You can manually call its client application via
+        the <command>podman exec</command> command, for example:
+      </para>
+<screen>podman exec firewalld firewall-cmd <replaceable>OPTIONS</replaceable></screen>
+      <para>
+        Alternatively, you can use a shorter syntax by running the
+        <command>firewall-cmd</command> wrapper script.
+      </para>
+    </section>
+    <section xml:id="alp-firewalld-documentation">
+      <title><systemitem class="daemon">firewalld</systemitem> manual pages</title>
+      <para>
+        To read the <systemitem class="daemon">firewalld</systemitem> manual page, run the following command:
+      </para>
+<screen><prompt>&gt; </prompt>podman run -i --rm \
+ registry.opensuse.org/suse/alp/workloads/tumbleweed_images/suse/alp/workloads/firewalld \
+ man firewalld</screen>
+      <para>
+        To read the <command>firewall-cmd</command> manual page, run the
+        following command:
+      </para>
+<screen><prompt>&gt; </prompt>podman run -i --rm \
+ registry.opensuse.org/suse/alp/workloads/tumbleweed_images/suse/alp/workloads/firewalld \
+ man firewall-cmd</screen>
+    </section>
+  </section>
+  <section xml:id="related-run-firewalld-with-podman">
+    <title>Related topics</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Enabling Podman is described in
+          <xref linkend="task-enable-podman"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Podman usage is listed in <xref linkend="reference-podman-usage"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Managing <systemitem class="daemon">systemd</systemitem> services is described in
+          <link xlink:href="https://documentation.suse.com/smart/linux/html/reference-systemctl-enable-disable-services/reference-systemctl-enable-disable-services.html"/>.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+</section><section xml:lang="en" role="task" version="5.1" xml:id="task-run-grafana-with-podman"><info><title xmlns:its="http://www.w3.org/2005/11/its">Running the Grafana workload using Podman</title></info>
+  
+  <section xml:id="introduction-run-grafana-with-podman">
+    <title>Introduction</title>
+    <para>
+      This article describes how to run the Grafana visualization tool on the
+      Adaptable Linux Platform (ALP).
+    </para>
+  </section>
+  <section xml:id="requirements-run-grafana-with-podman">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Deployed ALP base OS
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Installed and enabled Podman
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="alp-starting-grafana">
+    <title>Starting the Grafana workload</title>
+    <para>
+      This section describes how to start the Grafana workload, set up a
+      client so that we can test it with real data, and configure the Grafana Web
+     application to visualize the client's data.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Identify the Grafana workload image:
+        </para>
+<screen>
+<prompt role="root"># </prompt>podman search grafana
+registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/grafana
+</screen>
+      </step>
+      <step>
+        <para>
+          Pull the image from the registry and prepare the environment:
+        </para>
+<screen>
+<prompt role="root"># </prompt>podman container runlabel install \
+ registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/grafana:latest
+</screen>
+      </step>
+      <step>
+        <para>
+          Create the <literal>grafana</literal> container from the downloaded
+          image:
+        </para>
+<screen><prompt role="root"># </prompt>grafana-container-manage.sh create</screen>
+      </step>
+      <step>
+        <para>
+          Start the container with the Grafana server:
+        </para>
+<screen><prompt role="root"># </prompt>grafana-container-manage.sh start</screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="alp-setting-grafana-client">
+    <title>Setting up a Grafana client</title>
+    <para>
+      To test Grafana, you need to set up a client that will provide real
+      data to the Grafana server.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Log in to the client host and install the
+          <package>golang-github-prometheus-node_exporter</package> and
+          <package>golang-github-prometheus-prometheus</package> packages:
+        </para>
+<screen><prompt role="root"># </prompt>zypper in golang-github-prometheus-node_exporter golang-github-prometheus-prometheus</screen>
+        <note>
+          <para>
+            If your Grafana server and client hosts are virtualized by a
+            KVM containerized workload, use the <option>--network</option>
+            option while creating the POD because the
+            <option>--publish</option> option does not work in this scenario.
+            To get the IP of the VM Host Server default network, run the following
+            command on the VM Host Server:
+          </para>
+<screen><prompt>&gt; </prompt>virsh net-dhcp-leases default</screen>
+        </note>
+      </step>
+      <step>
+        <para>
+          Restart the Prometheus services on the client host:
+        </para>
+<screen>
+<prompt role="root"># </prompt>systemctl restart prometheus-node_exporter.service
+<prompt role="root"># </prompt>systemctl restart prometheus
+</screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="alp-setting-grafana-web">
+    <title>Configuring the Grafana Web application</title>
+    <para>
+      To configure a data source for the Grafana Web dashboard, follow these
+      steps:
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Open the Grafana Web page that is running on port 3000 on the
+          ALP host where the Grafana workload is running, for example:
+        </para>
+<screen><prompt>&gt; </prompt>firefox http://<replaceable>ALP_HOST_IP_ADDRESS</replaceable>:3000</screen>
+      </step>
+      <step>
+        <para>
+          Log in to Grafana. The default user name and password are both set
+          to <literal>admin</literal>. After logging in, enter a new password.
+        </para>
+      </step>
+      <step>
+        <para>
+          Add the Prometheus data source provided by the client. In the left
+          panel, hover your mouse over the gear icon and select <guimenu>Data
+          sources</guimenu>.
+        </para>
+        <figure>
+          <title>Grafana data sources</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="alp-grafana-data-sources.png" width="25%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="alp-grafana-data-sources.png" width="25%"/>
+            </imageobject>
+            <textobject role="description"><phrase>Grafana data sources</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
+      </step>
+      <step>
+        <para>
+          Click <guimenu>Add data source</guimenu> and select
+          <guimenu>Prometheus</guimenu>. Fill the <guimenu>URL</guimenu>
+          field with the URL of the client where the Prometheus service runs
+          on port 9090, for example:
+        </para>
+        <figure>
+          <title>Prometheus URL configuration in Grafana</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="alp-grafana-prometheus-url.png" width="75%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="alp-grafana-prometheus-url.png" width="75%"/>
+            </imageobject>
+            <textobject role="description"><phrase>Prometheus URL configuration in Grafana</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
+        <para>
+          Confirm with <guimenu>Save &amp; test</guimenu>
+        </para>
+      </step>
+      <step>
+        <para>
+          Create a dashboard based on Prometheus data. Hover your mouse over
+          the plus sign in the left panel and select <guimenu>Import</guimenu>.
+        </para>
+        <figure>
+          <title>Creating a Grafana dashboard</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="alp-grafana-pimport-dashboard.png" width="25%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="alp-grafana-pimport-dashboard.png" width="25%"/>
+            </imageobject>
+            <textobject role="description"><phrase>Creating Grafana dashboard</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
+      </step>
+      <step>
+        <para>
+          Enter <literal>405</literal> as the dashboard ID and confirm with
+          <guimenu>Load</guimenu>.
+        </para>
+      </step>
+      <step>
+        <para>
+          From the <guimenu>Prometheus</guimenu> drop-down list at the bottom,
+          select the data source you have already created. Confirm with
+          <guimenu>Import</guimenu>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Grafana shows your newly created dashboard.
+        </para>
+        <figure>
+          <title>New Grafana dashboard</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="alp-grafana-dashboard.png" width="100%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="alp-grafana-dashboard.png" width="100%"/>
+            </imageobject>
+            <textobject role="description"><phrase>New Grafana dashboard</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="related-run-grafana-with-podman">
+    <title>Related topics</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          ALP deployment is described in
+          <xref linkend="concept-alp-deployment"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Enabling Podman is described in
+          <xref linkend="task-enable-podman"/>.
+        </para>
+      </listitem>
+      <listitem>
+       <para>
+        Find more details about Grafana at its home page <link xlink:href="https://grafana.com/grafana/"/>.
+       </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+<section xml:lang="en" role="reference" version="5.1" xml:id="reference-grafana-container-manage"><info><title xmlns:its="http://www.w3.org/2005/11/its">Usage of the <command>grafana-container-manage.sh</command> script</title></info>
+  
+  <para>
+    The <command>grafana-container-manage.sh</command> script is used to manage
+    the Grafana container on the Adaptable Linux Platform (ALP). This article lists each
+    subcommand of the script and describes their purpose.
+  </para>
+  <variablelist>
+    <varlistentry>
+      <term><command>grafana-container-manage.sh create</command></term>
+      <listitem>
+        <para>
+          Pulls the Grafana image and creates the corresponding container.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><command>grafana-container-manage.sh install</command></term>
+      <listitem>
+        <para>
+          Installs additional files that are required to manage the
+          <literal>grafana</literal> container.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><command>grafana-container-manage.sh start</command></term>
+      <listitem>
+        <para>
+          Starts the container called <literal>grafana</literal>.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><command>grafana-container-manage.sh uninstall</command></term>
+      <listitem>
+        <para>
+          Uninstalls all files on the host that were required to manage the
+          <literal>grafana</literal> container.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><command>grafana-container-manage.sh stop</command></term>
+      <listitem>
+        <para>
+          Stops the <literal>grafana</literal> container.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><command>grafana-container-manage.sh rm</command></term>
+      <listitem>
+        <para>
+          Deletes the <literal>grafana</literal> container.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><command>grafana-container-manage.sh rmcache</command></term>
+      <listitem>
+        <para>
+          Removes the container image in cache.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><command>grafana-container-manage.sh </command></term>
+      <listitem>
+        <para>
+          Runs the <literal>grafana</literal> container.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><command>grafana-container-manage.sh bash</command></term>
+      <listitem>
+        <para>
+          Runs the <command>bash</command> shell inside the
+          <literal>grafana</literal> container.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><command>grafana-container-manage.sh logs</command></term>
+      <listitem>
+        <para>
+          Displays log messages of the <literal>grafana</literal> container.
+        </para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  <section xml:id="related-grafana-container-manage">
+    <title>Related topics</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          The basic introduction to Podman is in
+          <xref linkend="concept-containers-podman"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Podman usage is explained in
+          <xref linkend="reference-podman-usage"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Find details on running the Grafana workload in
+          <xref linkend="task-run-grafana-with-podman"/>.
         </para>
       </listitem>
     </itemizedlist>
