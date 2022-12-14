@@ -6,7 +6,7 @@ We provide five different types of information units:
 * `task.xml`: Task (how to?)
 * `concept.xml`: Concept (what is?)
 * `reference.xml`: Reference (e.g. list of options, table with config files, default settings)
-* `glue.xml`: Navigation (e.g. if your topic is very complex and you want to provide additional guidance on how to use it)
+* `glue.xml`: Combines texts or structures that do not fit into any of the other categories. Typical glue topics include the intro section to your article, the "For more information" and the "What's next" sections. Also use glue topics to add an additional layer of navigation to your article. This is outlined in the `glue.xml` example file.
 
 To use them, copy them from this directory to `xml/`.
 
@@ -63,4 +63,19 @@ articles/autoyast_understand_config_file.xml
 
 ### ID naming conventions
 
+Working with assemblies, you need to distinguish between two types of IDs:
 
+* `external IDs`: These are visible to the world.
+* `internal IDs`: Internal references inside the assembly used to organize the content snippets.
+
+External IDs are build in a similar fashion as file names. As with file names, never include the topic type in your ID.
+
+```
+<NAME> := <TOPIC>[-<SUBTOPIC]-<SNIPPET-TOPIC>-<TITLE>
+```
+
+To build an internal ID, prefix the external ID with an underscore.
+
+### Image naming conventions
+
+Make sure your images can be associated with the topic they belong to.  
