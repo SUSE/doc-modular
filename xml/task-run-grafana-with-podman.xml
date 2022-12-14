@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<?xml-stylesheet href="urn:x-suse:xslt:profiling:docbook51-profile.xsl"
+ type="text/xml"
+ title="Profiling step"?>
+<!DOCTYPE article
+[
+  <!ENTITY % entities SYSTEM "generic-entities.ent">
+    %entities;
+]>
+<article xml:id="task-run-grafana-with-podman" xml:lang="en"
+ role="task"
+ xmlns="http://docbook.org/ns/docbook" version="5.1"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+  <title>Running the &grafana; workload using &podman;</title>
+  <section xml:id="introduction-run-grafana-with-podman">
+    <title>Introduction</title>
+    <para>
+      This article describes how to run the &grafana; visualization tool on the
+      &alp; (&alpshort;).
+    </para>
+  </section>
+  <section xml:id="requirements-run-grafana-with-podman">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Deployed &alpshort; base OS
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Installed and enabled &podman;
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="alp-starting-grafana">
+    <title>Starting the &grafana; workload</title>
+    <para>
+      This section describes how to start the &grafana; workload, set up a
+      client so that we can test it with real data, and configure the &grafana; Web
+     application to visualize the client's data.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Identify the &grafana; workload image:
+        </para>
+<screen>
+&prompt.root;podman search grafana
+registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/grafana
+</screen>
+      </step>
+      <step>
+        <para>
+          Pull the image from the registry and prepare the environment:
+        </para>
+<screen>
+&prompt.root;podman container runlabel install \
+ registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/grafana:latest
+</screen>
+      </step>
+      <step>
+        <para>
+          Create the <literal>grafana</literal> container from the downloaded
+          image:
+        </para>
+<screen>&prompt.root;grafana-container-manage.sh create</screen>
+      </step>
+      <step>
+        <para>
+          Start the container with the &grafana; server:
+        </para>
+<screen>&prompt.root;grafana-container-manage.sh start</screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="alp-setting-grafana-client">
+    <title>Setting up a &grafana; client</title>
+    <para>
+      To test &grafana;, you need to set up a client that will provide real
+      data to the &grafana; server.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Log in to the client host and install the
+          <package>golang-github-prometheus-node_exporter</package> and
+          <package>golang-github-prometheus-prometheus</package> packages:
+        </para>
+<screen>&prompt.root;zypper in golang-github-prometheus-node_exporter golang-github-prometheus-prometheus</screen>
+        <note>
+          <para>
+            If your &grafana; server and client hosts are virtualized by a
+            &kvm; containerized workload, use the <option>--network</option>
+            option while creating the POD because the
+            <option>--publish</option> option does not work in this scenario.
+            To get the IP of the &vmhost; default network, run the following
+            command on the &vmhost;:
+          </para>
+<screen>&prompt.user;virsh net-dhcp-leases default</screen>
+        </note>
+      </step>
+      <step>
+        <para>
+          Restart the &prometheus; services on the client host:
+        </para>
+<screen>
+&prompt.root;systemctl restart prometheus-node_exporter.service
+&prompt.root;systemctl restart prometheus
+</screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="alp-setting-grafana-web">
+    <title>Configuring the &grafana; Web application</title>
+    <para>
+      To configure a data source for the &grafana; Web dashboard, follow these
+      steps:
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Open the &grafana; Web page that is running on port 3000 on the
+          &alpshort; host where the &grafana; workload is running, for example:
+        </para>
+<screen>&prompt.user;firefox http://<replaceable>ALP_HOST_IP_ADDRESS</replaceable>:3000</screen>
+      </step>
+      <step>
+        <para>
+          Log in to &grafana;. The default user name and password are both set
+          to <literal>admin</literal>. After logging in, enter a new password.
+        </para>
+      </step>
+      <step>
+        <para>
+          Add the &prometheus; data source provided by the client. In the left
+          panel, hover your mouse over the gear icon and select <guimenu>Data
+          sources</guimenu>.
+        </para>
+        <figure>
+          <title>&grafana; data sources</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="alp-grafana-data-sources.png" width="25%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="alp-grafana-data-sources.png" width="25%"/>
+            </imageobject>
+            <textobject role="description"><phrase>&grafana; data sources</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
+      </step>
+      <step>
+        <para>
+          Click <guimenu>Add data source</guimenu> and select
+          <guimenu>&prometheus;</guimenu>. Fill the <guimenu>URL</guimenu>
+          field with the URL of the client where the &prometheus; service runs
+          on port 9090, for example:
+        </para>
+        <figure>
+          <title>&prometheus; URL configuration in &grafana;</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="alp-grafana-prometheus-url.png" width="75%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="alp-grafana-prometheus-url.png" width="75%"/>
+            </imageobject>
+            <textobject role="description"><phrase>&prometheus; URL configuration in &grafana;</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
+        <para>
+          Confirm with <guimenu>Save &amp; test</guimenu>
+        </para>
+      </step>
+      <step>
+        <para>
+          Create a dashboard based on &prometheus; data. Hover your mouse over
+          the plus sign in the left panel and select <guimenu>Import</guimenu>.
+        </para>
+        <figure>
+          <title>Creating a &grafana; dashboard</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="alp-grafana-pimport-dashboard.png" width="25%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="alp-grafana-pimport-dashboard.png" width="25%"/>
+            </imageobject>
+            <textobject role="description"><phrase>Creating &grafana; dashboard</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
+      </step>
+      <step>
+        <para>
+          Enter <literal>405</literal> as the dashboard ID and confirm with
+          <guimenu>Load</guimenu>.
+        </para>
+      </step>
+      <step>
+        <para>
+          From the <guimenu>Prometheus</guimenu> drop-down list at the bottom,
+          select the data source you have already created. Confirm with
+          <guimenu>Import</guimenu>.
+        </para>
+      </step>
+      <step>
+        <para>
+          &grafana; shows your newly created dashboard.
+        </para>
+        <figure>
+          <title>New &grafana; dashboard</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="alp-grafana-dashboard.png" width="100%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="alp-grafana-dashboard.png" width="100%"/>
+            </imageobject>
+            <textobject role="description"><phrase>New &grafana; dashboard</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="related-run-grafana-with-podman">
+    <title>Related topics</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          &alpshort; deployment is described in
+          <xref linkend="concept-alp-deployment"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Enabling &podman; is described in
+          <xref linkend="task-enable-podman"/>.
+        </para>
+      </listitem>
+      <listitem>
+       <para>
+        Find more details about &grafana; at its home page <link
+        xlink:href="https://grafana.com/grafana/"/>.
+       </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+</article>
