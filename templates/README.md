@@ -12,7 +12,7 @@ To use them, copy them from this directory to `xml/`.
 
 ## Naming and directory conventions
 
-When creating new articles and topics, please stick to the following conventions.
+When creating new articles and topics, please stick to the following conventions. We keep separate directories for each topic type, for common files and articles.
 
 Assembly/article files:
 ```
@@ -32,11 +32,13 @@ Common files (entities, gfdl, etc):
 common/<NAME>.xml
 ```
 
+Any topic's name consists of the following elements that are explained below:
+
 ```
 <NAME> := <TOPIC>[_<SUBTOPIC]_<SNIPPET_TOPIC>_<TITLE>
 ```
 
-### File naming conventions (for article, concept, reference, task):
+### File naming conventions
 
 Always start with the overarching topic. If necessary, add a suptopic (append with _):
 ```
@@ -78,4 +80,9 @@ To build an internal ID, prefix the external ID with an underscore.
 
 ### Image naming conventions
 
-Make sure your images can be associated with the topic they belong to.  
+Make sure your images can be associated with the topic they belong to. Use a similar naming scheme for images than you use for topic files.
+
+
+```
+<NAME> := <TOPIC>[_<SUBTOPIC]_<SNIPPET_TOPIC>_<TITLE>
+```
