@@ -48,10 +48,10 @@
         create a secondary LUKS key. On the first boot, &alpshort; will use the
         TPM to protect this key and configure the &grub; boot loader to
         automatically unwrap the key. Be aware that you must remove the ISO
-        after the installer has finished and before the system boots for
-        the first time. This is because we use the TPM to ensure that the
-        system comes up with exactly the same configuration before
-        unlocking the LUKS partition.
+        after the installer has finished and before the system boots for the
+        first time. This is because we use the TPM to ensure that the system
+        comes up with exactly the same configuration before unlocking the LUKS
+        partition.
       </para>
       <para>
         This allows you to use the full disk encryption without having to type
@@ -62,6 +62,79 @@
         back to the password.
       </para>
     </section>
+  </section>
+  <section xml:id="alp-post-deploy-selinux">
+    <title>&selnx;</title>
+    <para>
+      Security-Enhanced Linux (&selnx;) is a security framework that increases
+      system security by defining access controls for applications, processes
+      and files on the file system.
+    </para>
+    <para>
+      &alpshort; ships with &selnx; enabled and set to the restrictive
+      <emphasis>enforce</emphasis> mode for increased security. The enforce
+      mode can lead to processes or workloads not behaving correctly because
+      the default policy may be too strict. If you observe such unexpected
+      issues, set &selnx; to the <emphasis>permissive</emphasis> mode that does
+      not enforce &selnx; policies but still logs offences against them called
+      <emphasis>Access Vector Rules</emphasis> (AVCs).
+    </para>
+    <para>
+      To set &selnx; to the permissive mode temporarily, run:
+    </para>
+<screen>&prompt.root;setenforce 0</screen>
+    <tip>
+      <para>
+        To set &selnx; to the permissive mode permanently, edit
+        <filename>/etc/selinux/config</filename> and update it to include the
+        following line:
+      </para>
+<screen>SELINUX=permissive</screen>
+    </tip>
+    <important>
+      <para>
+        If you entered an &selnx; permissive mode, you need to relabel your
+        system until it is back in a good state. The reason is that the
+        permissive mode allows you to reach states that are not reachable
+        otherwise. To relabel the system, run the following command and reboot
+        the system:
+      </para>
+<screen>
+&prompt.root;touch /etc/selinux/.autorelabel
+&prompt.root;reboot
+</screen>
+    </important>
+    <para>
+      To monitor AVCs, search the Audit log and &systemd; journal for log
+      messages similar to the following one:
+    </para>
+<screen>
+type=AVC msg=audit(1669971354.731:25): avc:  denied  { create } \
+for pid=1264 comm="ModemManager" scontext=system_u:system_r:modemmanager_t:s0 \
+tcontext=system_u:system_r:modemmanager_t:s0 tclass=qipcrtr_socket permissive=0
+</screen>
+    <para>
+      To filter such messages, you can use the following commands:
+    </para>
+<screen>&prompt.root;tail -f /var/log/audit/audit.log | grep -i AVC</screen>
+    <para>
+      and
+    </para>
+<screen>&prompt.root;journalctl -f | grep -i AVC</screen>
+    <para>
+      For more advanced search, use the following command:
+    </para>
+<screen>&prompt.root;ausearch -m avc,user_avc,selinux_err -i</screen>
+    <para>
+      If such messages appear while using the application that did not behave
+      correctly when &selnx; was set to the enforce mode, the policies are
+      probably too restrictive and need updating. You can help to fine-tune
+      &selnx; policies by creating a bug report at
+      <link xlink:href="https://bugzilla.suse.com/enter_bug.cgi?classification=SUSE%20ALP%20-%20SUSE%20Adaptable%20Linux%20Platform"/>.
+      Specify <literal>Basesystem</literal> as a component, include the word
+      <literal>&selnx;</literal> in the bug subject, and attach the gathered
+      unique lines that include AVCs together with reproduction steps.
+    </para>
   </section>
   <section xml:id="related-post-deployment-considerations">
     <title>Related topics</title>
@@ -76,6 +149,13 @@
         <para>
           Installing software packages and patterns is detailed in
           <link xlink:href="https://documentation.suse.com/sles/html/SLES-all/cha-sw-cl.html"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          The &selnx; framework is detailed in
+          <link
+        xlink:href="https://documentation.suse.com/sles/html/SLES-all/cha-selinux.html"/>.
         </para>
       </listitem>
     </itemizedlist>
