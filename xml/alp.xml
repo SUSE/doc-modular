@@ -723,6 +723,16 @@
             </textobject>
           </mediaobject>
         </figure>
+        <tip>
+         <para>
+          If you enable disk encryption, you will be asked for a decryption
+          password on each reboot. Because the GRUB 2 boot loader does not
+          enable switching keyboard layouts, select a password made of
+          alphanumeric characters and be aware of national keyboard layout
+          differences. For extended post-deployment information about
+          disk encryption, refer to <xref linkend="alp-post-deploy-full-disk-encryption"/>.
+         </para>
+        </tip>
       </step>
       <step>
         <para>
@@ -1851,7 +1861,73 @@ cat id_rsa_new.pub &gt;&gt; /root/.ssh/authorized_keys
       </listitem>
     </itemizedlist>
   </section>
-</section></section></section></chapter><chapter xml:lang="en" role="concept" version="5.1" xml:id="concept-transactional-update"><info><title xmlns:its="http://www.w3.org/2005/11/its">Transactional updates</title></info>
+</section></section></section><section xml:lang="en" role="task" version="5.1" xml:id="task-post-deployment-considerations"><info><title xmlns:its="http://www.w3.org/2005/11/its">Post-deployment considerations</title></info>
+  
+  <section xml:id="introduction-post-deployment-considerations">
+    <title>Introduction</title>
+    <para>
+      This article includes important information and tasks that you need to
+      consider after you successfully deploy the Adaptable Linux Platform (ALP).
+    </para>
+  </section>
+  <section xml:id="alp-post-deploy-full-disk-encryption">
+    <title>Full disk encryption</title>
+    <section xml:id="alp-post-deploy-full-disk-encryption-password">
+      <title>Change encryption password</title>
+      <para>
+        During the ALP deployment, you entered a password that is used
+        for disk encryption. If you want to change the password, run the
+        following command:
+      </para>
+<screen><prompt role="root"># </prompt>fdectl passwd</screen>
+    </section>
+    <section xml:id="alp-post-deploy-full-disk-encryption-tpm">
+      <title>TPM device</title>
+      <para>
+        Without a TPM chip, you need to enter the encryption password to
+        decrypt the disk on each ALP boot. On systems that have a TPM
+        2.0 chip, ALP deployed with D-Installer supports the automatic
+        protection of the LUKS volume with a TPM device. The requirement is
+        that the machine must use the UEFI Secure Boot enabled.
+      </para>
+      <para>
+        If the D-Installer detects a TPM 2.0 chip and UEFI Secure Boot, it will
+        create a secondary LUKS key. On the first boot, ALP will use the
+        TPM to protect this key and configure the GRUB 2 boot loader to
+        automatically unwrap the key. Be aware that you must remove the ISO
+        after the installer has finished and before the system boots for
+        the first time. This is because we use the TPM to ensure that the
+        system comes up with exactly the same configuration before
+        unlocking the LUKS partition.
+      </para>
+      <para>
+        This allows you to use the full disk encryption without having to type
+        the disk password on each reboot. However, the disk password is still
+        there and can be used for recovery. For example, after updating the
+        GRUB 2 boot loader, or the SHIM loader, the TPM will no longer be able
+        to unseal the secondary key correctly, and GRUB 2 will have to fall
+        back to the password.
+      </para>
+    </section>
+  </section>
+  <section xml:id="related-post-deployment-considerations">
+    <title>Related topics</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          ALP deployment is described in
+          <xref linkend="concept-alp-deployment"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Installing software packages and patterns is detailed in
+          <link xlink:href="https://documentation.suse.com/sles/html/SLES-all/cha-sw-cl.html"/>.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+</section></chapter><chapter xml:lang="en" role="concept" version="5.1" xml:id="concept-transactional-update"><info><title xmlns:its="http://www.w3.org/2005/11/its">Transactional updates</title></info>
   
   <section xml:id="what-is-transactional-update">
     <title>What are transactional updates?</title>
@@ -3992,7 +4068,163 @@ registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/work
       </listitem>
     </itemizedlist>
   </section>
-</section></section><section xml:lang="en" role="task" version="5.1" xml:id="task-run-firewalld-with-podman"><info><title xmlns:its="http://www.w3.org/2005/11/its">Running <systemitem class="daemon">firewalld</systemitem> using Podman</title></info>
+</section></section><section xml:lang="en" role="task" version="5.1" xml:id="task-run-gdm-with-podman"><info><title xmlns:its="http://www.w3.org/2005/11/its">Running the GNOME Display Manager workload using Podman</title></info>
+  
+  <section xml:id="introduction-run-gdm-with-podman">
+    <title>Introduction</title>
+    <para>
+      This article describes how to deploy and run the GNOME Display Manager (GDM) on
+      the Adaptable Linux Platform (ALP).
+    </para>
+  </section>
+  <section xml:id="requirements-run-gdm-with-podman">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Deployed ALP base OS
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Installed and enabled Podman
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="alp-starting-gdm">
+    <title>Starting the GDM workload</title>
+    <procedure>
+      <step>
+        <para>
+          On the ALP host system, install
+          <package>accountsservice</package> and
+          <package>systemd-experimental</package> packages:
+        </para>
+<screen>
+<prompt role="root"># </prompt>transactional-update pkg install accountsservice systemd-experimental
+<prompt role="root"># </prompt>reboot
+</screen>
+      </step>
+      <step>
+        <para>
+          Verify that SELinux is configured in the
+          <emphasis>permissive</emphasis> mode and enable the
+          <emphasis>permissive</emphasis> mode if required:
+        </para>
+<screen><prompt role="root"># </prompt>setenforce 0</screen>
+      </step>
+      <step>
+        <para>
+          Identify the GDM container:
+        </para>
+<screen>
+<prompt>&gt; </prompt>podman search gdm
+registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/gdm
+[...]
+</screen>
+      </step>
+      <step>
+        <para>
+          Download and recreate the GDM container locally:
+        </para>
+<screen><prompt role="root"># </prompt>podman container runlabel install \
+ registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/gdm:latest</screen>
+      </step>
+      <step>
+        <para>
+          Reload the affected <systemitem class="daemon">systemd</systemitem> services:
+        </para>
+<screen>
+<prompt role="root"># </prompt>systemctl daemon-reload
+<prompt role="root"># </prompt>systemctl reload dbus
+<prompt role="root"># </prompt>systemctl restart accounts-daemon
+</screen>
+      </step>
+      <step>
+        <para>
+          Run the GDM container.
+        </para>
+        <substeps>
+          <step>
+            <para>
+              For a standalone process in a container, run:
+            </para>
+<screen><prompt role="root"># </prompt>systemctl start gdm.service</screen>
+            <para>
+              Alternatively, run the command manually:
+            </para>
+<screen><prompt role="root"># </prompt>podman container runlabel --name gdm run \
+ registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/gdm:latest</screen>
+          </step>
+          <step>
+            <para>
+              For systems with <systemitem class="daemon">systemd</systemitem> running in a container, run:
+            </para>
+<screen><prompt role="root"># </prompt>systemctl start gdm-systemd.service</screen>
+            <para>
+              Alternatively, run the command manually:
+            </para>
+<screen><prompt role="root"># </prompt>podman container runlabel run-systemd --name gdm \
+ registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/gdm:latest</screen>
+          </step>
+        </substeps>
+      </step>
+      <step>
+       <para>
+        The GDM starts. After you log in, a basic GNOME environment
+        opens.
+       </para>
+       <figure>
+        <title>GNOME Settings on top of ALP</title>
+        <mediaobject>
+         <imageobject role="fo">
+          <imagedata fileref="alp-gdm-workload.png" width="100%"/>
+         </imageobject>
+         <imageobject role="html">
+          <imagedata fileref="alp-gdm-workload.png" width="100%"/>
+         </imageobject>
+         <textobject role="description">
+          <phrase>GNOME Settings on top of ALP</phrase>
+         </textobject>
+        </mediaobject>
+       </figure>
+      </step>
+    </procedure>
+    <tip>
+      <title>Uninstalling deployed files</title>
+      <para>
+        If you need to clean the environment from all deployed files, run the
+        following command:
+      </para>
+<screen><prompt role="root"># </prompt>podman container runlabel uninstall \
+ registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/gdm:latest</screen>
+    </tip>
+  </section>
+  <section xml:id="related-run-gdm-with-podman">
+    <title>Related topics</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          ALP deployment is described in
+          <xref linkend="concept-alp-deployment"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Enabling Podman is described in
+          <xref linkend="task-enable-podman"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          The list of SUSE-provided ALP workloads is in
+          <xref linkend="introduction-available-alp-workloads"/>.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+</section><section xml:lang="en" role="task" version="5.1" xml:id="task-run-firewalld-with-podman"><info><title xmlns:its="http://www.w3.org/2005/11/its">Running <systemitem class="daemon">firewalld</systemitem> using Podman</title></info>
   
   <section xml:id="introduction-run-firewalld-with-podman">
     <title>Introduction</title>
