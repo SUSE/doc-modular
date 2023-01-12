@@ -20,11 +20,11 @@
     <title>What are transactional updates?</title>
     <para>
       To keep the base operating system stable and consistent, the &alp;
-     (&alpshort;) uses a read-only root file system.  Therefore you are not
-     able to perform direct changes to the root file system, for example, by
-     using the <command>zypper</command> command. Instead, &alpshort;
-     introduces <emphasis>transactional updates</emphasis> that allow you to
-     apply one or more changes to the root file system.
+      (&alpshort;) uses a read-only root file system. Therefore you are not
+      able to perform direct changes to the root file system, for example, by
+      using the <command>zypper</command> command. Instead, &alpshort;
+      introduces <emphasis>transactional updates</emphasis> that allow you to
+      apply one or more changes to the root file system.
     </para>
   </section>
   <section xml:id="how-it-works-transactional-update">
@@ -64,17 +64,66 @@
           snapshot.
         </para>
       </step>
-     </procedure>
-     <tip>
+    </procedure>
+    <tip>
       <title>Multiple changes to the root file system without reboots</title>
       <para>
-       Normally, each transactional update requires the system reboot before
-       the changes are applied. If you want to perform multiple transactional
-       updates in one snapshot, use the <option>--continue</option> option.
-       This way you will need to reboot the system only once after you perform
-       all the required updates.
+        Normally, each transactional update requires the system reboot before
+        the changes are applied. If you want to perform multiple transactional
+        updates in one snapshot, use the <option>--continue</option> option.
+        This way you will need to reboot the system only once after you perform
+        all the required updates.
       </para>
-     </tip>
+    </tip>
+  </section>
+  <section xml:id="how-it-works-transactional-update-etc">
+    <title><filename>/etc</filename> on a read-only file system</title>
+    <para>
+      Even though <filename>/etc</filename> is part of the read-only file
+      system, using an <literal>OverlayFS</literal> layer on this directory
+      enables you to write to this directory. All modifications that you
+      performed on the content of <filename>/etc</filename> are written to the
+      <filename>/var/lib/overlay/<replaceable>SNAPSHOT_NUMBER</replaceable>/etc</filename>.
+      Each snapshot has one associated <literal>OverlayFS</literal> directory.
+    </para>
+    <para>
+      Whenever a new snapshot is created (for example, as a result of a system
+      update), the content of <filename>/etc</filename> is synchronized and
+      used as a base in the new snapshot. In the <literal>OverlayFS</literal>
+      terminology, the current snapshot's <filename>/etc</filename> is mounted
+      as <literal>lowerdir</literal>. The new snapshot's
+      <filename>/etc</filename> is mounted as <literal>upperdir</literal>. If
+      there were no changes in the <literal>upperdir</literal>
+      <filename>/etc</filename>, any changes performed to the
+      <literal>lowerdir</literal> are visible to the
+      <literal>upperdir</literal>. Therefore, the new snapshot also contains
+      the changes from the current snapshot's <filename>/etc</filename>.
+    </para>
+    <important>
+      <title>Concurrent modification of <literal>lowerdir</literal> and <literal>upperdir</literal></title>
+      <para>
+        If <filename>/etc</filename> in both snapshots is modified, only the
+        changes in the new snapshot (<literal>upperdir</literal>) persist.
+        Changes made to the current snapshot (<literal>lowerdir</literal>) are
+        not synchronized to the new snapshot. Therefore, we do not recommend
+        changing <filename>/etc</filename> after a new snapshot has been
+        created and the system has not been rebooted. However, you can still
+        find the changes in the <filename>/var/lib/overlay/</filename>
+        directory for the snapshot in which the changes were performed.
+      </para>
+    </important>
+    <note>
+      <title>Using the <literal>--continue</literal> option of the <command>transactional-update</command> command</title>
+      <para>
+        If you use the <literal>--continue</literal> option of the
+        <command>transactional-update</command> command when performing changes
+        to the file system, all <filename>/etc</filename> directory layers
+        created by each separate run of
+        <command>transactional-update</command>, except for the one in the
+        newest snapshot, are synchronized to the <literal>lowerdir</literal>
+        (the <literal>lowerdir</literal> can have several mount points).
+      </para>
+    </note>
   </section>
   <section xml:id="how-it-works-transactional-update-repositories">
     <title>Software repositories</title>
