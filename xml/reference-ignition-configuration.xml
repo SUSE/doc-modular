@@ -27,6 +27,16 @@
       <xref
      linkend="task-convert-yaml-to-json"/>.
     </para>
+    <important>
+      <para>
+        <xref linkend="alp-deployment-default-partitioning"/> lists subvolumes
+        that are mounted by default when running the pre-built image. If you
+        want to add a new user or modify any of the files on a subvolume that
+        is not mounted by default, you need to declare such subvolume first so
+        that it is mounted as well. Find more details about mounting file
+        systems in <xref linkend="sec-storage-filesystem"/>.
+      </para>
+    </important>
     <note>
       <title>The <literal>version</literal> attribute is mandatory</title>
       <para>
@@ -260,6 +270,67 @@ storage:
       format: btrfs
       wipe_filesystem: false
  </screen>
+        <para>
+          Normally, regular user's home directory is located in the
+          <filename>/home/<replaceable>USER_NAME</replaceable></filename>
+          directory. Since <filename>/home</filename> is not mounted by default
+          in the initrd, the mount has to be explicitly defined for user
+          creation to succeed:
+        </para>
+        <para>
+          JSON:
+        </para>
+<screen>
+{
+    "variant": "fcos",
+    "version": "1.1.0",
+    "storage": {
+        "filesystems": [
+            {
+                "path": "/home",
+                "device": "/dev/sda3",
+                "format": "btrfs",
+                "wipe_filesystem": false,
+                "mount_options": [
+                    "subvol=/@/home"
+                ]
+            }
+        ]
+    },
+    "passwd": {
+        "users": [
+            {
+                "name": "root",
+                "password_hash": "$6$Dxkc092R4JdlFeLE$bfO3TPV1n3a4I1to1/2R...",
+                "ssh_authorized_keys": [
+                    "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDCpNOU+nwWRnZYo..."
+                ]
+            }
+        ]
+    }
+}
+</screen>
+        <para>
+          YAML:
+        </para>
+<screen>
+variant: fcos
+version: 1.1.0
+storage:
+  filesystems:
+    - path: /home
+      device: /dev/sda3
+      format: btrfs
+      wipe_filesystem: false
+      mount_options:
+       - "subvol=/@/home"
+passwd:
+  users:
+   - name: root
+     password_hash: $6$Dxkc092R4JdlFeLE$bfO3TPV1n3a4I1to1/2EkfvU2GiSKpR...
+     ssh_authorized_keys:
+       - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDCpNOU+nwWRnZYoMV3biUgCC...
+</screen>
       </section>
       <section xml:id="sec-storage-files">
         <title>The <literal>files</literal> attribute</title>
@@ -329,7 +400,7 @@ storage:
     "storage": {
         "directories": [
             {
-                "path": "/home/tux",
+                "path": "/mnt/backup",
                 "user": {
                     "name": "tux"
                 }
