@@ -10,11 +10,13 @@ These templates act as a blueprint for topic-oriented writing in DocBook.
 
 # Using these templates
 
-1. Decide which information unit you want to create (task, concept, or reference).
+1. Decide which information unit you want to create (assembly and task, concept, reference or glue).
 1. Copy the respective template (see below) to the `xml` directory.
 1. Rename the filename to the corresponding naming convention (see below).
 1. Integrate the new filename in your assembly file.
 1. Write the new content and adapt the IDs.
+1. Copy the `DC-article` file to the `xml` directory and rename it according to the corresponding naming conventions (see below)
+1. Add suitable meta data information to your assembly file. Stick to the conventions outlined below.
 
 
 # Templates for Doc Evolution
@@ -53,6 +55,9 @@ When creating new articles and topics, please stick to the following conventions
 
       <NAME> := <TOPIC>[_<SUBTOPIC]_<SNIPPET_TOPIC>_<TITLE>
 
+### DC file naming conventions
+
+The DC file name should match the assembly file's root ID.
 
 ### File naming conventions
 
@@ -104,3 +109,26 @@ Make sure your images can be associated with the topic they belong to. Use a sim
 ```
 <NAME> := <TOPIC>[_<SUBTOPIC]_<SNIPPET_TOPIC>_<TITLE>
 ```
+
+## Meta data
+
+Once your article is done, add a meta data layer to the assembly file. Check the `assembly.xml` file for XML synthax and possible values. The following meta data types are currently supported:
+
+* Internal
+* SEO
+* Search
+* Publishing info
+* Social media
+
+### Internal 
+
+1. Determine whether the article needs to be translated and add a list of languages.
+1. If you have re-used content from existing legacy (non-modular) docs, adjust the pointer in the XML comments of your file. By adding a similar pointer to the legacy doc piece, you make sure that you keep both docs in sync.
+
+### SEO
+
+### Search
+
+### Publishing info
+
+### Social media
