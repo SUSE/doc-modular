@@ -1,11 +1,11 @@
 # How to use these templates
 
-This README gives you a short introduction about the files and how to use it.
+This README gives you a short introduction to our template files and how to use them.
 
 
 # Why these templates?
 
-These templates act as a blueprint for topic oriented writing in DocBook.
+These templates act as a blueprint for topic-oriented writing in DocBook.
 
 
 # Using these templates
@@ -36,22 +36,22 @@ When creating new articles and topics, please stick to the following conventions
 
 * Assembly/article files:
 
-     articles/<NAME>.xml
+      articles/<NAME>.xml
 
 * Concept, reference, task, glue files:
 
-     concepts/<NAME>.xml
-     references/<NAME>.xml
-     tasks/<NAME>.xml
-     glue/<NAME>.xml
+      concepts/<NAME>.xml
+      references/<NAME>.xml
+      tasks/<NAME>.xml
+      glue/<NAME>.xml
 
 * Common files (entities, gfdl, etc):
 
-     common/<NAME>.xml
+      common/<NAME>.xml
 
 * Any topic's name consists of the following elements that are explained below:
 
-     <NAME> := <TOPIC>[_<SUBTOPIC]_<SNIPPET_TOPIC>_<TITLE>
+      <NAME> := <TOPIC>[_<SUBTOPIC]_<SNIPPET_TOPIC>_<TITLE>
 
 
 ### File naming conventions
