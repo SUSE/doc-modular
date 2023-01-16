@@ -64,7 +64,7 @@ systemd_timer
 network
 ```
 
-Second component for concept, reference, task, glue should be the topic of the snippet:
+The second component for concept, reference, task, glue should be the topic of the snippet:
 ```
 references/autoyast_partitioner_syntax.xml
 concepts/autoyast_control_file.xml
@@ -73,7 +73,7 @@ tasks/systemd_timer_troubleshoot.xml
 concepts/network_ipv6_vs_ipv4.xml
 ```
 
-Second componenmt of the article should be an abbreviated title:
+The second component of the article should be an abbreviated title:
 ```
 articles/systemd_timer_working_with.xml
 articles/autoyast_understand_config_file.xml
