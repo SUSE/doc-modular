@@ -1,3 +1,22 @@
+# How to use these templates
+
+This README gives you a short introduction about the files and how to use it.
+
+
+# Why these templates?
+
+These templates act as a blueprint for topic oriented writing in DocBook.
+
+
+# Using these templates
+
+1. Decide which information unit you want to create (task, concept, or reference).
+1. Copy the respective template (see below) to the `xml` directory.
+1. Rename the filename to the corresponding naming convention (see below).
+1. Integrate the new filename in your assembly file.
+1. Write the new content and adapt the IDs.
+
+
 # Templates for Doc Evolution
 
 We provide five different types of information units:
@@ -10,37 +29,34 @@ We provide five different types of information units:
 
 To use them, copy them from this directory to `xml/`.
 
+
 ## Naming and directory conventions
 
 When creating new articles and topics, please stick to the following conventions. We keep separate directories for each topic type, for common files and articles.
 
-Assembly/article files:
-```
-articles/<NAME>.xml
-```
+* Assembly/article files:
 
-Concept, reference, task, glue files:
-```
-concepts/<NAME>.xml
-references/<NAME>.xml
-tasks/<NAME>.xml
-glue/<NAME>.xml
-```
+     articles/<NAME>.xml
 
-Common files (entities, gfdl, etc):
-```
-common/<NAME>.xml
-```
+* Concept, reference, task, glue files:
 
-Any topic's name consists of the following elements that are explained below:
+     concepts/<NAME>.xml
+     references/<NAME>.xml
+     tasks/<NAME>.xml
+     glue/<NAME>.xml
 
-```
-<NAME> := <TOPIC>[_<SUBTOPIC]_<SNIPPET_TOPIC>_<TITLE>
-```
+* Common files (entities, gfdl, etc):
+
+     common/<NAME>.xml
+
+* Any topic's name consists of the following elements that are explained below:
+
+     <NAME> := <TOPIC>[_<SUBTOPIC]_<SNIPPET_TOPIC>_<TITLE>
+
 
 ### File naming conventions
 
-Always start with the overarching topic. If necessary, add a suptopic (append with _):
+Always start with the overarching topic. If necessary, add a suptopic (append with `_`):
 ```
 autoyast
 systemd
@@ -63,6 +79,7 @@ articles/systemd_timer_working_with.xml
 articles/autoyast_understand_config_file.xml
 ```
 
+
 ### ID naming conventions
 
 Working with assemblies, you need to distinguish between two types of IDs:
@@ -76,7 +93,8 @@ External IDs are build in a similar fashion as file names. As with file names, n
 <NAME> := <TOPIC>[-<SUBTOPIC]-<SNIPPET-TOPIC>-<TITLE>
 ```
 
-To build an internal ID, prefix the external ID with an underscore.
+To build an internal ID, prefix the external ID with an underscore (`_`).
+
 
 ### Image naming conventions
 
