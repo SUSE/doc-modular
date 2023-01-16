@@ -127,8 +127,26 @@ Once your article is done, add a meta data layer to the assembly file. Check the
 
 ### SEO
 
+Add some search engine related information to your file:
+1. `title`- max. 55 characters
+1. `description` - max. 150 characters
+
 ### Search
+
+Add as much search-related data to your article as possible. Chose the appropriate tags:
+* `productname`
+* `productversion`
+* `architecture`
+* `function`
+* `type` (TRD only)
+* `task`
+* `targetgroup`
+* `category`
 
 ### Publishing info
 
+Provide the reader with some guidance on the articles age (`last-updated`) and the approximate reading time (`time-to-read`).
+
 ### Social media
+
+Provide a few social media related tags to make sure your article gets properly shared via Facebook and Twitter.
