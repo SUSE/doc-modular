@@ -95,9 +95,11 @@
   <section xml:id="what-is-alp">
     <title>What is ALP?</title>
     <para>
-      The Adaptable Linux Platform (ALP) is a lightweight operating system. Instead of
-      applications distributed in traditional software packages, it runs
-      containerized and virtualized workloads.
+     The Adaptable Linux Platform (ALP) is a lightweight operating system. Its stability
+     and software consistence is ensured by a read-only root file system
+     modified by transactional updates. Instead of applications distributed in
+     traditional software packages, it runs containerized and virtualized
+     workloads.
     </para>
   </section>
   <section xml:id="how-it-works-alp">
@@ -121,10 +123,10 @@
         <term>Transactional updates</term>
         <listitem>
           <para>
-            The <command>transactional-update</command> command performs changes on the file system. You can
-            use it to install software, update existing workloads, or apply
-            software patches. Because it uses file system snapshots, applied
-            changes can be easily rolled back.
+           The <command>transactional-update</command> command performs changes on the file system. You can
+           use it, for example, to install new software or apply software
+           patches. Because it uses file system snapshots, applied changes can
+           be easily rolled back.
           </para>
         </listitem>
       </varlistentry>
@@ -1125,18 +1127,33 @@
     </para>
     <para>
       Ignition uses a configuration file in the JSON format named
-      <filename>config.ign</filename>. For the purpose of better human
-      readability, you can create a YAML file and convert this file to JSON.
-      For details, refer to 'Task: Converting YAML file into JSON'.
+      <filename>config.ign</filename>. You can either write the configuration
+      manually or use the Fuel Ignition Web application at
+      <link xlink:href="https://opensuse.github.io/fuel-ignition"/> to generate it.
     </para>
+    <important>
+      <para>
+        Note that Fuel Ignition does not cover the complete Ignition
+        vocabulary yet, and the resulting JSON file may need some manual
+        tweaking.
+      </para>
+    </important>
+    <tip>
+      <para>
+        If you decide to write the Ignition configuration manually and prefer
+        the YAML format over JSON, you can create a YAML file and convert this
+        file to JSON using a <literal>Butane</literal> tool. For details, refer
+        to <xref linkend="task-convert-yaml-to-json"/>.
+      </para>
+    </tip>
     <section xml:id="sec-ignition-configuration">
       <title><filename>config.ign</filename></title>
       <para>
         When installing on bare metal, the configuration file
         <filename>config.ign</filename> must reside in the
-        <filename>ignition</filename> subdirectory on the configuration media
-        labeled <literal>ignition</literal>. The directory structure must look
-        as follows:
+        <filename>ignition</filename> subdirectory on the configuration media,
+        for example, a USB stick labeled <literal>ignition</literal>. The
+        directory structure must look as follows:
       </para>
 <screen>
 &lt;root directory&gt;
@@ -1144,6 +1161,12 @@
     └── config.ign
 
  </screen>
+      <tip>
+        <para>
+          To create a disk image with the Ignition configuration, you can use
+          the Fuel Ignition Web application at https://opensuse.github.io/fuel-ignition.
+        </para>
+      </tip>
       <para>
         If you intend to configure a virtual machine with Virtual Machine Manager (<systemitem class="library">libvirt</systemitem>),
         provide the path to the <filename>config.ign</filename> file in its XML
@@ -1184,17 +1207,20 @@
     <itemizedlist>
       <listitem>
         <para>
-          Converting YAML to JSON.
+          Converting Ignition YAML to JSON is described in
+          <xref linkend="task-convert-yaml-to-json"/>.
         </para>
       </listitem>
       <listitem>
         <para>
-          Examples of Ignition configuration.
+          Examples of Ignition configuration are introduced in
+          <xref linkend="reference-ignition-configuration"/>.
         </para>
       </listitem>
       <listitem>
         <para>
-          Configuring with Combustion.
+          Configuring the JeOS Firstboot with Combustion is described in
+          <xref linkend="concept-configure-combustion"/>.
         </para>
       </listitem>
     </itemizedlist>
@@ -1302,11 +1328,22 @@
     <title>Configuration examples in YAML</title>
     <para>
       This section will provide you with some common examples of the Ignition
-      configuration in the YAML format. Note that Ignition does not accept
-      configuration in the YAML format but rather JSON. To convert a YAML file
-      to the JSON format, use the <literal>butane</literal> tool as described
-      in <xref linkend="introduction-convert-yaml-to-json"/>.
+      configuration in both the native JSON format and the YAML format.
+      Note that Ignition does not accept configuration in the YAML
+      format, and you need to convert it to the JSON format. To do so, you
+      can use the <literal>butane</literal> tool as described in
+      <xref linkend="task-convert-yaml-to-json"/>.
     </para>
+    <important>
+      <para>
+        <xref linkend="alp-deployment-default-partitioning"/> lists subvolumes
+        that are mounted by default when running the pre-built image. If you
+        want to add a new user or modify any of the files on a subvolume that
+        is not mounted by default, you need to declare such subvolume first so
+        that it is mounted as well. Find more details about mounting file
+        systems in <xref linkend="sec-storage-filesystem"/>.
+      </para>
+    </important>
     <note>
       <title>The <literal>version</literal> attribute is mandatory</title>
       <para>
@@ -1336,6 +1373,48 @@
           <literal>device</literal>, other attributes are optional. The
           following example will use a single virtual device and divide the
           disk into four partitions:
+        </para>
+        <para>
+          JSON:
+        </para>
+<screen>
+{
+    "variant": "fcos",
+    "version": "1.0.0",
+    "storage": {
+        "disks": [
+            {
+                "device": "/dev/vda",
+                "wipe_table": true,
+                "partitions": [
+                    {
+                        "label": "root",
+                        "number": 1,
+                        "type_guid": "4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709"
+                    },
+                    {
+                        "label": "boot",
+                        "number": 2,
+                        "type_guid": "BC13C2FF-59E6-4262-A352-B275FD6F7172"
+                    },
+                    {
+                        "label": "swap",
+                        "number": 3,
+                        "type_guid": "0657FD6D-A4AB-43C4-84E5-0933C84B4F4F"
+                    },
+                    {
+                        "label": "home",
+                        "number": 4,
+                        "type_guid": "933AC7E1-2EB4-4F13-B844-0E14E2AEF915"
+                    }
+                ]
+            }
+        ]
+    }
+}
+</screen>
+        <para>
+          YAML:
         </para>
 <screen>
 variant: fcos
@@ -1393,6 +1472,30 @@ storage:
             </listitem>
           </varlistentry>
         </variablelist>
+        <para>
+          JSON:
+        </para>
+<screen>
+{
+    "variant": "fcos",
+    "version": "1.0.0",
+    "storage": {
+        "raid": [
+            {
+                "name": "system",
+                "level": "raid1",
+                "devices": [
+                    "/dev/sda",
+                    "/dev/sdb"
+                ]
+            }
+        ]
+    }
+}
+</screen>
+        <para>
+          YAML:
+        </para>
 <screen>
 variant: fcos
 version: 1.0.0
@@ -1442,6 +1545,28 @@ storage:
           <literal>/dev/sda1</literal> partition, which is formatted to btrfs.
           The device will not be erased.
         </para>
+        <para>
+          JSON
+        </para>
+<screen>
+{
+    "variant": "fcos",
+    "version": "1.0.0",
+    "storage": {
+        "filesystems": [
+            {
+                "path": "/opt",
+                "device": "/dev/sda1",
+                "format": "btrfs",
+                "wipe_filesystem": false
+            }
+        ]
+    }
+}
+</screen>
+        <para>
+          YAML:
+        </para>
 <screen>
 variant: fcos
 version: 1.0.0
@@ -1452,6 +1577,67 @@ storage:
       format: btrfs
       wipe_filesystem: false
  </screen>
+        <para>
+          Normally, a regular user's home directory is located in the
+          <filename>/home/<replaceable>USER_NAME</replaceable></filename>
+          directory. Since <filename>/home</filename> is not mounted by default
+          in the initrd, the mount has to be explicitly defined for the user
+          creation to succeed:
+        </para>
+        <para>
+          JSON:
+        </para>
+<screen>
+{
+    "variant": "fcos",
+    "version": "1.1.0",
+    "storage": {
+        "filesystems": [
+            {
+                "path": "/home",
+                "device": "/dev/sda3",
+                "format": "btrfs",
+                "wipe_filesystem": false,
+                "mount_options": [
+                    "subvol=/@/home"
+                ]
+            }
+        ]
+    },
+    "passwd": {
+        "users": [
+            {
+                "name": "root",
+                "password_hash": "$6$Dxkc092R4JdlFeLE$bfO3TPV1n3a4I1to1/2R...",
+                "ssh_authorized_keys": [
+                    "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDCpNOU+nwWRnZYo..."
+                ]
+            }
+        ]
+    }
+}
+</screen>
+        <para>
+          YAML:
+        </para>
+<screen>
+variant: fcos
+version: 1.1.0
+storage:
+  filesystems:
+    - path: /home
+      device: /dev/sda3
+      format: btrfs
+      wipe_filesystem: false
+      mount_options:
+       - "subvol=/@/home"
+passwd:
+  users:
+   - name: root
+     password_hash: $6$Dxkc092R4JdlFeLE$bfO3TPV1n3a4I1to1/2EkfvU2GiSKpR...
+     ssh_authorized_keys:
+       - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDCpNOU+nwWRnZYoMV3biUgCC...
+</screen>
       </section>
       <section xml:id="sec-storage-files">
         <title>The <literal>files</literal> attribute</title>
@@ -1466,6 +1652,30 @@ storage:
           <literal>files</literal> attribute. The file
           <filename>/etc/hostname</filename> will be created with the
           <emphasis>alp-1</emphasis> host name:
+        </para>
+        <para>
+          JSON:
+        </para>
+<screen>
+{
+    "variant": "fcos",
+    "version": "1.0.0",
+    "storage": {
+        "files": [
+            {
+                "path": "/etc/hostname",
+                "mode": 420,
+                "overwrite": true,
+                "contents": {
+                    "inline": "alp-1"
+                }
+            }
+        ]
+    }
+}
+</screen>
+        <para>
+          YAML:
         </para>
 <screen>
 variant: fcos
@@ -1486,6 +1696,28 @@ storage:
           that will be created in the file system. The
           <literal>directories</literal> attribute must contain at least one
           <literal>path</literal> attribute.
+        </para>
+        <para>
+          JSON:
+        </para>
+<screen>
+{
+    "variant": "fcos",
+    "version": "1.0.0",
+    "storage": {
+        "directories": [
+            {
+                "path": "/mnt/backup",
+                "user": {
+                    "name": "tux"
+                }
+            }
+        ]
+    }
+}
+</screen>
+        <para>
+          YAML:
         </para>
 <screen>
 variant: fcos
@@ -1514,6 +1746,29 @@ storage:
         The command creates a hash of the password you chose. Use this hash as
         the value of the <literal>password_hash</literal> attribute.
       </para>
+      <para>
+        JSON:
+      </para>
+<screen>
+{
+    "variant": "fcos",
+    "version": "1.0.0",
+    "passwd": {
+        "users": [
+            {
+                "name": "root",
+                "password_hash": "$6$PfKm6Fv5WbqOvZ0C$g4kByYM.D2B5GCsgluuqDNL87oeXiHqctr6INNNmF75WPGgkLn9O9uVx4iEe3UdbbhaHbTJ1vpZymKWuDIrWI1",
+                "ssh_authorized_keys": [
+                    "ssh-rsa long...key user@host"
+                ]
+            }
+        ]
+    }
+}
+</screen>
+      <para>
+        YAML:
+      </para>
 <screen>
 variant: fcos
 version: 1.0.0
@@ -1536,6 +1791,26 @@ passwd:
       <para>
         You can enable <systemitem class="daemon">systemd</systemitem> services by specifying them in the
         <literal>systemd</literal> attribute.
+      </para>
+      <para>
+        JSON:
+      </para>
+<screen>
+{
+    "variant": "fcos",
+    "version": "1.0.0",
+    "systemd": {
+        "units": [
+            {
+                "name": "sshd.service",
+                "enabled": true
+            }
+        ]
+    }
+}
+</screen>
+      <para>
+        YAML:
       </para>
 <screen>
 variant: fcos
@@ -3577,8 +3852,8 @@ df890193f651  localhost/opensuse/toolbox  /bin/bash  4 days ago    Created
         </para>
 <screen>
 <prompt>&gt; </prompt>podman search yast-mgmt-ncurses
-registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/yast-mgmt-ncurses
 [...]
+registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/yast-mgmt-ncurses
 </screen>
       </step>
       <step>
@@ -3720,6 +3995,7 @@ registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/work
         </para>
 <screen>
 <prompt role="root"># </prompt>podman search kvm
+[...]
 registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/kvm
 </screen>
       </step>
@@ -3955,6 +4231,7 @@ localhost login:
         </para>
 <screen>
 <prompt role="root"># </prompt>podman search cockpit-ws
+[...]
 registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/cockpit-ws
 </screen>
       </step>
@@ -4206,8 +4483,8 @@ registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/work
         </para>
 <screen>
 <prompt>&gt; </prompt>podman search gdm
-registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/gdm
 [...]
+registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/gdm
 </screen>
       </step>
       <step>
@@ -4356,6 +4633,7 @@ registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/work
         </para>
 <screen>
 <prompt role="root"># </prompt>podman search firewalld
+[...]
 registry.opensuse.org/suse/alp/workloads/tumbleweed_images/suse/alp/workloads/firewalld
 </screen>
       </step>
@@ -4533,6 +4811,7 @@ registry.opensuse.org/suse/alp/workloads/tumbleweed_images/suse/alp/workloads/fi
         </para>
 <screen>
 <prompt role="root"># </prompt>podman search grafana
+[...]
 registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/grafana
 </screen>
       </step>
