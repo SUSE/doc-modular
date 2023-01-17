@@ -20,12 +20,22 @@
     <title>Configuration examples in YAML</title>
     <para>
       This section will provide you with some common examples of the &ignition;
-      configuration in the YAML format. Note that &ignition; does not accept
-      configuration in the YAML format but rather JSON. To convert a YAML file
-      to the JSON format, use the <literal>butane</literal> tool as described
-      in <xref
-   linkend="introduction-convert-yaml-to-json"/>.
+      configuration in both the native JSON format and the YAML format.
+      Note that &ignition; does not accept configuration in the YAML
+      format, and you need to convert it to the JSON format. To do so, you
+      can use the <literal>butane</literal> tool as described in
+      <xref linkend="task-convert-yaml-to-json"/>.
     </para>
+    <important>
+      <para>
+        <xref linkend="alp-deployment-default-partitioning"/> lists subvolumes
+        that are mounted by default when running the pre-built image. If you
+        want to add a new user or modify any of the files on a subvolume that
+        is not mounted by default, you need to declare such subvolume first so
+        that it is mounted as well. Find more details about mounting file
+        systems in <xref linkend="sec-storage-filesystem"/>.
+      </para>
+    </important>
     <note>
       <title>The <literal>version</literal> attribute is mandatory</title>
       <para>
@@ -55,6 +65,48 @@
           <literal>device</literal>, other attributes are optional. The
           following example will use a single virtual device and divide the
           disk into four partitions:
+        </para>
+        <para>
+          JSON:
+        </para>
+<screen>
+{
+    "variant": "fcos",
+    "version": "1.0.0",
+    "storage": {
+        "disks": [
+            {
+                "device": "/dev/vda",
+                "wipe_table": true,
+                "partitions": [
+                    {
+                        "label": "root",
+                        "number": 1,
+                        "type_guid": "4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709"
+                    },
+                    {
+                        "label": "boot",
+                        "number": 2,
+                        "type_guid": "BC13C2FF-59E6-4262-A352-B275FD6F7172"
+                    },
+                    {
+                        "label": "swap",
+                        "number": 3,
+                        "type_guid": "0657FD6D-A4AB-43C4-84E5-0933C84B4F4F"
+                    },
+                    {
+                        "label": "home",
+                        "number": 4,
+                        "type_guid": "933AC7E1-2EB4-4F13-B844-0E14E2AEF915"
+                    }
+                ]
+            }
+        ]
+    }
+}
+</screen>
+        <para>
+          YAML:
         </para>
 <screen>
 variant: fcos
@@ -112,6 +164,30 @@ storage:
             </listitem>
           </varlistentry>
         </variablelist>
+        <para>
+          JSON:
+        </para>
+<screen>
+{
+    "variant": "fcos",
+    "version": "1.0.0",
+    "storage": {
+        "raid": [
+            {
+                "name": "system",
+                "level": "raid1",
+                "devices": [
+                    "/dev/sda",
+                    "/dev/sdb"
+                ]
+            }
+        ]
+    }
+}
+</screen>
+        <para>
+          YAML:
+        </para>
 <screen>
 variant: fcos
 version: 1.0.0
@@ -161,6 +237,28 @@ storage:
           <literal>/dev/sda1</literal> partition, which is formatted to btrfs.
           The device will not be erased.
         </para>
+        <para>
+          JSON
+        </para>
+<screen>
+{
+    "variant": "fcos",
+    "version": "1.0.0",
+    "storage": {
+        "filesystems": [
+            {
+                "path": "/opt",
+                "device": "/dev/sda1",
+                "format": "btrfs",
+                "wipe_filesystem": false
+            }
+        ]
+    }
+}
+</screen>
+        <para>
+          YAML:
+        </para>
 <screen>
 variant: fcos
 version: 1.0.0
@@ -171,6 +269,67 @@ storage:
       format: btrfs
       wipe_filesystem: false
  </screen>
+        <para>
+          Normally, a regular user's home directory is located in the
+          <filename>/home/<replaceable>USER_NAME</replaceable></filename>
+          directory. Since <filename>/home</filename> is not mounted by default
+          in the initrd, the mount has to be explicitly defined for the user
+          creation to succeed:
+        </para>
+        <para>
+          JSON:
+        </para>
+<screen>
+{
+    "variant": "fcos",
+    "version": "1.1.0",
+    "storage": {
+        "filesystems": [
+            {
+                "path": "/home",
+                "device": "/dev/sda3",
+                "format": "btrfs",
+                "wipe_filesystem": false,
+                "mount_options": [
+                    "subvol=/@/home"
+                ]
+            }
+        ]
+    },
+    "passwd": {
+        "users": [
+            {
+                "name": "root",
+                "password_hash": "$6$Dxkc092R4JdlFeLE$bfO3TPV1n3a4I1to1/2R...",
+                "ssh_authorized_keys": [
+                    "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDCpNOU+nwWRnZYo..."
+                ]
+            }
+        ]
+    }
+}
+</screen>
+        <para>
+          YAML:
+        </para>
+<screen>
+variant: fcos
+version: 1.1.0
+storage:
+  filesystems:
+    - path: /home
+      device: /dev/sda3
+      format: btrfs
+      wipe_filesystem: false
+      mount_options:
+       - "subvol=/@/home"
+passwd:
+  users:
+   - name: root
+     password_hash: $6$Dxkc092R4JdlFeLE$bfO3TPV1n3a4I1to1/2EkfvU2GiSKpR...
+     ssh_authorized_keys:
+       - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDCpNOU+nwWRnZYoMV3biUgCC...
+</screen>
       </section>
       <section xml:id="sec-storage-files">
         <title>The <literal>files</literal> attribute</title>
@@ -185,6 +344,30 @@ storage:
           <literal>files</literal> attribute. The file
           <filename>/etc/hostname</filename> will be created with the
           <emphasis>alp-1</emphasis> host name:
+        </para>
+        <para>
+          JSON:
+        </para>
+<screen>
+{
+    "variant": "fcos",
+    "version": "1.0.0",
+    "storage": {
+        "files": [
+            {
+                "path": "/etc/hostname",
+                "mode": 420,
+                "overwrite": true,
+                "contents": {
+                    "inline": "alp-1"
+                }
+            }
+        ]
+    }
+}
+</screen>
+        <para>
+          YAML:
         </para>
 <screen>
 variant: fcos
@@ -205,6 +388,28 @@ storage:
           that will be created in the file system. The
           <literal>directories</literal> attribute must contain at least one
           <literal>path</literal> attribute.
+        </para>
+        <para>
+          JSON:
+        </para>
+<screen>
+{
+    "variant": "fcos",
+    "version": "1.0.0",
+    "storage": {
+        "directories": [
+            {
+                "path": "/mnt/backup",
+                "user": {
+                    "name": "tux"
+                }
+            }
+        ]
+    }
+}
+</screen>
+        <para>
+          YAML:
         </para>
 <screen>
 variant: fcos
@@ -233,6 +438,29 @@ storage:
         The command creates a hash of the password you chose. Use this hash as
         the value of the <literal>password_hash</literal> attribute.
       </para>
+      <para>
+        JSON:
+      </para>
+<screen>
+{
+    "variant": "fcos",
+    "version": "1.0.0",
+    "passwd": {
+        "users": [
+            {
+                "name": "root",
+                "password_hash": "$6$PfKm6Fv5WbqOvZ0C$g4kByYM.D2B5GCsgluuqDNL87oeXiHqctr6INNNmF75WPGgkLn9O9uVx4iEe3UdbbhaHbTJ1vpZymKWuDIrWI1",
+                "ssh_authorized_keys": [
+                    "ssh-rsa long...key user@host"
+                ]
+            }
+        ]
+    }
+}
+</screen>
+      <para>
+        YAML:
+      </para>
 <screen>
 variant: fcos
 version: 1.0.0
@@ -255,6 +483,26 @@ passwd:
       <para>
         You can enable &systemd; services by specifying them in the
         <literal>systemd</literal> attribute.
+      </para>
+      <para>
+        JSON:
+      </para>
+<screen>
+{
+    "variant": "fcos",
+    "version": "1.0.0",
+    "systemd": {
+        "units": [
+            {
+                "name": "sshd.service",
+                "enabled": true
+            }
+        ]
+    }
+}
+</screen>
+      <para>
+        YAML:
       </para>
 <screen>
 variant: fcos
