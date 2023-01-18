@@ -22,7 +22,7 @@ The documentation consists of smaller information units with the following chara
 
 * For re-use in different contexts:
 
-  Every information units stands for itself, but it can be bundled into
+  Every information unit stands for itself, but it can be bundled into
   collections that cover different products/solutions.
 
 # Conventions
