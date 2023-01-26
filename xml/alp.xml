@@ -2301,12 +2301,12 @@ tcontext=system_u:system_r:modemmanager_t:s0 tclass=qipcrtr_socket permissive=0
   <section xml:id="what-is-transactional-update">
     <title>What are transactional updates?</title>
     <para>
-      The Adaptable Linux Platform (ALP) was designed to use a read-only root file system.
-      This means that after the deployment is complete, you are not able to
-      perform direct modifications to the root file system, for example, by
+      To keep the base operating system stable and consistent, the Adaptable Linux Platform
+      (ALP) uses a read-only root file system. Therefore, you cannot
+      perform direct changes to the root file system, for example, by
       using the <command>zypper</command> command. Instead, ALP
-      introduces the concept of transactional updates which enables you to
-      modify your system and keep it up to date.
+      introduces <emphasis>transactional updates</emphasis> that allow you to
+      apply one or more changes to the root file system.
     </para>
   </section>
   <section xml:id="how-it-works-transactional-update">
@@ -2345,25 +2345,66 @@ tcontext=system_u:system_r:modemmanager_t:s0 tclass=qipcrtr_socket permissive=0
           After rebooting, the new root file system is set as the default
           snapshot.
         </para>
-        <note>
-          <para>
-            Bear in mind that without rebooting your system, the changes will
-            not be applied.
-          </para>
-        </note>
       </step>
     </procedure>
-    <warning>
+    <tip>
+      <title>Multiple changes to the root file system without reboots</title>
       <para>
-        If you do not reboot your machine before performing further changes,
-        the <command>transactional-update</command> command will create a new snapshot from the current root
-        file system. This means that you will end up with several parallel
-        snapshots, each including that particular change but not changes from
-        the other invocations of the command. After reboot, the most recently
-        created snapshot will be used as your new root file system, and it will
-        not include changes done in the previous snapshots.
+        Normally, each transactional update requires the system reboot before
+        the changes are applied. If you want to perform multiple transactional
+        updates in one snapshot, use the <option>--continue</option> option.
+        This way you will need to reboot the system only once after you perform
+        all the required updates.
       </para>
-    </warning>
+    </tip>
+  </section>
+  <section xml:id="how-it-works-transactional-update-etc">
+    <title><filename>/etc</filename> on a read-only file system</title>
+    <para>
+      Even though <filename>/etc</filename> is part of the read-only file
+      system, using an <literal>OverlayFS</literal> layer on this directory
+      enables you to write to this directory. All modifications that you
+      performed on the content of <filename>/etc</filename> are written to the
+      <filename>/var/lib/overlay/<replaceable>SNAPSHOT_NUMBER</replaceable>/etc</filename>.
+      Each snapshot has one associated <literal>OverlayFS</literal> directory.
+    </para>
+    <para>
+      Whenever a new snapshot is created (for example, as a result of a system
+      update), the content of <filename>/etc</filename> is synchronized and
+      used as a base in the new snapshot. In the <literal>OverlayFS</literal>
+      terminology, the current snapshot's <filename>/etc</filename> is mounted
+      as <literal>lowerdir</literal>. The new snapshot's
+      <filename>/etc</filename> is mounted as <literal>upperdir</literal>. If
+      there were no changes in the <literal>upperdir</literal>
+      <filename>/etc</filename>, any changes performed to the
+      <literal>lowerdir</literal> are visible to the
+      <literal>upperdir</literal>. Therefore, the new snapshot also contains
+      the changes from the current snapshot's <filename>/etc</filename>.
+    </para>
+    <important>
+      <title>Concurrent modification of <literal>lowerdir</literal> and <literal>upperdir</literal></title>
+      <para>
+        If <filename>/etc</filename> in both snapshots is modified, only the
+        changes in the new snapshot (<literal>upperdir</literal>) persist.
+        Changes made to the current snapshot (<literal>lowerdir</literal>) are
+        not synchronized to the new snapshot. Therefore, we do not recommend
+        changing <filename>/etc</filename> after a new snapshot has been
+        created and the system has not been rebooted. However, you can still
+        find the changes in the <filename>/var/lib/overlay/</filename>
+        directory for the snapshot in which the changes were performed.
+      </para>
+    </important>
+    <note>
+      <title>Using the <literal>--continue</literal> option of the <command>transactional-update</command> command</title>
+      <para>
+        When using the <option>--continue</option> option
+        and the new snapshot is a descendant of the current snapshot,
+        then the <filename>/etc</filename> overlays of all the snapshots
+         in between will be added as additional directories to the
+          <filename>lowerdir</filename> (the <filename>lowerdir</filename>
+          can have several mount points).
+      </para>
+    </note>
   </section>
   <section xml:id="how-it-works-transactional-update-repositories">
     <title>Software repositories</title>
@@ -2445,15 +2486,46 @@ tcontext=system_u:system_r:modemmanager_t:s0 tclass=qipcrtr_socket permissive=0
   </section>
 <section xml:lang="en" role="reference" version="5.1" xml:id="reference-transactional-update-usage"><info><title xmlns:its="http://www.w3.org/2005/11/its">Usage of the <command>transactional-update</command> command</title></info>
   
+  <para>
+    The <command>transactional-update</command> command enables the atomic installation or removal of updates.
+    Updates are applied only if all of them can be successfully installed.
+    <command>transactional-update</command> creates a snapshot of your system and uses it to update the system.
+    Later you can restore this snapshot. All changes become active only after
+    reboot.
+  </para>
+  <section xml:id="transactional-update-shell">
+    <title>The <command>transactional-update</command> shell</title>
+    <para>
+      The <command>transactional-update shell</command> command opens a shell in the transactional-update
+      environment. In the shell, you can enter almost any linux command to make
+      changes to the file system, for example, install multiple packages with
+      the <command>zypper</command>. Or, you can verify that the changes you
+      previously made with the <command>transactional-update</command> command are correct.
+    </para>
+    <important>
+      <para>
+        The transactional shell has several limitations. For example, you
+        cannot operate <systemitem class="daemon">systemd</systemitem> commands, or modify the
+        <filename>/var</filename> partition because it is not mounted.
+      </para>
+    </important>
+    <para>
+      All changes that you make to the file system are part of a single
+      snapshot. After you finish making changes to the file system and leave
+      the shell with the <command>exit</command> command, you need to reboot
+      the host to apply the changes.
+    </para>
+    <tip>
+      <para>
+        Another approach to making multiple changes to the file system without
+        rebooting the host is to use the <option>--continue</option> option.
+        For more details, refer to
+        <xref linkend="transactional-update-continue"/>.
+      </para>
+    </tip>
+  </section>
   <section xml:id="sec-command-list">
     <title><command>transactional-update</command> usage</title>
-    <para>
-      The <command>transactional-update</command> command enables the atomic installation or removal of
-      updates. Updates are applied only if all of them can be successfully
-      installed. <command>transactional-update</command> creates a snapshot of your system and uses it to
-      update the system. Later you can restore this snapshot. All changes
-      become active only after reboot.
-    </para>
     <para>
       The <command>transactional-update</command> command syntax is as follows:
     </para>
@@ -2490,7 +2562,7 @@ transactional-update <option>[option]</option> <replaceable>[general_command]</r
           </para>
         </listitem>
       </varlistentry>
-      <varlistentry>
+      <varlistentry xml:id="transactional-update-continue">
         <term><option>--continue [<replaceable>number</replaceable>], -c</option></term>
         <listitem>
           <para>
@@ -2541,7 +2613,7 @@ transactional-update <option>[option]</option> <replaceable>[general_command]</r
           <para>
             Discards the snapshot created by <command>transactional-update</command> if there were no changes
             to the root file system. If there are some changes to the
-            <filename>/etc</filename> directory, those changes merged back to
+            <filename> /etc</filename> directory, those changes merged back to
             the current file system.
           </para>
         </listitem>
@@ -2550,7 +2622,7 @@ transactional-update <option>[option]</option> <replaceable>[general_command]</r
         <term><option>--quiet</option></term>
         <listitem>
           <para>
-            The <command>transactional-update</command> command will not output to <literal>stdout</literal>.
+            The <command>transactional-update</command> command will not output to <literal>stdout</literal> .
           </para>
         </listitem>
       </varlistentry>
@@ -2589,8 +2661,8 @@ transactional-update <option>[option]</option> <replaceable>[general_command]</r
         <term><command>cleanup-overlays</command></term>
         <listitem>
           <para>
-            The command removes all unused overlay layers of
-            <filename>/etc</filename>.
+            The command removes all unused overlay layers of <filename>
+            /etc</filename>.
           </para>
         </listitem>
       </varlistentry>
@@ -2727,7 +2799,7 @@ transactional-update <option>[option]</option> <replaceable>[general_command]</r
             Removes individual packages from the active snapshot using the
             <command>zypper remove</command> command. This command can also be
             used to remove PTF RPM files. The default option for this command
-            is <option>--interactive</option>.
+            is <option> --interactive</option>.
           </para>
 <screen><prompt role="root"># </prompt><command>transactional-update pkg remove <replaceable>package_name</replaceable></command></screen>
         </listitem>
@@ -2749,7 +2821,8 @@ transactional-update <option>[option]</option> <replaceable>[general_command]</r
         <listitem>
           <para>
             Registers or deregisters your system. For a complete usage
-            description, refer to <xref linkend="sec-register-command"/>.
+            description, refer to
+            <xref linkend="sec-register-command"/>.
           </para>
         </listitem>
       </varlistentry>
@@ -2823,11 +2896,10 @@ transactional-update <option>[option]</option> <replaceable>[general_command]</r
           <listitem>
             <para>
               Use this option to specify a product for activation. The product
-              identifier has the following format:
-              <emphasis>&lt;name&gt;/&lt;version&gt;/&lt;architecture&gt;</emphasis>,
-              for example,
-              <literal>sle-module-live-patching/15.3/x86_64</literal>. The
-              appropriate command will then be the following:
+              identifier has the following format: <emphasis>
+              &lt;name&gt;/&lt;version&gt;/&lt;architecture&gt;</emphasis>, for
+              example, <literal>sle-module-live-patching/15.3/x86_64</literal>.
+              The appropriate command will then be the following:
             </para>
 <screen><prompt role="root"># </prompt>transactional-update register -p sle-module-live-patching/15.3/x86_64</screen>
           </listitem>
@@ -2883,8 +2955,8 @@ transactional-update <option>[option]</option> <replaceable>[general_command]</r
           <term><option>--write-config</option></term>
           <listitem>
             <para>
-              Writes the provided options value to the
-              <filename>/etc/SUSEConnect</filename> configuration file.
+              Writes the provided options value to the <filename>
+              /etc/SUSEConnect</filename> configuration file.
             </para>
           </listitem>
         </varlistentry>
