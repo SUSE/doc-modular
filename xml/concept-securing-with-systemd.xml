@@ -115,20 +115,24 @@
       services. To apply the changes, add the required option to the service
       definition file and restart the specific service.
     </para>
+    <tip>
+      <para>
+        All options described here are documented in &systemd;'s man pages. For
+        details, refer to <command>man 5 systemd.exec</command>.
+      </para>
+    </tip>
     <section xml:id="systemd-isolate-from-network">
       <title>Isolating services from the network</title>
-<screen>
-...
+<screen>...
 [Service]
 PrivateNetwork=yes
-...
-</screen>
+...</screen>
       <para>
         This option isolates the service and its processes from networking.
         Network interfaces become unavailable to the processes. The only one
         available is the loopback device <literal>lo</literal>, but it is
-        isolated from the real host loopback. This is a powerful protection from
-        network attacks.
+        isolated from the real host loopback. This is a powerful protection
+        from network attacks.
       </para>
       <important>
         <para>
@@ -137,31 +141,172 @@ PrivateNetwork=yes
           as Apache, does not make sense. Always verify that the service does
           not need access to the network, because it may not be obvious. For
           example, if the local system is configured for an LDAP-based user
-          database doing <systemitem>glibc</systemitem> name lookups with 
+          database doing <systemitem>glibc</systemitem> name lookups with
           <command>getpwnam()</command> calls, it may require network access in
           the end.
         </para>
       </important>
     </section>
+    <section xml:id="systemd-private-tmp">
+      <title>Private <filename>/tmp</filename> directory</title>
+<screen>...
+[Service]
+PrivateTmp=yes
+...</screen>
+      <para>
+        This option provides the service with a private
+        <filename>/tmp</filename> isolated from the host system's
+        <filename>/tmp</filename>. Normally, <filename>/tmp</filename>is a
+        shared space for all local services and users. It has been a major
+        source of security problems, such as symlink attacks and DoS
+        vulnerabilities due to guessable <filename>/tmp</filename> temporary
+        files.
+      </para>
+      <important>
+        <para>
+          Some services misuse <filename>/tmp</filename> as a location for IPC
+          sockets and other communication primitives. This is almost always a
+          vulnerability because if you use it for communication you need
+          guessable names which makes your code vulnerable to attacks.
+          <filename>/run</filename> is the much safer replacement because it is
+          not writable to unprivileged processes.
+        </para>
+      </important>
+    </section>
+    <section xml:id="systemd-read-only-directories">
+      <title>Read-only and inaccessible directories</title>
+<screen>...
+[Service]
+InaccessibleDirectories=/home
+ReadOnlyDirectories=/var
+...</screen>
+      <para>
+        This option makes the specified directories inaccessible for writing
+        and/or reading to the service. The example configuration lines make the
+        whole tree below <filename>/home</filename> inaccessible to the service
+        (the directory appears empty and with 000 access mode), and the tree
+        below <filename>/var</filename> becomes read-only.
+      </para>
+      <note>
+        <para>
+          The <filename>ReadOnlyDirectories=</filename> option is not
+          recursively applied to sub-mounts of the specified directories. For
+          example, mounts below <filename>/var</filename> in the example remain
+          writable.
+        </para>
+      </note>
+    </section>
+    <section xml:id="systemd-limiting-capabilities">
+      <title>Limiting kernel capabilities</title>
+<screen>...
+[Service]
+CapabilityBoundingSet=CAP_CHOWN CAP_KILL
+...</screen>
+      <para>
+        This option limits which kernel capabilities a service retains. In the
+        example above, only the <literal>CAP_CHOWN</literal> and
+        <literal>CAP_KILL</literal> capabilities are retained by the service,
+        and the service and any processes it creates cannot obtain any other
+        capabilities, not even via setuid binaries. The list of currently
+        defined capabilities is available in <command>man 7
+        capabilities</command>.
+      </para>
+      <tip>
+        <para>
+          To easily identify which processes on your system retain which
+          capabilities, use the <command>pscap</command> tool from the
+          <package>libcap-ng-utils</package> package.
+        </para>
+      </tip>
+      <tip>
+        <para>
+          The <literal>~</literal> prefix inverts the meaning of the
+          option&mdash;instead of listing all capabilities that the service
+          retains, you may list the ones it does not retain:
+        </para>
+<screen>...
+[Service]
+CapabilityBoundingSet=~CAP_SYS_PTRACE
+...</screen>
+      </tip>
+    </section>
+    <section xml:id="systemd-limiting-resources">
+      <title>Limiting resources</title>
+      <para>
+        You can use <emphasis>resource limits</emphasis> to apply security
+        limits on services. Resource limits are useful for controlling
+        <emphasis>resources</emphasis> rather than <emphasis>access</emphasis>.
+        However, two of them can disable specific operating system features:
+        <option>RLIMIT_NPROC=1</option> disables precess forking, while
+        <option>RLIMIT_FSIZE=0</option> disables creating non-empty files on
+        the file system:
+      </para>
+<screen>...
+[Service]
+ExecStart=...
+LimitNPROC=1
+LimitFSIZE=0
+...</screen>
+      <note>
+        <para>
+          The above limits work only if the service drops privileges and runs
+          under a non-root user, or drops the <option>CAP_SYS_RESOURCE</option>
+          capability, for example, via <option>CapabilityBoundingSet=</option>
+          as discussed in <xref linkend="systemd-limiting-capabilities"/>.
+          Otherwise, th process can simply increase the resource limits.
+        </para>
+      </note>
+      <tip>
+        <para>
+          For more information on resource limits, see <command>man 2
+          setrlimit</command>.
+        </para>
+      </tip>
+    </section>
+  </section>
+  <section xml:id="systemd-controlling-device-nodes">
+    <title>Controlling device nodes</title>
+    <para>
+      Devices nodes are an important interface to the kernel and its drivers.
+      Because drivers may get much less security checking than the kernel core,
+      they are often a major entry point for security hacks. &systemd; can
+      control access to devices individually for each service:
+    </para>
+<screen>...
+[Service]
+DeviceAllow=/dev/null rw
+...</screen>
+    <para>
+      This option limits access to <filename>/dev/null</filename>, disallowing
+      access to any other device nodes.
+    </para>
   </section>
   <section xml:id="related-securing-with-systemd">
     <title>Related topics</title>
-    <!--to create unique section IDs, amend the TOPIC-ID (without prefix)-->
-    <!--example: related-ntp-time-synchronization-->
     <itemizedlist>
       <listitem>
         <para>
-          An
+          Enabling and disabling &systemd; services is described in
+          <link xlink:href="https://documentation.suse.com/smart/linux/html/reference-systemctl-enable-disable-services/reference-systemctl-enable-disable-services.html"/>.
         </para>
       </listitem>
       <listitem>
         <para>
-          Unordered
+          Managing &systemd; targets with <command>systemctl</command> is
+          described in
+          <link xlink:href="https://documentation.suse.com/smart/linux/html/reference-managing-systemd-targets-systemctl/reference-systemctl-managing-targets.html"/>.
         </para>
       </listitem>
       <listitem>
         <para>
-          List
+          Sending termination signals to &systemd; services is described in
+          <link xlink:href="https://documentation.suse.com/smart/linux/html/task-send-termination-signals-systemd/task-send-termination-signals-systemd.html"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Starting and stopping &systemd; services is described in
+          <link xlink:href="https://documentation.suse.com/smart/linux/html/reference-systemctl-start-stop-services/reference-systemctl-start-stop-services.html"/>.
         </para>
       </listitem>
     </itemizedlist>
