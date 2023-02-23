@@ -10,13 +10,15 @@ These templates act as a blueprint for topic-oriented writing in DocBook.
 
 # Using these templates
 
-1. Decide which information unit you want to create (assembly and task, concept, reference or glue).
-1. Copy the respective template (see below) to the `xml` directory.
-1. Rename the filename to the corresponding naming convention (see below).
-1. Integrate the new filename in your assembly file.
-1. Write the new content and adapt the IDs.
-1. Copy the `DC-article` file to the `xml` directory and rename it according to the corresponding naming conventions (see below)
-1. Add suitable meta data information to your assembly file. Stick to the conventions outlined below.
+The templates in this directory are already contained in a directory structure that matches the one of a real project. See the naming and directory convenions outlined below.
+
+If you are starting a topic-based authoring project from scratch, you can just copy this directory tree and start adjusting file names (DC file, assembly and topics) and root IDs as outlined below.
+
+Once you have named the files accordingly, integrate them into the assembly file.
+
+Write the new content and adapt the IDs.
+
+In a final step, add suitable meta data information to your assembly file. Stick to the conventions outlined below.
 
 
 # Templates for Doc Evolution
@@ -28,8 +30,6 @@ We provide five different types of information units:
 * `concept.xml`: Concept (what is?)
 * `reference.xml`: Reference (e.g. list of options, table with config files, default settings)
 * `glue.xml`: Combines texts or structures that do not fit into any of the other categories. Typical glue topics include the intro section to your article, the "For more information" and the "What's next" sections. Also use glue topics to add an additional layer of navigation to your article. This is outlined in the `glue.xml` example file.
-
-To use them, copy them from this directory to `xml/`.
 
 
 ## Naming and directory conventions
@@ -45,7 +45,7 @@ When creating new articles and topics, please stick to the following conventions
       concepts/<NAME>.xml
       references/<NAME>.xml
       tasks/<NAME>.xml
-      glue/<NAME>.xml
+      glues/<NAME>.xml
 
 * Common files (entities, gfdl, etc):
 
