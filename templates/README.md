@@ -57,7 +57,7 @@ When creating new articles and topics, please stick to the following conventions
 
 ### DC file naming conventions
 
-The DC file name should match the assembly file's root ID.
+The DC file name must match the assembly file's root ID.
 
 ### File naming conventions
 
@@ -137,16 +137,11 @@ Add as much search-related data to your article as possible. Chose the appropria
 * `productname`
 * `productversion`
 * `architecture`
-* `function`
-* `type` (TRD only)
-* `task`
-* `targetgroup`
 * `category`
 
 ### Publishing info
 
-Provide the reader with some guidance on the articles age (`last-updated`) and the approximate reading time (`time-to-read`).
+Provide the reader with some guidance on the articles age (`updated`) and the approximate reading time (`time-to-read`).
 
 ### Social media
-
-Provide a few social media related tags to make sure your article gets properly shared via Facebook and Twitter.
+Provide an ultra-short (55 chars) description (`social-descr`) of your doc to make sure your it gets properly shared via Facebook and Twitter.
