@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to https://github.com/SUSE/doc-sle/blob/main/xml/systemd.xml [sec-boot-systemd-timer-types] -->
+<topic xml:id="systemd-timer-types"
+       role="reference" xml:lang="en"
+       xmlns="http://docbook.org/ns/docbook" version="5.2"
+       xmlns:its="http://www.w3.org/2005/11/its"
+       xmlns:xi="http://www.w3.org/2001/XInclude"
+       xmlns:xlink="http://www.w3.org/1999/xlink"
+       xmlns:trans="http://docbook.org/ns/transclusion">
+  <title>The &systemd; timer types</title>
+  <info>
+    <abstract>
+      <para>
+        &systemd; supports two types of timers: realtime (based on calendar) and monotonic (based
+        on events). Although timers are usually persistent, systemd also allows to set up transient
+        timers, that are only valid for the current session.
+      </para>
+    </abstract>
+  </info>
+  <variablelist>
+    <varlistentry>
+      <term>Realtime timer</term>
+      <listitem>
+        <para>
+          Similar to cronjobs, realtime timers are triggered on calendar events. Realtime timers
+          are defined using the option <literal>OnCalendar</literal>..
+        </para>
+        <para>
+          Using a syntax similar to cron, you can specify when to trigger an event based on date
+          and time. the following general syntax applies:
+        </para>
+        <screen>OnCalendar=DayOfWeek Year-Month-Day Hour:Minute:Second</screen>
+        <para>
+          <literal>DayOfWeek</literal> is optional, each value in
+          <literal>Year-Month-Day</literal> can be replaced by the wildcard
+          <literal>*</literal> to match every occurence. Continuous ranges can be
+          specified using <literal>..</literal>, a list of separated values needs
+          to be delimited by <literal>,</literal>.
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              6pm on every Friday: <literal>OnCalendar=Fri *-*-* 18:00:00</literal>
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              5am every day: <literal>OnCalendar=Mon..Sun *-*-* 5:00:00</literal>
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              1am and 3am on Sundays and Tuesdays: <literal>OnCalendar=Tue,Sun *-*-* 01,03:00:00</literal>
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Single date: <literal>OnCalendar=Mo..Sun 2023-09-23 00:00:01</literal>
+            </para>
+          </listitem>
+        </itemizedlist>
+        <para>
+          To specify triggers at different times, you may create more than one OnCalendar entries
+          in a single timer file:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>10am on week days and at 10pm on weekends:</para>
+            <screen>OnCalendar=Mon..Fri *-*-* 10:00
+OnCalendar=Sat,Sun *-*-* 22:00</screen>
+          </listitem>
+        </itemizedlist>
+        <para>
+          The syntax is very flexible and offers many more advanced features. Refer to <command>man
+          7 systemd.time</command> to, among others, learn how to:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              shorten the syntax and use abbreviations..
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              specify repetitions.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              find specific days in a month (last day of month, last Sunday,...).
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              apply time zones.
+            </para>
+          </listitem>
+        </itemizedlist>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>Monotonic timers</term>
+      <listitem>
+        <para>
+          Monotonic timers are triggered at a specified time elapsed from a certain event. The
+          latter could be a system boot or system unit activation event. There are several options
+          for defining monotonic timers:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              <literal>OnActiveSec</literal>: time after unit activation
+            </para>
+            <screen>OnActiveSec=50minutes</screen>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>OnBootSec</literal>: time after system boot.
+            </para>
+            <screen>OnBootSec=10hours</screen>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>OnStartupSec</literal>: timer after service manager is started. For
+              systemservices this is almost equal to <literal>OnActiveSec</literal>. Use this for
+              user services, where the service manager is started at user login.
+            </para>
+            <screen>OnStartupSec=5minutes 20seconds</screen>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>OnUnitActiveSec</literal>: time after the corresponding service was last
+              activated
+            </para>
+            <screen>OnUnitActiveSec=10seconds</screen>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>OnUnitInactiveSec</literal>: time after the corresponding service was last
+              deactivated
+            </para>
+            <screen>OnUnitInactiveSec=2hours 15minutes 18 seconds</screen>
+          </listitem>
+        </itemizedlist>
+        <para>
+          Values are to be defined as a time. Minutes, hours, days, month, years etc. may be
+          used. If no unit is specified, seconds are assumed. The following units can be used:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              usec
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              msec
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              seconds
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              minutes
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              hours
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              days
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              weeks
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              months
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              years
+            </para>
+          </listitem>
+        </itemizedlist>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>Transient timers</term>
+      <listitem>
+        <para>
+          Transient timers are temporary timers only valid for the current session. Using these
+          timers you can either use an existing service file or directly start a program. Transient
+          timers are invoked by running <command>systemd-run</command>.
+        </para>
+        <para>
+          The following example runs the <filename>helloworld.service</filename> unit every two
+          hours:
+        </para>
+        <screen>systemd-run --on-active="2hours" --unit="helloworld.service"</screen>
+        <para>
+          To run a command directly use the following syntax. In this example the script
+          <filename>/usr/local/bin/helloworld.sh</filename> is called directly:
+        </para>
+        <screen>systemd-run --on-active="2hours" /usr/local/bin/helloworld.sh</screen>
+        <para>
+          In case the command takes parameters, add them space-separated:
+        </para>
+        <screen>systemd-run --on-active="2hours" /usr/local/bin/helloworld.sh --language=pt_BR"</screen>
+        <para>
+          Transient timers can be of types monotonic or real time. The following switches, working
+          as described above, are supported:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              <option>--on-active</option>
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <option>--on-startup</option>
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <option>--on-unit-active</option>
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <option>--on-unit-inactive</option>
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <option>--on-calendar</option>
+            </para>
+          </listitem>
+        </itemizedlist>
+        <para>
+          For more information refer to <command>man 1 systemd-run</command>.
+        </para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+</topic>

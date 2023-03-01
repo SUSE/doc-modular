@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="systemd-create-timer"
+       role="task" xml:lang="en"
+       xmlns="http://docbook.org/ns/docbook" version="5.2"
+       xmlns:its="http://www.w3.org/2005/11/its"
+       xmlns:xi="http://www.w3.org/2001/XInclude"
+       xmlns:xlink="http://www.w3.org/1999/xlink"
+       xmlns:trans="http://docbook.org/ns/transclusion">
+  <title>Creating a &systemd; timer</title>
+  <info>
+    <abstract>
+      <para>
+        The following example shows how to set up a timer that triggers the
+        <literal>helloworld.sh</literal> shell script after boot time and repeats its execution
+        every 24 hours relative to it's activation time. It also runs Monday to Friday at 10am.
+      </para>
+    </abstract>
+  </info>
+  <section>
+    <title>"Hello World" example</title>
+    <procedure>
+      <step>
+        <para>
+          Create the file <filename>/etc/systemd/system/helloworld.service</filename> with the
+          following content:
+        </para>
+        <screen>[Unit]
+Description="Hello World script"
+
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh
+</screen>
+        <para>
+          This is a &systemd; service file that tells systemd which application to run.
+        </para>
+      </step>
+      <step>
+        <para>
+          Create the file <filename>/etc/systemd/system/helloworld.timer</filename> with the
+          following content:
+        </para>
+        <screen>[Unit]
+Description="Run helloworld.service 5min after boot and every 24 hours relative to activation time"
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=24h
+OnCalendar=Mon..Fri 10:00
+Unit=helloworld.service
+
+[Install]
+WantedBy=multi-user.target
+</screen>
+        <para>
+          This is the timer file that controls when to activate the respective service file.
+        </para>
+      </step>
+      <step>
+        <para>
+          Verify that the files you created above contain no errors:
+        </para>
+        <screen>systemd-analyze verify /etc/systemd/system/helloworld.*</screen>
+        <para>
+          If the command returns no output, the files have passed the verification successfully.
+        </para>
+      </step>
+      <step>
+        <para>
+          Start the timer:
+        </para>
+        <screen>sudo systemctl start helloworld.timer</screen>
+        <para>
+          This will activate the timer for the current session only.
+        </para>
+      </step>
+      <step>
+        <para>
+          To ensure the timer is automatically activated each time when booting the machine, you
+          need to enable it:
+        </para>
+        <screen>sudo systemctl enable helloworld.timer</screen>
+      </step>
+    </procedure>
+  </section>
+  <section>
+    <title>The example explained</title>
+    <example>
+      <title>The service file</title>
+      <screen>[Unit]
+Description="Hello World script"<co xml:id="systemd-timer-example-service-descr"/>
+
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh<co xml:id="systemd-timer-example-service-exec"/></screen>
+      <calloutlist>
+        <callout arearefs="systemd-timer-example-service-descr">
+          <para>
+            A brief description explaining the service file's purpose.
+          </para>
+        </callout>
+        <callout arearefs="systemd-timer-example-service-exec">
+          <para>
+            The application to execute.
+          </para>
+        </callout>
+      </calloutlist>
+      <para>
+        Usually this is all you would need for a service file in this context. In case you require
+        a more complex configuratioon refer to ??? for more information.
+      </para>
+
+      <note>
+        <title>Service files for timer do not require an <literal>INSTALL</literal> section</title>
+        <para>
+          &systemd; service files usually contain an <literal>[Install]</literal> section
+          determining with which target(s) a service is loaded. This section is not needed in
+          service files for timers, since this information is provided with the timer file.
+        </para>
+      </note>
+    </example>
+    <example>
+      <title>The timer file</title>
+      <screen>[Unit]
+Description="Run helloworld.service 5min after boot and every 24 hours relative to activation time""<co xml:id="systemd-timer-example-timer-descr"/>
+
+[Timer]
+OnBootSec=5min<co xml:id="systemd-timer-example-timer-onboot"/>
+OnUnitActiveSec=24h<co xml:id="systemd-timer-example-timer-onunit"/>
+OnCalendar=Mon..Fri *-*-* 10:00<co xml:id="systemd-timer-example-timer-oncal"/>
+Unit=helloworld.service<co xml:id="systemd-timer-example-timer-unit"/>
+
+[Install]
+WantedBy=multi-user.target<co xml:id="systemd-timer-example-timer-wanted"/></screen>
+      <calloutlist>
+        <callout arearefs="systemd-timer-example-timer-descr">
+          <para>
+            A brief description explaining the timer file's purpose.
+          </para>
+        </callout>
+        <callout arearefs="systemd-timer-example-timer-onboot">
+          <para>
+            Specifies a timer that triggers the service five minutes after the system boot.
+          </para>
+        </callout>
+        <callout arearefs="systemd-timer-example-timer-onunit">
+          <para>
+            Specifies a timer that triggers the service 24 hours after the service has been
+            activated (that is, the timer will trigger the service once a day).
+          </para>
+        </callout>
+        <callout arearefs="systemd-timer-example-timer-oncal">
+          <para>
+            Specifies a timer that triggers the service at fixed points in time (here: Monday to
+            Friday at 10 am).
+          </para>
+        </callout>
+        <callout arearefs="systemd-timer-example-timer-unit">
+          <para>
+            The service file that is to be executed.
+          </para>
+        </callout>
+        <callout arearefs="systemd-timer-example-timer-wanted">
+          <para>
+            The system target in which the timer get activated. For more information on systemd
+            targets refer to ???.
+          </para>
+        </callout>
+      </calloutlist>
+    </example>
+    <tip>
+      <title>Migrating from cron</title>
+      <para>
+        The equivalent of the helloworld example above in cron would be the following lines:
+      </para>
+      <screen>@reboot sleep 300 &amp;&amp; /usr/local/bin/helloworld.sh
+0 10 * * * 1-5 /usr/local/bin/helloworld.sh</screen>
+      <para>
+        Note that there is now equivalent for <literal>OnUnitActiveSec</literal> in cron.
+      </para>
+    </tip>
+  </section>
+</topic>

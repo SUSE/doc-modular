@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="systemd-timer-mailto"
+       role="task" xml:lang="en"
+       xmlns="http://docbook.org/ns/docbook" version="5.2"
+       xmlns:its="http://www.w3.org/2005/11/its"
+       xmlns:xi="http://www.w3.org/2001/XInclude"
+       xmlns:xlink="http://www.w3.org/1999/xlink"
+       xmlns:trans="http://docbook.org/ns/transclusion">
+  <title>Getting notified by email if a timer fails</title>
+  <info>
+    <abstract>
+      <para>
+        Cron comes with the MAILTO feature, where you only have to specify an email address with
+        MAILTO to get an email notification with the output of the respective script(s). systemd
+        does not offer such functionality out of the box. The following procedure describes a
+        workaround to get email notifications when a timer fails.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    You need to
+  </para>
+  <orderedlist>
+    <listitem>
+      <para>
+        create a script that sends an e-mail.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        create systemd service file running the email script.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        test the service file.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        call this service file via <literal>OnFailure</literal> within the service that is run by
+        the timer.
+      </para>
+    </listitem>
+  </orderedlist>
+  <procedure>
+    <step>
+      <para>
+        Create the script <filename class="directory">/usr/local/bin/send_systemd_email</filename>.
+        In the following example we are using the <command>mailx</command> command from package
+        <package>mailx</package>. Note that the script requires two parameters:
+        <literal>$1</literal>, the email address, and <literal>$2</literal>, the name of the unit
+        file used by the timer. Both parameters will be provided by the unit file running the mail
+        script.
+      </para>
+      <screen>#!/bin/sh
+systemctl status --full "$2" | mailx -S sendwait\
+ -s "Timer failure for $2" -r root@$HOSTNAME $1
+</screen>
+      <para>
+        Make sure the scrtipt you just created is executable:
+      </para>
+      <screen>sudo chmod 755 /usr/local/bin/send_systemd_email</screen>
+      <note>
+        <title>Requires Postfix</title>
+        <para>
+          Note that in order to send emails you need to install and configure the email server
+          Postfix on your system. The latter can be done via <menuchoice><guimenu>&yast;</guimenu>
+           <guimenu>Network Services</guimenu> <guimenu>Mail Server</guimenu></menuchoice>.
+        </para>
+      </note>
+    </step>
+    <step>
+      <para>
+        Create the file
+        <filename>/etc/systemd/system/send_email_to_<replaceable>user</replaceable>@.service</filename>.
+        Note that you need to replace <replaceable>user</replaceable> in the file name with the
+        login of the user that should receive the email.
+      </para>
+      <screen>[Unit]
+Description=Send systemd status information by email for %i to <replaceable>user</replaceable>
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/send_systemd_email <replaceable>e-mail_address</replaceable> %i
+User=root
+Group=systemd-journal
+</screen>
+      <para>
+        Note that you need to replace <replaceable>user</replaceable> and
+        <replaceable>e-mail_address</replaceable> in the file with the login and the e-mail address
+        of the user that should receive the email. <literal>%i</literal> is the name of the service
+        that has failed (it will be passed on to the e-mail service (by the <literal>%n</literal>
+        parameter).
+      </para>
+    </step>
+    <step>
+      <para>
+        To make sure the service file works correctly, verify it and fix any errors that may be
+        reported:
+      </para>
+      <screen>systemd-analyze verify /etc/systemd/system/send_email_to_<replaceable>user</replaceable>@.service</screen>
+      <para>
+        If the command returns no output, the file has passed the verification successfully.
+      </para>
+      <para>
+        Now start the service using the <literal>dbus</literal> instance for testing (you may use
+        any other service that is currently running. We are using dbus here, because this service
+        is guaranteed to run on any installation).
+      </para>
+      <screen>sudo systemctl start send_email_to_<replaceable>user</replaceable>@dbus.service</screen>
+      <para>
+        If successful, <replaceable>e-mail_address</replaceable> will receive an e-mail with the
+        subject <literal>Timer failure for dbus</literal> containing dbus status messages in the
+        body. (Note that this is just a test, there is no problem with the dbus service. You can
+        safely delete the mail, no action is required).
+      </para>
+      <para>
+        If the test e-mail has been successfully send, proceed by integrating it into your timer
+        file(s).
+      </para>
+    </step>
+    <step>
+      <para>
+        To add e-mail notification to your timer, add an <literal>OnFailure</literal> option to the
+        <literal>Unit</literal> section of the <emphasis>service</emphasis> file that is started by
+        the timer:
+      </para>
+      <screen>[Unit]
+Description="Hello World script"
+OnFailure<co xml:id="systemd-timer-mailto-onfailure"/>=send_email_to_<replaceable>user</replaceable><co xml:id="systemd-timer-mailto-user"/>@%n<co xml:id="systemd-timer-mailto-name"/>.service
+
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh
+</screen>
+      <calloutlist>
+        <callout arearefs="systemd-timer-mailto-onfailure">
+          <para>
+            The <literal>OnFailure</literal> option takes a service as a argument.
+          </para>
+        </callout>
+        <callout arearefs="systemd-timer-mailto-user">
+          <para>
+            Replace with the login name part of the service unit's file name.
+          </para>
+        </callout>
+        <callout arearefs="systemd-timer-mailto-name">
+          <para>
+            Provides the name of the service (<literal>helloworld</literal> in this example). This
+            name is available in the e-mail service file as %i.
+          </para>
+        </callout>
+      </calloutlist>
+    </step>
+    <step>
+      <para>
+        You successfully set up failure notification for systemd services.
+      </para>
+      <tip>
+        <title>Scope of usage</title>
+        <para>
+          Using the e-mail for systemd service failure notification is not restricted to systemd
+          timers. It can be used with any systemd service. The e-mailing service created above can
+          be also used with multiple service files simultaneously.
+        </para>
+      </tip>
+      <tip>
+        <title>Sending e-mail notifications to multiple users</title>
+        <para>
+          While the e-mail script is generic, the email service file has the recipient's e-mail
+          address hard-coded. In order to send notification emails to a different user, copy the
+          e-mail service file and replace the user login in the file name and the e-mail address
+          within the copy.
+        </para>
+        <para>
+          To send a failure notification to several people at the same time, add the respective
+          service files space-separated to the service file:
+        </para>
+        <screen>OnFailure=send_email_to_&exampleuser_plain;@%n.service send_email_to_&exampleuserII_plain;@%n.service</screen>
+      </tip>
+    </step>
+  </procedure>
+</topic>

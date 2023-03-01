@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="systemd-timer-troubleshoot"
+       role="task" xml:lang="en"
+       xmlns="http://docbook.org/ns/docbook" version="5.2"
+       xmlns:its="http://www.w3.org/2005/11/its"
+       xmlns:xi="http://www.w3.org/2001/XInclude"
+       xmlns:xlink="http://www.w3.org/1999/xlink"
+       xmlns:trans="http://docbook.org/ns/transclusion">
+  <title>Troubleshooting &systemd; timers</title>
+  <info>
+    <abstract>
+      <para>
+        Learn how to find and troubleshoot systemd timers that have failed.
+      </para>
+    </abstract>
+  </info>
+  <section>
+    <title>Avoiding errors</title>
+    <para>
+      To avoid errors with &systemd; timers make sure to
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Verify the executable you specify in the service with <literal>ExecStart</literal>
+          runs without problems.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          check the syntax of the service and timer files by running <command>systemd-analyze
+          verify <replaceable>FILE</replaceable></command>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          check execution times of calendar entries by running <command>systemd-analyze calendar
+          <replaceable>CALENDER_ENTRY</replaceable></command>.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section>
+    <title>Event is not triggered</title>
+    <para>
+      When you activate a timer that contains non-fatal errors &systemd;a will silently ignore
+      these errors. Given is the following example:
+    </para>
+    <example>
+      <title>&systemd; timer file cutout containing a non-fatal error</title>
+      <screen>[Timer]
+OnBootSec=5min
+OnClendar=Mon..Fri 10:00
+Unit=helloworld.service
+</screen>
+      <para>
+        Line 3 contains a syntax error (<literal>OnClendar</literal> instead of
+        <literal>OnCalendar</literal>). Since the <literal>[Timer]</literal> section contains a
+        second timer entry (OnBoot) this error is not fatal and will silently be ignored. As a
+        consequence the Monday to Friday trigger would not be executed. The only way to detect the
+        error is via <command>systemd-analyze verify</command>:
+      </para>
+      <screen>&prompt.root; systemd-analyze verify /etc/systemd/system/helloworld.timer
+/etc/systemd/system/helloworld.timer:7: Unknown key name 'OnClendar' in section 'Timer', ignoring.</screen>
+    </example>
+  </section>
+  <section>
+    <title>Checking the system journal</title>
+    <para>
+      As with every &systemd; service, events and actions triggered by timers are looged with the
+      system journal. In case a trigger does not behave as expected, check the log messages with
+      <command>journalctl</command>. To filter the journal for what matters, use the
+      <option>-u</option> switch to specify the systemd timers and service files. You should use it
+      in a way that it shows the log entries for the timer <emphasis>and</emphasis> the
+      corresponding service file:
+    </para>
+    <screen>sudo journalctl -u  helloworld.timer -u helloworld.service</screen>
+    <para>or shorter (if applicable):</para>
+    <screen>sudo journalctl -u  helloworld.*</screen>
+    <para>
+      <command>journalctl</command> is a tool that supports many options and filters. Please refer
+      to man journalctl for in-depth information. The following options will be helpful when
+      troublewshooting timers:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <option>-b</option>: Only show entries for the current boot.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <option>-S today</option>: only show entries from today.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <option>-x</option>: Show explanatory help texts alongside the log entry.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <option>-f</option>: Start with the most recent entries and continuously print the log as
+          new entries get added. Useful to check triggers that occur in short intervals. Exit with
+          <keycombo><keycap function="control"/><keycap>C</keycap></keycombo>.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+</topic>
