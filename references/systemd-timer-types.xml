@@ -17,7 +17,7 @@
     <abstract>
       <para>
         &systemd; supports two types of timers: realtime (based on calendar) and monotonic (based
-        on events). Although timers are usually persistent, systemd also allows to set up transient
+        on events). Although timers are usually persistent, &systemd; also allows to set up transient
         timers, that are only valid for the current session.
       </para>
     </abstract>
@@ -27,57 +27,80 @@
       <term>Realtime timer</term>
       <listitem>
         <para>
-          Similar to cronjobs, realtime timers are triggered on calendar events. Realtime timers
-          are defined using the option <literal>OnCalendar</literal>..
+          Realtime timers are triggered on calendar events. They are defined using the option
+          <literal>OnCalendar</literal>..
         </para>
         <para>
-          Using a syntax similar to cron, you can specify when to trigger an event based on date
-          and time. You can use the following rules:
+          You can specify when to trigger an event based on date and time. Use the following
+          template:
         </para>
-        <screen>OnCalendar=DayOfWeek Year-Month-Day Hour:Minute:Second</screen>
+        <screen>>OnCalendar=DayOfWeek<co xml:id="systemd-timer-real-dayofweek"/> Year-Month-Day<co xml:id="systemd-timer-real-date"/> Hour:Minute:Second<co xml:id="systemd-timer-real-time"/></screen>
+        <calloutlist>
+          <callout arearefs="systemd-timer-real-dayofweek">
+            <para>
+              Day of week. Possible values are <literal>Sun</literal>,
+              <literal>Mon</literal>,<literal>Tue</literal>,<literal>Wed</literal>,<literal>Thu</literal>,<literal>Sat</literal>. Leave
+              out to ignore the day of week.
+            </para>
+          </callout>
+          <callout arearefs="systemd-timer-real-date">
+            <para>
+              Date. Specify month and day by two digits, year by four digits. Each value be
+              replaced by the wildcard <literal>*</literal> to match every occurrence.
+            </para>
+          </callout>
+          <callout arearefs="systemd-timer-real-time">
+            <para>
+              Time. Specify each value by two digits. Each value be replaced by the wildcard
+              <literal>*</literal> to match every occurrence.
+            </para>
+          </callout>
+        </calloutlist>
         <para>
-          <literal>DayOfWeek</literal> is optional, each value in
-          <literal>Year-Month-Day</literal> can be replaced by the wildcard
-          <literal>*</literal> to match every occurence. Continuous ranges can be
-          specified using two dots (<literal>..</literal>), a list of separated values needs
-          to be delimited by a comma (<literal>,</literal>).
+           Applies to all values: Use two dots to define a continuous range
+           (<literal>Mon..Fri</literal>). Use a comma to delimit a list of separate values
+           (<literal>Mon,Wed,Fri</literal>).
         </para>
-        <itemizedlist>
-          <listitem>
-            <para>
-              6pm on every Friday: <literal>OnCalendar=Fri *-*-* 18:00:00</literal>
-            </para>
-          </listitem>
-          <listitem>
-            <para>
-              5am every day: <literal>OnCalendar=Mon..Sun *-*-* 5:00:00</literal>
-            </para>
-          </listitem>
-          <listitem>
-            <para>
-              1am and 3am on Sundays and Tuesdays: <literal>OnCalendar=Tue,Sun *-*-* 01,03:00:00</literal>
-            </para>
-          </listitem>
-          <listitem>
-            <para>
-              Single date: <literal>OnCalendar=Mo..Sun 2023-09-23 00:00:01</literal>
-            </para>
-          </listitem>
-        </itemizedlist>
-        <para>
-          To specify triggers at different times, you can create more than one OnCalendar entries
-          in a single timer file:
-        </para>
-        <itemizedlist>
-          <listitem>
-            <para>10am on week days and at 10pm on weekends:</para>
-            <screen>OnCalendar=Mon..Fri *-*-* 10:00
+        <example>
+          <title>Realtime timer examples</title>
+          <itemizedlist>
+            <listitem>
+              <para>
+                6pm on every Friday:
+              </para>
+              <screen>OnCalendar=Fri *-*-* 18:00:00</screen>
+            </listitem>
+            <listitem>
+              <para>
+                5am every day:
+              </para>
+              <screen>OnCalendar=Mon..Sun *-*-* 5:00:00</screen>
+            </listitem>
+            <listitem>
+              <para>
+                1am and 3am on Sundays and Tuesdays:
+              </para>
+              <screen>OnCalendar=Tue,Sun *-*-* 01,03:00:00</screen>
+            </listitem>
+            <listitem>
+              <para>
+                Single date:
+              </para>
+              <screen>OnCalendar=Mo..Sun 2023-09-23 00:00:01</screen>
+            </listitem>
+            <listitem>
+              <para>
+                To specify triggers at different times, you can create more than one OnCalendar
+                entries in a single timer file:
+              </para>
+              <screen>OnCalendar=Mon..Fri *-*-* 10:00
 OnCalendar=Sat,Sun *-*-* 22:00</screen>
-          </listitem>
-        </itemizedlist>
+            </listitem>
+          </itemizedlist>
+        </example>
         <para>
-          For a full list of available features and options, refer to <command>man
-          7 systemd.time</command> that offers information on the following topics:
+          For a full list of available features and options, refer to <command>man 7 systemd.time</command> that offers
+          additional information on the following topics:
         </para>
         <itemizedlist>
           <listitem>
@@ -107,8 +130,13 @@ OnCalendar=Sat,Sun *-*-* 22:00</screen>
       <term>Monotonic timers</term>
       <listitem>
         <para>
-          Monotonic timers are triggered at a specified time elapsed from a certain event, such as a system boot or system unit activation event. There are several options
-          for defining monotonic timers:
+          Monotonic timers are triggered at a specified time elapsed from a certain event, such as
+          a system boot or system unit activation event. Values are defined as time units (minutes,
+          hours, days, month, years etc.). The following units are supported:
+          <literal>usec</literal>, <literal>msec</literal>, <literal>seconds</literal>,
+          <literal>minutes</literal>, <literal>hours</literal>, <literal>days</literal>,
+          <literal>weeks</literal>, <literal>months</literal>, <literal>years</literal>.  There are
+          several options for defining monotonic timers:
         </para>
         <itemizedlist>
           <listitem>
@@ -146,56 +174,6 @@ OnCalendar=Sat,Sun *-*-* 22:00</screen>
             <screen>OnUnitInactiveSec=2hours 15minutes 18 seconds</screen>
           </listitem>
         </itemizedlist>
-        <para>
-          Values are defined as time units (minutes, hours, days, month, years etc.). The following units are supported:
-        </para>
-        <itemizedlist>
-          <listitem>
-            <para>
-              usec
-            </para>
-          </listitem>
-          <listitem>
-            <para>
-              msec
-            </para>
-          </listitem>
-          <listitem>
-            <para>
-              seconds
-            </para>
-          </listitem>
-          <listitem>
-            <para>
-              minutes
-            </para>
-          </listitem>
-          <listitem>
-            <para>
-              hours
-            </para>
-          </listitem>
-          <listitem>
-            <para>
-              days
-            </para>
-          </listitem>
-          <listitem>
-            <para>
-              weeks
-            </para>
-          </listitem>
-          <listitem>
-            <para>
-              months
-            </para>
-          </listitem>
-          <listitem>
-            <para>
-              years
-            </para>
-          </listitem>
-        </itemizedlist>
       </listitem>
     </varlistentry>
     <varlistentry>
@@ -219,7 +197,7 @@ OnCalendar=Sat,Sun *-*-* 22:00</screen>
         <para>
           In case the command takes parameters, add them space-separated:
         </para>
-        <screen>systemd-run --on-active="2hours" /usr/local/bin/helloworld.sh --language=pt_BR"</screen>
+        <screen>systemd-run --on-active="2hours" /usr/local/bin/helloworld.sh --language=pt_BR</screen>
         <para>
           Transient timers can be monotonic or real time. The following switches, that works
           as described above, are supported:
