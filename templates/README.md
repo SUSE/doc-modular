@@ -28,7 +28,7 @@ conventions outlined below.
 
 We provide five different types of information units:
 
-* `assembly.xml`: Assembly (builds the actual "article" from the components listed below)
+* `assembly.asm.xml`: Assembly (builds the actual "article" from the components listed below)
 * `task.xml`: Task (how to?)
 * `concept.xml`: Concept (what is?)
 * `reference.xml`: Reference (e.g. list of options, table with config files, default settings)
@@ -45,7 +45,7 @@ directories for each topic type, for common files and articles.
 
 * Assembly/article files:
 
-      articles/<NAME>.xml
+      articles/<NAME>.asm.xml
 
 * Concept, reference, task, glue files:
 
@@ -83,13 +83,18 @@ concepts/autoyast-control-file.xml
 tasks/systemd-timer-create.xml
 tasks/systemd-timer-troubleshoot.xml
 concepts/network-ipv6-vs-ipv4.xml
+glues/systemd-timer-intro.xml
+glues/systemd-timer-whats-next.xml
+glues/systemd-timer-more-info.xml
 ```
 
 The second component of the article should be an abbreviated title:
 ```
-articles/systemd-timer-working-with.xml
-articles/autoyast-understand-config-file.xml
+articles/systemd-timer-working-with.asm.xml
+articles/autoyast-understand-config-file.asm.xml
 ```
+
+Distinguish article files by adding the `.asm` suffix.
 
 
 ### ID naming conventions
@@ -127,7 +132,7 @@ meaningful version information that the reader benefits from.
 
 ## Meta data
 
-Once your article is done, add a meta data layer to the assembly file. Check the `assembly.xml` 
+Once your article is done, add a meta data layer to the assembly file. Check the `assembly.asm.xml` 
 file for XML synthax and possible values. The following meta data types are currently supported:
 
 * Internal
@@ -138,10 +143,11 @@ file for XML synthax and possible values. The following meta data types are curr
 
 ### Internal 
 
+1. Add maintainer info (e-mail address) to the assembly and all the topic files. Use this information to contact the original author, in case you want to re-use a piece and would like to start a conversation on changing the file.
 1. Determine whether the article needs to be translated and add a list of languages.
 1. If you have re-used content from existing legacy (non-modular) docs, adjust the pointer in the 
 XML comments of your file. By adding a similar pointer to the legacy doc piece, you make sure that 
-you keep both docs in sync.
+you keep both docs in sync. This is done using a plain XML comment.
 
 ### SEO
 
@@ -162,5 +168,6 @@ Add as much search-related data to your article as possible. Chose the appropria
 Provide the reader with some guidance on the articles "age" (`updated`).
 
 ### Social media
+
 Provide an ultra-short (55 chars) description (`social-descr`) of your doc to make sure your it 
 gets properly shared via Facebook and Twitter.
