@@ -23,7 +23,7 @@
   <section>
     <title>Avoiding errors</title>
     <para>
-      To avoid errors with &systemd; timers make sure to follow these best practices:
+      To avoid errors with &systemd; timers, make sure to follow these best practices:
     </para>
     <itemizedlist>
       <listitem>
@@ -49,11 +49,12 @@
   <section>
     <title>Event is not triggered</title>
     <para>
-      When you activate a timer that contains non-critical errors, &systemd;a silently ignores them. For example:
+      When you activate a timer that contains non-critical errors, &systemd; silently ignores them.
+      For example:
     </para>
     <example>
       <title>&systemd; timer file cutout containing a non-fatal error</title>
-      <screen>[Timer]
+<screen>[Timer]
 OnBootSec=5min
 OnClendar=Mon..Fri 10:00
 Unit=helloworld.service
@@ -65,27 +66,29 @@ Unit=helloworld.service
         consequence, the Monday to Friday trigger will not be executed. The only way to detect the
         error is to use the command <command>systemd-analyze verify</command>:
       </para>
-      <screen>&prompt.root; systemd-analyze verify /etc/systemd/system/helloworld.timer
+<screen>&prompt.root; systemd-analyze verify /etc/systemd/system/helloworld.timer
 /etc/systemd/system/helloworld.timer:7: Unknown key name 'OnClendar' in section 'Timer', ignoring.</screen>
     </example>
   </section>
   <section>
     <title>Checking the system journal</title>
     <para>
-      As with every &systemd; service, events and actions triggered by timers are looged with the
-      system journal. In case a trigger does not behave as expected, check the log messages with
+      As with every &systemd; service, events and actions triggered by timers are logged with the
+      system journal. If a trigger does not behave as expected, check the log messages with
       <command>journalctl</command>. To filter the journal for relevant information, use the
       <option>-u</option> switch to specify the &systemd; timers and service files. Use this option
       to show the log entries for the timer <emphasis>and</emphasis> the corresponding service
       file:
     </para>
-    <screen>sudo journalctl -u  helloworld.timer -u helloworld.service</screen>
-    <para>or shorter (if applicable):</para>
-    <screen>sudo journalctl -u  helloworld.*</screen>
+<screen>sudo journalctl -u  helloworld.timer -u helloworld.service</screen>
+    <para>
+      or shorter (if applicable):
+    </para>
+<screen>sudo journalctl -u  helloworld.*</screen>
     <para>
       <command>journalctl</command> is a tool that supports many options and filters. Please refer
-      to <command>man 1 journalctl</command> for in-depth information. The following options are useful for
-      troubleshooting timers:
+      to <command>man 1 journalctl</command> for in-depth information. The following options are
+      useful for troubleshooting timers:
     </para>
     <itemizedlist>
       <listitem>
@@ -95,7 +98,7 @@ Unit=helloworld.service
       </listitem>
       <listitem>
         <para>
-          <option>-S today</option>: only show entries from today.
+          <option>-S today</option>: Only show entries from today.
         </para>
       </listitem>
       <listitem>
@@ -115,39 +118,39 @@ Unit=helloworld.service
   <section>
     <title>How to migrate from cron to &systemd; timers?</title>
     <para>
-      All cron jobs can be migrated to &systemd; timers. Here are general instructions on migrating a cron
-      job:
+      All cron jobs can be migrated to &systemd; timers. Here are general instructions on migrating
+      a cron job:
     </para>
     <procedure>
       <step>
         <para>
-          Create a service file executing the script. See <xref linkend="systemd-timer-example-service"/>
-          for details.
-         </para>
-        </step>
-        <step>
-          <para>
-            Create a timer file executing the service file. See <xref linkend="systemd-timer-example-timer"/>
-            for general instructions.
-          </para>
-          <substeps>
-            <step>
-              <para>
-                Convert calendar entries. The way times in cron and &systemd; are specified are
-                different. Use the patterns below as a conversion template:
-              </para>
-              <screen>Cron:               Minute Hour Day Month DayOfWeek
+          Create a service file executing the script. See
+          <xref linkend="systemd-timer-example-service"/> for details.
+        </para>
+      </step>
+      <step>
+        <para>
+          Create a timer file executing the service file. See
+          <xref linkend="systemd-timer-example-timer"/> for general instructions.
+        </para>
+        <substeps>
+          <step>
+            <para>
+              Convert calendar entries. Time is specified differently in cron and &systemd;. Use
+              the patterns below as a conversion template:
+            </para>
+<screen>Cron:               Minute Hour Day Month DayOfWeek
 systemd: OnCalendar=DayOfWeek Year-Month-Day Hour:Minute:Second</screen>
-              <para>
-               To test the converted calendar entry, follow the instructions at <xref
-               linkend="systemd-timer-test"/>.
-              </para>
-            </step>
-            <step>
-              <para>
-                Convert cron nicknames (<literal>@<replaceable>NICK</replaceable></literal>):
-              </para>
-              <screen>Cron     : &systemd; timer
+            <para>
+              To test the converted calendar entry, follow the instructions in
+              <xref linkend="systemd-timer-test"/>.
+            </para>
+          </step>
+          <step>
+            <para>
+              Convert cron nicknames (<literal>@<replaceable>NICK</replaceable></literal>):
+            </para>
+<screen>Cron     : &systemd; timer
 -------- : ----------------------------
 @reboot  : OnBootSec=1s
 @yearly  : OnCalendar=*-01-01 00:00:00
@@ -156,46 +159,45 @@ systemd: OnCalendar=DayOfWeek Year-Month-Day Hour:Minute:Second</screen>
 @weekly  : OnCalendar=Sun *-*-* 00:00:00
 @daily   : OnCalendar=*-*-* 00:00:00
 @hourly  : OnCalendar=*-*-* *:00:00</screen>
-            </step>
-            <step>
-              <para>
-                Convert variable assignments. The &systemd; variable assignement need to
-                go into the <literal>[Service]</literal> section. Note that you cannot convert
-                <envar>MAILTO</envar> this way--refer to the next step for this.
-              </para>
-              <screen>cron: <replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>
+          </step>
+          <step>
+            <para>
+              Convert variable assignments. The &systemd; variable assignment must go into the
+              <literal>[Service]</literal> section. Note that you cannot convert
+              <envar>MAILTO</envar> this way&mdash;refer to the next step for this.
+            </para>
+<screen>cron: <replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>
 systemd: Environment="<replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>"</screen>
-            </step>
-            <step>
-              <para>
-                Set up e-mail notification to replace cron's MAILTO feature by following the
-                instructions in <xref linkend="systemd-mailto"/>.
-              </para>
-            </step>
-          </substeps>
-        </step>
+          </step>
+          <step>
+            <para>
+              Set up e-mail notifications to replace cron's MAILTO feature by following the
+              instructions in <xref linkend="systemd-mailto"/>.
+            </para>
+          </step>
+        </substeps>
+      </step>
     </procedure>
     <example>
       <title>cron to &systemd; timer migration</title>
       <para>
-        Given are the following crontab entries which call the script
-        <literal>helloworld.sh</literal> 5 minutes after a boot and at 10 o'clock each Monday to
-        Friday:
+        Here are the crontab entries which call the script <literal>helloworld.sh</literal> 5
+        minutes after booting and at 10 o'clock each Monday to Friday:
       </para>
-      <screen>@reboot sleep 300 &amp;&amp; /usr/local/bin/helloworld.sh
+<screen>@reboot sleep 300 &amp;&amp; /usr/local/bin/helloworld.sh
 0 10 * * * 1-5 /usr/local/bin/helloworld.sh</screen>
       <para>
         The &systemd; service file (<filename>helloworld.service</filename>) calling the script
         looks like this:
       </para>
-      <screen>[Unit]
+<screen>[Unit]
 Description="Hello World script"
 [Service]
 ExecStart=/usr/local/bin/helloworld.sh</screen>
       <para>
         The timer file (<filename>helloworld.timer</filename>) looks like this:
       </para>
-      <screen>[Unit]
+<screen>[Unit]
 Description="Run helloworld.service 5min after boot and at 10am every Mon-Fri"
 [Timer]
 OnBootSec=5min
@@ -203,6 +205,6 @@ OnCalendar=Mon..Fri *-*-* 10:00:*
 Unit=helloworld.service
 [Install]
 WantedBy=multi-user.target</screen>
-      </example>
+    </example>
   </section>
 </topic>
