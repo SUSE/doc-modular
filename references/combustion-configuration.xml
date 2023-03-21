@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<?xml-stylesheet href="urn:x-suse:xslt:profiling:docbook51-profile.xsl"
+ type="text/xml"
+ title="Profiling step"?>
+<!DOCTYPE article
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<article xml:id="reference-combustion-configuration" xml:lang="en"
+ role="reference"
+ xmlns="http://docbook.org/ns/docbook" version="5.1"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+  <title>&combustion; configuration examples</title>
+  <section xml:id="configuring-combustion-script">
+    <title>The <filename>script</filename> configuration file</title>
+    <para>
+      The <filename>script</filename> configuration file is a set of commands
+      that are parsed and executed by &combustion; in a &tr-up; shell. This
+      article provides examples of configuration tasks performed by
+      &combustion;.
+    </para>
+    <important>
+      <title>Include interpreter declaration</title>
+      <para>
+        As the <filename>script</filename> file is interpreted by Bash, always
+        start the file with the interpreter declaration at its first line:
+      </para>
+<screen>#!/usr/bin/bash</screen>
+    </important>
+    <para>
+      To log in to your system, include at least the &rootuser; password.
+      However, it is recommended to establish the authentication using SSH
+      keys. If you need to use a &rootuser; password, make sure to configure a
+      secure password. If you use a randomly generated password, use at least
+      10 characters. If you create your password manually, use even more than
+      10 characters and combine uppercase and lowercase letters and numbers.
+    </para>
+    <section xml:id="sec-script-network">
+      <title>Network configuration</title>
+      <para>
+        To configure and use the network connection during the first boot, add
+        the following statement to <filename>script</filename>:
+      </para>
+<screen># combustion: network</screen>
+      <para>
+        Using this statement will pass the <literal>rd.neednet=1</literal>
+        argument to dracut. If you do not use the statement, the system will be
+        configured without any network connection.
+      </para>
+    </section>
+    <section xml:id="combustion-script-partitioning">
+      <title>Partitioning</title>
+      <para>
+        &productnameshort; raw images are delivered with a default partitioning scheme
+        as described in <xref linkend="alp-deployment-default-partitioning"/>.
+        You might want to use a different partitioning. The following set of
+        example snippets moves the <filename>/home</filename> to a different
+        partition.
+      </para>
+      <note>
+        <title>Performing changes outside of directories included in snapshots</title>
+        <para>
+          The following script performs changes that are not included in
+          snapshots. If the script fails and the snapshot is discarded, some
+          changes remain visible and cannot be reverted, for example, the
+          changes to the <literal>/dev/vdb</literal> device.
+        </para>
+      </note>
+      <para>
+        The following snippet creates a GPT partitioning schema with a single
+        partition on the <literal>/dev/vdb</literal> device:
+      </para>
+<screen>
+sfdisk /dev/vdb &lt;&lt;EOF
+label: gpt
+type=linux
+EOF
+
+partition=/dev/vdb1
+</screen>
+      <para>
+        The partition is formatted to BTRFS:
+      </para>
+<screen>
+wipefs --all ${partition}
+mkfs.btrfs ${partition}
+</screen>
+      <para>
+        Possible content of <filename>/home</filename> is moved to the new
+        <filename>/home</filename> folder location by the following snippet:
+      </para>
+<screen>
+mount /home
+mount ${partition} /mnt
+rsync -aAXP /home/ /mnt/
+umount /home /mnt
+</screen>
+      <para>
+        The snippet below removes an old entry in
+        <filename>/etc/fstab</filename> and creates a new entry:
+      </para>
+<screen>
+awk -i inplace '$2 != "/home"' /etc/fstab
+echo "$(blkid -o export ${partition} | grep ^UUID=) /home btrfs defaults 0 0" >>/etc/fstab
+</screen>
+    </section>
+    <section xml:id="combustion-script-security">
+      <title>Setting a password for &rootuser;</title>
+      <para>
+        Before you set the &rootuser; password, generate a hash of the
+        password, for example, by using the <command>openssl passwd
+        -6</command>. To set the password, add the following to the
+        <filename>script</filename>:
+      </para>
+<screen>echo 'root:$5$.wn2BZHlEJ5R3B1C$TAHEchlU.h2tvfOpOki54NaHpGYKwdNhjaBuSpDotD7' | chpasswd -e</screen>
+    </section>
+    <section xml:id="combustion-script-sshkeys">
+      <title>Adding SSH keys</title>
+      <para>
+        The following snippet creates a directory to store the &rootuser;'s SSH
+        key and then copies the public SSH key located on the configuration
+        device to the <filename>authorized_keys</filename> file.
+      </para>
+<screen>
+mkdir -pm700 /root/.ssh/
+cat id_rsa_new.pub >> /root/.ssh/authorized_keys
+</screen>
+      <note>
+        <para>
+          The SSH service must be enabled in case you need to use remote login
+          via SSH. For details, refer to
+          <xref linkend="combustion-script-services"/>.
+        </para>
+      </note>
+    </section>
+    <section xml:id="combustion-script-services">
+      <title>Enabling services</title>
+      <para>
+        To enable system services, for example, the SSH service, add the
+        following line to <filename>script</filename>:
+      </para>
+<screen>systemctl enable sshd.service</screen>
+    </section>
+    <section xml:id="combustion-script-install">
+      <title>Installing packages</title>
+      <important>
+        <title>Network connection and registering your system may be necessary</title>
+        <para>
+          As some packages may require additional subscription, you may need to
+          register your system beforehand. An available network connection may
+          also be needed to install additional packages.
+        </para>
+      </important>
+      <para>
+        During the first boot configuration, you can install additional
+        packages to your system. For example, you can install the
+        <literal>vim</literal> editor by adding:
+      </para>
+<screen>zypper --non-interactive install vim-small</screen>
+      <note>
+        <para>
+          Bear in mind that you will not be able to use
+          <command>zypper</command> after the configuration is complete and you
+          boot to the configured system. To perform changes later, you must use
+          the <command>transactional-update</command> command to create a
+          changed snapshot.
+        </para>
+      </note>
+    </section>
+  </section>
+  <section xml:id="related-combustion-configuration">
+    <title>Related topics</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          The &productnameshort; deployment if generally described in
+          <xref
+     linkend="concept-alp-deployment"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          The concept of &combustion; is outlined in
+          <xref
+     linkend="concept-configure-combustion"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          First boot configuration using &ignition; is described in
+          <xref
+     linkend="concept-configure-ignition"/>.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+</article>

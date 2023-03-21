@@ -1,0 +1,537 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<?xml-stylesheet href="urn:x-suse:xslt:profiling:docbook51-profile.xsl"
+ type="text/xml"
+ title="Profiling step"?>
+<!DOCTYPE article [
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+  %entities;
+]>
+<article xml:id="reference-transactional-update-usage" xml:lang="en"
+  role="reference"
+  xmlns="http://docbook.org/ns/docbook" version="5.1"
+  xmlns:its="http://www.w3.org/2005/11/its"
+  xmlns:xi="http://www.w3.org/2001/XInclude"
+  xmlns:xlink="http://www.w3.org/1999/xlink">
+  <title>Usage of the &tr-up; command</title>
+  <para>
+    The &tr-up; command enables the atomic installation or removal of updates.
+    Updates are applied only if all of them can be successfully installed.
+    &tr-up; creates a snapshot of your system and uses it to update the system.
+    Later you can restore this snapshot. All changes become active only after
+    reboot.
+  </para>
+  <section xml:id="transactional-update-shell">
+    <title>The &tr-up; shell</title>
+    <para>
+      The &tr-up-shell; command opens a shell in the transactional-update
+      environment. In the shell, you can enter almost any Linux command to make
+      changes to the file system, for example, install multiple packages with
+      the <command>zypper</command> command or perform changes to files that
+      are part of the read-only file system. You can also verify that the changes you
+      previously made with the &tr-up; command are correct.
+    </para>
+    <important>
+      <para>
+        The transactional shell has several limitations. For example, you
+        cannot operate &systemd; commands, or modify the
+        <filename>/var</filename> partition because it is not mounted.
+      </para>
+    </important>
+    <para>
+      All changes that you make to the file system are part of a single
+      snapshot. After you finish making changes to the file system and leave
+      the shell with the <command>exit</command> command, you need to reboot
+      the host to apply the changes.
+    </para>
+    <tip>
+      <para>
+        Another approach to making multiple changes to the file system without
+        rebooting the host is to use the <option>--continue</option> option.
+        For more details, refer to
+        <xref linkend="transactional-update-continue" />.
+      </para>
+    </tip>
+  </section>
+  <section xml:id="sec-command-list">
+    <title>&tr-up; usage</title>
+    <para>
+      The &tr-up; command syntax is as follows:
+    </para>
+<screen>
+transactional-update <option>[option]</option> <replaceable>[general_command]</replaceable> <replaceable>[package_command]</replaceable> <replaceable>standalone_command</replaceable>
+</screen>
+    <note>
+      <title>Running &tr-up; without arguments</title>
+      <para>
+        If you do not specify any command or option while running the &tr-up;
+        command, the system updates itself.
+      </para>
+    </note>
+    <para>
+      Possible command parameters are described further.
+    </para>
+    <variablelist>
+      <title>&tr-up; options</title>
+      <varlistentry>
+        <term><option>--interactive, -i</option></term>
+        <listitem>
+          <para>
+            Can be used along with a package command to turn on interactive
+            mode.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--non-interactive, -n</option></term>
+        <listitem>
+          <para>
+            Can be used along with a package command to turn on non-interactive
+            mode.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry xml:id="transactional-update-continue">
+        <term><option>--continue [<replaceable>number</replaceable>], -c</option></term>
+        <listitem>
+          <para>
+            The <option>--continue</option> option is for making multiple
+            changes to an existing snapshot without rebooting.
+          </para>
+          <para>
+            The default &tr-up; behavior is to create a new snapshot from the
+            current root file system. If you forget something, such as
+            installing a new package, you have to reboot to apply your previous
+            changes, run &tr-up; again to install the forgotten package, and
+            reboot again. You cannot run the &tr-up; command multiple times
+            without rebooting to add more changes to the snapshot, because this
+            will create separate independent snapshots that do not include
+            changes from the previous snapshots.
+          </para>
+          <para>
+            Use the <option>--continue</option> option to make as many changes
+            as you want without rebooting. A separate snapshot is made each
+            time, and each snapshot contains all the changes you made in the
+            previous snapshots, plus your new changes. Repeat this process as
+            many times as you want, and when the final snapshot includes
+            everything you want, reboot the system, and your final snapshot
+            becomes the new root file system.
+          </para>
+          <para>
+            Another useful feature of the <option>--continue</option> option is
+            that you may select any existing snapshot as the base for your new
+            snapshot. The following example demonstrates running &tr-up; to
+            install a new package in a snapshot based on snapshot 13, and then
+            running it again to install another package:
+          </para>
+<screen>&prompt.root;<command>transactional-update pkg install <replaceable>package_1</replaceable></command></screen>
+<screen>&prompt.root;<command>transactional-update --continue 13 pkg install <replaceable>package_2</replaceable></command></screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--no-selfupdate</option></term>
+        <listitem>
+          <para>
+            Disables self-updating of &tr-up;.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--drop-if-no-change, -d</option></term>
+        <listitem>
+          <para>
+            Discards the snapshot created by &tr-up; if there were no changes
+            to the root file system. If there are some changes to the
+            <filename> /etc</filename> directory, those changes merged back to
+            the current file system.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--quiet</option></term>
+        <listitem>
+          <para>
+            The &tr-up; command will not output to <literal>stdout</literal> .
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--help, -h</option></term>
+        <listitem>
+          <para>
+            Prints help for the &tr-up; command.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--version</option></term>
+        <listitem>
+          <para>
+            Displays the version of the &tr-up; command.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <para>
+      The general commands are the following:
+    </para>
+    <variablelist>
+      <title>General commands</title>
+      <varlistentry>
+        <term><command>cleanup-snapshots</command></term>
+        <listitem>
+          <para>
+            The command marks all unused snapshots that are intended to be
+            removed.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>cleanup-overlays</command></term>
+        <listitem>
+          <para>
+            The command removes all unused overlay layers of <filename>
+            /etc</filename>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>cleanup</command></term>
+        <listitem>
+          <para>
+            The command combines the <command>cleanup-snapshots</command> and
+            <command>cleanup-overlays</command> commands.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>grub.cfg</command></term>
+        <listitem>
+          <para>
+            Use this command to rebuild the GRUB boot loader configuration
+            file.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>bootloader</command></term>
+        <listitem>
+          <para>
+            The command reinstalls the boot loader.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>initrd</command></term>
+        <listitem>
+          <para>
+            Use the command to rebuild <literal>initrd</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>kdump</command></term>
+        <listitem>
+          <para>
+            In case you perform changes to your hardware or storage, you may
+            need to rebuild the kdump initrd.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>shell</command></term>
+        <listitem>
+          <para>
+            Opens a read-write shell in the new snapshot before exiting. The
+            command is typically used for debugging purposes.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>reboot</command></term>
+        <listitem>
+          <para>
+            The system reboots after the &tr-up; command is complete.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>run <replaceable>&lt;command&gt;</replaceable></command></term>
+        <listitem>
+          <para>
+            Runs the provided command in a new snapshot.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>setup-selinux</command></term>
+        <listitem>
+          <para>
+            Installs and enables targeted &selnx; policy.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <para>
+      The package commands are the following:
+    </para>
+    <variablelist>
+      <title>Package commands</title>
+      <varlistentry>
+        <term><command>dup</command></term>
+        <listitem>
+          <para>
+            Performs upgrade of your system. The default option for this
+            command is <option>--non-interactive</option>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>migration</command></term>
+        <listitem>
+          <para>
+            The command migrates your system to a selected target. Typically,
+            it is used to upgrade your system if it has been registered via
+            &scc;.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>patch</command></term>
+        <listitem>
+          <para>
+            Checks for available patches and installs them. The default option
+            for this command is <option>--non-interactive</option>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>pkg install</command></term>
+        <listitem>
+          <para>
+            Installs individual packages from the available channels using the
+            <command>zypper install</command> command. This command can also be
+            used to install Program Temporary Fix (PTF) RPM files. The default
+            option for this command is <option>--interactive</option>.
+          </para>
+<screen>&prompt.root;<command>transactional-update pkg install <replaceable>package_name</replaceable></command></screen>
+          <para>
+            or
+          </para>
+<screen>&prompt.root;<command>transactional-update pkg install <replaceable>rpm1 rpm2</replaceable></command></screen>
+          <para>
+            Or, to install a software pattern:
+          </para>
+<screen>&prompt.root;<command>transactional-update pkg install -t pattern <replaceable>pattern_name</replaceable></command></screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>pkg remove</command></term>
+        <listitem>
+          <para>
+            Removes individual packages from the active snapshot using the
+            <command>zypper remove</command> command. This command can also be
+            used to remove PTF RPM files. The default option for this command
+            is <option> --interactive</option>.
+          </para>
+<screen>&prompt.root;<command>transactional-update pkg remove <replaceable>package_name</replaceable></command></screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>pkg update</command></term>
+        <listitem>
+          <para>
+            Updates individual packages from the active snapshot using the
+            <command>zypper update</command> command. Only packages that are
+            part of the snapshot of the base file system can be updated. The
+            default option for this command is <option>--interactive</option>.
+          </para>
+<screen>&prompt.root;<command>transactional-update pkg update <replaceable>package_name</replaceable></command></screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>register</command></term>
+        <listitem>
+          <para>
+            Registers or deregisters your system. For a complete usage
+            description, refer to
+            <xref
+              linkend="sec-register-command" />.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>up</command></term>
+        <listitem>
+          <para>
+            Updates installed packages to newer versions. The default option
+            for this command is <option>--non-interactive</option>.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <para>
+      The standalone commands are the following:
+    </para>
+    <variablelist>
+      <title>Standalone commands</title>
+      <varlistentry>
+        <term><command>rollback <replaceable>&lt;snapshot number&gt;</replaceable></command></term>
+        <listitem>
+          <para>
+            This sets the default subvolume. The current system is set as the
+            new default root file system. If you specify a number, that
+            snapshot is used as the default root file system. On a read-only
+            file system, it does not create any additional snapshots.
+          </para>
+<screen>&prompt.root;<command>transactional-update rollback <replaceable>snapshot_number</replaceable></command></screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>rollback last</command></term>
+        <listitem>
+          <para>
+            This command sets the last known to be working snapshot as the
+            default.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>status</command></term>
+        <listitem>
+          <para>
+            This prints a list of available snapshots. The currently booted one
+            is marked with an asterisk, the default snapshot is marked with a
+            plus sign.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <section xml:id="sec-register-command">
+      <title>The <command>register</command> command</title>
+      <para>
+        The <command>register</command> command enables you to handle all tasks
+        regarding registration and subscription management. You can supply the
+        following options:
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>--list-extensions</option></term>
+          <listitem>
+            <para>
+              With this option, the command will list available extensions for
+              your system. You can use the output to find a product identifier
+              for product activation.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>-p, --product</option></term>
+          <listitem>
+            <para>
+              Use this option to specify a product for activation. The product
+              identifier has the following format: <emphasis>
+              &lt;name&gt;/&lt;version&gt;/&lt;architecture&gt;</emphasis>, for
+              example, <literal>sle-module-live-patching/15.3/x86_64</literal>.
+              The appropriate command will then be the following:
+            </para>
+<screen>&prompt.root;transactional-update register -p sle-module-live-patching/15.3/x86_64</screen>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>-r, --regcode</option></term>
+          <listitem>
+            <para>
+              Register your system with the registration code provided. The
+              command will register the subscription and enable software
+              repositories.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>-d, --de-register</option></term>
+          <listitem>
+            <para>
+              The option deregisters the system, or when used along with the
+              <literal>-p</literal> option, deregisters an extension.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>-e, --email</option></term>
+          <listitem>
+            <para>
+              Specify an email address that will be used in &scc; for
+              registration.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--url</option></term>
+          <listitem>
+            <para>
+              Specify the URL of your registration server. The URL is stored in
+              the configuration and will be used in subsequent command
+              invocations. For example:
+            </para>
+<screen>&prompt.root;transactional-update register --url https://scc.suse.com</screen>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>-s, --status</option></term>
+          <listitem>
+            <para>
+              Displays the current registration status in JSON format.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--write-config</option></term>
+          <listitem>
+            <para>
+              Writes the provided options value to the <filename>
+              /etc/SUSEConnect</filename> configuration file.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--cleanup</option></term>
+          <listitem>
+            <para>
+              Removes old system credentials.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--version</option></term>
+          <listitem>
+            <para>
+              Prints the version.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--help</option></term>
+          <listitem>
+            <para>
+              Displays the usage of the command.
+            </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </section>
+  </section>
+  <section xml:id="related-transactional-update-usage">
+    <title>Related topics</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          General description of transactional updates is described in
+          <xref
+            linkend="concept-transactional-update" />.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+</article>
