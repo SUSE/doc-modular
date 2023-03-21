@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet href="urn:x-suse:xslt:profiling:docbook51-profile.xsl"
+  type="text/xml"
+  title="Profiling step"?>
+<!DOCTYPE article
+[
+  <!ENTITY % entities SYSTEM "../xml/generic-entities.ent">
+    %entities;
+]>
+<article xml:id="task-virt-scenario-create-vm" xml:lang="en"
+  role="task"
+  xmlns="http://docbook.org/ns/docbook" version="5.1"
+   xmlns:its="http://www.w3.org/2005/11/its"
+   xmlns:xi="http://www.w3.org/2001/XInclude"
+   xmlns:xlink="http://www.w3.org/1999/xlink">
+  <info>
+    <title>Creating virtual machines with &virt-scenario;</title>
+    <dm:docmanager xmlns:dm="urn:x-suse:ns:docmanager">
+      <dm:bugtracker>
+        <dm:url>https://bugzilla.suse.com/enter_bug.cgi</dm:url>
+        <dm:component>Smart Docs</dm:component>
+        <dm:product>Documentation</dm:product>
+        <dm:assignee>tbazant@suse.com</dm:assignee>
+      </dm:bugtracker>
+      <dm:translation>no</dm:translation>
+    </dm:docmanager>
+  </info>
+  <section xml:id="introduction-virt-scenario-create-vm">
+    <title>Introduction</title>
+    <para>
+      &virt-scenario; is a tool that helps you create a &vmguest; suitable for
+      a specific scenario. Based on a selected scenario and custom values, it
+      creates a &libvirt; XML definition of a virtual machine (VM) and
+      generates the corresponding VM image that you can operate with 
+      standard &libvirt; commands.
+    </para>
+  </section>
+  <section xml:id="environment-virt-scenario-create-vm">
+    <title>Environment</title>
+    <para>
+      This document applies to the following products and product versions:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          &productname; &productnumber;
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="requirements-virt-scenario-create-vm">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Running &productnameshort; with the &kvm; workload deployed. Refer to
+          <xref linkend="task-run-kvm-with-podman"/> for detailed steps.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="virt-scenario-interactive-shell">
+    <title>&virt-scenario; interactive shell</title>
+    <para>
+      The &virt-scenario; command presents an interactive shell where you
+      optionally specify configuration parameters and finally select the target
+      scenario. Its welcome screen shows categories with available commands.
+    </para>
+    <figure>
+      <title>&virt-scenario; welcome screen</title>
+      <mediaobject>
+        <imageobject role="fo">
+          <imagedata fileref="alp-virt-scenario-welcome.png" width="75%"/>
+        </imageobject>
+        <imageobject role="html">
+          <imagedata fileref="alp-virt-scenario-welcome.png" width="75%"/>
+        </imageobject>
+        <textobject role="description"><phrase>&virt-scenario; welcome screen</phrase>
+        </textobject>
+      </mediaobject>
+    </figure>
+    <tip>
+      <para>
+        Each command has a built-in description of its usage. Enter
+        <command>help <replaceable>COMMAND_NAME</replaceable></command> to view
+        it on the screen.
+      </para>
+    </tip>
+    <para>
+      After you finish optional configuration steps, enter the name of one of
+      the scenarios&mdash;<literal>computation</literal>,
+      <literal>desktop</literal>, or <literal>securevm</literal>.
+      &virt-scenario; then compiles all the configuration, prepares the
+      &vmhost;, and saves the &libvirt; XML of the new VM.
+    </para>
+  </section>
+  <section xml:id="virt-scenario-override">
+    <title>Overriding default scenario settings</title>
+    <para>
+      Each scenario includes settings that are applied to the target
+      VM. You can override certain settings by editing the
+      <filename>/etc/virt-scenario/virtscenario.yaml</filename> file before
+      running the &virt-scenario; interactive shell (see
+      <xref
+      linkend="virt-scenario-interactive-shell"/> for more details).
+    </para>
+    <warning>
+      <para>
+        Specifying incorrect parameters may lead to a bad VM configuration.
+      </para>
+      <para>
+        Do not change the section names.
+      </para>
+    </warning>
+    <para>
+      The following is an example of
+      <filename>/etc/virt-scenario/virtscenario.yaml</filename>:
+    </para>
+<screen>
+config:
+  - path: /etc/virt-scenario
+  - vm-config-store: ~/.local/virtscenario/
+emulator:
+  - emulator: /usr/bin/qemu-system-x86_64
+input:
+  - keyboard: virtio
+  - mouse: virtio
+architecture:
+  - arch: x86_64
+STORAGE_DATA:
+# some options are only available with qcow2 format and
+# will be ignored in case of any other image format
+  - disk_type: file
+  - disk_cache: none
+  - disk_target: vda
+  - disk_bus: virtio
+  - path: /var/livirt/images
+  - format: qcow2
+# host side: qemu-img creation options (-o), qemu-img --help
+  - unit: G
+  - capacity: 20
+  - cluster_size: 1024k
+  - lazy_refcounts: on
+preallocation: full
+  - preallocation: off
+  - compression_type: zlib
+  - encryption: off
+host_filesystem:
+  - fmode: 644
+  - dmode: 755
+  - source_dir: /tmp
+  - target_dir: /tmp/host
+</screen>
+  </section>
+  <section xml:id="virt-scenario-modes">
+    <title>Specifying &virt-scenario; mode</title>
+    <para>
+      By default, &virt-scenario; creates the &libvirt; XML configuration of
+      the new guest and adjusts the &vmhost;. You can instruct &virt-scenario;
+      to perform only part of the task. After entering the 
+      <command>conf</command> command, you can enter one of the following:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>guest</term>
+        <listitem>
+          <para>
+            Creates only the &libvirt; XML configuration of the guest.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>host</term>
+        <listitem>
+          <para>
+            Prepares the &vmhost; system only.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>both</term>
+        <listitem>
+          <para>
+            Creates the guest configuration and prepares the host. This is the
+            default mode.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="virt-scenario-start-vm">
+    <title>Managing &vmguest;s created by &virt-scenario;</title>
+    <para>
+      After you created a VM using the &virt-scenario; interactive shell, use
+      the <command>virt-scenario-launch</command> command to manage it.
+    </para>
+    <para>
+      First, identify the VM's name by listing all available domain
+      configurations:
+    </para>
+<screen>virt-scenario-launch --list</screen>
+    <para>
+      After you have identified the name of the VM, you can, for example, start
+      it by running
+    </para>
+<screen>virt-scenario-launch --start <replaceable>VM_NAME</replaceable></screen>
+    <para>
+      or display its status by running
+    </para>
+<screen>virt-scenario-launch --status <replaceable>VM_NAME</replaceable></screen>
+    <para>
+      For a complete list of the command's option, run
+    </para>
+<screen>virt-scenario-launch --help</screen>
+  </section>
+</article>
