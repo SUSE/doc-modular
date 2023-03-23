@@ -24,7 +24,7 @@ In a final step, add suitable metadata information to your assembly file. Stick 
 conventions outlined below.
 
 
-# Templates for Doc Evolution
+# Templates for Smart Docs
 
 We provide five different types of information units:
 
@@ -68,7 +68,7 @@ The DC file name must match the assembly file's root ID.
 
 ### File naming conventions
 
-Always start with the overarching topic. If necessary, add a subtopic (append with `_`):
+Always start with the overarching topic. In doing so, ensure that articles belonging to the same topic can be easily spotted by someone looking for existing articles. If necessary, add a subtopic (append with `_`):
 ```
 autoyast
 systemd
@@ -76,25 +76,27 @@ systemd-timer
 network
 ```
 
-The second component for concept, reference, task, glue should be the topic of the snippet:
+The second component for concept, reference, task, glue should be the topic of the snippet. For tasks, use a verb in gerund. For descriptive topics (concepts, references) opt for noun-based:
+
 ```
 references/autoyast-partitioner-syntax.xml
 concepts/autoyast-control-file.xml
-tasks/systemd-timer-create.xml
-tasks/systemd-timer-troubleshoot.xml
+tasks/systemd-timer-creating.xml
+tasks/systemd-timer-troubleshooting.xml
 concepts/network-ipv6-vs-ipv4.xml
 glues/systemd-timer-intro.xml
 glues/systemd-timer-whats-next.xml
 glues/systemd-timer-more-info.xml
 ```
 
-The second component of the article should be an abbreviated title:
+The second component of the article should be an abbreviated title. As our articles are intended to address specific problems and tasks, use verbs in gerund here as well:
+
 ```
 articles/systemd-timer-working-with.asm.xml
-articles/autoyast-understand-config-file.asm.xml
+articles/autoyast-understanding-config-file.asm.xml
 ```
 
-Distinguish article files by adding the `.asm` suffix.
+Distinguish article files from standard XML files by adding the `.asm` suffix.
 
 
 ### ID naming conventions
@@ -128,7 +130,8 @@ for images that you use for topic files.
 We maintain a changelog for each article. Add a version to the changelog whenever there is a 
 *release* of your article, i.e. whenever you ask for a rebuild and repost of said article. Do not 
 artificially bloat the changelog by entering every single commit. Also, provide concise and 
-meaningful version information that the reader benefits from.
+meaningful version information that the reader benefits from. This information might one day end up 
+being sent out to readers as update notifications on content they subscribed to.
 
 ## Metadata
 
@@ -169,5 +172,5 @@ Provide the reader with some guidance on the article's "age" (`updated`).
 
 ### Social media
 
-Provide an ultrashort (55 chars) description (`social-descr`) of your doc to make sure it 
+Provide an ultra-short (55 chars) description (`social-descr`) of your doc to make sure it 
 gets properly shared via Facebook and Twitter.
