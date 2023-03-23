@@ -35,14 +35,76 @@
     </itemizedlist>
   </section>
   <section xml:id="requirements-virt-scenario-deploy-secure-vm">
-    <title>Requirements</title>
-    <itemizedlist>
-      <listitem>
-        <para>
-          Running &productnameshort; with the &kvm; workload deployed. Refer to
-          <xref linkend="task-run-kvm-with-podman"/> for detailed steps.
-        </para>
-      </listitem>
-    </itemizedlist>
-  </section>
+   <title>Requirements</title>
+   <itemizedlist>
+    <listitem>
+     <para>
+      Running &productnameshort; with the &kvm; workload deployed. Refer to
+      <xref linkend="task-run-kvm-with-podman"/> for detailed steps.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      virt-scenario; currently only support setting &vmguest; with
+      AMD SEV or SEV-ES system.
+      For more information about SUSE and SEV please refer to
+      <link xlink:href="https://documentation.suse.com/sles/15-SP4/single-html/SLES-amd-sev/"/>
+     </para>
+    </listitem>
+   </itemizedlist>
+   </section>
+   <section>
+    <title>Step by Step procedure</title>
+    <para></para>
+    <section>
+     <title>Prepare the &vmguest;</title>
+     <para>
+      &virt-scenario; provides different options to configure the &vmguest;
+      (<xref linkend="reference-virt-scenario-interactive-commands"/>).
+      In our example different parameters are applied to suit our needs, and most
+      of them provides completion using the <keycap>TAB</keycap> key:
+     </para>
+     <screen>&prompt.root;<command>virt-scenario</command>
+&gt;<command>vcpu 4</command>
+&gt;<command>memory 8</command>
+&gt;<command>vnet default</command>
+&gt;<command>bootdev hd</command>
+&gt;<command>vmimage /var/lib/libvirt/images/ALP-VM.x86_64-0.0.1-kvm_encrypted-Snapshot20230309.qcow2</command>
+&gt;<command>force_sev on</command></screen>
+     <warning>
+      <title>Unsafe force_sev</title>
+      <para>
+       <option>force_sev</option> force the extraction of the Platform Diffie-Hellman key (PDH)
+       on the current AMD SEV system. This PDH file is used to negotiate a master secret between
+       the SEV firmware and an external entities. This file must be stored in a secure place,
+       and this option is only provided for <emphasis>demo</emphasis> purpose.
+      </para>
+     </warning>
+     <para>
+      This end up with a prompt like:
+     </para>
+     <screen>---------- User Settings ----------
+Disk Path: /var/lib/libvirt/images
+Main Configuration: /etc/virt-scenario/virtscenario.yaml
+Hypervisor Configuration: /etc/virt-scenario/virthosts.yaml
+Force SEV PDH extraction: on
+Name: ALPOS
+Vcpu: 4
+Memory: 8
+Boot Device: hd
+Virtual Network: default
+VM Image file: /var/lib/libvirt/images/ALP-VM.x86_64-0.0.1-kvm_encrypted-Snapshot20230309.qcow2</screen>
+     <para>
+      Now the system is ready to run <command>securevm</command> to prepare the host system and generate the XML libvirt config:
+     </para>
+     <screen>&gt;<command> securevm</command></screen>
+     <para>
+     To start the &vmguest; use the <command>virt-scenario-launch</command> tool:
+     </para>
+     <screen>&prompt.root;<command>virt-scenario-launch --start ALPOS</command>
+Connected to libvirtd socket; Version: 7001000
+SEV(-ES) attestation passed!
+Validation successfull for domain ALPOS</screen>
+    </section>
+   </section>
 </article>
