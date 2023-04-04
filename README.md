@@ -1,6 +1,8 @@
 Modular Documentation
 =====================
 
+This is the source of the official SUSE modular documentation.
+
 # What is this about?
 
 This repository contains modular documentation for SUSE products. 
