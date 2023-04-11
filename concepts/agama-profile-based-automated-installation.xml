@@ -52,10 +52,99 @@
 </screen>
     </example>
   </section>
-  <section xml:id="agama-automated-installation-profile-dynamic">
-    <title>insert title</title>
+  <section xml:id="agama-automated-installation-dynamic-profiles">
+    <title>Dynamic profiles</title>
     <para>
-      insert text
+      You can adapt the installation profile at runtime depending on the system
+      where the automated installation is running. &dinstaller; injects the
+      hardware information to the profile to be processed using Jsonnet.
     </para>
+    <para>
+      The following example profile is adapted to install &productnameshort; on
+      the biggest disk discovered. The hardware information provided by the
+      <command>lshw</command> command is available as a
+      <literal>hw.libsonnet</literal> JSON object.
+    </para>
+    <important>
+      <para>
+        Only the storage information is injected for now. You can inspect the
+        available data by installing the <package>lshw</package> package and
+        running the following command:
+      </para>
+<screen><command>lshw -json -class disk</command></screen>
+    </important>
+<screen>
+local dinstaller = import 'hw.libsonnet';
+local findBiggestDisk(disks) =
+  local sizedDisks = std.filter(function(d) std.objectHas(d, 'size'), disks);
+  local sorted = std.sort(sizedDisks, function(x) x.size);
+  sorted[0].logicalname;
+
+{
+  software: {
+    product: 'ALP-Bedrock',
+  },
+  root: {
+    password: 'nots3cr3t',
+  },
+  localization: {
+    language: 'en_US',
+  },
+  storage: {
+    devices: [
+      {
+        name: findBiggestDisk(dinstaller.disks),
+      },
+    ],
+  },
+}
+</screen>
+  </section>
+  <section xml:id="agama-automated-installation-validating-profiles">
+    <title>Evaluating and validating profiles</title>
+    <para>
+      &dinstaller; includes a command-line interface available from the
+      <package>dinstaller-cli</package> package. It handles multiple tasks,
+      such as downloading, validating and evaluating profiles. For example, the
+      following command checks the result of running the previous profile:
+    </para>
+<screen>&prompt.sudo;<command>dinstaller profile evaluate example-profile.jsonnet</command></screen>
+    <para>
+      To validate a JSON profile, run the following command:
+    </para>
+<screen>&prompt.user;<command>dinstaller profile validate my-profile.json</command></screen>
+    <important>
+      <para>
+        You can only validate JSON profiles. Jsonnet profiles must be evaluated
+        first.
+      </para>
+    </important>
+  </section>
+  <section xml:id="agama-automated-installation-generating-profiles">
+    <title>Generating profiles</title>
+    <para>
+      Although writing installation profiles manually in JSON format is easy,
+      &dinstaller; can export the current setup as a profile:
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Boot the &dinstaller; image.
+        </para>
+      </step>
+      <step>
+        <para>
+          Configure all installation options in the &dinstaller; user interface
+          as described in <xref linkend="task-deploy-alp-dinstaller"/>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Open the &dinstaller; built-in terminal and enter the following
+          command to dump the current installation profile:
+        </para>
+<screen>&prompt.sudo;<command>dinstaller config show</command></screen>
+      </step>
+    </procedure>
   </section>
 </topic>
