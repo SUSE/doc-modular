@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="reference-ansible-playbook-examples"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <title>Examples of &ansible; playbooks</title>
+  <info>
+    <meta name="maintainer" content="tbazant@suse.com"/>
+  </info>
+  <section xml:id="reference-ansible-introduction">
+    <title>Introduction</title>
+    <para>
+      On the &productnameshort; system where the &ansible; workload container
+      has been installed using the <literal>install</literal> runlabel (refer
+      to <xref linkend="starting-ansible"/> for more details), the examples are
+      available in
+      <filename>/usr/local/share/ansible-container/examples/ansible</filename>.
+    </para>
+  </section>
+  <section xml:id="alp-ansible-playbook-test">
+    <title>Simple &ansible; test</title>
+    <para>
+      The <filename>playbook.yml</filename> playbook tests several common
+      &ansible; operations, such as gathering facts and testing for installed
+      packages. To invoke the play, change to the directory
+      <filename>/usr/local/share/ansible-container/examples/ansible</filename>
+      and enter the following command:
+    </para>
+<screen>&prompt.user;<command>ansible-playbook playbook.yml</command>
+...
+PLAY RECAP *********************************************************************
+alphost    : ok=8 changed=1 unreachable=0 failed=0 skipped=0 rescued=0 ignored=0</screen>
+  </section>
+  <section xml:id="alp-ansible-networking-example">
+    <title>Drive <command>nmcli</command> to change system networking</title>
+    <para>
+      The <filename>network.yml</filename> playbook uses the
+      <literal>community.general.nmcli</literal> plugin to test common network
+      operations, such as assigning static IP addresses to NICs or creating
+      bonded interfaces.
+    </para>
+    <para>
+      The NICs, IP addresses, bond names, and bonded NICs are defined in the
+      <literal>vars</literal> section of the <filename>network.yml</filename>
+      file. Update it to reflect the current environment. To invoke the play,
+      change to the directory
+      <filename>/usr/local/share/ansible-container/examples/ansible</filename>
+      and enter the following command:
+    </para>
+<screen>&prompt.user;<command>ansible-playbook network.yml</command>
+...
+ASK [Ping test Bond IPs] ************************************************************************************************
+ok: [alphost] => (item={'name': 'bondcon0', 'ifname': 'bond0', 'ip4': '192.168.181.10/24', 'gw4': '192.168.181.2', 'mode': 'active-backup'})
+ok: [alphost] => (item={'name': 'bondcon1', 'ifname': 'bond1', 'ip4': '192.168.181.11/24', 'gw4': '192.168.181.2', 'mode': 'balance-alb'})
+
+TASK [Ping test static nics IPs] *****************************************************************************************
+ok: [alphost] => (item={'name': 'enp2s0', 'ifname': 'enp2s0', 'ip4': '192.168.181.3/24', 'gw4': '192.168.181.2', 'dns4': ['8.8.8.8']})
+ok: [alphost] => (item={'name': 'enp3s0', 'ifname': 'enp3s0', 'ip4': '192.168.181.4/24', 'gw4': '192.168.181.2', 'dns4': ['8.8.8.8']})
+
+PLAY RECAP ***************************************************************************************************************
+alphost                    : ok=9    changed=3    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0</screen>
+  </section>
+  <section xml:id="alp-ansible-libvirt-host">
+    <title>Set up &productnameshort; as a &libvirt; host</title>
+    <para>
+      The <filename>setup_libvirt_host.yml</filename> playbook installs the
+      <literal>kvm-container</literal> workload and enables the &libvirtd;
+      &systemd; service. To invoke the play, change to the directory
+      <filename>/usr/local/share/ansible-container/examples/ansible</filename>
+      and enter the following command:
+    </para>
+<screen>&prompt.user;<command>ansible-playbook setup_libvirt_host.yml</command>
+...
+PLAY RECAP *********************************************************************
+alphost    : ok=9 changed=2 unreachable=0 failed=0 skipped=4 rescued=0 ignored=0
+
+&prompt.sudo;/usr/local/bin/virsh list --all
+using /etc/kvm-container.conf as configuration file
++ podman exec -ti libvirtd virsh list --all
+Authorization not available.
+Check if polkit service is running or see debug message for more information.</screen>
+    <note>
+      <para>
+        If the required kernel and supporting packages are not already
+        installed, a reboot is required to complete the installation of missing
+        packages. Follow the directions generated by the playbook. After the reboot has 
+        completed successfully, rerun the playbook to finish the setup of the &libvirtd; service.
+      </para>
+    </note>
+  </section>
+  <section xml:id="alp-ansible-tumbleweed-vm">
+    <title>Create an &tw; appliance VM</title>
+    <para>
+      The
+      <alt>create_tumbleweed_vm.yml</alt>
+      playbook creates and starts a &libvirt; managed VM called
+      <literal>tumbleweed</literal> that is based on the latest available &tw;
+      appliance VM image.
+    </para>
+    <para>
+      It uses the <filename>setup_libvirt_host.yml</filename> playbook (see
+      <xref linkend="alp-ansible-libvirt-host"/>) to ensure that the
+      &productnameshort; host is ready to manage VMs before creating the new
+      one. It may fail prompting you to reboot before running the playbook
+      again to finish setting up &libvirt; and creating the VM.
+    </para>
+    <para>
+      To invoke the play, change to the directory
+      <filename>/usr/local/share/ansible-container/examples/ansible</filename>
+      and enter the following command:
+    </para>
+<screen>&prompt.user;<command>ansible-playbook create_tumbleweed_vm.yml</command>
+...
+TASK [Query list of libvirt VMs] ***********************************************
+ok: [alphost]
+
+TASK [Show that Tumbleweed appliance has been created] *************************
+ok: [alphost] => {
+    "msg": "Running VMs: tumbleweed"
+}
+
+PLAY RECAP *********************************************************************</screen>
+  </section>
+</topic>
