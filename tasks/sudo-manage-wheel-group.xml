@@ -15,40 +15,140 @@
  xmlns:xi="http://www.w3.org/2001/XInclude"
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
-  <title>Managing the <varname>wheel</varname> user group for &sudo; privileges
+  <title>Managing the <systemitem class="groupname">wheel</systemitem> user
+   group for &sudo; privileges
   </title>
   <!-- maybe comment out this section, rework and publish later -->
   <info>
     <meta name="maintainer" content="Julia Faltenbacher" its:translate="no"/>
     <abstract>
     <para>
-    Start a shell with permanent root privileges by using the
-    <command>sudo -s</command> or <command>sudo -i</command> command. With both
-    commands, you are prompted for the root password only once.
+    Members of the user group <systemitem class="groupname">wheel</systemitem>
+    have access to the &root; account and can receive unlimited privileges.
+    Learn how to add your user to the
+    <systemitem class="groupname">wheel</systemitem> group.
     </para>
     </abstract>
   </info>
-  <section xml:id="task-sudo-start-shell-as-root-introduction">
+  <section xml:id="task-sudo-add-user-to-wheel">
     <title>Introduction</title>
     <para>
-      Having to enter &sudo; every time you want to run a command as root can
-      become tedious. Instead, you can use one of the built-in mechanisms to
-      start a shell with permanent root privileges. For this, there are two
-      command options available:
+    The user group <systemitem class="groupname">wheel</systemitem> is available
+    on all &Linux; systems by default. The group is managed in the
+    <filename>sudoers</filename> and the members of this group can run all
+    commands with &sudo;.
     </para>
-    <itemizedlist>
-    <listitem>
+    <procedure>
+    <title>
+    Adding a user to the <systemitem class="groupname">wheel</systemitem> group
+    </title>
+    <step>
     <para>
-    <command>sudo -s</command> launches the shell you have set as default shell.
+    Verify that the <systemitem class="groupname">wheel</systemitem> group
+    exists:
     </para>
-    </listitem>
-    <listitem>
-    <!-- jufa: check differences between the shell and describe in concept -->
+<screen>&prompt.user;<command>getent group wheel</command></screen>
     <para>
-    <command>sudo -i</command> starts the login shell.
+    This will return, for example: 
     </para>
-    </listitem>
-    </itemizedlist>
+<screen>wheel:x:476:</screen>
+    <para>
+    If the previous command returned no result, install the
+    <package>system-group-wheel</package> package that creates the
+    <systemitem class="groupname">wheel</systemitem> group:
+    </para>
+<screen>&prompt.sudo;<command>zypper install system-group-wheel</command>
+</screen>
+    </step>
+    <step>
+    <para>
+    To add your user account tho the
+    <systemitem class="groupname">wheel</systemitem> group, run the following
+    command:
+    </para>
+<screen>sudo usermod -a -G wheel <replaceable>USERNAME</replaceable></screen>
+    <para>
+    Enter the &root; password.
+    </para>
+    </step>
+    <step>
+    <para>
+    Log out and log in again to enable the change. Verify that the change was
+    successful by running the following command: 
+    </para>
+<screen>groups <replaceable>USERNAME</replaceable></screen>
+    <para>
+    This will return, for example:
+    </para>
+<screen><replaceable>USERNAME</replaceable> : users wheel</screen>
+    </step>
+    </step>
+    <step>
+    <para>
+    Create a new &sudo; configuration file with:
+    </para>
+<screen>sudo visudo -f /etc/sudoers.d/NAME</screen>
+    </step>
+    <step>
+    <para>
+    To configure &sudo; to ask for the &root; password instead of the user
+    password, add the following line to the new file:
+    </para>
+<screen>Defaults !targetpw</screen>
+    </step>
+    <step>
+    <para>
+    Depending on whether you want users to re-enter their passwords, uncomment
+    the appropriate line in <filename>/etc/sudoers</filename> and comment out
+    the default rule.
+    </para>
+    </step>
+    <step>
+    <para>
+    To make the default rule more restrictive, comment out or remove the allow-
+    everything rule in <filename>/etc/sudoers</filename>:
+    </para>
+<screen>ALL     ALL=(ALL) ALL   # WARNING! Only use this together with 'Defaults targetpw'!</screen>
+    <warning>
+            <title>Dangerous rule in <filename>sudoers</filename></title>
+            <para>
+              Do not skip this step. Otherwise <emphasis>any</emphasis> user
+              can execute <emphasis>any</emphasis> command as &rootuser;!
+            </para>
+          </warning>
+    </step>
+    <step>
+    <para>
+    To test the configuration, run &sudo; as member and non-member of
+    <systemitem class="groupname">wheel</systemitem>.
+    </para>
+<screen>
+<prompt>&exampleuser_plain;:~ &gt; </prompt>groups
+users wheel
+<prompt>&exampleuser_plain;:~ &gt; </prompt>sudo id -un
+&exampleuser_plain;'s password:
+root
+<prompt>&exampleuserII_plain;:~ &gt; </prompt>groups
+users
+<prompt>&exampleuserII_plain;:~ &gt; </prompt>sudo id -un
+&exampleuserII_plain; is not in the sudoers file.  This incident will be reported.
+</screen>
+    </step>
+<screen>
+## Uncomment to allow members of group wheel to execute any command
+# %wheel ALL=(ALL) ALL
+
+## Same thing without a password
+# %wheel ALL=(ALL) NOPASSWD: ALL
+</screen>
+    </step>      
+    <result>
+    <para>
+    You have added your user account to the
+    <systemitem class="groupname">wheel</systemitem> user group.
+    </para>
+    </result>
+    </procedure>
   </section>
   <section xml:id="task-sudo-start-shell-with-s">
     <title>Starting a shell with <command>sudo -s</command></title>
