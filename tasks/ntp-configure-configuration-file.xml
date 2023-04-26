@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="ntp-configure-configuration-file"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring NTP by adjusting <filename>/etc/chrony.conf</filename></title>
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="tbazant@suse.com"/>
+    <abstract>
+      <para>
+        &ntp; (NTP) is a protocol used to synchronize and keep the system time
+        of one or more hosts in the network accurate. This article describes
+        how to configure NTP by adjusting its configuration file.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="ntp-requirements-config-file">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          You have installed your product and your system is up and running.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          The system's networking is configured so that a time server is
+          reachable on an external or local network.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="configure-ntp-command-line-chronyd-conf">
+    <title>Configuring &chronyd; by adjusting <filename>/etc/chrony.conf</filename></title>
+    <para>
+      When &chronyd; starts, it reads its configuration from the
+      <filename>/etc/chrony.conf</filename> file.
+    </para>
+    <section xml:id="configure-ntp-command-line-time-sources-">
+      <title>Specifying time sources</title>
+      <para>
+        To keep the computer clock synchronized, you need to tell &chronyd;
+        what time sources to use. For this purpose, use
+        <literal>server</literal>, <literal>pool</literal>, and
+        <literal>peer</literal> directives. You can use each of them multiple
+        times.
+      </para>
+      <para>
+        The <literal>server</literal> directive tells &chronyd; to use a
+        specific host as a time server by its name or IP address.
+      </para>
+<screen>
+server 0.europe.pool.ntp.org offline<co xml:id="co-ntp-offline"/>
+server 1.europe.pool.ntp.org offline prefer<co xml:id="co-ntp-prefer"/>
+server &dhcpip;
+</screen>
+      <calloutlist>
+        <callout arearefs="co-ntp-offline">
+          <para>
+            The <option>offline</option> option prevents &chronyd; from
+            querying the time server. This option is useful if the server is
+            not reachable when &chronyd; is started. You need to put the time
+            server online when it is reachable by using &chronyc;. Refer to
+            <xref linkend="ntp-manage-with-chronyc"/> for more
+            details.
+          </para>
+        </callout>
+        <callout arearefs="co-ntp-prefer">
+          <para>
+            The <option>prefer</option> options tells &chronyd; to prefer the
+            time source over other that do not include such option.
+          </para>
+        </callout>
+      </calloutlist>
+      <para>
+        The <literal>pool</literal> directive lets you specify a network name
+        that resolves to multiple IP addresses that may change over time.
+      </para>
+<screen>pool pool.ntp.org iburst<co xml:id="co-ntp-iburst"/> maxsources 3<co xml:id="co-ntp-maxsources"/></screen>
+      <calloutlist>
+        <callout arearefs="co-ntp-iburst">
+          <para>
+            The <option>iburst</option> option means that &chronyd; starts with
+            a burst of 4 to 8 requests to make the first update of the clock
+            sooner.
+          </para>
+        </callout>
+        <callout arearefs="co-ntp-maxsources">
+          <para>
+            The <option>maxsources</option> option tells &chronyd; to use up to
+            three sources from the pool.
+          </para>
+        </callout>
+      </calloutlist>
+      <para>
+        The <literal>peer</literal> directive specifies an NTP peer host
+        instead of a time server. Synchronizing system time among
+        <emphasis>peers</emphasis> uses a symmetric architecture instead of the
+        client/server mode invoked by <literal>server</literal> and
+        <literal>pool</literal> options. You can use <literal>peer</literal>
+        multiple times to specify more than one peer.
+      </para>
+<screen>
+peer &ntpip;
+peer &ntpname;
+</screen>
+    </section>
+    <section xml:id="configure-ntp-server">
+      <title>Running &chronyd; as an NTP server</title>
+      <para>
+        By default, &chronyd; works as a client to specified NTP servers. To
+        make it operate as an NTP server as well, add the
+        <literal>allow</literal> directive to the
+        <filename>/etc/chrony.conf</filename> file. It opens the server NTP
+        port (123 by default) and responds to client requests.
+      </para>
+      <para>
+        You can either specify a single IP of an NTP client, or a subnet to
+        include multiple clients. You can use the <literal>allow</literal>
+        directive multiple times:
+      </para>
+<screen>
+allow 1.2.3.4
+allow 3.4.5.0/24
+</screen>
+      <tip>
+        <para>
+          If you do not specify an IP address or a subnet, the stand-alone
+          <literal>allow</literal> directive allows access from all IPv4 and
+          IPv6 addresses.
+        </para>
+      </tip>
+      <para>
+        To limit the access of the previous <literal>allow</literal> directive,
+        use the <literal>deny</literal> directive:
+      </para>
+<screen>
+allow 1.2.3.4
+deny 1.2.3.0/24
+allow 1.2.0.0/16
+</screen>
+      <para>
+        In the above example, the effect is the same regardless of the order of
+        the three directives. The <literal>1.2.0.0/16</literal> subnet is
+        allowed access except for the <literal>1.2.3.0/24</literal> subnet
+        which is denied access. However, the host <literal>1.2.3.4</literal> is
+        allowed access.
+      </para>
+    </section>
+    <section xml:id="configure-ntp-server-reference-clock">
+      <title>Configuring a local reference clock</title>
+      <para>
+        &chronyd; relies on other programs (such as
+        <systemitem>gpsd</systemitem>) to access the timing data via a specific
+        driver. Use the <option>refclock</option> directive in
+        <filename>/etc/chrony.conf</filename> to specify a hardware reference
+        clock to be used as a time source. It has two mandatory parameters: a
+        driver name and a driver-specific parameter. The two parameters are
+        followed by zero or more <option>refclock</option> options. &chronyd;
+        includes the following drivers:
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term>PPS</term>
+          <listitem>
+            <para>
+              Driver for the kernel <emphasis>pulse per second</emphasis> API.
+              For example:
+            </para>
+<screen>refclock PPS /dev/pps0 lock NMEA refid GPS</screen>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>SHM</term>
+          <listitem>
+            <para>
+              NTP shared memory driver. For example:
+            </para>
+<screen>refclock SHM 0 poll 3 refid GPS1
+refclock SHM 1:perm=0644 refid GPS2</screen>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>SOCK</term>
+          <listitem>
+            <para>
+              Unix domain socket driver. For example:
+            </para>
+<screen>refclock SOCK /var/run/chrony.ttyS0.sock</screen>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>PHC</term>
+          <listitem>
+            <para>
+              PTP hardware clock driver. For example:
+            </para>
+<screen>refclock PHC /dev/ptp0 poll 0 dpoll -2 offset -37
+refclock PHC /dev/ptp1:nocrossts poll 3 pps</screen>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+      <tip>
+        <para>
+          For more information on individual drivers' options, see <command>man
+          8 chrony.conf</command>.
+        </para>
+      </tip>
+    </section>
+    <section xml:id="configure-ntp-command-line-chronyc-online">
+      <title>Activating offline time sources</title>
+      <para>
+        Although &chronyd; starts up normally on a system that boots without a
+        network connection, it cannot access the time servers specified in
+        <filename>/etc/chrony.conf</filename>. To prevent &chronyd; from trying
+        to query inaccessible time servers, use the <option>offline</option>
+        option next to the time source directive, for example:
+      </para>
+<screen>server ntp.example.org offline</screen>
+      <para>
+        &chronyd; then does not try to poll the server until it is enabled
+        using the following command:
+      </para>
+<screen>&prompt.root;chronyc online ntp.example.org</screen>
+      <tip>
+        <para>
+          When the <option>auto_offline</option> option is set instead of the
+          <option>offline</option> option, &chronyd; assumes that the time
+          server has gone offline when two requests have been sent to it
+          without receiving a response. This option avoids the need to run the
+          <command>offline</command> command from &chronyc; when disconnecting
+          the network link.
+        </para>
+      </tip>
+    </section>
+  </section>
+</topic>
