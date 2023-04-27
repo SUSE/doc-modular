@@ -47,8 +47,23 @@
   <section xml:id="sudo-edit-configuration-visudo">
     <title>Editing &sudo; configuration files with <command>visudo</command></title>
     <para>
-      
+      While it is possible to edit &sudo; configuration files with any editing 
+      tool, it is best practice to use <command>visudo</command> for this task. 
+      <command>visudo</command> provides a basic set of safety measures to make 
+      sure you do not lock yourself out from your system due to a broken &sudo; 
+      configuration. It checks for parse errors, provides basic integrity checks 
+      and locks the configuration file against simultaneous edits, either by 
+      someone else or you in another session. If you tried editing a locked 
+      configuration file, <command>visudo</command> would tell you to try again 
+      later.
     </para>
+    <para>
+      By default, <command>visudo</command> uses <command>vi</command> as 
+      the underlying editor. To change this to, for example, 
+      <command>nano</command>, set the <systemitem>EDITOR</systemitem> 
+      environment variable:
+    </para>
+    <screen>&prompt.sudo; EDITOR=/usr/bin/nano visudo -f /etc/sudoers.d/<replaceable>NAME</replaceable></screen>
   </section>
 
 <!-- How to create custom configs with visudo -->
@@ -60,7 +75,7 @@
       <command>visudo</command> with the <option>-f</option> option and provide 
       the name of your new configuration file:
     </para>
-    <screen>sudo visudo -f /etc/sudoers.d/<replaceable>custom_configuration</replaceable></screen>
+    <screen>&prompt.sudo; visudo -f /etc/sudoers.d/<replaceable>01</replaceable>_<replaceable>custom_configuration</replaceable></screen>
 
     <para>
       When naming your custom configuration files, stick to the following 
@@ -69,20 +84,20 @@
     <variablelist>
       <varlistentry>
         <term>
-          Use descriptive filenames
+          Use descriptive file names
         </term>
         <listitem>
           <para>
-            Use filenames that hint at what the configuration file does.
+            Use file names that hint at what the configuration file does.
           </para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term>Do not use <option>~</option> and <option>.</option> in the 
-        filenames</term>
+        file names</term>
         <listitem>
           <para>
-            &sudo; interprets configuration filenames containing 
+            &sudo; interprets configuration file names containing 
             <option>.</option> as provided or created by the package management 
             rather than the system adminstrator and ignores them. The same 
             applies to files that end in <option>~</option>. These are 
@@ -94,19 +109,41 @@
         <term>Make sure the configuration files are read in the correct order</term>
         <listitem>
           <para>
-
+            The order in which any custom files under 
+            <filename>/etc/sudoers.d/</filename> are parsed determines how 
+            directives are carried out. If you have set one directive in a file 
+            parsed early in the process and the same one in another file that is 
+            parsed later, the last read version trumps the earlier one.
+          </para>
+          <para>
+            To determine the order in which your custom configurations are read, 
+            add numbering to your configuration files and use a consistent 
+            number of leading zeroes. For example, 
+            <filename>01_myfirstconfig</filename> is parsed before 
+            <filename>10_myotherconfig</filename>.
           </para>
         </listitem>
       </varlistentry>
     </variablelist>
   </section>
 
-<!-- How to make sure the includes are read in order -->
-
 <!-- How to use visudo debug options -->
   <section xml:id="sudo-edit-configuration-debug">
     <title>Debugging &sudo; configurations with <command>visudo</command></title>
     <para>
+      <command>visudo</command> performs a number of built-in checks to ensure 
+      your system's integrity.
     </para>
+    <screen>&prompt.sudo; visudo -f /etc/sudoers.d/01_test
+[sudo] password for root: 
+visudo: /etc/sudoers.d/01_test:1:17: unknown defaults entry "insult"
+What now? 
+Options are:
+  (e)dit sudoers file again
+  e(x)it without saving changes to sudoers file
+  (Q)uit and save changes to sudoers file (DANGER!)
+
+What now? e
+    </screen>
   </section>
 </topic>
