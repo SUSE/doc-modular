@@ -208,29 +208,6 @@ User_List Host_List = [(User_List)] [NOPASSWD:|PASSWD:] Cmnd_List
         <literal>ALL</literal> can be used as <literal>User_List</literal>,
         <literal>Host_List</literal>, and <literal>Cmnd_List</literal>.
       </para>
-      <para>
-        A rule that allows &exampleuser; to run all commands as root without
-        entering a password:
-      </para>
-<screen>&exampleuser_plain; ALL = NOPASSWD: ALL</screen>
-      <para>
-        A rule that allows &exampleuser; to run <command>systemctl restart
-        apache2</command>:
-      </para>
-<screen>&exampleuser_plain; ALL = /usr/bin/systemctl restart apache2</screen>
-      <para>
-        A rule that allows &exampleuser; to run <command>wall</command> as
-        <systemitem>admin</systemitem> with no arguments:
-      </para>
-<screen>&exampleuser_plain; ALL = (admin) /usr/bin/wall ""</screen>
-      <warning>
-        <title>Unsafe rules</title>
-        <para>
-          <emphasis>Do not</emphasis> use rules like <literal>ALL ALL =
-          ALL</literal> without <literal>Defaults targetpw</literal>. Otherwise
-          anyone can run commands as &rootuser;.
-        </para>
-      </warning>
   </section>
   <section xml:id="sudo-user-authorization-alias">
   <title>Simplify <filename>sudoers</filename> using aliases</title>
@@ -300,7 +277,7 @@ ADMINS WEBSERVERS = REBOOT<co xml:id="co-alias-rule"/>
     <callout arearefs="co-ua">
       <para>
         Similar to the hosts grouped above, group users or even groups of users 
-        (like <literal>%admins</literal>) here. Negation is achieved with the
+        (like <literal>%wheel</literal>) here. Negation is achieved with the
         <literal>!</literal> prefix, as usual.
       </para>
     </callout>
@@ -321,10 +298,83 @@ ADMINS WEBSERVERS = REBOOT<co xml:id="co-alias-rule"/>
   <para>
     In summary, aliases help administrators to keep <filename>sudoers</filename>
     lean and manageable (and therefore secure). If one of the users left the 
-    company for example, the administrators can just delete this person's 
-    name from the <literal>User_Alias</literal> statement once instead of 
-    having to search for all rules including this particular user.
+    company for example, you can just delete this person's name from the 
+    <literal>User_Alias</literal> statement once and any system group they 
+    belonged to instead of having to search for all rules including 
+    this particular user.
   </para>
+  </section>
+  <section xml:id="sudo-user-authorization-bestpractices">
+  <title>&sudo; configuration best practices</title>
+    <para>
+      &sudo; is powerful and secure, if it is configured properly. Slight 
+      oversights or misconfigurations can compromise your system's security.
+      Implement the following best practices when setting up your own &sudo; 
+      configuration:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>Manage users in groups rather than individually</term>
+        <listitem>
+          <para>
+            Keep your &sudo; configuration as lean and manageable as possible.
+            Manage users by adding them to groups and then granting privileges 
+            to these groups rather than to the individuals. This allows you to 
+            add or remove users by simply adding changing the group settings 
+            instead of of having to look for the user's name all across your 
+            configuration.
+          </para>
+          <para>
+            An example rule that allows all users in the 
+            <systemitem>%wheel</systemitem> group to execute all commands:
+          </para>
+          <screen>
+%wheel ALL = (ALL) ALL
+          </screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Stay away from overly permissive rules</term>
+        <listitem>
+          <para>
+            Rather than allowing everything to everyone, start setting up 
+            permissions that are restrictive. If there is a user or a group of 
+            users who - for example - need to able to install software, but do 
+            not need to perform any other task that requires elevated 
+            privileges, let your settings reflect that. The following rule 
+            allows &exampleuser_plain; to use any kind of software installation 
+            utility on &productname;.
+          </para>
+          <screen>
+&exampleuser_plain; ALL = (ALL) PASSWD : /usr/bin/zypper, /usr/bin/rpm, /usr/bin/yast /usr/bin/yast2
+          </screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term></term>
+        <listitem>
+          <para>
+
+          </para>
+          <screen>
+
+          </screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Keep &sudo; logging transparent</term>
+        <listitem>
+          <para>
+            &sudo; logs to the standard logfile where its log entries may easily
+            get overlooked. Add the following rule to your configuration to 
+            specify a dedicated &sudo; logfile.
+          </para>
+          <screen>
+Defaults logfile=/var/log/sudo.log
+          </screen>
+        </listitem>
+      </varlistentry>
+    </variablelist>
   </section>
   <section xml:id="sudo-user-authorization-moreinfo">
     <title>For more information</title>
