@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<?xml-stylesheet href="urn:x-suse:xslt:profiling:docbook51-profile.xsl"
+ type="text/xml"
+ title="Profiling step"?>
+<!DOCTYPE article
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="kea-dhcp-running-with-podman" xml:lang="en"
+ role="task"
+ xmlns="http://docbook.org/ns/docbook" version="5.1"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+  <info>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <title>Running the &kea; DHCP server using &podman;</title>
+    <abstract>
+      <para>
+        &kea; is an open-source DHCP server that supports both DHCPv4 and
+        DHCPv6 protocols. It provides IPv6 prefix delegation, host reservations
+        optionally stored in a database, PXE boot, high-availability setup and
+        other features.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="kea-dhcp-run-procedure">
+    <title>Deploying and running the &kea; workload</title>
+    <procedure>
+      <step>
+        <para>
+          Identify the &kea; DHCP server container image:
+        </para>
+<screen>&prompt.root;<command>podman search kea</command>
+[...]
+registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/kea</screen>
+      </step>
+      <step>
+        <para>
+          Pull the image from the registry:
+        </para>
+<screen>&prompt.root;<command>podman pull \
+registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/kea:latest</command></screen>
+      </step>
+      <step>
+        <para>
+          Install all required parts of the &kea; workload:
+        </para>
+<screen>&prompt.root;<command>podman container runlabel install \
+registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/kea:latest</command></screen>
+        <para>
+          The previous command installs:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              Default configuration files in the <filename>/etc/kea</filename>
+              directory
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              The <command>keactrl</command> wrapper in the
+              <filename>/usr/local/bin</filename> directory
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              &systemd; service files for the dhcp4 and dhcp6 containers in the
+              <filename>/etc/systemd/system/</filename> directory
+            </para>
+          </listitem>
+        </itemizedlist>
+      </step>
+      <step>
+        <para>
+          Run the &kea; DHCP server. You can run it either using &systemd; unit
+          files, or manually.
+        </para>
+        <tip>
+          <para>
+            To run DHCPv6 server with &firewalld; active, you need to add the
+            following exception rule:
+          </para>
+<screen>&prompt.root;firewall-cmd --add-service=dhcpv6</screen>
+        </tip>
+        <substeps>
+          <step>
+            <para>
+              To run &kea; as a &systemd; service, use one of the following
+              commands:
+            </para>
+<screen>&prompt.root;<command>systemctl start kea-dhcp4.service</command></screen>
+            <para>
+              Or, for DHCPv6:
+            </para>
+<screen>&prompt.root;<command>systemctl start kea-dhcp6.service</command></screen>
+          </step>
+          <step>
+            <para>
+              To run &kea; manually, use one of the following commands:
+            </para>
+<screen>&prompt.root;<command>podman container runlabel run \
+registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/kea:latest</command></screen>
+            <para>
+              Or, for DHCPv6:
+            </para>
+<screen>&prompt.root;<command>podman container runlabel run_dhcp6 \
+registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/kea:latest</command></screen>
+          </step>
+        </substeps>
+      </step>
+      <step>
+        <para>
+          Optionally, you can uninstall the &kea; workload. The following
+          command removes all &kea;-related files except for the configuration
+          directory and its content:
+        </para>
+<screen>&prompt.root;<command>podman container runlabel uninstall \
+registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/kea:latest</command></screen>
+        <tip>
+          <para>
+            The <literal>purge</literal> runlabel removes the &kea;
+            configuration directory <filename>/etc/kea</filename> but leaves
+            the rest of &kea; deployment in place:
+          </para>
+<screen>&prompt.root;<command>podman container runlabel purge \
+registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/kea:latest</command></screen>
+        </tip>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="kea-dhcp-configuration-files">
+    <title>Configuration files</title>
+    <para>
+      The &kea; configuration files&mdash;<filename>kea-dhcp4.conf</filename>
+      and <filename>kea-dhcp6.conf</filename>&mdash;are located in the
+      <filename>/etc/kea</filename> directory. They include the default
+      configuration. You can find detailed information about configuring the
+      DHCP server in the official documentation at
+      <link xlink:href="https://kea.readthedocs.io/"/>.
+    </para>
+    <tip>
+      <para>
+        If you modify configuration files, run <command>keactrl
+        reload</command> to apply them to running servers.
+      </para>
+    </tip>
+  </section>
+  <section xml:id="kea-dhcp-keactrl">
+    <title>The <command>keactrl</command> wrapper</title>
+    <para>
+      The installed <command>keactrl</command> wrapper uses the original
+      <command>keactrl</command> tool to send commands to deployed containers.
+      It uses the same options as the original tool with one exception: the
+      <option>-s</option> option is adjusted to send commands to the DHCPv4
+      (<option>-s dhcp4</option>) or DHCPv6 (<option>-s dhcp6</option>). If
+      <option>-s</option> is not specified, <command>keactrl</command> sends
+      commands to both servers if they are started.
+    </para>
+  </section>
+</topic>
