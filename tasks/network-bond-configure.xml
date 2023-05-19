@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/net_bonding.xml -->
+
+<topic xml:id="network-bond-configure"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring network bonding</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Network bonding combines two or more network cards into a single bonding
+        device to increase bandwidth or provide redundancy. The behavior of the
+        bonding device is configured using <emphasis>bonding modes</emphasis>.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="network-bond-modes">
+    <title>Bonding modes</title>
+    <para>
+     The following bonding modes are available:
+    </para>
+    <variablelist>
+     <varlistentry>
+      <term><guimenu>0</guimenu> (<guimenu>balance-rr</guimenu>)</term>
+      <listitem>
+       <para>
+        Packets are transmitted in round-robin fashion from the first to the last
+        available interface. Provides fault tolerance and load balancing.
+       </para>
+      </listitem>
+     </varlistentry>
+     <varlistentry>
+      <term><guimenu>1</guimenu> (<guimenu>active-backup</guimenu>)</term>
+      <listitem>
+       <para>
+        Only one network interface is active. If it fails, a different interface
+        becomes active. This is the default mode. Provides fault tolerance.
+       </para>
+      </listitem>
+     </varlistentry>
+     <varlistentry>
+      <term><guimenu>2</guimenu> (<guimenu>balance-xor</guimenu>)</term>
+      <listitem>
+       <para>
+        Traffic is split between all available interfaces based on the number of
+        interfaces included in the bonding device. Requires support from
+        the switch. Provides fault tolerance and load balancing.
+       </para>
+      </listitem>
+     </varlistentry>
+     <varlistentry>
+      <term><guimenu>3</guimenu> (<guimenu>broadcast</guimenu>)</term>
+      <listitem>
+       <para>
+        All traffic is broadcast on all interfaces. Requires support from the
+        switch. Provides fault tolerance.
+       </para>
+      </listitem>
+     </varlistentry>
+     <varlistentry>
+      <term><guimenu>4</guimenu> (<guimenu>802.3ad</guimenu>)</term>
+      <listitem>
+       <para>
+        Aggregates interfaces into groups that share the same speed and duplex
+        settings. Requires <command>ethtool</command> support in the interface
+        drivers, and a switch that supports and is configured for IEEE 802.3ad
+        Dynamic link aggregation. Provides fault tolerance and load balancing.
+       </para>
+      </listitem>
+     </varlistentry>
+     <varlistentry>
+      <term><guimenu>5</guimenu> (<guimenu>balance-tlb</guimenu>)</term>
+      <listitem>
+       <para>
+        Adaptive transmit load balancing. Requires <command>ethtool</command>
+        support in the interface drivers but not switch support. Provides fault
+        tolerance and load balancing.
+       </para>
+      </listitem>
+     </varlistentry>
+     <varlistentry>
+      <term><guimenu>6</guimenu> (<guimenu>balance-alb</guimenu>)</term>
+      <listitem>
+       <para>
+        Adaptive load balancing. Requires <command>ethtool</command> support in
+        the interface drivers but not switch support. Provides fault tolerance and
+        load balancing.
+       </para>
+      </listitem>
+     </varlistentry>
+    </variablelist>
+    <para>
+     For a more detailed description of the modes, see
+     <link
+       xlink:href="https://www.kernel.org/doc/Documentation/networking/bonding.txt"/>.
+    </para>
+    <note arch="power">
+     <title>
+      IBM &power;: Bonding modes 5 and 6 (<literal>balance-tlb</literal> and
+      <literal>balance-alb</literal>) unsupported by ibmveth
+     </title>
+     <para>
+       The bonding drivers in <literal>tlb</literal> mode and <literal>alb</literal>
+       mode send Ethernet Loopback packets with both the source and destination MAC
+       addresses listed as the Virtual Ethernet MAC address. These packets are not
+       supported by Power firmware. Therefore, bonding modes 5 and 6 are unsupported
+       by ibmveth.
+     </para>
+    </note>
+  </section>
+  <section xml:id="network-bond-requirements">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+         Network connection
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+         Existing network cards to include in the bonding device
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+         Basic understanding of networking and IP addresses
+        </para>
+      </listitem>
+    </itemizedlist>
+    <tip>
+     <title>Bonding and &xen;</title>
+     <para>
+       Bonding devices are made up of multiple real network cards. In most
+       configurations, this means that you should only set up bonding in &dom0;.
+       To set up bonding in a &vmguest;, you must have multiple network cards
+       assigned to the &vmguest; system.
+     </para>
+    </tip>
+  </section>
+  <section xml:id="network-bond-configure-with-yast">
+    <title>Configuring network bonding with &yast;</title>
+<!--trichardson 2023-05-19: It might be good to also add a section for configuring bonding manually?-->
+    <procedure>
+     <step>
+      <para>
+       Start the graphical version of &yast;, or run the command <command>yast2</command>
+       to start &yast; in text mode.
+      </para>
+     </step>
+     <step>
+      <para>
+       Select <menuchoice><guimenu>System</guimenu><guimenu>Network Settings</guimenu></menuchoice>.
+      </para>
+     </step>
+     <step>
+      <para>
+       Select <guimenu>Add</guimenu> and change the <guimenu>Device Type</guimenu>
+       to <guimenu>Bonding</guimenu>, then select <guimenu>Next</guimenu> to open
+       the <guimenu>Network Card Setup</guimenu> menu.
+      </para>
+     </step>
+     <step>
+      <para>
+       In the <guimenu>Address</guimenu> tab, select how to assign an IP address
+       to the bonding device:
+      </para>
+      <itemizedlist>
+       <listitem>
+        <para>
+         <guimenu>Dynamic Address</guimenu>: Automatically assign a dynamic IP address.
+         The default setup is to use DHCP with both IPv4 and IPv6. You can change
+         these settings if required.
+        </para>
+       </listitem>
+       <listitem>
+        <para>
+         <guimenu>Statically Assigned IP Address</guimenu>: Manually assign an
+         <guimenu>IP Address</guimenu>, <guimenu>Subnet Mask</guimenu>, and
+         <guimenu>Hostname</guimenu>.
+        </para>
+       </listitem>
+       <listitem>
+        <para>
+         Do not use <guimenu>No Link and IP Setup</guimenu>. This option is only
+         used for individual network cards that will be added to a bonding device.
+        </para>
+       </listitem>
+      </itemizedlist>
+     </step>
+     <step>
+      <para>
+       In the <guimenu>Bond Ports</guimenu> tab, select the network cards to
+       include in the bonding device by activating the check boxes.
+      </para>
+     </step>
+     <step>
+      <para>
+       From the <guimenu>Bond Driver Options</guimenu> drop-down box, choose a
+       bonding mode. The default mode is <literal>active-backup</literal>.
+      </para>
+      <important role="compact">
+       <para>
+        Do not remove <literal>miimon=100</literal>. Without this parameter, data
+        integrity is not checked regularly.
+       </para>
+      </important>
+     </step>
+     <step>
+      <para>
+       Select <guimenu>Next</guimenu>, then select <guimenu>OK</guimenu> to create
+       the bonding device.
+      </para>
+     </step>
+     <step>
+      <para>
+       Select <guimenu>Quit</guimenu> or press <keycap>F9</keycap> to close &yast;.
+      </para>
+     </step>
+    </procedure>
+  </section>
+  <!--section xml:id="task-example-summary">
+    <title>Summary</title>
+    <para>
+      A paragraph of text, summing up the result of the task.
+    </para>
+  </section-->
+  <!--section xml:id="task-example-troubleshooting">
+    <title>Troubleshooting</title>
+    <para>
+      Add some troubleshooting information, if applicable.
+    </para>
+  </section-->
+</topic>
