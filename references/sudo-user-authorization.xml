@@ -1,0 +1,307 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/adm_sudo.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="sudo-user-authorization"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>&sudo; configuration basics</title>
+    <meta name="maintainer" content="jana.jaeger@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Learn about the basic <filename>sudoers</filename> configuration
+        settings before you start editing or creating your own &sudo;
+        configuration files.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="sudo-user-authorization-syntax">
+    <title>Basic <filename>sudoers</filename> configuration syntax</title>
+    <para>
+    The <filename>sudoers</filename> configuration files contain two types of
+    options: strings and flags. While strings can contain any value, flags can
+    be turned either ON or OFF. The most important syntax constructs for
+    <filename>sudoers</filename> configuration files are as follows:
+    </para>
+    <screen>
+# Everything on a line after # is ignored<co xml:id="co-hash-ignore"/>
+Defaults !insults # Disable the insults flag<co xml:id="co-toggle-flag"/>
+Defaults env_keep += "DISPLAY HOME" # Add DISPLAY and HOME to env_keep<co xml:id="co-env-keep"/>
+tux ALL = NOPASSWD: /usr/bin/frobnicate, PASSWD: /usr/bin/journalctl<co xml:id="co-full-entry"/>
+    </screen>
+    <calloutlist>
+      <callout arearefs="co-hash-ignore">
+        <para>
+          There are two exceptions: <literal>#include</literal>
+          and <literal>#includedir</literal> are regular commands.
+          <!--FIXME, jjaeger:  is this still true with the current version? Current SUSE has @includedir -->
+        </para>
+      </callout>
+      <callout arearefs="co-toggle-flag">
+        <para>
+          Remove the <literal>!</literal> character to set the desired flag
+          to ON.
+        </para>
+      </callout>
+      <callout arearefs="co-env-keep">
+        <para>
+          Specify a list of environment variables that should be kept when
+          <literal>env_reset</literal> is enabled.
+        </para>
+      </callout>
+      <callout arearefs="co-full-entry">
+        <para>
+          A complex rule that states that the user &exampleuser; requires a
+          password to run <command>/usr/bin/journalctl</command> and does not
+          require one to run <command>/usr/bin/frobnicate</command> on all hosts.
+        </para>
+      </callout>
+    </calloutlist>
+    <variablelist xml:id="varlist-sudo-options">
+      <title>Useful flags and options</title>
+      <varlistentry>
+        <term><literal>targetpw</literal></term>
+          <listitem>
+            <para>
+              If set, &sudo; prompts for the user password specified in the
+              <option>-u</option> option or the &rootuser; password, if
+              <option>-u</option> is not used. The default is ON.
+            </para>
+<screen>Defaults targetpw # Turn targetpw flag ON</screen>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>rootpw</literal></term>
+          <listitem>
+            <para>
+              If set, &sudo; prompts for the &rootuser; password. The default
+              is OFF.
+            </para>
+<screen>Defaults !rootpw # Turn rootpw flag OFF</screen>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>env_reset</literal></term>
+          <listitem>
+            <para>
+              If set, &sudo; constructs a minimal environment with
+              <envar>TERM</envar>, <envar>PATH</envar>, <envar>HOME</envar>,
+              <envar>MAIL</envar>, <envar>SHELL</envar>,
+              <envar>LOGNAME</envar>, <envar>USER</envar>,
+              <envar>USERNAME</envar>, and <envar>SUDO_*</envar>. Additionally,
+              variables listed in <literal>env_keep</literal> are imported from
+              the calling environment. The default is ON.
+            </para>
+            <!-- what about env_check? Not used and present in SUSE's sudoers.
+            Is there a reason why it is omitted here?-->
+<screen>Defaults env_reset # Turn env_reset flag ON</screen>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>env_keep</literal></term>
+          <listitem>
+            <para>
+              The list of environment variables to keep when the
+              <literal>env_reset</literal> flag is ON.
+            </para>
+<screen>
+# Set env_keep to contain EDITOR and PROMPT
+Defaults env_keep = "EDITOR PROMPT"
+Defaults env_keep += "JRE_HOME" # Add JRE_HOME
+Defaults env_keep -= "JRE_HOME" # Remove JRE_HOME
+</screen>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>env_delete</literal></term>
+          <listitem>
+            <para>
+              The list of environment variables to remove when the
+              <literal>env_reset</literal> flag is OFF.
+            </para>
+<screen>
+# Set env_delete to contain EDITOR and PROMPT
+Defaults env_delete = "EDITOR PROMPT"
+Defaults env_delete += "JRE_HOME" # Add JRE_HOME
+Defaults env_delete -= "JRE_HOME" # Remove JRE_HOME
+</screen>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+  </section>
+    <section xml:id="sudo-user-authorization-rules">
+    <title>Basic <filename>sudoers</filename> rules</title>
+      <para>
+        Each rule follows the following scheme (<literal>[]</literal> marks
+        optional parts):
+      </para>
+<screen>
+#Who      Where         As whom      Tag                What
+User_List Host_List = [(User_List)] [NOPASSWD:|PASSWD:] Cmnd_List
+</screen>
+      <variablelist>
+        <title>sudoers rule syntax</title>
+        <varlistentry>
+          <term><literal>User_List</literal></term>
+          <listitem>
+            <para>
+              One or several (separated by comma) identifiers: either a user
+              name, a group in the format <literal>%GROUPNAME</literal>, or a
+              user ID in the format <literal>#UID</literal>. Negation can be
+              specified with the <literal>!</literal> prefix.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>Host_List</literal></term>
+          <listitem>
+            <para>
+              One or several (separated by comma) identifiers: either a (fully
+              qualified) host name or an IP address. Negation can be specified
+              with the <literal>!</literal> prefix. <literal>ALL</literal> is a
+              common choice for <literal>Host_List</literal>.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>NOPASSWD:|PASSWD:</literal></term>
+          <listitem>
+            <para>
+              The user is not prompted for a password when running commands
+              matching <literal>Cmd_List</literal> after
+              <literal>NOPASSWD:</literal>.
+            </para>
+            <para>
+              <literal>PASSWD:</literal> is the default. It only needs to be
+              specified when both <literal>PASSWD:</literal> and
+              <literal>NOPASSWD:</literal> are on the same line:
+            </para>
+<screen>&exampleuser_plain; ALL = PASSWD: /usr/bin/foo, NOPASSWD: /usr/bin/bar</screen>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>Cmnd_List</literal></term>
+          <listitem>
+            <para>
+              One or several (separated by comma) specifiers: a path to an
+              executable, followed by an optional allowed argument.
+            </para>
+<screen>
+/usr/bin/foo     # Anything allowed
+/usr/bin/foo bar # Only "/usr/bin/foo bar" allowed
+/usr/bin/foo ""  # No arguments allowed
+</screen>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+      <para>
+        <literal>ALL</literal> can be used as <literal>User_List</literal>,
+        <literal>Host_List</literal> and <literal>Cmnd_List</literal>.
+      </para>
+  </section>
+  <section xml:id="sudo-user-authorization-alias">
+  <title>Simplify <filename>sudoers</filename> using aliases</title>
+  <para>
+    Administrators can avoid having to maintain a set of repetitive and
+    individual rules by introducing aliases to group items. Their syntax is the
+    same as the syntax of the rules. The following types of aliases are supported:
+  </para>
+  <variablelist>
+    <varlistentry>
+      <term><literal>User_Alias</literal></term>
+      <listitem>
+        <para>
+          A list of user names
+        </para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+    <variablelist>
+    <varlistentry>
+      <term><literal>Runas_Alias</literal></term>
+      <listitem>
+        <para>
+          A group of users by UID
+        </para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+    <variablelist>
+    <varlistentry>
+      <term><literal>Host_Alias</literal></term>
+      <listitem>
+        <para>
+          A list of host names
+        </para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+    <variablelist>
+    <varlistentry>
+      <term><literal>Cmnd_Alias</literal></term>
+      <listitem>
+        <para>
+          A list of commands and directories, and aliases
+        </para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  <para>
+    Think of aliases as named lists of users, groups, commands and hosts.
+    To illustrate the power of aliases, take this example:
+  </para>
+  <screen>
+Host_Alias    WEBSERVERS = www1, www2, www3<co xml:id="co-ha"/>
+User_Alias    ADMINS = tux, wilber, suzanne<co xml:id="co-ua"/>
+Cmnd_Alias    REBOOT = /sbin/halt, /sbin/reboot, /sbin/poweroff<co xml:id="co-cmnd"/>
+ADMINS WEBSERVERS = REBOOT<co xml:id="co-alias-rule"/>
+  </screen>
+  <calloutlist>
+    <callout arearefs="co-ha">
+      <para>
+        The three servers are grouped into one Host_Alias
+        <literal>WEBSERVERS</literal>. You can use (fully qualified) host names
+        or IP addresses.
+      </para>
+    </callout>
+    <callout arearefs="co-ua">
+      <para>
+        Similar to the hosts grouped above, group users or even groups of users
+        (like <literal>%wheel</literal>) are listed here. Negation is achieved with the
+        <literal>!</literal> prefix, as usual.
+      </para>
+    </callout>
+    <callout arearefs="co-cmnd">
+      <para>
+        Specifies a group of commands that are used in the same context.
+      </para>
+    </callout>
+    <callout arearefs="co-alias-rule">
+      <para>
+        All aliases are wrapped into a single rule stating that all users specified
+        by the <literal>User_Alias</literal> can execute the group of commands
+        specified under <literal>Cmnd_Alias</literal> on all hosts named in
+        <literal>Host_Alias</literal>.
+      </para>
+    </callout>
+  </calloutlist>
+  <para>
+    In summary, aliases help administrators to keep <filename>sudoers</filename>
+    lean and manageable (and therefore secure). If, for example, one of the users has left the
+    company, you can delete this person's name from the <literal>User_Alias</literal> 
+    statement and any system group they belonged to just once instead of having to search 
+    for all rules including this particular user.
+  </para>
+  </section>
+  </topic>

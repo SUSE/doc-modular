@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="ntp-troubleshooting"
+ role="glue" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Troubleshooting</title>
+    <!--add author's e-mail address-->
+    <meta name="maintainer" content="tbazant@suse.com"/>
+  </info>
+  <para>
+    In case of errors, check the following.
+  </para>
+  <itemizedlist>
+    <listitem>
+      <para>
+        Verify that your computer is connected to a network and that the
+        network is configured correctly:
+      </para>
+<screen>
+&prompt.sudo;systemctl status network.service
+● NetworkManager.service - Network Manager
+     Loaded: loaded (/usr/lib/systemd/system/NetworkManager.service; enabled; vendor preset: disabled)
+     Active: active (running) since Sat 2021-08-07 20:09:44 CEST; 4 days ago
+[...]
+</screen>
+    </listitem>
+    <listitem>
+      <para>
+        Verify that the time servers that you entered as a time source exist and
+        are reachable over the network. For example:
+      </para>
+<screen>
+&prompt.user;ping pool.ntp.org
+PING pool.ntp.org (85.199.214.101) 56(84) bytes of data.
+64 bytes from 85.199.214.101 (85.199.214.101): icmp_seq=1 ttl=37 time=29.9 ms
+[...]
+</screen>
+    </listitem>
+    <listitem>
+      <para>
+        If the &firewalld; service is active on your computer, verify that the
+        NTP service is allowed.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        Verify that the &chronyd; service is running:
+      </para>
+<screen>
+&prompt.sudo;systemctl status chronyd.service
+● chronyd.service - NTP client/server
+     Loaded: loaded (/usr/lib/systemd/system/chronyd.service; enabled; vendor preset: disabled)
+     Active: active (running) since Sat 2021-08-07 20:09:44 CEST; 4 days ago
+ [...]
+</screen>
+    </listitem>
+    <listitem>
+      <para>
+        If the system time on a virtualized guest diverges from the exact time,
+        make sure that the &vmhost; system time is synchronized with a valid
+        time server and that the guest is synchronized with the same time
+        source as the host.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        If the NTP service fails to start properly during system boot, it can
+        be caused by network switches configured to use the <literal>Spanning
+        Tree Protocol</literal> while ports are not configured as <literal>Edge
+        Ports</literal> but <literal>Portfast</literal>. In this case, it can
+        take up to a minute until the network connectivity is established.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        If the NTP service fails to start during system boot when the &nm; is
+        used, edit the <filename>/etc/sysconfig/network/config</filename> file
+        and change the value of <option>NM_ONLINE_TIMEOUT</option> value to 30.
+        If the problem persists, increase the timeout value by 15 and try again.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        If NTP sources cannot be reached, identify them with the following
+        command:
+      </para>
+<screen>
+&prompt.user;chronyc sources -v
+[...]
+MS Name/IP address         Stratum Poll Reach LastRx Last sample
+===============================================================================
+^* time.mydomain.com             3  10   377    81  -5354us[-8257us] +/-  191ms
+^? ntp1.example.com              0  10     0     -     +0ns[   +0ns] +/-    0ns
+^? 77.177.77.177                 0  10     0     -     +0ns[   +0ns] +/-    0ns
+^? ntp3.example.com              0  10     0     -     +0ns[   +0ns] +/-    0ns
+^? ntp4.example.net              0  10     0     -     +0ns[   +0ns] +/-    0ns
+^? 2a02:3d8:1::1:1               0   6     0     -     +0ns[   +0ns] +/-    0ns
+^? ntp2.example.org              0  10     0     -     +0ns[   +0ns] +/-    0ns
+</screen>
+      <para>
+        In this case, the only server that is really serving time is
+        <literal>time.mydomain.com</literal>. It is necessary to generally
+        troubleshoot the network connection to the failing remote NTP time
+        sources.
+      </para>
+    </listitem>
+    <!-- add the following to the troubleshooting:
+      * https://www.suse.com/support/kb/doc/?id=000019557
+      * https://www.suse.com/support/kb/doc/?id=000018760 (adapt to chrony)
+      -->
+  </itemizedlist>
+</topic>
