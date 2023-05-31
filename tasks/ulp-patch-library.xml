@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="ulp-creating-patch"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Creating a live patch for a system library</title>
+    <!-- can be changed via merge
+      in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        The following section describes how to create a live patch for the
+        function <literal>malloc</literal> that is from the
+        <literal>glibc</literal> library.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    In the procedure below, you will create a live patch for the
+    <literal>malloc</literal> function. The patched function will initialize
+    the memory allocated by the function with the string
+    <literal>glibc-livepatches</literal>. To create the live patch, proceed as
+    follows:
+  </para>
+  <procedure>
+    <step>
+      <para>
+        Create a test program that checks if a live patch has been applied. The
+        program should just allocate a region in memory and check if the string
+        is there. An example follows:
+      </para>
+<screen>
+#include &lt;stdio.h>
+#include &lt;stdlib.h>
+#include &lt;unistd.h>
+#include &lt;stdbool.h>
+#include &lt;string.h>
+
+#define NUM_ATTEMPTS 30
+#define LEN 32
+
+static const char *const lp_string = "glibc-livepatch";
+
+int main(int argc, char *argv[])
+{
+  for (int i = 0; i &lt; NUM_ATTEMPTS; i++) {
+    bool flag = false;
+    char *m = malloc(LEN);
+    m[LEN-1] = '\0';
+
+    fprintf(stderr, "%s\n", m);
+
+    if (m) {
+      if (!strcmp(m, lp_string)) {
+        flag = true;
+      }
+      free(m);
+    }
+
+    m = calloc(1, 32);
+    if (m) {
+      free(m);
+    } else if (flag) {
+      return 0;
+    }
+    sleep(1);
+  }
+
+  return 1;
+}
+      </screen>
+    </step>
+    <step>
+      <para>
+        Compile the program:
+      </para>
+<screen>&prompt.user;<command>gcc -o test test.c</command></screen>
+    </step>
+    <step>
+      <para>
+        Create a file containing the new <literal>malloc</literal> function,
+        for example, <filename>libc_livepatch1.c</filename>.
+      </para>
+      <para>
+        The code snippet shown below implements the new
+        <literal>malloc</literal> function by using the
+        <literal>calloc</literal> function to allocate memory and then
+        overwrite its content with the <emphasis>glibc-livepatch</emphasis>
+        string. The file is called <filename>libc_livepatch1.c</filename>.
+      </para>
+<screen>#include &lt;stdlib.h>
+#include &lt;string.h>
+
+#define MIN(x, y) ((x) &lt; (y) ? (x) : (y))
+
+static const char *const lp_string = "glibc-livepatch";
+
+void *malloc_lp(size_t s)
+{
+  char *block = calloc(1, s);
+  if (block &amp;&amp; s > 0) {
+    int lp_string_len = strlen(lp_string);
+    int copy_len = MIN(lp_string_len + 1, s);
+
+    memcpy(block, lp_string, copy_len);
+    block[s-1] = '\0';
+  }
+  return block;
+}</screen>
+      <para>
+        Compile the file for &x86; as follows:
+      </para>
+<screen>&prompt.user;<command>gcc -fPIC -fpatchable-function-entry=16,14 -shared -o  libc_livepatch1.so libc_livepatch1.c</command>
+    
+  </screen>
+    </step>
+    <step>
+      <para>
+        Create a live patch description file. The file must contain the
+        following information:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            A path to the live patch container, in this case the path to the
+            <filename>libc_livepatch1.so.6</filename> file.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            A path to the target library&mdash;<filename>
+            /usr/lib64/libc.so</filename> in this case.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The function name that will be patched and its replacement. You can
+            also describe multiple replacements.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The description file for the example live patch looks as follows:
+          </para>
+<screen>
+libc_livepatch1.so
+@/usr/lib64/libc.so.6
+__libc_malloc:malloc_lp
+        </screen>
+          <para>
+            The patch is for the <literal>__libc_malloc</literal> function, not
+            for <literal>malloc</literal>, because the
+            <literal>malloc</literal> name is an indirect function, not a
+            regular function, and in the end it calls the
+            <literal>__libc_malloc</literal> function. For details about ifunc,
+            refer to the
+            <link xlink:href="https://sourceware.org/glibc/wiki/GNU_IFUNC">indirect
+            function</link> description.
+          </para>
+        </listitem>
+      </itemizedlist>
+    </step>
+    <step>
+      <para>
+        Build the live patch container:
+      </para>
+<screen>&prompt.user;<command>gcc -fPIC -fpatchable-function-entry=16,14 -shared -o libc_livepatch1.so libc_livepatch1.c</command>
+      </screen>
+    </step>
+    <step>
+      <para>
+        Embed the description file into the live patch container:
+      </para>
+<screen>&prompt.user;<command>ulp packer libc_livepatch1.dsc</command></screen>
+    </step>
+  </procedure>
+</topic>
