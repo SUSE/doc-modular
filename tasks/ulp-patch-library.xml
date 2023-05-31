@@ -16,26 +16,34 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Creating a live patch for a system library</title><!-- can be changed via merge
-in the assembly -->
+    <title>Creating a live patch for a system library</title>
+    <!-- can be changed via merge
+      in the assembly -->
     <!-- add author's e-mail -->
     <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
     <abstract>
       <para>
-       The following section describes how to create a live patch for the function <literal>malloc</literal> that is from the <literal>glibc</literal> library.
+        The following section describes how to create a live patch for the
+        function <literal>malloc</literal> that is from the
+        <literal>glibc</literal> library.
       </para>
     </abstract>
   </info>
   <para>
-    In the procedure below, you will create a live patch for the <literal>malloc</literal> function. The patched function will initialize the memory allocated by the function with the string <literal>glibc-livepatches</literal>.
-    To create the live patch, proceed as follows:
+    In the procedure below, you will create a live patch for the
+    <literal>malloc</literal> function. The patched function will initialize
+    the memory allocated by the function with the string
+    <literal>glibc-livepatches</literal>. To create the live patch, proceed as
+    follows:
   </para>
   <procedure>
     <step>
       <para>
-        Create a test program that checks if a live patch has been applied. The program should just allocate a region in memory and check if the string is there. An example follows:
+        Create a test program that checks if a live patch has been applied. The
+        program should just allocate a region in memory and check if the string
+        is there. An example follows:
       </para>
-      <screen>
+<screen>
 #include &lt;stdio.h>
 #include &lt;stdlib.h>
 #include &lt;unistd.h>
@@ -80,15 +88,20 @@ int main(int argc, char *argv[])
       <para>
         Compile the program:
       </para>
-      <screen>&prompt.user;<command>gcc -o test test.c</command></screen>
+<screen>&prompt.user;<command>gcc -o test test.c</command></screen>
     </step>
     <step>
       <para>
-        Create a file containing the new <literal>malloc</literal> function, for example, <filename>libc_livepatch1.c</filename>.
+        Create a file containing the new <literal>malloc</literal> function,
+        for example, <filename>libc_livepatch1.c</filename>.
       </para>
-        <para>
-        The code snippet shown below implements the new <literal>malloc</literal> function by using the <literal>calloc</literal> function to allocate memory and then overwrite its content with the <emphasis>glibc-livepatch</emphasis> string. The file is called <filename>libc_livepatch1.c</filename>.
-</para>
+      <para>
+        The code snippet shown below implements the new
+        <literal>malloc</literal> function by using the
+        <literal>calloc</literal> function to allocate memory and then
+        overwrite its content with the <emphasis>glibc-livepatch</emphasis>
+        string. The file is called <filename>libc_livepatch1.c</filename>.
+      </para>
 <screen>#include &lt;stdlib.h>
 #include &lt;string.h>
 
@@ -108,61 +121,71 @@ void *malloc_lp(size_t s)
   }
   return block;
 }</screen>
-<para>
-  Compile the file for &x86; as follows:
-  </para>
-  <screen>&prompt.user;<command>gcc -fPIC -fpatchable-function-entry=16,14 -shared -o  libc_livepatch1.so libc_livepatch1.c</command>
+      <para>
+        Compile the file for &x86; as follows:
+      </para>
+<screen>&prompt.user;<command>gcc -fPIC -fpatchable-function-entry=16,14 -shared -o  libc_livepatch1.so libc_livepatch1.c</command>
     
   </screen>
     </step>
     <step>
       <para>
-        Create a live patch description file. The file must contain the following information:
+        Create a live patch description file. The file must contain the
+        following information:
       </para>
       <itemizedlist>
         <listitem>
           <para>
-            A path to the live patch container, in this case the path to the <filename>libc_livepatch1.so.6</filename> file.
+            A path to the live patch container, in this case the path to the
+            <filename>libc_livepatch1.so.6</filename> file.
           </para>
         </listitem>
         <listitem>
           <para>
-            A path to the target library&mdash;<filename> /usr/lib64/libc.so</filename> in this case.
+            A path to the target library&mdash;<filename>
+            /usr/lib64/libc.so</filename> in this case.
           </para>
         </listitem>
         <listitem>
           <para>
-            The function name that will be patched and its replacement. You can also describe multiple replacements.
+            The function name that will be patched and its replacement. You can
+            also describe multiple replacements.
           </para>
         </listitem>
         <listitem>
-        <para>
-          The description file for the example live patch looks as follows:
-        </para>
-        <screen>
+          <para>
+            The description file for the example live patch looks as follows:
+          </para>
+<screen>
 libc_livepatch1.so
 @/usr/lib64/libc.so.6
 __libc_malloc:malloc_lp
         </screen>
-        <para>
-          The patch is for the <literal>__libc_malloc</literal> function, not for <literal>malloc</literal>, because the <literal>malloc</literal> name is an indirect function, not a regular function, and in the end it calls the <literal>__libc_malloc</literal> function. For details about ifunc, refer to the <link xlink:href="https://sourceware.org/glibc/wiki/GNU_IFUNC">indirect function</link> description.
-        </para>
-      </listitem>
+          <para>
+            The patch is for the <literal>__libc_malloc</literal> function, not
+            for <literal>malloc</literal>, because the
+            <literal>malloc</literal> name is an indirect function, not a
+            regular function, and in the end it calls the
+            <literal>__libc_malloc</literal> function. For details about ifunc,
+            refer to the
+            <link xlink:href="https://sourceware.org/glibc/wiki/GNU_IFUNC">indirect
+            function</link> description.
+          </para>
+        </listitem>
       </itemizedlist>
     </step>
     <step>
       <para>
         Build the live patch container:
       </para>
-      <screen>&prompt.user;<command>gcc -fPIC -fpatchable-function-entry=16,14 -shared -o libc_livepatch1.so libc_livepatch1.c</command>
+<screen>&prompt.user;<command>gcc -fPIC -fpatchable-function-entry=16,14 -shared -o libc_livepatch1.so libc_livepatch1.c</command>
       </screen>
     </step>
     <step>
       <para>
         Embed the description file into the live patch container:
       </para>
-      <screen>&prompt.user;<command>ulp packer libc_livepatch1.dsc</command></screen>
+<screen>&prompt.user;<command>ulp packer libc_livepatch1.dsc</command></screen>
     </step>
   </procedure>
-  
 </topic>
