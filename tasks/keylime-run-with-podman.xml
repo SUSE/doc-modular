@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<?xml-stylesheet href="urn:x-suse:xslt:profiling:docbook51-profile.xsl"
+ type="text/xml"
+ title="Profiling step"?>
+<!DOCTYPE article
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="keylime-run-with-podman" xml:lang="en"
+ role="task"
+ xmlns="http://docbook.org/ns/docbook" version="5.1"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+  <info>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <title>Running the &keylime; workload using &podman;</title>
+    <abstract>
+      <para>
+        &keylime; is a remote attestation solution that enables you to monitor
+        the health of remote nodes. The <emphasis>verifier</emphasis> and
+        <emphasis>registrar</emphasis> are essential components of &keylime; on
+        remote systems to perform the registration and attestation of &keylime;
+        agents.
+      </para>
+    </abstract>
+  </info>
+  <note>
+    <para>
+      The container described in this article delivers control plane services
+      <emphasis>verifier</emphasis> and <emphasis>registrar</emphasis> and a
+      <emphasis>tenant</emphasis> command line tool (CLI) that are part of the
+      &keylime; project.
+    </para>
+  </note>
+  <para>
+    Before you start installing and registering agents, prepare the verifier
+    and the registrar on remote hosts as described in the following procedure.
+  </para>
+  <procedure>
+    <step>
+      <para>
+        Identify the &keylime; workload image.
+      </para>
+<screen>
+&prompt.root;podman search keylime
+[...]
+registry.opensuse.org/devel/microos/containers/containerfile/opensuse/keylime-control-plane
+</screen>
+    </step>
+    <step>
+      <para>
+        Pull the image from the registry.
+      </para>
+<screen>&prompt.root;podman pull\
+  registry.opensuse.org/devel/microos/containers/containerfile/opensuse/keylime-control-plane:latest</screen>
+    </step>
+    <step>
+      <para>
+        Create the <literal>keylime-control-plane-volume</literal> volume
+        required by multiple services to persist the database and certificates
+        required during the attestation process.
+      </para>
+<screen>&prompt.root;podman container runlabel install \
+  registry.opensuse.org/devel/microos/containers/containerfile/opensuse/keylime-control-plane:latest</screen>
+    </step>
+    <step>
+      <para>
+        Start the container and related services.
+      </para>
+<screen>&prompt.root;podman container runlabel run \
+  registry.opensuse.org/devel/microos/containers/containerfile/opensuse/keylime-control-plane:latest</screen>
+      <para>
+        The <literal>keylime-control-plane-container</literal> container is
+        created. It includes configured and running registrar and verifier
+        services. Internally the container exposes several ports into the host
+        using the default values. Validate the firewall configuration to allow
+        access to the ports and to allow communication between containers,
+        because the tenant CLI requires it.
+      </para>
+    </step>
+    <step>
+      <para>
+        Optionally, stop &keylime;-related services.
+      </para>
+<screen>&prompt.root;<command>podman kill keylime-control-plane-container</command></screen>
+    </step>
+  </procedure>
+  <section xml:id="keylime-monitor">
+    <title>Monitoring &keylime; services</title>
+    <para>
+      You can monitor the status of &keylime; services via the following
+      &podman; commands:
+    </para>
+<screen>podman ps</screen>
+<screen>podman logs keylime-control-plane-container</screen>
+  </section>
+  <section xml:id="keylime-executing-tenant">
+    <title>Executing the tenant CLI</title>
+    <para>
+      The tenant CLI tool is included in the container and if the host firewall
+      is properly configured, you can execute it using the same image, for
+      example:
+    </para>
+<screen>&prompt.root;<command>podman run --rm \
+  -v keylime-control-plane-container:/var/lib/keylime \
+  keylime-control-plane:latest \
+  keylime_tenant -v 10.88.0.1 -r 10.88.0.1 --cert default -c reglist</command></screen>
+  </section>
+  <section xml:id="keylime-extract-certificates">
+    <title>Extracting &keylime; certificate</title>
+    <para>
+      The first time that the &keylime; container is executed, its services
+      create a certificate required by several agents. You can extract the
+      certificate using the following command:
+    </para>
+<screen>&prompt.root;<command>podman cp \
+keylime-control-plane-container:/var/lib/keylime/cv_ca/cacert.crt
+.</command></screen>
+    <para>
+      Another option is to mount the
+      <literal>keylime-control-plane-volume</literal> volume and copy it from
+      there.
+    </para>
+  </section>
+</topic>
