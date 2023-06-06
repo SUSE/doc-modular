@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="keylime-enable-ima-tracking"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Enabling IMA tracking for &keylime;</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        &keylime; is a remote attestation solution that enables you to monitor
+        the health of remote nodes. <emphasis>Integrity management
+        architecture</emphasis> (IMA) is a kernel integrity subsystem that
+        provides a means of detecting malicious changes to files.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    When using IMA, the kernel calculates a hash of accessed files. The hash is
+    then used to extend the PCR 10 in the TPM and also log a list of accessed
+    files. The verifier can request a signed quote to the agent for PCR 10 to
+    get the logs of all accessed files including the file hashes. Verifiers
+    then compare the accessed files with a local allowlist of approved files.
+    If any of the hashes are not recognized, the system is considered unsafe,
+    and a revocation event is triggered.
+  </para>
+  <para>
+    Before &keylime; can collect information, IMA/EVM needs to be enabled. To
+    enable the process, boot a kernel of the agent with the
+    <literal>ima_appraise=log</literal> and <literal>ima_policy=tcb</literal>
+    parameters:
+  </para>
+  <procedure>
+    <step>
+      <para>
+        Update the <option>GRUB_CMDLINE_LINUX_DEFAULT</option> option with the
+        parameters in <filename>/etc/default/grub</filename>:
+      </para>
+<screen>GRUB_CMDLINE_LINUX_DEFAULT="ima_appraise=log ima_policy=tcb"</screen>
+    </step>
+    <step>
+      <para>
+        Regenerate <filename>grub.cfg</filename> by running:
+      </para>
+<screen>&prompt.root;transactional-update grub.cfg</screen>
+    </step>
+    <step>
+      <para>
+        Reboot your system.
+      </para>
+    </step>
+  </procedure>
+  <para>
+    The procedure above uses the default kernel IMA policy. To avoid monitoring
+    too many files and therefore creating long logs, create a new custom
+    policy. Find more details the
+    <link xlink:href="https://keylime-docs.readthedocs.io/en/latest/user_guide/runtime_ima.html">&keylime;
+    documentation</link>.
+  </para>
+  <para>
+    To indicate the expected hashes, use the <option>--allowlist</option>option
+    of the <command>keylime_tenant</command> command when registering the
+    agent. To view the excluded or ignored files, use the
+    <option>--exclude</option> option of the <command>keylime_tenant</command>
+    command:
+  </para>
+<screen>&prompt.root;keylime_tenant --allowlist
+    -v 127.0.0.1 \
+    -u <replaceable>UUID</replaceable> 
+  </screen>
+</topic>
