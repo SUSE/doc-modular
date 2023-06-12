@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="creating-policy-containers"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Creating policies for containers</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+       The topic describes udica and how it is used to create custom container policies.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    &productnameshort; is delivered with a policy that by default does not
+    allow containers to access files outside the container data. On the
+    other hand, all network access is allowed. Typically, containers are
+    created with bind mounts and should be able to access other directories
+    like <filename>/home</filename> or <filename>/var</filename>.
+    You may want a possibility to allow access to these directories or, on the
+    contrary, restrict some ports to the container even if SELinux is used
+    on your system. In this case, you need to create new policy rules that
+    enable or disable the access. &productnameshort; provides the Udica tool for
+    this purpose.
+   </para>
+   <para>
+    The following procedure describes how to create a custom policy for your
+    containers:
+   </para>
+   <procedure>
+    <step>
+     <para>
+      Make sure that SELinux is in the enforcing mode. For details, refer to
+      <xref linkend="sec-switching-modes"/>.
+     </para>
+    </step>
+    <step>
+     <para>
+      Start a container using the following parameters:
+     </para>
+<screen>&prompt.root;podman run -v /home:/home:rw -v /var/:/var/:rw -p 21:21 -it sle15 bash</screen>
+     <para>
+      The container runs with the default policy that does not allow access to
+      the mount points but does not restrict other ports.
+     </para>
+    </step>
+    <step>
+     <para>
+      You can exit the container.
+     </para>
+    </step>
+    <step>
+     <para>
+      Obtain the container ID:
+     </para>
+<screen>&prompt.root;podman ps -a
+
+CONTAINER ID  IMAGE                                                                              COMMAND     CREATED        STATUS            PORTS               NAMES
+e59f9d0f86f2  registry.opensuse.org/devel/bci/tumbleweed/containerfile/opensuse/bci/ruby:latest  /bin/bash   8 minutes ago  Up 8 seconds ago  0.0.0.0:21->21/tcp  zen_ramanujan
+        </screen>
+    </step>
+    <step>
+     <para>
+      Create a JSON file that Udica will use to create a custom policy for the
+      container:
+     </para>
+<screen>&prompt.root;podman inspect e59f9d0f86f2 > <replaceable>OUTPUT_JSON_FILE</replaceable></screen>
+     <para>
+      For example, substitute <replaceable>OUTPUT_JSON_FILE</replaceable> with
+      <filename>container.json</filename>
+     </para>
+    </step>
+    <step>
+     <para>
+      Run Udica to generate a policy according to the container parameters:
+     </para>
+<screen>&prompt.root;udica -j <replaceable>OUTPUT_JSON_FILE</replaceable>  <replaceable>CUSTOM_CONTAINER_POLICY</replaceable></screen>
+     <para>
+      For example:
+     </para>
+<screen>&prompt.root;udica -j container.json custom_policy</screen>
+    </step>
+    <step>
+     <para>
+      According to the provided instructions, load the policy modules by
+      running:
+     </para>
+<screen>&prompt.root;semodule -i custom_policy.cil /usr/share/udica/templates/{base_container.cil,net_container.cil,home_container.cil}</screen>
+    </step>
+    <step>
+     <para>
+      Run a container with the new policy module by using the
+      <option>--security-opt</option> option as follows:
+     </para>
+<screen>&prompt.root;podman run --security-opt label=type:custom_policy.process -v /home:/home:rw -v /var/:/var/:rw -p 21:21 -it sle15 bash</screen>
+    </step>
+   </procedure>
+  </section>
+ </section>
+</topic>
