@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<?xml-stylesheet href="urn:x-suse:xslt:profiling:docbook51-profile.xsl"
+ type="text/xml"
+ title="Profiling step"?>
+<!DOCTYPE article
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="podman-autostarting-containers" xml:lang="en"
+ role="task"
+ xmlns="http://docbook.org/ns/docbook" version="5.1"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+  <info>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <title>Autostarting &podman; containers</title>
+    <abstract>
+      <para>
+        <emphasis>&podman;</emphasis> is a command-line tool to easily find,
+        deploy and run applications stored in containers. It queries online
+        repositories that include container images. This article describes how
+        to autostart &podman; containers after the host system reboot.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    &podman; does not have a command-line option to enable autostarting a
+    specific container after the system boot. &podman; can, however, create a
+    &systemd; service for an existing container. After you enable such service,
+    the container starts on every system boot.
+  </para>
+  <procedure>
+    <title>Creating and enabling a container service as a non-&rootuser; user</title>
+    <step>
+      <para>
+        Identify the container that you want to start on system boot.
+      </para>
+<screen>&prompt.user;<command>podman ps</command>
+CONTAINER ID  IMAGE [...]                                    NAMES
+9a0fdeee9320  registry.opensuse.org/.../cockpit-ws:latest    cockpit-ws</screen>
+    </step>
+    <step>
+      <para>
+        Create a &systemd; unit file for the service related to the
+        <literal>cockpit-ws</literal> container and save it as
+        <filename>container-cockpit-ws.service</filename> in the current
+        directory.
+      </para>
+<screen>&prompt.user;<command>podman generate systemd --new --name cockpit-ws \
+  &gt; container-cockpit-ws.service</command></screen>
+    </step>
+    <step>
+      <para>
+        Move the &systemd; unit file to
+        <filename>~/.config/systemd/user/</filename> in the user's home
+        directory.
+      </para>
+<screen>&prompt.user;<command>mv container-cockpit-ws.service</command> \
+  ~/.config/systemd/user/</screen>
+    </step>
+    <step>
+      <para>
+        Make &systemd; aware of the previously created unit file.
+      </para>
+<screen>&prompt.sudo;<command>systemctl --user daemon-reload</command></screen>
+    </step>
+    <step>
+      <para>
+        Enable the &systemd; service.
+      </para>
+<screen>&prompt.user;<command>systemctl --user enable container-cockpit-ws.service</command></screen>
+    </step>
+    <step>
+      <para>
+        Because the service is run by a non-&rootuser; user, you need to make
+        sure that the user is logged in at boot and stays active even after
+        they are logged out of a display manager or a terminal session. This
+        mechanism is called <emphasis>lingering</emphasis> and is achieved by
+        the following command:
+      </para>
+<screen>&prompt.sudo;<command> <replaceable>USER_NAME</replaceable></command>
+</screen>
+    </step>
+    <step>
+      <para>
+        Reboot the host and check if the service is running.
+      </para>
+<screen>&prompt.user;<command>systemctl status --user
+container-cockpit-ws.service</command></screen>
+    </step>
+  </procedure>
+  <procedure>
+    <title>Creating and enabling a container service as a &rootuser; user</title>
+    <step>
+      <para>
+        Identify the container that you want to start on system boot.
+      </para>
+<screen>&prompt.user;<command>podman ps</command>
+CONTAINER ID  IMAGE [...]                                    NAMES
+9a0fdeee9320  registry.opensuse.org/.../cockpit-ws:latest    cockpit-ws</screen>
+    </step>
+    <step>
+      <para>
+        Create a &systemd; unit file for the service related to the
+        <literal>cockpit-ws</literal> container and save it as
+        <filename>container-cockpit-ws.service</filename> in the current
+        directory.
+      </para>
+<screen>&prompt.user;<command>podman generate systemd --new --name cockpit-ws \
+  &gt; container-cockpit-ws.service</command></screen>
+    </step>
+    <step>
+      <para>
+        Move the &systemd; unit file to
+        <filename>/etc/systemd/system/</filename>.
+      </para>
+<screen>&prompt.sudo;<command>mv container-cockpit-ws.service</command> \
+  /etc/systemd/system/</screen>
+    </step>
+    <step>
+      <para>
+        Make &systemd; aware of the previously created unit file.
+      </para>
+<screen>&prompt.sudo;<command>systemctl daemon-reload</command></screen>
+    </step>
+    <step>
+      <para>
+        Enable the &systemd; service.
+      </para>
+<screen>&prompt.sudo;<command>systemctl enable container-cockpit-ws.service</command></screen>
+    </step>
+    <step>
+      <para>
+        Reboot the host and check if the service is running.
+      </para>
+<screen>&prompt.user;<command>systemctl status container-cockpit-ws.service</command></screen>
+    </step>
+  </procedure>
+</topic>
