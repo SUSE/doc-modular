@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/net_bonding.xml -->
+
+<topic xml:id="network-bond-enable-hotplug"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Enabling hotplugging for network bond ports</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        In some network environments (such as High Availability), you might need to replace
+        a bond port interface with a new one, for example, if a network device is constantly
+        failing. However, before you can replace the interface you must configure the networking
+        setup to recognize when a new device is added.
+      </para>
+    </abstract>
+  </info>
+  <itemizedlist>
+   <title>Requirements</title>
+   <listitem>
+    <para>
+     An existing bond device.
+    </para>
+   </listitem>
+  </itemizedlist>
+  <procedure>
+   <title>Enabling hotplugging for network bond ports</title>
+   <step>
+    <para>
+     Check that the bond ports are configured with <literal>STARTMODE=hotplug</literal>
+     and <literal>BOOTPROTO=none</literal>. This should be the default setting. For example,
+     in <filename>/etc/sysconfig/network/ifcfg-eth0</filename>:
+    </para>
+<screen>STARTMODE='hotplug' <co xml:id="co-network-bond-hotplug-startmode"/>
+BOOTPROTO='none' <co xml:id="co-network-bond-hotplug-bootproto"/></screen>
+     <calloutlist>
+      <callout arearefs="co-network-bond-hotplug-startmode">
+       <para>
+        <literal>BOOTPROTO=none</literal> uses the <command>ethtool</command> options
+        (when provided), but does not set up the link on <command>ifup eth0</command>
+        because the bond port interface is controlled by the bond device.
+       </para>
+      </callout>
+      <callout arearefs="co-network-bond-hotplug-bootproto">
+       <para>
+        <literal>STARTMODE=hotplug</literal> allows the bond port interface to join the
+        bond automatically when it is available.
+       </para>
+      </callout>
+     </calloutlist>
+   </step>
+   <step>
+    <para>
+     Run the command <command>hwinfo --netcard</command> and make a note of the
+     <literal>SysFS BusID</literal>.
+    </para>
+   </step>
+   <step>
+    <para>
+     In <filename>/etc/udev/rules.d/70-persistent-net.rules</filename>, change the value
+     of <literal>KERNELS</literal> to match the <literal>SysFS BusID</literal> from the
+     previous step. This configures the <systemitem>udev</systemitem> rules to match the
+     device by bus ID instead of by MAC address, allowing the bond to detect a new device
+     in the same slot but with a different MAC address. For example:
+    </para>
+<screen>SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*",
+<emphasis role="bold">KERNELS=="0000:00:19.0"</emphasis>, ATTR{dev_id}=="0x0", ATTR{type}=="1",
+KERNEL=="eth*", NAME="eth0"</screen>
+   </step>
+  </procedure>
+  <para>
+   At boot time, <systemitem>network.service</systemitem> does not wait for the hotplug bond ports,
+   but for the bond to become ready, which requires at least one available bond port. When one of
+   the bond port interfaces is removed from the system, the kernel removes it from the bond
+   automatically. When a new card is added to the system, <systemitem>udev</systemitem> uses
+   the bus-based persistent name rule to rename the card to the name of the bond port, and calls
+   <command>ifup</command> for it. The <command>ifup</command> call automatically joins the
+   new card into the bond.
+  </para>
+</topic>
