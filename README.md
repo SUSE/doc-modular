@@ -15,7 +15,7 @@ Smart Docs consist of topics—smaller information units that can be reused in d
    * Reference (e.g. list of options, table with config files, default settings) - [XML template](https://github.com/SUSE/doc-modular/blob/main/templates/references/reference.xml)
    * Glue (combines texts or structures that do not fit into any of the other categories): Typical glue topics include the "For more information" and the "What's next" sections. Also use glue topics to add an additional layer of navigation to your article. - [XML template](https://github.com/SUSE/doc-modular/blob/main/templates/glues/glue.xml)
 
-Articles are built by bundling these topics into assembly files -- organizational units to structure the topics to create a coherent and meaningful document [XML template](https://github.com/SUSE/doc-modular/blob/main/templates/articles/assembly.xml).
+Articles are built by bundling these topics into assembly files - organizational units to structure the topics to create a coherent and meaningful document [XML template](https://github.com/SUSE/doc-modular/blob/main/templates/articles/assembly.xml).
 
 # Conventions
 
