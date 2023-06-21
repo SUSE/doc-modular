@@ -18,117 +18,115 @@
     <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
     <abstract>
       <para>
-       VLANs allow the running of multiple <emphasis>logical</emphasis> (virtual)
-       Ethernets over one single physical Ethernet. They logically split the
-       network into different broadcast domains so that packets are only switched
-       between ports that are designated for the same VLAN.
+        VLANs allow the running of multiple <emphasis>logical</emphasis> (virtual) Ethernets over
+        one single physical Ethernet. They logically split the network into different broadcast
+        domains so that packets are only switched between ports that are designated for the same VLAN.
       </para>
     </abstract>
   </info>
   <para>
-   The following procedure creates two static VLANs on top of a team device:
+    The following procedure creates two static VLANs on top of a team device:
   </para>
   <itemizedlist>
-   <listitem>
-     <para>
-      <systemitem class="other" otherclass="device">vlan0</systemitem>,
-      with the IP address <systemitem class="ipaddress">&subnetI;0.1</systemitem>
-     </para>
-   </listitem>
-   <listitem>
-     <para>
-      <systemitem class="other" otherclass="device">vlan1</systemitem>,
-      with the IP address <systemitem class="ipaddress">&subnetII;0.1</systemitem>
+    <listitem>
+      <para>
+        <systemitem class="other" otherclass="device">vlan0</systemitem>, with the IP address
+        <systemitem class="ipaddress">&subnetI;0.1</systemitem>
       </para>
-   </listitem>
+    </listitem>
+    <listitem>
+      <para>
+        <systemitem class="other" otherclass="device">vlan1</systemitem>, with the IP address
+        <systemitem class="ipaddress">&subnetII;0.1</systemitem>
+      </para>
+    </listitem>
   </itemizedlist>
   <itemizedlist>
-   <title>Requirements</title>
-   <listitem>
-    <para>
-     VLAN tags are enabled on the switch. To use load balancing for the team device,
-     the switch needs to be capable of Link Aggregation Control Protocol (LACP) (802.3ad).
-     Consult your hardware manual for details.
-    </para>
-   </listitem>
-   <listitem>
-    <para>
-     A networking teaming device is already configured as described in
-     <xref linkend="network-team-configure"/>.
-    </para>
-   </listitem>
+    <title>Requirements</title>
+    <listitem>
+      <para>
+        VLAN tags are enabled on the switch. To use load balancing for the team device, the switch
+        needs to be capable of Link Aggregation Control Protocol (LACP) (802.3ad). Consult your
+        hardware manual for details.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        A networking teaming device is already configured as described in
+        <xref linkend="network-team-configure"/>.
+      </para>
+    </listitem>
   </itemizedlist>
   <procedure>
-   <title>Adding VLANs over a network teaming device</title>
-   <step>
-    <para>
-     In <filename>/etc/sysconfig/network</filename>, create a file named
-     <filename>ifcfg-vlan0</filename> and add the following content:
-    </para>
+    <title>Adding VLANs over a network teaming device</title>
+    <step>
+      <para>
+        In <filename>/etc/sysconfig/network</filename>, create a file named
+        <filename>ifcfg-vlan0</filename> and add the following content:
+      </para>
 <screen>STARTMODE="auto"
 BOOTPROTO="static" <co xml:id="co-team-vlan-bootproto"/>
 IPADDR='&subnetI;0.1/24' <co xml:id="co-team-vlan-ipaddr"/>
 ETHERDEVICE="team0" <co xml:id="co-team-vlan-etherdevice"/>
 VLAN_ID="0" <co xml:id="co-team-vlan-vlan-id"/>
 VLAN='yes'</screen>
-    <calloutlist>
-     <callout arearefs="co-team-vlan-bootproto">
+      <calloutlist>
+        <callout arearefs="co-team-vlan-bootproto">
+          <para>
+            Specifies that the IP address is fixed.
+          </para>
+        </callout>
+        <callout arearefs="co-team-vlan-ipaddr">
+          <para>
+            Defines the IP address and netmask.
+          </para>
+        </callout>
+        <callout arearefs="co-team-vlan-etherdevice">
+          <para>
+            Contains the real interface to use for the VLAN interface. This example uses the
+            team device <systemitem>team0</systemitem>.
+          </para>
+        </callout>
+        <callout arearefs="co-team-vlan-vlan-id">
+          <para>
+            Specifies a unique ID for the VLAN. Preferably, the file name and the
+            <varname>VLAN_ID</varname> corresponds to the name
+            <filename>ifcfg-vlan<replaceable>VLAN_ID</replaceable></filename>.
+            In this example <varname>VLAN_ID</varname> is <literal>0</literal>,
+            which leads to the file name <filename>ifcfg-vlan0</filename>.
+          </para>
+        </callout>
+      </calloutlist>
+    </step>
+    <step>
       <para>
-       Specifies that the IP address is fixed.
+        Copy the file <filename>/etc/sysconfig/network/ifcfg-vlan0</filename> to
+        <filename>/etc/sysconfig/network/ifcfg-vlan1</filename> and change the following values:
       </para>
-     </callout>
-     <callout arearefs="co-team-vlan-ipaddr">
+      <itemizedlist>
+      <listitem>
+        <para>
+          <varname>IPADDR</varname> from <systemitem class="ipaddress">&subnetI;0.1/24</systemitem>
+          to <systemitem class="ipaddress">&subnetII;0.1/24</systemitem>.</para>
+      </listitem>
+      <listitem>
+        <para>
+          <varname>VLAN_ID</varname> from <literal>0</literal> to <literal>1</literal>.
+        </para>
+      </listitem>
+      </itemizedlist>
+    </step>
+    <step>
       <para>
-       Defines the IP address and netmask.
+        Start the two VLANs:
       </para>
-     </callout>
-     <callout arearefs="co-team-vlan-etherdevice">
+      <screen>&prompt.root;<command>wicked ifup vlan0 vlan1</command></screen>
+    </step>
+    <step>
       <para>
-       Contains the real interface to use for the VLAN interface. This example
-       uses the team device <systemitem>team0</systemitem>.
+        Check the output of <command>ifconfig</command>:
       </para>
-     </callout>
-     <callout arearefs="co-team-vlan-vlan-id">
-      <para>
-       Specifies a unique ID for the VLAN. Preferably, the file name and the
-       <varname>VLAN_ID</varname> corresponds to the name
-       <filename>ifcfg-vlan<replaceable>VLAN_ID</replaceable></filename>.
-       In this example <varname>VLAN_ID</varname> is <literal>0</literal>, which
-       leads to the file name <filename>ifcfg-vlan0</filename>.
-      </para>
-     </callout>
-    </calloutlist>
-   </step>
-   <step>
-    <para>
-     Copy the file <filename>/etc/sysconfig/network/ifcfg-vlan0</filename> to
-     <filename>/etc/sysconfig/network/ifcfg-vlan1</filename> and change the
-     following values:
-    </para>
-    <itemizedlist>
-     <listitem>
-      <para>
-       <varname>IPADDR</varname> from <systemitem class="ipaddress">&subnetI;0.1/24</systemitem>
-       to <systemitem class="ipaddress">&subnetII;0.1/24</systemitem>.</para>
-     </listitem>
-     <listitem>
-      <para>
-       <varname>VLAN_ID</varname> from <literal>0</literal> to <literal>1</literal>.
-      </para>
-     </listitem>
-    </itemizedlist>
-   </step>
-   <step>
-    <para>
-     Start the two VLANs:
-    </para>
-    <screen>&prompt.root;<command>wicked ifup vlan0 vlan1</command></screen>
-   </step>
-   <step>
-    <para>
-     Check the output of <command>ifconfig</command>:
-    </para>
-    <screen>&prompt.root;<command>ifconfig -a</command>
+<screen>&prompt.root;<command>ifconfig -a</command>
 [...]
 vlan0     Link encap:Ethernet  HWaddr 08:00:27:DC:43:98
           inet addr:&subnetI;0.1 Bcast:&subnetI;0.255 Mask:255.255.255.0
@@ -147,6 +145,6 @@ vlan1     Link encap:Ethernet  HWaddr 08:00:27:DC:43:98
           TX packets:12 errors:0 dropped:0 overruns:0 carrier:0
           collisions:0 txqueuelen:1000
           RX bytes:0 (0.0 b)  TX bytes:816 (816.0 b)</screen>
-   </step>
+    </step>
   </procedure>
 </topic>
