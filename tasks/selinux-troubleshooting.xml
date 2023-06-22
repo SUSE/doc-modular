@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="selinux-troubleshhoting"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>&selnx; troubleshooting</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+       The topic covers the &selnx; troubleshooting.
+      </para>
+    </abstract>
+  </info>
+  <para>
+   By default, if &selnx; is the reason something is not working, a log
+   message to this effect is sent to the
+   <filename>/var/log/audit/audit.log</filename> file. That is, if the
+   auditd service is running. If you see an empty
+   <filename>/var/log/audit</filename>, start the auditd service using
+  </para>
+
+<screen>&prompt.sudo;<command>systemctl start auditd</command></screen>
+
+  <para>
+   and enable it in the targets of your system, using
+  </para>
+
+<screen>&prompt.sudo;<command>systemctl enable auditd</command></screen>
+
+  <para>
+   In
+   <xref linkend="ex-selnx-li-auditlog" xrefstyle="select:label quotedtitle nopage"/>
+   you can see a partial example of the contents of
+   <filename>/var/log/audit/audit.log</filename>
+  </para>
+
+  <example xml:id="ex-selnx-li-auditlog">
+   <title>Example lines from <filename>/etc/audit/audit.log</filename></title>
+<screen>type=DAEMON_START msg=audit(1348173810.874:6248): auditd start, ver=1.7.7 format=raw kernel=3.0.13-0.27-default auid=0 pid=4235 subj=system_u:system_r:auditd_t res=success
+type=AVC msg=audit(1348173901.081:292): avc:  denied  { write } for  pid=3426 comm="smartd" name="smartmontools" dev=sda6 ino=581743 scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:var_lib_t tclass=dir
+type=AVC msg=audit(1348173901.081:293): avc:  denied  { remove_name } for  pid=3426 comm="smartd" name="smartd.WDC_WD2500BEKT_75PVMT0-WD_WXC1A21E0454.ata.state~" dev=sda6 ino=582390 scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:var_lib_t tclass=dir
+type=AVC msg=audit(1348173901.081:294): avc:  denied  { unlink } for  pid=3426 comm="smartd" name="smartd.WDC_WD2500BEKT_75PVMT0-WD_WXC1A21E0454.ata.state~" dev=sda6 ino=582390 scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:var_lib_t tclass=file
+type=AVC msg=audit(1348173901.081:295): avc:  denied  { rename } for  pid=3426 comm="smartd" name="smartd.WDC_WD2500BEKT_75PVMT0-WD_WXC1A21E0454.ata.state" dev=sda6 ino=582373 scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:var_lib_t tclass=file
+type=AVC msg=audit(1348173901.081:296): avc:  denied  { add_name } for  pid=3426 comm="smartd" name="smartd.WDC_WD2500BEKT_75PVMT0-WD_WXC1A21E0454.ata.state~" scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:var_lib_t tclass=dir
+type=AVC msg=audit(1348173901.081:297): avc:  denied  { create } for  pid=3426 comm="smartd" name="smartd.WDC_WD2500BEKT_75PVMT0-WD_WXC1A21E0454.ata.state" scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:var_lib_t tclass=file
+type=AVC msg=audit(1348173901.081:298): avc:  denied  { write open } for  pid=3426 comm="smartd" name="smartd.WDC_WD2500BEKT_75PVMT0-WD_WXC1A21E0454.ata.state" dev=sda6 ino=582390 scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:var_lib_t tclass=file
+type=AVC msg=audit(1348173901.081:299): avc:  denied  { getattr } for  pid=3426 comm="smartd" path="/var/lib/smartmontools/smartd.WDC_WD2500BEKT_75PVMT0-WD_WXC1A21E0454.ata.state" dev=sda6 ino=582390 scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:var_lib_t tclass=file
+type=AVC msg=audit(1348173901.309:300): avc:  denied  { append } for  pid=1316</screen>
+  </example>
+
+  <para>
+   At first look, the lines in <filename>audit.log</filename> are a bit hard
+   to read. However, on closer examination they are not that hard to
+   understand. Every line can be broken down into sections. For example, the
+   sections in the last line are:
+  </para>
+
+  <variablelist>
+   <varlistentry>
+    <term><literal>type=AVC</literal>:</term>
+    <listitem>
+     <para>
+      every &selnx;-related audit log line starts with the type
+      identification <literal>type=AVC</literal>
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term><literal>msg=audit(1348173901.309:300)</literal>: </term>
+    <listitem>
+     <para>
+      This is the time stamp, which unfortunately is written in epoch time,
+      the number of seconds that have passed since Jan 1, 1970. You can use
+      <command>date -d</command> on the part up to the dot in the epoch time
+      notation to find out when the event has happened:
+     </para>
+<screen>&prompt.user;<command>date -d @1348173901</command>
+Thu Sep 20 16:45:01 EDT 2012</screen>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term><literal>avc: denied { append }</literal>:</term>
+    <listitem>
+     <para>
+      the specific action that was denied. In this case the system has
+      denied the appending of data to a file. While browsing through the
+      audit log file, you can see other system actions, such as write open,
+      getattr and more.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term><literal>for pid=1316</literal>:</term>
+    <listitem>
+     <para>
+      the process ID of the command or process that initiated the action
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term><literal>comm="rsyslogd"</literal>:</term>
+    <listitem>
+     <para>
+      the specific command that was associated with that PID
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term><literal>name="smartmontools"</literal>:</term>
+    <listitem>
+     <para>
+      the name of the subject of the action
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term><literal>dev=sda6 ino=582296</literal>:</term>
+    <listitem>
+     <para>
+      the block device and inode number of the file that was involved
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term><literal>scontext=system_u:system_r:syslogd_t</literal>:</term>
+    <listitem>
+     <para>
+      the source context, which is the context of the initiator of the
+      action
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term><literal>tclass=file</literal>:</term>
+    <listitem>
+     <para>
+      a class identification of the subject
+     </para>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+
+  <para>
+   Instead of interpreting the events in audit.log yourself, there is
+   another approach. You can use the <command>audit2allow</command> command,
+   which helps analyze the cryptic log messages in
+   <filename>/var/log/audit/audit.log</filename>. An audit2allow
+   troubleshooting session always consists of three different commands.
+   First, you would use <command>audit2allow -w -a</command> to present the
+   audit information in a more readable way. The <command>audit2allow -w
+   -a</command> by default works on the audit.log file. If you want to
+   analyze a specific message in the audit.log file, copy it to a temporary
+   file and analyze the file with:
+  </para>
+
+<screen>&prompt.sudo;<command>audit2allow -w -i <replaceable>FILENAME</replaceable></command></screen>
+
+  <example>
+   <title>Analyzing audit messages</title>
+<screen>&prompt.sudo;<command>audit2allow -w -i testfile</command>
+type=AVC msg=audit(1348173901.309:300): avc:  denied  { append } for  pid=1316
+comm="rsyslogd" name="acpid" dev=sda6 ino=582296
+scontext=system_u:system_r:syslogd_t tcontext=system_u:object_r:apmd_log_t tclass=file</screen>
+  </example>
+
+  <variablelist>
+   <varlistentry>
+    <term>This was caused by:</term>
+    <listitem>
+     <para>
+      Missing type enforcement (TE) allow rule.
+     </para>
+     <para>
+      To generate a loadable module to allow this access, run
+     </para>
+<screen>&prompt.sudo;<command>audit2allow</command></screen>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+
+  <para>
+   To find out which specific rule has denied access, you can use
+   <command>audit2allow -a</command> to show the enforcing rules from all
+   events that were logged to the <filename>audit.log </filename> file, or
+   <command>audit2allow -i <replaceable>FILENAME</replaceable></command> to
+   show it for messages that you have stored in a specific file:
+  </para>
+
+  <example>
+   <title>Viewing which lines deny access</title>
+<screen>&prompt.sudo;<command>audit2allow -i testfile</command>
+#============= syslogd_t ==============
+allow syslogd_t apmd_log_t:file append;</screen>
+  </example>
+
+  <para>
+   To create an &selnx; module with the name <literal>mymodule</literal>
+   that you can load to allow the access that was previously denied, run
+  </para>
+
+<screen>&prompt.sudo;<command>audit2allow -a -R -M mymodule</command></screen>
+
+  <para>
+   If you want to do this for all events that have been logged to the
+   audit.log, use the <option>-a -M</option> command arguments. To do it
+   only for specific messages that are in a specific file, use <option>-i
+   -M</option> as in the example below:
+  </para>
+
+  <example>
+   <title>Creating a policy module allowing an action previously denied</title>
+<screen>&prompt.sudo;<command>audit2allow -i testfile -M example</command>
+******************** IMPORTANT ***********************
+To make this policy package active, execute:
+
+semodule -i example.pp</screen>
+  </example>
+
+  <para>
+   As indicated by the <command>audit2allow</command> command, you can now
+   run this module by using the <command>semodule -i</command> command,
+   followed by the name of the module that <command>audit2allow</command>
+   has created for you (<filename>example.pp</filename> in the above
+   example).
+  </para>
+</topic>
