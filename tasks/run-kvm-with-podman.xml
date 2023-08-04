@@ -16,11 +16,11 @@
  xmlns:xi="http://www.w3.org/2001/XInclude"
  xmlns:xlink="http://www.w3.org/1999/xlink">
   <info>
-    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <meta name="maintainer" content="caleb.crane@suse.com" its:translate="no"/>
     <title>Running the &kvm; virtualization workload using &podman;</title>
     <abstract>
       <para>
-        This article describes how to run &kvm; &vmhost; on &productname;
+        This article describes how to run a &kvm; &vmhost; on &productname;
         (&productnameshort;). This workload adds virtualization capability to
         &productnameshort; so that you can use it as a &vmhost;. It uses the
         &kvm; hypervisor supported by the &libvirt; toolkit.
@@ -37,88 +37,58 @@
     </abstract>
   </info>
   <section xml:id="alp-starting-kvm">
-    <title>Starting the &kvm; workload</title>
+    <title>Deploying the &kvmserver; workload</title>
     <para>
-      &productnameshort; can serve as a host running virtual machines. The
+      &productnameshort; can serve as a virtualization host for running virtual machines. The
       following procedure describes steps to prepare the &productnameshort;
-      host to run containerized &kvm; &vmhost; and run an example &vmguest; on
-      top of it.
+      host to run the containerized &kvmserver; workload.
     </para>
     <procedure>
       <step>
         <para>
-          Identify the &kvm; workload image:
+          Identify the &kvmserver; container image:
         </para>
 <screen>
-&prompt.root;podman search kvm
+&prompt.root;podman search kvm-server
 [...]
-registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/kvm
+registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/kvm-server
 </screen>
       </step>
       <step>
         <para>
-          Pull the image from the registry and install all the wrapper scripts:
+         Install the &kvmserver; workload. This will pull the container image from the
+         registry and install all systemd services, helper scripts, and
+         configuration files on the host:
         </para>
-<screen>&prompt.root;podman container runlabel install registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/kvm:latest</screen>
+<screen>&prompt.root;podman container runlabel install registry.opensuse.org/suse/alp/workloads/tumbleweed_containerfiles/suse/alp/workloads/kvm-server:latest</screen>
       </step>
       <step>
         <para>
-          Create the <literal>libvirtd</literal> container from the downloaded
-          image:
+          Deploy the &kvmserver; workload:
         </para>
-<screen>&prompt.root;kvm-container-manage.sh create</screen>
+<screen>&prompt.root;kvm-server-manage enable</screen>
+        <para>
+         Refer to <xref linkend="reference-kvm-server-manage"/> for more info
+         on managing the deployment of the &kvmserver; workload
+        </para>
       </step>
       <step>
         <para>
-          Start the container:
+          Verify successful deployment of the &kvmserver; workload:
         </para>
-<screen>&prompt.root;kvm-container-manage.sh start</screen>
-      </step>
-      <step>
-        <para>
-          Optionally, run a &vmguest; on top of the started &kvm; &vmguest;
-          using the <command>virt-install-demo.sh</command> script.
-        </para>
-        <tip>
-          <para>
-            <command>virt-install-demo.sh</command> uses the
-            <filename>openSUSE-Tumbleweed-JeOS.x86_64-OpenStack-Cloud.qcow2</filename>
-            image by default. To specify another VM image, modify the
-            <option>APPLIANCE_MIRROR</option> and <option>APPLIANCE</option>
-            options in the <filename>/etc/kvm-container.conf</filename> file.
-          </para>
-        </tip>
-        <tip>
-          <para>
-            <command>virsh</command> is a wrapper script to launch the
-            <command>virsh</command> command inside the container. The default
-            container name is <systemitem class="daemon">libvirtd</systemitem>.
-          </para>
-        </tip>
-        <tip>
-          <para>
-            <command>virt-manager</command> is a wrapper script to launch the
-            <command>virt-manager</command> graphic interface to manage virtual
-            machines. The <package>xauth</package> package must be installed on
-            the host server for the <command>virt-manager</command> to run.
-          </para>
-        </tip>
-<screen>&prompt.user;<command>virt-install-demo.sh</command>
-[...]
-Starting install...
-Password for first root login is: OPjQok1nlfKp5DRZ
-Allocating 'Tumbleweed-JeOS_5221fd7860.qcow2'            |    0 B  00:00:00 ...
-Creating domain...                                       |    0 B  00:00:00
-Running text console command: virsh --connect qemu:///system console Tumbleweed-JeOS_5221fd7860
-Connected to domain 'Tumbleweed-JeOS_5221fd7860'
-Escape character is ^] (Ctrl + ])
-
-Welcome to openSUSE Tumbleweed 20220919 - Kernel 5.19.8-1-default (hvc0).
-
-eth0: 192.168.10.67 fe80::5054:ff:fe5a:c416
-
-localhost login:
+<screen>&prompt.root;kvm-server-manage verify
+&checkmark; All required services are currently active
 </screen>
+        <important>
+          <para>
+            The &kvmserver; container does not include client tooling by default.
+            Refer to <xref linkend="task-run-kvm-client-with-podman"/> for instructions
+            on containerized client tooling.
+          </para>
+          <para>
+            Alternatively, client tooling can be installed on a separate host for remote VM management
+          </para>
+        </important>
       </step>
     </procedure>
   </section>
