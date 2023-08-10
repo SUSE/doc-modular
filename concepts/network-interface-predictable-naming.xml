@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="network-interface-predictable-naming-concept"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Predictable naming scheme for network interfaces</title>
+    <!--add author's email address-->
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        This article describes a naming scheme that assigns more predictable
+        names for system network interfaces.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="network-interface-predictable-naming-traditional">
+    <title>Traditional naming schemes</title>
+    <para>
+      When &slea; boots, network interface names are assigned. The traditional
+      naming scheme used to assign names beginning with
+      <literal>eth<replaceable>X</replaceable></literal>, where
+      <replaceable>X</replaceable> is the order number of the discovered
+      matching driver of the related network device. Because the driver probing
+      is not predictable, the assigned names may become unstable and on the
+      next boot, <literal>eht0</literal> may become <literal>eth1</literal>,
+      for example. Such behavior has security implications because firewall
+      rules are sensitive to unpredictable changes in network interface names.
+    </para>
+    <para>
+      Another and more recent approach based on the
+      <package>biosdevname</package> package tries to find fixed slot topology
+      information in certain firmware interfaces and uses them to assign fixed
+      names to interfaces that incorporate their physical location on the
+      mainboard.
+    </para>
+  </section>
+  <section xml:id="network-interface-predictable-naming-what-is">
+    <title>What is a predictable naming scheme?</title>
+    <para>
+      To make network interface naming persistent and customizable, you can
+      activate more predictable naming of network interfaces based on
+      &systemd;.
+    </para>
+    <para>
+      &systemd; offers a stable naming scheme closer to kernel-internal device
+      identification. Together with <systemitem>udev</systemitem> rules, they
+      create flexible algorithms for assigning network device names.
+    </para>
+  </section>
+  <section xml:id="network-interface-predictable-naming-how-it-works">
+    <title>How does the predictable naming scheme work?</title>
+    <para>
+      The following is the process of deriving the network interface naming.
+      The priority of steps is top to bottom&mdash;if the device information
+      outlined in a specific step is not available, the next step is a
+      fallback.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          If custom <systemitem>udev</systemitem> rules for assigning network
+          interface names exist, they are used.
+        </para>
+      </step>
+      <step>
+        <para>
+          If the <package>biosdevname</package> package is installed, its
+          <systemitem>udev</systemitem> rules are used.
+        </para>
+      </step>
+      <step>
+        <para>
+          If the device's firmware / BIOS index number for onboard devices is
+          available, it is used. For example, <literal>eno1</literal>.
+        </para>
+      </step>
+      <step>
+        <para>
+          If the device's firmware / BIOS PCI Express hotplug slot index number
+          is available, it is used. For example, <literal>ens1</literal>.
+        </para>
+      </step>
+      <step>
+        <para>
+          If the device's names incorporating physical / geographical location
+          of the connector of the hardware are available, they are used. For
+          example, <literal>enp2s0</literal>.
+        </para>
+      </step>
+      <step>
+        <para>
+          If none of the above information is available, the traditional
+          unpredictable kernel-based naming is applied. For example,
+          <literal>eth0</literal>.
+        </para>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="network-interface-predictable-naming-benefits">
+    <title>Benefits of the predictable naming scheme</title>
+    <para>
+      If you activate the &systemd;-based network interface naming scheme, you
+      get the following benefits:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Persistent interface names between reboots.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Persistent interface names even if hardware is added or removed.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Interface names are automatically determined without user
+          configuration.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          The interface names are fully predictable. For example, by looking at
+          the output of the <command>lspci</command> command, you can determine
+          the name of the interface.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Fully stateless operation&mdash;changing the hardware configuration
+          does not modify the content of <filename>/etc</filename>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Compatibility with the read-only root <literal>/</literal> file
+          system.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+</topic>
