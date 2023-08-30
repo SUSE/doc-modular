@@ -17,89 +17,106 @@
     <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
     <title>Creating virtual machines with &virt-scenario;</title>
   </info>
-  <section xml:id="introduction-virt-scenario-create-vm">
-    <title>Introduction</title>
+  <para>
+    The &virt-scenario; command presents an interactive shell where you
+    optionally specify configuration parameters and finally select the target
+    scenario. Its welcome screen shows categories with available commands.
+  </para>
+  <figure>
+    <title>&virt-scenario; welcome screen</title>
+    <mediaobject>
+      <imageobject role="fo">
+        <imagedata fileref="alp-virt-scenario-welcome.png" width="75%"/>
+      </imageobject>
+      <imageobject role="html">
+        <imagedata fileref="alp-virt-scenario-welcome.png" width="75%"/>
+      </imageobject>
+      <textobject role="description"><phrase>&virt-scenario; welcome screen</phrase>
+      </textobject>
+    </mediaobject>
+  </figure>
+  <tip>
     <para>
-      This article describes how to create a virtual machine using the
-      &virt-scenario; tool.
+      Each command has a built-in description of its usage. Enter <command>help
+      <replaceable>COMMAND_NAME</replaceable></command> to view it on the
+      screen.
     </para>
-  </section>
-  <section xml:id="environment-virt-scenario-create-vm">
-    <title>Environment</title>
+  </tip>
+  <warning>
+    <title>Unsafe <option>force_sev</option> option</title>
     <para>
-      This document applies to the following products and product versions:
+      The <option>force_sev</option> option forces the extraction of the
+      Platform Diffie-Hellman key (PDH) on the current &amdsev; system. The PDH
+      file is used to negotiate a master secret between the SEV firmware and
+      the external entities. This file must be stored in a secure place, and
+      this option is only provided for <emphasis>testing</emphasis> purposes.
     </para>
-    <itemizedlist>
-      <listitem>
-        <para>
-          &productname; &productnumber;
-        </para>
-      </listitem>
-    </itemizedlist>
-  </section>
-  <section xml:id="requirements-virt-scenario-create-vm">
+  </warning>
+  <para>
+    After you finish optional configuration steps, enter the name of one of the
+    scenarios&mdash;<literal>computation</literal>, <literal>desktop</literal>
+    or <literal>securevm</literal>. &virt-scenario; then compiles all the
+    configuration, prepares the &vmhost;, and saves the &libvirt; XML of the
+    new VM.
+  </para>
+  <section xml:id="requirements-virt-scenario-create-vm" os="alp-dolomite">
     <title>Requirements</title>
     <itemizedlist>
       <listitem>
         <para>
           Running &productnameshort; with the &kvm; workload deployed. Refer to
-          <xref linkend="task-run-kvm-with-podman"/> for detailed steps.
+          <xref linkend="task-run-kvm-with-podman" os="alp-dolomite"/><link
+          xlink:href="https://susedoc.github.io/doc-modular/main/html/alp-dolomite/available-alp-workloads.html#task-run-kvm-with-podman"
+          os="generic"/>
+          for detailed steps.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Secure virtual machines are supported only on an AMD processor that
+          supports &amdsev; or SEV-ES technology. For more information about
+          &suse; and &amdsev;, refer to
+          <link xlink:href="https://documentation.suse.com/sles/single-html/SLES-amd-sev/"/>.
         </para>
       </listitem>
     </itemizedlist>
   </section>
-  <section xml:id="virt-scenario-interactive-shell">
-    <title>&virt-scenario; interactive shell</title>
-    <para>
-      The &virt-scenario; command presents an interactive shell where you
-      optionally specify configuration parameters and finally select the target
-      scenario. Its welcome screen shows categories with available commands.
-    </para>
-    <figure>
-      <title>&virt-scenario; welcome screen</title>
-      <mediaobject>
-        <imageobject role="fo">
-          <imagedata fileref="alp-virt-scenario-welcome.png" width="75%"/>
-        </imageobject>
-        <imageobject role="html">
-          <imagedata fileref="alp-virt-scenario-welcome.png" width="75%"/>
-        </imageobject>
-        <textobject role="description"><phrase>&virt-scenario; welcome screen</phrase>
-        </textobject>
-      </mediaobject>
-    </figure>
-    <tip>
-      <para>
-        Each command has a built-in description of its usage. Enter
-        <command>help <replaceable>COMMAND_NAME</replaceable></command> to view
-        it on the screen.
-      </para>
-    </tip>
-    <para>
-      After you finish optional configuration steps, enter the name of one of
-      the scenarios&mdash;<literal>computation</literal>,
-      <literal>desktop</literal>, or <literal>securevm</literal>.
-      &virt-scenario; then compiles all the configuration, prepares the
-      &vmhost;, and saves the &libvirt; XML of the new VM.
-    </para>
-  </section>
   <section xml:id="virt-scenario-override">
     <title>Overriding default scenario settings</title>
     <para>
-      Each scenario includes settings that are applied to the target VM. You
-      can override certain settings by editing the
-      <filename>/etc/virt-scenario/virtscenario.yaml</filename> file before
-      running the &virt-scenario; interactive shell (see
-      <xref
-      linkend="virt-scenario-interactive-shell"/> for more
-      details).
+      On each run, &virt-scenario; reads settings for a new VM from the
+      <filename>/etc/virt-scenario/virtscenario.yaml</filename> file. Change
+      settings in this file to affect <emphasis>all</emphasis> VMs created by
+      &virt-scenario;.
     </para>
+    <tip>
+      <para>
+        Always backup <filename>/etc/virt-scenario/virtscenario.yaml</filename>
+        before modifying it as incorrect parameters may lead to an invalid VM
+        configuration.
+      </para>
+    </tip>
+    <para>
+      To override settings for specific VMs only, copy
+      <filename>/etc/virt-scenario/virtscenario.yaml</filename> to a different
+      location and modify the settings that you need to override. On next
+      &virt-scenario; run, specify the path to the new configuration file with
+      the <command>conf</command> command, for example:
+    </para>
+<screen>conf /home/tux/virt-scenarios/my-overriden-scenario.yaml</screen>
+    <important>
+      <para>
+        In the overriding <filename>virtscenario.yaml</filename> file, you need
+        to include <emphasis>all</emphasis> available settings from the
+        original <filename>virtscenario.yaml</filename> file, not only the
+        modified settings.
+      </para>
+    </important>
     <warning>
       <para>
-        Specifying incorrect parameters may lead to a bad VM configuration.
-      </para>
-      <para>
-        Do not change the section names.
+        Never change section names in the
+        <filename>/etc/virt-scenario/virtscenario.yaml</filename> file or its
+        overriding copies.
       </para>
     </warning>
     <para>
@@ -148,7 +165,7 @@ host_filesystem:
       By default, &virt-scenario; creates the &libvirt; XML configuration of
       the new guest and adjusts the &vmhost;. You can instruct &virt-scenario;
       to perform only part of the task. After entering the
-      <command>conf</command> command, you can enter one of the following:
+      <command>mode</command> command, you can enter one of the following:
     </para>
     <variablelist>
       <varlistentry>
@@ -177,30 +194,5 @@ host_filesystem:
         </listitem>
       </varlistentry>
     </variablelist>
-  </section>
-  <section xml:id="virt-scenario-start-vm">
-    <title>Managing &vmguest;s created by &virt-scenario;</title>
-    <para>
-      After you created a VM using the &virt-scenario; interactive shell, use
-      the <command>virt-scenario-launch</command> command to manage it.
-    </para>
-    <para>
-      First, identify the VM's name by listing all available domain
-      configurations:
-    </para>
-<screen>virt-scenario-launch --list</screen>
-    <para>
-      After you have identified the name of the VM, you can, for example, start
-      it by running
-    </para>
-<screen>virt-scenario-launch --start <replaceable>VM_NAME</replaceable></screen>
-    <para>
-      or display its status by running
-    </para>
-<screen>virt-scenario-launch --status <replaceable>VM_NAME</replaceable></screen>
-    <para>
-      For a complete list of the command's option, run
-    </para>
-<screen>virt-scenario-launch --help</screen>
   </section>
 </topic>
