@@ -18,8 +18,8 @@
     <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        Network teaming combines two or more network cards into a single teaming device to increase
-        bandwidth or provide redundancy. The behavior of the teaming device is configured using
+        Network teaming combines two or more network interfaces into a single teamed device to increase
+        bandwidth and/or provide redundancy. The behavior of the teamed device is configured using
         <emphasis>teaming modes</emphasis>.
       </para>
     </abstract>
@@ -34,7 +34,7 @@
       </listitem>
       <listitem>
         <para>
-          Existing network cards to include in the teaming device
+          Existing network interfaces to include in the teamed device
         </para>
       </listitem>
       <listitem>
@@ -51,7 +51,7 @@
     <note>
       <title>No teaming in &yast;</title>
       <para>
-        Currently, &yast; cannot create a teaming device. You must configure network teaming manually.
+        Currently, &yast; cannot create a teamed device. You must configure network teaming manually.
       </para>
     </note>
   </section>
@@ -65,8 +65,8 @@
         <term><guimenu>broadcast</guimenu></term>
         <listitem>
           <para>
-            All traffic is broadcast on all interfaces. Requires support from the switch.
-            Provides fault tolerance.
+            All traffic is broadcast on all interfaces. Provides fault tolerance.
+            Requires switch support.
           </para>
         </listitem>
       </varlistentry>
@@ -75,7 +75,7 @@
         <listitem>
           <para>
             Packets are transmitted in round-robin fashion from the first to the last available
-            interface. Provides fault tolerance and load balancing.
+            interface. Provides fault tolerance and load balancing. Requires switch support.
           </para>
         </listitem>
       </varlistentry>
@@ -92,11 +92,11 @@
         <term><guimenu>loadbalance</guimenu></term>
         <listitem>
           <para>
-            The team device transmits packets via all its ports, performing load balancing
+            The teamed device transmits packets via all its interfaces, performing load balancing
             (passive or active) with a use of hash functions. For passive load balancing, only
             the BPF hash function is used. For active load balancing, the runner finds the best
-            balance by moving hashes between available ports. Provides fault tolerance and
-            load balancing.
+            balance by moving hashes between available interfaces. Provides fault tolerance and
+            load balancing. No specific switch support is required.
           </para>
         </listitem>
       </varlistentry>
@@ -104,14 +104,18 @@
         <term><guimenu>lacp</guimenu></term>
         <listitem>
           <para>
-            Aggregates interfaces into groups that share the same speed and duplex settings.
-            Requires ethtool support in the interface drivers, and a switch that supports and is
-            configured for IEEE 802.3ad Dynamic link aggregation. Provides fault tolerance and
-            load balancing.
+            All interfaces in the LACP group must share the same speed and duplex settings, and
+            must be connected to the same switch. Provides fault tolerance and load balancing.
+            Requires <command>ethtool</command> support in the interface drivers, and a switch that
+            supports and is configured for IEEE 802.3ad Dynamic link aggregation. If your switch
+            supports it, this is the preferred mode.
           </para>
         </listitem>
       </varlistentry>
     </variablelist>
+    <para>
+      Consult your hardware manual to check which modes your switch supports.
+    </para>
   </section>
   <section xml:id="network-team-configure-with-ifcfg">
     <title>Configuring network teaming with <literal>ifcfg</literal></title>
@@ -119,7 +123,7 @@
       <step>
         <para>
           Create a configuration file named <filename>/etc/sysconfig/network/ifcfg-team0</filename>.
-          If you need more than one network teaming device, give them ascending numbers.
+          If you need more than one teamed device, give them ascending numbers.
           For more information, see <command>man ifcfg</command>, <command>man ifcfg-team</command>,
           and <filename>/etc/sysconfig/network/ifcfg.template</filename>.
         </para>
@@ -138,14 +142,14 @@ TEAM_LW_NAME="<replaceable>LINK_WATCHER</replaceable>" <co xml:id="co-team-name"
         <calloutlist>
           <callout arearefs="co-team-startmode">
             <para>
-              Defines how the teaming device starts. Use <literal>auto</literal> to start the
+              Defines how the teamed device starts. Use <literal>auto</literal> to start the
               interface automatically on every reboot, or use <literal>manual</literal> to prevent
               the interface from starting automatically.
             </para>
           </callout>
           <callout arearefs="co-team-boot-and-ip">
             <para>
-              Defines how IP addresses are assigned to the teaming device. Use <literal>static</literal>
+              Defines how IP addresses are assigned to the teamed device. Use <literal>static</literal>
               to manually assign static IP addresses with the variables <varname>IPADDRESS</varname>
               (for IPv4) and <varname>IPADDR6</varname> (for IPv6). Use <literal>dhcp</literal> to
               automatically assign dynamic IP addresses.
@@ -160,7 +164,7 @@ TEAM_LW_NAME="<replaceable>LINK_WATCHER</replaceable>" <co xml:id="co-team-name"
           </callout>
           <callout arearefs="co-team-dev">
             <para>
-              Specifies one or more network cards to include in the teaming device.
+              Specifies one or more network interfaces to include in the teamed device.
             </para>
           </callout>
           <callout arearefs="co-team-name">
@@ -175,7 +179,7 @@ TEAM_LW_NAME="<replaceable>LINK_WATCHER</replaceable>" <co xml:id="co-team-name"
             <para>
               If you need higher confidence in the connection, use the <literal>arp_ping</literal>
               option. This sends pings to a host specified by the variable
-              <varname>TEAM_LW_ARP_PING_TARGET_HOST</varname>. The teaming device is only
+              <varname>TEAM_LW_ARP_PING_TARGET_HOST</varname>. The teamed device is only
               considered to be up if replies are received.
             </para>
             <para>
@@ -224,14 +228,14 @@ TEAM_LW_ETHTOOL_DELAY_DOWN="10"</screen>
       </step>
       <step>
         <para>
-          Make sure that backup files exist for the network cards that you included in the teaming
-          device. For example: <filename>/etc/sysconfig/network/ifcfg-eth0.bak</filename>.
+          Make sure that backup files exist for the network interfaces that you included in the
+          teamed device. For example: <filename>/etc/sysconfig/network/ifcfg-eth0.bak</filename>.
         </para>
       </step>
       <step>
         <para>
-          Remove the <filename>ifcfg</filename> files of the network cards that you included in the
-          teaming device. Do not remove the backup files.
+          Remove the <filename>ifcfg</filename> files of the network interfaces that you included
+          in the teamed device. Do not remove the backup files.
         </para>
       </step>
       <step>
@@ -242,7 +246,7 @@ TEAM_LW_ETHTOOL_DELAY_DOWN="10"</screen>
       </step>
       <step>
         <para>
-          Start the teaming device. This example uses the device name
+          Start the teamed device. This example uses the device name
           <systemitem class="service">team0</systemitem>:
         </para>
         <screen>&prompt.sudo;<command>wicked ifup all team0</command></screen>
@@ -253,13 +257,13 @@ TEAM_LW_ETHTOOL_DELAY_DOWN="10"</screen>
         <important role="compact">
           <para>
             Do <emphasis>not</emphasis> use <command>systemctl</command> to start or stop the
-            teaming device. Always use the <command>wicked</command> command.
+            teamed device. Always use the <command>wicked</command> command.
           </para>
         </important>
       </step>
       <step>
         <para>
-          Check the status of the teaming device:
+          Check the status of the teamed device:
         </para>
         <itemizedlist>
           <listitem>
