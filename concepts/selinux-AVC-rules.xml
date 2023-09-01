@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="selinux-avc-rules"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Access vector rules</title>
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+       The topic focuses on access vector rules that specify access permissions for object classes.
+      </para>
+    </abstract>
+  </info>
+      <para>
+      A access vector rule (AVC rule) is a rule that defines access control for object classes. The permissions for an object class are represented by a bit mask called an access vector, hence the term acces vector rule.
+    </para>
+    
+    <para>
+      The generic rule syntax is as follows:
+    </para>
+    <screen><replaceable>RULE_NAME</replaceable> <replaceable>SOURCE_TYPE</replaceable> <replaceable>TARGET_TYPE</replaceable> : <replaceable>OBJECT_CLASS</replaceable> <replaceable>PERMISSIONS</replaceable>;</screen>
+    <para>
+      Where the terms have the following meanings:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>RULE_NAME</term>
+        <listitem>
+          <para>
+            A AVC rule name that can have one of the following values:
+          </para>
+          <itemizedlist>
+      <listitem>
+        <para>
+          <literal>allow</literal> - specifies whether the access from the source type to the target type is allowed. 
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>dontaudit</literal> - stops auditing of the denial messages. The rule can be used if the denial is expected and does not cause real issues to the system.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>auditallow</literal> - audit this tule in the log. Keep in mind that there must be the same <literal>allow</literal> rule to grant the access.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>neverallow</literal> - specifies that no <literal>allow</literal> can be generated for the operation, even if it was allowed before.
+        </para>
+      </listitem>
+    </itemizedlist>
+            </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>SOURCE_TYPE</term>
+        <listitem>
+          <para>
+            The type granted access, a domain type of a process that is attempting an access.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>TARGET_TYPE</term>
+        <listitem>
+          <para>
+            The type of an object to which the source is being granted access. The type can be replaced with the <literal>self</literal> statement to specify acces to the same type as the SOURCE_TYPE.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>OBJECT_CLASS</term>
+        <listitem>
+          <para>
+            The class of object that the specified access is permitted for, for example, <literal>file</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>PERMISSIONS</term>
+        <listitem>
+          <para>
+            A list of access permission that the source is allowed to the target type, for example, <literal>execute</literal>. The permissions is a space separated list of operations enclosed in {}. To include all permissions available for that type, use the <literal>*</literal> operator.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <para>
+      The following example of AVC rule allows <literal>uset_t</literal> to execute files of the <literal>bin_t</literal> type.
+    </para>
+    <screen>allow user_t bin_t : file execute;</screen>
+    <para>
+      You can also specify multiple types in a rule. In this case, enclose the types in {} and seprate them by a space. For example, to allow execution of files with the <literal>bin_t</literal> and <literal>sbin_t</literal> types for the <literal>user_t</literal> &selnx; user, create the following AVC rule:
+    </para>
+    <screen>allow user_t { bin_t sbin_t } : file execute;</screen>
+    <para>
+      The same notation can be applied to the source type. For example, to allow reading of files of the <literal></literal> to <literal>guest_t</literal> and <literal>staff_t</literal>, use:
+    </para>
+    <screen>allow { guest_t staff_t} guest_t : file read</screen>
+    <para>
+      Similarly, you can specify several permissions in one rule:
+    </para>
+    <screen>allow initrc_t acct_exec_t:file { getattr read execute };</screen>
+
+
+    <section xml:id="selinux-avc-rules-attributes">
+      <title>Attributes</title>
+      <para>
+        Attributes provide a way to refence multiple types in an AVC rule. You need to define the attributes in the policy as follows:
+      </para>
+      <screen>
+        attribute <replaceable>ATTRIBUTE_ID</replaceable>
+        typeattribute <replaceable>TYPE</replaceable> <replaceable>ATTRIBUTE_ID</replaceable>
+      </screen>
+      <para>
+        Where the items have the following meaning: <replaceable>ATTRIBUTE_ID</replaceable> is the identificator of the  atribute. The <literal>typeattribute</literal> statement associates the types to the attribute. <replaceable></replaceable>
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            The <literal>attribute</literal> statement denotes the attribute declaration.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <replaceable>ATTRIBUTE_ID</replaceable> is the identificator of the atribute. When used in the type association, you can specify multiple entries as a comma separated list. 
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The <literal>typeattribute</literal> statement associates the types to the attribute.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <replaceable>TYPE</replaceable> is a previously defined type.
+          </para>
+        </listitem>
+      </itemizedlist>
+      <para>
+        For example, to allow execution of all files for user_t using the <literal>exec_files_t</literal> attribute the policy should contain the following statements:
+      </para>
+      <screen>
+        attribute exec_files_t;
+        typeattribute bin_t exec_files_t;
+        typeattribute local_bin_t exec_files_t;
+
+        ...
+
+        allow user_t exec_files_t : file execute;
+      </screen>
+    </section>
+
+    <section xml:id="selinux-reserved-keywords-and-operators">
+      <title>Reserved keywords and operators</title>
+<section xml:id="selinux-self-keyword">
+  <title>The <literal>self</literal> keyword</title>
+  <para>
+    The <literal>self</literal> keyboard can be used in the <replaceable>TARGET_TYPE</replaceable> to declare that the <replaceable>SOURCE_TYPE</replaceable> can access the same type. For example:
+  </para>
+  <screen>allow staff_t self:capability { chown fowner };</screen>
+  <para>
+    Here <literal>staff_t</literal> is allowed operations: <command>chown</command> and <command>fowner</command> on the <literal>capability</literal> object.
+  </para>
+  <para>
+    Such a rule definition would be the same as the following one:
+  </para>
+  <screen>allow staff_t staff_t:capability { chown fowner };</screen>
+  <para>
+    However, when an attributes is used in the target and source type definition, the <literal>self</literal> keyword may have a different meaning. When the rule is defined as follows:
+  </para>
+  <screen>allow domain self : process signal;</screen>
+<para>
+  The particular source type of the <literal>domain</literal> attribute may access only the same type as the source is and NOT all types included in the <literal>domain</literal> attribute.
+</para>
+<para>
+  On the contrary, the following rule:
+  </para>
+  <screen>allow domain domain: process signal;</screen>
+  <para>
+    It enables to each source type of <literal>domain</literal> to access whichever target type of <literal>domain</literal>.
+  </para>
+</section>
+<section xml:id="selinux-negation-operator">
+  <title>The negation operator</title>
+  </section>
+
+  <section xml:id="selinux-complement-operator">
+    <title>The complement operator</title>
+  </section>
+
+  <section xml:id="selinux-wildcard-operator">
+    <title>The wildcard operator /title>
+  </section>
+    </section>
+  
+</topic>
