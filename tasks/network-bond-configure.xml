@@ -19,8 +19,9 @@
     <abstract>
       <para>
         Network bonding combines two or more network interfaces into a single bonded device to
-        increase bandwidth and/or provide redundancy. The behavior of the bonded device is
-        configured using <emphasis>bonding modes</emphasis>.
+        increase bandwidth and/or provide redundancy. You can configure network bonding with &yast;
+        or by manually creating <filename>ifcfg</filename> files. The behavior of the bonded device
+        is configured using <emphasis>bonding modes</emphasis>.
       </para>
     </abstract>
   </info>
@@ -159,7 +160,6 @@
   </section>
   <section xml:id="network-bond-configure-with-yast">
     <title>Configuring network bonding with &yast;</title>
-<!--trichardson 2023-05-19: It might be good to also add a section for configuring bonding manually?-->
     <procedure>
       <step>
         <para>
@@ -251,6 +251,160 @@
         </para>
       </step>
     </procedure>
+  </section>
+  <section xml:id="network-bond-configure-with-ifcfg">
+    <title>Configuring network bonding with <literal>ifcfg</literal></title>
+    <procedure>
+      <step>
+        <para>
+          Create a configuration file named <filename>/etc/sysconfig/network/ifcfg-bond0</filename>.
+          If you need more than one bonded device, give them ascending numbers.
+          For more information, see <command>man ifcfg</command>, <command>man ifcfg-bonding</command>,
+          and <filename>/etc/sysconfig/network/ifcfg.template</filename>.
+        </para>
+        <para>
+          In the configuration file, define the following parameters:
+        </para>
+<screen>STARTMODE=<replaceable>MODE</replaceable><co xml:id="co-bond-startmode"/>
+BOOTPROTO=<replaceable>IP_ASSIGNMENT</replaceable><co xml:id="co-bond-boot-and-ip"/>
+
+BONDING_MASTER="yes"<co xml:id="co-bond-identifier"/>
+
+BONDING_SLAVE0="<replaceable>FIRST_DEVICE_NAME</replaceable>"<co xml:id="co-bond-dev"/>
+BONDING_SLAVE1="<replaceable>SECOND_DEVICE_NAME</replaceable>"<xref linkend="co-bond-dev"/>
+
+BONDING_MODULE_OPTS="mode=<replaceable>BONDING_MODE</replaceable><co xml:id="co-bond-mode"/> miimon=100"<co xml:id="co-bond-miimon"/></screen>
+        <calloutlist>
+          <callout arearefs="co-bond-startmode">
+            <para>
+              Defines how the bonded device starts. Use <literal>auto</literal> to start the
+              interface automatically on every reboot, or use <literal>manual</literal> to prevent
+              the interface from starting automatically.
+            </para>
+          </callout>
+          <callout arearefs="co-bond-boot-and-ip">
+            <para>
+              Defines how IP addresses are assigned to the bonded device: Use <literal>static</literal>
+              to manually assign static IP addresses with the variables <varname>IPADDRESS</varname>
+              (for IPv4) and <varname>IPADDR6</varname> (for IPv6). Use <literal>dhcp</literal> to
+              automatically assign dynamic IP addresses.
+            </para>
+          </callout>
+          <callout arearefs="co-bond-identifier">
+            <para>
+              Identifies this interface as a bonded device.
+            </para>
+          </callout>
+          <callout arearefs="co-bond-dev">
+            <para>
+              Specifies one or more network interfaces to include in the bonded device.
+            </para>
+          </callout>
+          <callout arearefs="co-bond-mode">
+            <para>
+              Defines the bonding mode for this interface.
+            </para>
+          </callout>
+          <callout arearefs="co-bond-miimon">
+            <para>
+              Specifies how often, in milliseconds, each bond member is inspected for link failures.
+            </para>
+          </callout>
+        </calloutlist>
+        <example xml:id="ex-bond-config">
+          <title>Bond configuration</title>
+<screen>STARTMODE=auto
+BOOTPROTO=static
+IPADDR="&subnetI;.2/24"
+IPADDR6="fd00:deca:fbad:50::2/64"
+
+BONDING_MASTER="yes"
+
+BONDING_SLAVE0="eth0"
+BONDING_SLAVE1="eth1"
+
+BONDING_MODULE_OPTS="mode=802.3ad miimon=100"</screen>
+        </example>
+      </step>
+      <step>
+        <para>
+          Back up the existing <filename>ifcfg</filename> files for the bond member interfaces,
+          in case you need to restore them later.
+        </para>
+      </step>
+      <step>
+        <para>
+          Adjust the <filename>ifcfg</filename> files for <emphasis>both</emphasis>
+          bond member interfaces so that they contain only the following content:
+        </para>
+<screen>BOOTPROTO='none' <co xml:id="co-network-bond-hotplug-bootproto"/>
+STARTMODE='hotplug' <co xml:id="co-network-bond-hotplug-startmode"/>
+</screen>
+        <calloutlist>
+          <callout arearefs="co-network-bond-hotplug-bootproto">
+            <para>
+              <literal>BOOTPROTO=none</literal> uses the <command>ethtool</command>
+              options (when provided), but does not set up the link on startup
+              because the bond member interface is controlled by the bond device.
+            </para>
+          </callout>
+          <callout arearefs="co-network-bond-hotplug-startmode">
+            <para>
+              <literal>STARTMODE=hotplug</literal> allows the bond member interface to join the
+              bond automatically when it is available.
+            </para>
+          </callout>
+        </calloutlist>
+      </step>
+      <step>
+        <para>
+          Check if everything is included in Wicked's configuration file:
+        </para>
+        <screen>&prompt.sudo;<command>wicked show-config</command></screen>
+      </step>
+      <step>
+        <para>
+          Start the bonded device:
+        </para>
+        <screen>&prompt.sudo;<command>wicked ifup all bond0</command></screen>
+        <para>
+          If you need additional debug information, use the option <option>--debug all</option>
+          after the <command>all</command> subcommand.
+        </para>
+        <important role="compact">
+          <para>
+            Do <emphasis>not</emphasis> use <command>systemctl</command> to start or stop the
+            bonded device. Always use the <command>wicked</command> command.
+          </para>
+        </important>
+      </step>
+      <step>
+        <para>
+          Check the status of the bonded device:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              Get the state of the bonded device from Wicked:
+            </para>
+            <screen>&prompt.sudo;<command>wicked ifstatus --verbose bond0</command></screen>
+          </listitem>
+          <listitem>
+            <para>
+              Get the state of the bonded device and the bond members:
+            </para>
+            <screen>&prompt.user;<command>ip addr</command></screen>
+          </listitem>
+        </itemizedlist>
+        <para>
+          Each command shows a slightly different view depending on your needs.
+        </para>
+      </step>
+    </procedure>
+    <para>
+      If you make changes to the <filename>ifcfg-bond0</filename> file after starting the device,
+      reload its configuration with the command <command>wicked ifreload bond0</command>.
+    </para>
   </section>
   <!--section xml:id="task-example-summary">
     <title>Summary</title>
