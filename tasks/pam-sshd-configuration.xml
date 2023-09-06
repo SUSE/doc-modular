@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="pam-sshd-configuration"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>An example of PAM configuration</title>
+    <!-- can be changed via merge
+      in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <!-- can be changed via merge in the assembly -->
+      <para>
+        Introductory text
+      </para>
+    </abstract>
+  </info>
+  <para>
+    To demonstrate a real use case example of PAM configuration, the
+    configuration of sshd has been used in this section:
+  </para>
+  <example xml:id="dat-pam-sshd">
+    <title>PAM configuration for sshd (<filename>/etc/pam.d/sshd</filename>)</title>
+<screen>#%PAM-1.0 <co xml:id="co-security-pam-sshd-pam-line"/>
+auth     requisite      pam_nologin.so                              <co xml:id="co-security-pam-sshd-pam-nologin"/>
+auth     include        common-auth                                 <co xml:id="co-security-pam-sshd-common-auth"/>
+account  requisite      pam_nologin.so                              <xref xrefstyle="select:nopage" linkend="co-security-pam-sshd-pam-nologin"/>
+account  include        common-account                              <xref xrefstyle="select:nopage" linkend="co-security-pam-sshd-common-auth"/>
+password include        common-password                             <xref linkend="co-security-pam-sshd-common-auth" xrefstyle="select:nopage"/>
+session  required       pam_loginuid.so                             <co xml:id="co-security-pam-sshd-pam-loginuid"/>
+session  include        common-session                              <xref linkend="co-security-pam-sshd-common-auth" xrefstyle="select:nopage"/>
+session  optional       pam_lastlog.so   silent noupdate showfailed <co xml:id="co-security-pam-sshd-lastlog"/></screen>
+    <calloutlist>
+      <callout arearefs="co-security-pam-sshd-pam-line">
+        <para>
+          Declares the version of this configuration file for PAM 1.0. This is
+          merely a convention, but could be used in the future to check the
+          version.
+        </para>
+      </callout>
+      <callout arearefs="co-security-pam-sshd-pam-nologin">
+        <para>
+          Checks, if <filename>/etc/nologin</filename> exists. If it does, no
+          user other than &rootuser; may log in.
+        </para>
+      </callout>
+      <callout arearefs="co-security-pam-sshd-common-auth">
+        <para>
+          Refers to the configuration files of four module types:
+          <filename>common-auth</filename>,
+          <filename>common-account</filename>,
+          <filename>common-password</filename>, and
+          <filename>common-session</filename>. These four files hold the
+          default configuration for each module type.
+        </para>
+      </callout>
+      <callout arearefs="co-security-pam-sshd-pam-loginuid">
+        <para>
+          Sets the login UID process attribute for the process that was
+          authenticated.
+        </para>
+      </callout>
+      <callout arearefs="co-security-pam-sshd-lastlog">
+        <para>
+          Displays information about the last login of a user.
+        </para>
+      </callout>
+    </calloutlist>
+  </example>
+  <para>
+    By including the configuration files instead of adding each module
+    separately to the respective PAM configuration, you automatically get an
+    updated PAM configuration when an administrator changes the defaults.
+  </para>
+  <para>
+    The first include file (<filename>common-auth</filename>) calls modules of
+    the <literal>auth</literal> type:
+    <systemitem class="library">pam_env.so</systemitem>,
+    <systemitem class="library">pam_gnome_keyring.so</systemitem> and
+    <systemitem class="library">pam_unix.so</systemitem>. See
+    <xref linkend="dat-pam-common-auth"/>. Bear in mind that the modules may
+    differ according to your installation.
+  </para>
+  <example xml:id="dat-pam-common-auth">
+    <title>Default configuration for the <literal>auth</literal> section (<filename>common-auth</filename>)</title>
+<screen>auth  required  pam_env.so                   <co xml:id="co-security-pam-sshd-pam-env"/>
+auth  optional  pam_gnome_keyring.so         <co xml:id="co-security-pam-sshd-gnome"/>
+auth  required  pam_unix.so  try_first_pass <co xml:id="co-security-pam-sshd-pam-unix"/></screen>
+  </example>
+  <calloutlist>
+    <callout arearefs="co-security-pam-sshd-pam-env">
+      <para>
+        <systemitem class="library">pam_env.so</systemitem> loads
+        <filename>/etc/security/pam_env.conf</filename> to set the environment
+        variables as specified in this file. It can be used to set the
+        <envar>DISPLAY</envar> variable to the correct value, because the
+        <systemitem class="library">pam_env</systemitem> module knows about the
+        location from which the login is taking place.
+      </para>
+    </callout>
+    <callout arearefs="co-security-pam-sshd-gnome">
+      <para>
+        <systemitem class="library">pam_gnome_keyring.so</systemitem> checks
+        the user's login and password against the &gnome; key ring
+      </para>
+    </callout>
+    <callout arearefs="co-security-pam-sshd-pam-unix">
+      <para>
+        <systemitem class="library">pam_unix</systemitem> checks the user's
+        login and password against <filename>/etc/passwd</filename> and
+        <filename>/etc/shadow</filename>.
+      </para>
+    </callout>
+  </calloutlist>
+  <para>
+    The whole stack of <literal>auth</literal> modules is processed before
+    <systemitem class="daemon">sshd</systemitem> gets any feedback about
+    whether the login has succeeded. All modules of the stack having the
+    <literal>required</literal> control flag must be processed successfully
+    before <systemitem class="daemon">sshd</systemitem> receives a message
+    about the positive result. If one of the modules is not successful, the
+    entire module stack is still processed and only then is
+    <systemitem class="daemon">sshd</systemitem> notified about the negative
+    result.
+  </para>
+  <para>
+    When all modules of the <literal>auth</literal> type have been successfully
+    processed, another include statement is processed, in this case, that in
+    <xref linkend="dat-pam-common-account"/>.
+    <filename>common-account</filename> contains only one module,
+    <literal>pam_unix</literal>. If <literal>pam_unix</literal> returns the
+    result that the user exists, sshd receives a message announcing this
+    success and the next stack of modules (<literal>password</literal>) is
+    processed, shown in
+    <xref os="sles;sled;osuse" linkend="dat-pam-common-password"/><xref os="slemicro" linkend="dat-pam-common-password-slemicro"/>.
+  </para>
+  <example xml:id="dat-pam-common-account">
+    <title>Default configuration for the <literal>account</literal> section (<filename>common-account</filename>)</title>
+<screen>account  required  pam_unix.so  try_first_pass</screen>
+  </example>
+  <example os="slemicro" xml:id="dat-pam-common-password-slemicro">
+    <title>Default configuration for the <literal>password</literal> section (<filename>common-password</filename>)</title>
+<screen>password  requisite  pam_cracklib.so
+password  requisite   pam_cracklib.so  
+password  required   pam_unix.so  use_authtok nullok shadow try_first_pass</screen>
+  </example>
+  <!--JH: Review this example for ALP. -->
+  <example os="sles;sled;osuse" xml:id="dat-pam-common-password">
+    <title>Default configuration for the <literal>password</literal> section (<filename>common-password</filename>)</title>
+<screen>password  requisite  pam_cracklib.so
+password  optional   pam_gnome_keyring.so  use_authtok
+password  required   pam_unix.so  use_authtok nullok shadow try_first_pass</screen>
+  </example>
+  <para>
+    Again, the PAM configuration of
+    <systemitem class="daemon">sshd</systemitem> involves only an include
+    statement referring to the default configuration for
+    <literal>password</literal> modules located in
+    <filename>common-password</filename>. These modules must successfully be
+    completed (control flags <literal>requisite</literal> and
+    <literal>required</literal>) whenever the application requests the change
+    of an authentication token.
+  </para>
+  <para>
+    Changing a password or another authentication token requires a security
+    check. This is achieved with the <filename>pam_cracklib</filename> module.
+    The <filename>pam_unix</filename> module used afterward carries over any
+    old and new passwords from <filename>pam_cracklib</filename>, so the user
+    does not need to authenticate again after changing the password. This
+    procedure makes it impossible to circumvent the checks carried out by
+    <filename>pam_cracklib</filename>. Whenever the <literal>account</literal>
+    or the <literal>auth</literal> type are configured to complain about
+    expired passwords, the <literal>password</literal> modules should also be
+    used.
+  </para>
+  <!--JH: Review this example for ALP. -->
+  <example os="sles;sled;osuse" xml:id="dat-pam-common-session">
+    <title>Default configuration for the <literal>session</literal> section (<filename>common-session</filename>)</title>
+<screen>session  required  pam_limits.so
+session  required  pam_unix.so  try_first_pass
+session  optional  pam_umask.so
+session  optional  pam_systemd.so
+session  optional  pam_gnome_keyring.so auto_start only_if=gdm,gdm-password,lxdm,lightdm
+session  optional  pam_env.so</screen>
+  </example>
+  <example os="slemicro" xml:id="dat-pam-common-session-slemicro">
+    <title>Default configuration for the <literal>session</literal> section (<filename>common-session</filename>)</title>
+<screen>session  required  pam_selinux.so  close
+session  optional  pam_systemd.so
+session  required  pam_limits.so
+session  required  pam_unix.so  try_first_pass
+session  optional  pam_umask.so
+session  required  pam_selinux.so  open
+session  optional  pam_env.so</screen>
+  </example>
+  <para>
+    As the final step, the modules of the <literal>session</literal> type
+    (bundled in the <filename>common-session</filename> file) are called to
+    configure the session according to the settings for the user in question.
+    The <filename>pam_limits</filename> module loads the file
+    <filename>/etc/security/limits.conf</filename>, which may define limits on
+    the use of certain system resources. The <filename>pam_unix</filename>
+    module is processed again. The <filename>pam_umask</filename> module can be
+    used to set the file mode creation mask. Since this module carries the
+    <literal>optional</literal> flag, a failure of this module would not affect
+    the successful completion of the entire session module stack. The
+    <literal>session</literal> modules are called a second time when the user
+    logs out.
+  </para>
+</topic>
