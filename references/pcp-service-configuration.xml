@@ -16,61 +16,308 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Reference</title>
+    <title>Configuring PCP services</title>
     <!-- can be changed via merge in the assembly -->
     <!--add author's email address-->
-    <meta name="maintainer" content="" its:translate="no"/>
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
     <abstract>
       <!-- can be changed via merge in the assembly -->
       <para>
-        Introductory text
+        The topic covers configuration of services involved in collecting the
+        PCP metrics.
       </para>
     </abstract>
   </info>
-  <section xml:id="reference-example-section">
-    <title>Section title</title>
+  <para>
+    All services that run inside the PCP container have a default configuration
+    that might not suit your needs. If you need a custom configuration that
+    cannot be covered by the environment variables, create configuration files
+    for the PCP services and pass them to the PCP using a bind mount as
+    follows:
+  </para>
+<screen>&prompt.root;podman run -d \
+  --name <replaceable>CONTAINER_NAME</replaceable> \
+  --systemd always \
+  -v $<replaceable>HOST_CONFIG</replaceable>:<replaceable>CONTAINER_CONFIG_PATH</replaceable>:z \
+  -v <replaceable>HOST_LOGS_PATH</replaceable>:/var/log/pcp/pmlogger  \
+  registry.suse.com/suse/pcp:latest</screen>
+  <para>
+    Where:
+  </para>
+  <variablelist>
+    <varlistentry>
+      <term><replaceable>CONTAINER_NAME</replaceable></term>
+      <listitem>
+        <para>
+          Is an optional container name.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><replaceable>HOST_CONFIG</replaceable></term>
+      <listitem>
+        <para>
+          Is an absolute path to the config you created on the host machine.
+          You can choose any file name you want.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><replaceable>CONTAINER_CONFIG_PATH</replaceable></term>
+      <listitem>
+        <para>
+          Is an absolute path to a particular configuration file inside the
+          container. Each available configuration file is described in the
+          corresponding sections further.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><replaceable>HOST_LOGS_PATH</replaceable></term>
+      <listitem>
+        <para>
+          Is a directory that should be a bind mount to the container logs.
+        </para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  <para>
+    For example, a container called <literal>pcp</literal>, with the
+    configuration file <filename>pmcd</filename> on the host machine and the
+    <filename>pcp-archives</filename> directory for logs on the host machine,
+    is run by the following command:
+  </para>
+<screen>&prompt.root;podman run -d \
+  --name pcp  \
+  --systemd always \
+  -v $(pwd)/pcp-archives:/var/log/pcp/pmlogger \
+  -v $(pwd)/pmcd:/etc/sysconfig/pmcd \
+registry.suse.com/suse/pcp:latest</screen>
+  <section xml:id="sec-pmcd-daemon-configuration">
+    <title>Custom <command>pmcd</command> daemon configuration</title>
     <para>
-      A paragraph of text.
+      The <command>pmcd</command> daemon configuration is stored in the
+      <filename>/etc/sysconfig/pmcd</filename> file. The file stores
+      environment variables that modify the behavior of the
+      <command>pmcd</command> daemon.
+    </para>
+    <para>
+      You can add the following variables to the
+      <filename>/etc/sysconfig/pmcd</filename> file to configure the
+      <command>pmcd</command> daemon:
     </para>
     <variablelist>
-      <title>A title</title>
       <varlistentry>
-        <term><command>a-command --with-options</command></term>
+        <term>PMCD_LOCAL</term>
         <listitem>
           <para>
-            A paragraph of text.
+            Defines whether the remote host can connect to the
+            <command>pmcd</command> daemon. If set to <emphasis>0</emphasis>,
+            remote connections to the daemon are allowed. If set to
+            <emphasis>1</emphasis>, the daemon listens only on the local host.
+            The default value is <emphasis>0</emphasis>.
           </para>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><command>another-command --with-options</command></term>
+        <term>PMCD_MAXPENDING</term>
         <listitem>
           <para>
-            Another paragraph of text.
+            Defines the maximum count of pending connections to the agent. The
+            default value is <emphasis>5</emphasis>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>PMCD_ROOT_AGENT</term>
+        <listitem>
+          <para>
+            If the <literal>pmdaroot</literal> is enabled (the value is set to
+            <emphasis>1</emphasis>), adding a new PDMA does not trigger
+            restarting of other PMDAs. If <literal>pmdaroot</literal> is not
+            enabled, <command>pmcd</command> will require restarting all PMDAs
+            when a new PMDA is added. The default value is
+            <emphasis>1</emphasis>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>PMCD_RESTART_AGENTS</term>
+        <listitem>
+          <para>
+            If set to <emphasis>1</emphasis>, the <command>pmcd</command>
+            daemon tries to restart any exited PMDA. Enable this option only if
+            you have enabled <literal>pmdaroot</literal>, as
+            <command>pmcd</command> itself does not have privileges to restart
+            PMDA.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>PMCD_WAIT_TIMEOUT</term>
+        <listitem>
+          <para>
+            Defines the maximum time in seconds <command>pmcd</command> can
+            wait to accept a connection. After this time, the connection is
+            reported as failed. The default value is <emphasis>60</emphasis>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>PCP_NSS_INIT_MODE</term>
+        <listitem>
+          <para>
+            Defines the mode in which <command>pmcd</command> initializes the
+            NSS certificate database when secured connections are used. The
+            default value is <literal>readonly</literal>. You can set the mode
+            to <literal>readwrite</literal>, but if the initialization fails,
+            the default value is used as a fallback.
           </para>
         </listitem>
       </varlistentry>
     </variablelist>
-    <table>
-      <title>A table title</title>
-      <tgroup cols="2">
-        <colspec colwidth="50*"/>
-        <colspec colwidth="50*"/>
-        <tbody>
-          <row>
-            <entry>an entry</entry>
-            <entry>another entry</entry>
-          </row>
-          <row>
-            <entry>an entry</entry>
-            <entry>another entry</entry>
-          </row>
-          <row>
-            <entry>an entry</entry>
-            <entry>another entry</entry>
-          </row>
-        </tbody>
-      </tgroup>
-    </table>
+    <para>
+      An example follows:
+    </para>
+<screen>
+      PMCD_LOCAL=0
+      PMCD_MAXPENDING=5
+      PMCD_ROOT_AGENT=1
+      PMCD_RESTART_AGENTS=1
+      PMCD_WAIT_TIMEOUT=70
+      PCP_NSS_INIT_MODE=readwrite
+     </screen>
+  </section>
+  <section xml:id="sec-pmlogger-configuration">
+    <title>Custom <command>pmlogger</command> configuration</title>
+    <para>
+      The custom configuration for the <command>pmlogger</command> is stored in
+      the following configuration files:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <filename>/etc/sysconfig/pmlogger</filename>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <filename>/etc/pcp/pmlogger/control.d/local</filename>
+        </para>
+      </listitem>
+      <!-- <listitem>
+        <para>
+        <filename>/var/lib/pcp/config/pmlogger/config.default</filename>
+        </para> -->
+    </itemizedlist>
+    <section xml:id="sec-sysconfig-pmlogger">
+      <title>The <filename>/etc/sysconfig/pmlogger</filename> file</title>
+      <para>
+        You can use the following attributes to configure the
+        <command>pmlogger</command>:
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term>PMLOGGER_LOCAL</term>
+          <listitem>
+            <para>
+              Defines whether <command>pmlogger</command> allows connections
+              from remote hosts. If set to <emphasis>1</emphasis>,
+              <command>pmlogger</command> allows connections from a local host
+              only.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>PMLOGGER_MAXPENDING</term>
+          <listitem>
+            <para>
+              Defines the maximum count of pending connections. The default
+              value is 5.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>PMLOGGER_INTERVAL</term>
+          <listitem>
+            <para>
+              Defines the default sampling interval <command>pmlogger</command>
+              uses. The default value is <emphasis>60&nbsp;s</emphasis>. Keep
+              in mind that this value can be overridden by the
+              <command>pmlogger</command> command line.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>PMLOGGER_CHECK_SKIP_LOGCONF</term>
+          <listitem>
+            <para>
+              Setting this option to <emphasis>yes</emphasis> disables the
+              regeneration and checking of the <command>pmlogger</command>
+              configuration if the configuration <command>pmlogger</command>
+              comes from <command>pmlogconf</command>. The default behavior is
+              to regenerate configuration files and check for changes every
+              time <command>pmlogger</command> is started.
+            </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+      <para>
+        An example follows:
+      </para>
+<screen>
+PMLOGGER_LOCAL=1
+PMLOGGER_MAXPENDING=5
+PMLOGGER_INTERVAL=10
+PMLOGGER_CHECK_SKIP_LOGCONF=yes
+     </screen>
+    </section>
+    <section xml:id="sec-control-local">
+      <title>The <filename>/etc/pcp/pmlogger/control.d/local</filename> file</title>
+      <para>
+        The file <filename>/etc/pcp/pmlogger/control.d/local</filename> stores
+        specifications of the host, which metrics should be logged, the logging
+        frequency (default is 24 hours), and <command>pmlogger</command>
+        options. For example:
+      </para>
+<screen>
+# === VARIABLE ASSIGNMENTS ===
+#
+# DO NOT REMOVE OR EDIT THE FOLLOWING LINE
+$version=1.1
+
+# Uncomment one of the lines below to enable/disable compression behaviour
+# that is different to the pmlogger_daily default.
+# Value is days before compressing archives, 0 is immediate compression,
+# "never" or "forever" suppresses compression.
+#
+#$PCP_COMPRESSAFTER=0
+#$PCP_COMPRESSAFTER=3
+#$PCP_COMPRESSAFTER=never
+
+# === LOGGER CONTROL SPECIFICATIONS ===
+#
+#Host           P?  S?  directory                       args
+
+# local primary logger
+LOCALHOSTNAME   y   n   PCP_ARCHIVE_DIR/LOCALHOSTNAME   -r -T24h10m -c config.default -v 100Mb
+     </screen>
+      <note>
+        <title>Defaults point to local host</title>
+        <para>
+          If you run the <command>pmlogger</command> in a container on a
+          different machine than the one that runs the <command>pmcd</command>
+          (a client), change the following line to point to the client:
+        </para>
+<screen># local primary logger
+<replaceable>CLIENT_HOSTNAME</replaceable>   y   n   PCP_ARCHIVE_DIR/<replaceable>CLIENT_HOSTNAME</replaceable>   -r -T24h10m -c config.default -v 100Mb</screen>
+        <para>
+          For example, for the <literal>slemicro_1</literal> host name, the
+          line should look as follows:
+        </para>
+<screen># local primary logger
+slemicro_1   y   n   PCP_ARCHIVE_DIR/slemicro_1   -r -T24h10m -c config.default -v 100Mb</screen>
+      </note>
+    </section>
   </section>
 </topic>
