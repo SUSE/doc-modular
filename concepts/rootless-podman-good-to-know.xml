@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="rootless-podman-good-to-know"
+ role="glue" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>What you need to know about rootless containers</title>
+    <meta name="maintainer" content="dpopov@suse.com" its:translate="no"/>
+  </info>
+  <para>
+    &podman; remaps user IDs with rootless containers. In the following
+    example, &podman; remaps the current user to the default user in the
+    container:
+  </para>
+<screen>&prompt.user;podman run --rm -it registry.suse.com/bci/bci-base id
+uid=0(root) gid=0(root) groups=0(root)</screen>
+  <para>
+    Note that even if you are root in the container, you cannot gain superuser
+    privileges outside of it.
+  </para>
+  <para>
+    This user remapping can have undesired side effects when sharing data with
+    the host, where the shared files belong to different user IDs in the
+    container and on the host. The issue can be solved using the command-line flag <option>--userns=keep-id</option> that makes it possible to keep
+    the current user id in the container:
+  </para>
+<screen>&prompt.user;podman run --userns=keep-id --rm -it registry.suse.com/bci/bci-base id
+uid=1000(user) gid=1000(users) groups=1000(users)</screen>
+  <para>
+    The flag <option>--userns=keep-id</option> has a similar effect when used
+    with bind mounts:
+  </para>
+<screen>&prompt.user;podman run --rm -it -v $(pwd):/share/ registry.suse.com/bci/bci-base stat /share/
+  File: /share/
+  Size: 318             Blocks: 0          IO Block: 4096   directory
+Device: 2ch/44d Inode: 3506170     Links: 1
+Access: (0755/drwxr-xr-x)  Uid: (    0/    root)   Gid: (    0/    root)
+Access: 2023-05-03 12:52:18.636392618 +0000
+Modify: 2023-05-03 12:52:17.178380923 +0000
+Change: 2023-05-03 12:52:17.178380923 +0000
+ Birth: 2023-05-03 12:52:15.852370288 +0000
+
+ &prompt.user;podman run --userns=keep-id --rm -it -v $(pwd):/share/ registry.suse.com/bci/bci-base stat /share/
+  File: /share/
+  Size: 318             Blocks: 0          IO Block: 4096   directory
+Device: 2ch/44d Inode: 3506170     Links: 1
+Access: (0755/drwxr-xr-x)  Uid: ( 1000/     user)   Gid: ( 1000/     users)
+Access: 2023-05-03 12:52:18.636392618 +0000
+Modify: 2023-05-03 12:52:17.178380923 +0000
+Change: 2023-05-03 12:52:17.178380923 +0000
+ Birth: 2023-05-03 12:52:15.852370288 +0000</screen>
+  <para>
+    &podman; stores the containers' data in the storage graph root (default is
+    <filename>~/.local/share/containers/storage</filename>). Because of the way
+    &podman; remaps user IDs in rootless containers, the graph root may contain
+    files that are not owned by your current user but by a user ID in the
+    sub-UID region assigned to your user. As these files do not belong to your
+    current user, they can be inaccessible to you.
+  </para>
+  <para>
+    To read or modify any file in the graph root, enter a shell as follows:
+  </para>
+<screen>&prompt.user;podman unshare bash
+
+&prompt.user;id
+uid=0(root) gid=0(root) groups=0(root),65534(nobody)</screen>
+  <para>
+    Note that <command>podman unshare</command> performs the same user
+    remapping as <command>podman run</command> does when launching a rootless
+    container. You cannot gain elevated privileges via <command>podman
+    unshare</command>.
+  </para>
+  <para>
+    Do not modify files in the graph root as this can corrupt &podman;'s
+    internal state and render your containers, images and volumes inoperable.
+  </para>
+</topic>
