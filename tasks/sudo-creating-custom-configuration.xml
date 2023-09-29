@@ -16,7 +16,7 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Creating a custom &sudo; configuration file</title><!-- can be changed via merge
+    <title>Creating custom &sudo; configurations</title><!-- can be changed via merge
 in the assembly -->
     <!-- add author's e-mail -->
     <meta name="maintainer" content="jana.jaeger@suse.com" its:translate="no"/>
@@ -102,7 +102,7 @@ in the assembly -->
           Use both numbering and a descriptive name:
         </para>
         <screen>
-&sudoprompt; visudo -f /etc/sudoers.d/01_usermanagement
+&prompt.sudo; visudo -f /etc/sudoers.d/01_usermanagement
 </screen>
       </step>
       <step>
@@ -121,19 +121,110 @@ tux<co xml:id="who"/> ALL<co xml:id="where"/> = /usr/sbin/useradd<co xml:id="wha
           <callout arearefs="who">
             <para>
               Specify the user or group. Users by name or <literal>#UID</literal> 
-              groups by <literal>%GROUPNAME</literal>. If you have several items here, separate them with commas.
-              To negate entries, use <literal>!</literal>. 
+              groups by <literal>%GROUPNAME</literal>. If you have several items 
+              here, separate them with commas. To negate entries, use 
+              <literal>!</literal>.
             </para>
           </callout>
           <callout arearefs="where">
             <para>
-              Specify one or several (separated by commas) hosts.
+              Specify one or several (separated by commas) hosts. Use 
+              (fully qualified) host names or IP addresses. Use 
+              <literal>ALL</literal> to enforce this setting globally 
+              across all hosts and use <literal>!</literal> for negations.
             </para>
           </callout>
           <callout arearefs="what">
-            <para></para>
+            <para>
+              Specify one or several executables (separated by commas). When 
+              specifying them, make sure to mind the following rules:
+            </para>
+            <variablelist>
+              <varlistentry>
+                <term><command>/usr/sbin/useradd</command></term>
+                <listitem>
+                  <para>
+                    Without any additional options added, this allows the 
+                    execution of every possible <command>useradd</command> command.
+                  </para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term><command>/usr/sbin/useradd -c</command></term>
+                <listitem>
+                  <para>
+                    If you explicitely specify an option, then that option is 
+                    the only one that is allowed. Nothing else would be available
+                    to the user you specified above.
+                  </para>
+                </listitem>
+              </varlistentry>
+                            <varlistentry>
+                <term><command>/usr/sbin/useradd ""</command></term>
+                <listitem>
+                  <para>
+                    This would just let the user invoke a mere 
+                    <command>useradd</command> without any option at all. 
+                  </para>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+            <para>
+              In the example above, you would want to either allow all
+              options and subcommands or limit them to a few for security 
+              reasons, but forbidding a user to specify any option at all is
+              pointless in our context.
+            </para>
           </callout>
         </calloutlist>
+      </step>
+      <step>
+        <para>
+          To enable the user to be able to use their own password instead of the 
+          &rootuser; password, open <filename>/etc/sudoers</filename> with 
+          <command>visudo</command> and comment or remove the following lines 
+          and save the configuration:
+        </para>
+        <screen>Defaults targetpw<co xml:id="targetpw"/>   # ask for the password of the target user i.e. root
+ALL   ALL=(ALL) ALL<co xml:id="ALL"/>   # WARNING! Only use this together with 'Defaults targetpw'!
+</screen>
+        <calloutlist>
+          <callout arearefs="targetpw">
+            <para>
+              When active, this flag requires the user to enter the password of 
+              the target user, i.e. &rootuser;. This flag is enabled by default on 
+              any &product; system. When disabled, no password is required.
+            </para>
+          </callout>
+          <callout arearefs="ALL">
+            <para>
+              This rule allows all users on all hosts to run all executables as 
+              any user. Use this rule only together with 
+              <literal>Defaults targetpw</literal>. Disabling this rule lets 
+              &sudo; check for user-specific rules with user-specific permissions.
+            </para>
+          </callout>
+        </calloutlist>
+      </step>
+      <step>
+        <para>Check whether there are any errors with your &sudo; configuration:
+        </para>
+        <screen>&prompt.sudo;visudo -c
+/etc/sudoers: parsed OK
+/etc/sudoers.d/01_usermanagement: parsed OK
+</screen>
+        <para>
+          This tells you that all of your configuration files are syntactically
+          correct and gives you the order in which the configurations
+          are parsed. This information is needed in case you notice unexpected
+          behavior of &sudo; which can simply be caused by directives being
+          applied in the wrong order or overriding each other. If the configuration
+          contains an error, <command>visudo</command> reports the file
+          name, line number and error description of the affected file.
+        </para>
+      </step>
+      <step>
+        <para></para>
       </step>
     </procedure>
   </section>
