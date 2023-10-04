@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="systemd-timer-catchup"
+       role="task" xml:lang="en"
+       xmlns="http://docbook.org/ns/docbook" version="5.2"
+       xmlns:its="http://www.w3.org/2005/11/its"
+       xmlns:xi="http://www.w3.org/2001/XInclude"
+       xmlns:xlink="http://www.w3.org/1999/xlink"
+       xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>&systemd; timers: Migrating from cron to &systemd; timers</title>
+    <meta name="maintainer" content="fs@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        All cron jobs can be migrated to &systemd; timers. Find
+        instructions and an example here.
+      </para>
+    </abstract>
+  </info>
+  <procedure>
+    <step>
+      <para>
+        Create a service file executing the script. See
+        <xref linkend="systemd-timer-example-service"/> for details.
+      </para>
+    </step>
+    <step>
+      <para>
+        Create a timer file executing the service file. See
+        <xref linkend="systemd-timer-example-timer"/> for general instructions.
+      </para>
+      <substeps>
+        <step>
+          <para>
+            Convert calendar entries. Time is specified differently in cron and &systemd;. Use
+            the patterns below as a conversion template:
+          </para>
+<screen>Cron:               Minute Hour Day Month DayOfWeek
+systemd: OnCalendar=DayOfWeek Year-Month-Day Hour:Minute:Second</screen>
+          <para>
+            To test the converted calendar entry, follow the instructions in
+            <xref linkend="systemd-timer-test"/>.
+          </para>
+        </step>
+        <step>
+          <para>
+            Convert cron nicknames (<literal>@<replaceable>NICK</replaceable></literal>):
+          </para>
+<screen>Cron     : &systemd; timer
+-------- : ----------------------------
+@reboot  : OnBootSec=1s
+@yearly  : OnCalendar=*-01-01 00:00:00
+@annually: OnCalendar=*-01-01 00:00:00
+@monthly : OnCalendar=*-*-01 00:00:00
+@weekly  : OnCalendar=Sun *-*-* 00:00:00
+@daily   : OnCalendar=*-*-* 00:00:00
+@hourly  : OnCalendar=*-*-* *:00:00</screen>
+        </step>
+        <step>
+          <para>
+            Convert variable assignments. The &systemd; variable assignment must go into the
+            <literal>[Service]</literal> section. You cannot convert
+            <envar>MAILTO</envar> this way&mdash;refer to the next step for this.
+          </para>
+<screen>cron: <replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>
+systemd: Environment="<replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>"</screen>
+        </step>
+        <step>
+          <para>
+            Set up e-mail notifications to replace cron's MAILTO feature by following the
+            instructions in <xref linkend="systemd-mailto"/>.
+          </para>
+        </step>
+      </substeps>
+    </step>
+  </procedure>
+  <example>
+    <title>cron to &systemd; timer migration</title>
+    <para>
+      Here are the crontab entries which call the script <literal>helloworld.sh</literal> 5
+      minutes after booting and at 10 o'clock each Monday to Friday:
+    </para>
+<screen>@reboot sleep 300 &amp;&amp; /usr/local/bin/helloworld.sh
+0 10 * * * 1-5 /usr/local/bin/helloworld.sh</screen>
+    <para>
+      The &systemd; service file (<filename>helloworld.service</filename>) calling the script
+      looks like this:
+    </para>
+<screen>[Unit]
+Description="Hello World script"
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh</screen>
+    <para>
+      The timer file (<filename>helloworld.timer</filename>) looks like this:
+    </para>
+<screen>[Unit]
+Description="Run helloworld.service 5min after boot and at 10am every Mon-Fri"
+[Timer]
+OnBootSec=5min
+OnCalendar=Mon..Fri *-*-* 10:00:*
+Unit=helloworld.service
+[Install]
+WantedBy=multi-user.target</screen>
+  </example>
+</topic>
