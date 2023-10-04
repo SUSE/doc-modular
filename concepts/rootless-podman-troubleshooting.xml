@@ -15,76 +15,84 @@
     <title>Troubleshooting</title>
     <meta name="maintainer" content="dpopov@suse.com" its:translate="no"/>
   </info>
-  <para>
-    In case &podman; fails to launch containers in rootless mode, check
-    whether an entry for the current user is present in
-    <literal>/etc/subuid</literal>:
-  </para>
+  <section xml:id="rootless-podman-troubleshoot-fix-root">
+    <title>Rootless mode fails</title>
+    <para>
+      In case &podman; fails to launch containers in rootless mode, check
+      whether an entry for the current user is present in
+      <literal>/etc/subuid</literal>:
+    </para>
 <screen>&prompt.user;grep $(id -nu) /etc/subuid
   user:10000:65536</screen>
-  <para>
-    When no entry is found, add the required sub-UID and sub-GID entries via
-    the following command:
-  </para>
+    <para>
+      When no entry is found, add the required sub-UID and sub-GID entries via
+      the following command:
+    </para>
 <screen>&prompt.user;sudo usermod --add-subuids 100000-165535 --add-subgids 100000-165535 $(id -nu)</screen>
-  <para>
-    To enable the change, reboot the machine or stop the session of the
-    current user. To do the latter, run <command>loginctl list-sessions |
-    grep <replaceable>USER</replaceable></command> and note the session ID.
-    Then run <command>loginctl kill-session
-    <replaceable>SESSION_ID</replaceable></command> to stop the session.
-  </para>
-  <para>
-    The <command>usermod</command> above defines a range of local UIDs to
-    which the UIDs allocated to users inside the container are mapped on the
-    host. Note that the ranges defined for different users must not overlap.
-    It is also important that the ranges do not reuse the UID of an existing
-    local user or group. By default, adding a user with the
-    <command>useradd</command> command on &productname; automatically
-    allocates sub-UID and sub-GID ranges.
-  </para>
-  <para>
-    When using rootless containers with &podman;, it is recommended to use
-    cgroups v2. cgroups v1 are limited in terms of functionality compared to
-    v2. For example, cgroups v1 do not allow proper hierarchical delegation to
-    user's subtrees. Additionally, &podman; is unable to read container logs
-    properly with cgroups v1 and the systemd log driver. To enable cgroups v2,
-    add the following to the kernel cmdline:
-    <option>systemd.unified_cgroup_hierarchy=1</option>
-  </para>
-  <para>
-    Running a container with &podman; in rootless mode on &sls; may fail,
-    because the container needs read access to the &scc; credentials. For
-    example, running a container with the command <command>podman run -it
-    --rm registry.suse.com/suse/sle15 bash</command> and then executing
-    <command>zypper ref</command> results in the following error message:
-  </para>
+    <para>
+      To enable the change, reboot the machine or stop the session of the
+      current user. To do the latter, run <command>loginctl list-sessions |
+      grep <replaceable>USER</replaceable></command> and note the session ID.
+      Then run <command>loginctl kill-session
+      <replaceable>SESSION_ID</replaceable></command> to stop the session.
+    </para>
+    <para>
+      The <command>usermod</command> above defines a range of local UIDs to
+      which the UIDs allocated to users inside the container are mapped on the
+      host. Note that the ranges defined for different users must not overlap.
+      It is also important that the ranges do not reuse the UID of an existing
+      local user or group. By default, adding a user with the
+      <command>useradd</command> command on &productname; automatically
+      allocates sub-UID and sub-GID ranges.
+    </para>
+  </section>
+  <section xml:id="rootless-podman-troubleshoot-cgroups-v2">
+    <title>Using cgroups v2</title>
+    <para>
+      When using rootless containers with &podman;, it is recommended to use
+      cgroups v2. cgroups v1 are limited in terms of functionality compared to
+      v2. For example, cgroups v1 do not allow proper hierarchical delegation
+      to user's subtrees. Additionally, &podman; is unable to read container
+      logs properly with cgroups v1 and the systemd log driver. To enable
+      cgroups v2, add the following to the kernel cmdline:
+      <option>systemd.unified_cgroup_hierarchy=1</option>
+    </para>
+  </section>
+  <section xml:id="rootless-podman-troubleshoot-read-access">
+    <title>Rootless mode fails without read access</title>
+    <para>
+      Running a container with &podman; in rootless mode on &sls; may fail,
+      because the container needs read access to the &scc; credentials. For
+      example, running a container with the command <command>podman run -it
+      --rm registry.suse.com/suse/sle15 bash</command> and then executing
+      <command>zypper ref</command> results in the following error message:
+    </para>
 <screen>Refreshing service 'container-suseconnect-zypp'.
   Problem retrieving the repository index file for service 'container-suseconnect-zypp':
   [container-suseconnect-zypp|file:/usr/lib/zypp/plugins/services/container-suseconnect-zypp]
   Warning: Skipping service 'container-suseconnect-zypp' because of the above error.
   Warning: There are no enabled repositories defined.
   Use 'zypper addrepo' or 'zypper modifyrepo' commands to add or enable repositories</screen>
-  <para>
-    To solve the problem, grant the current user the required access rights
-    by running the following command on the host:
-  </para>
+    <para>
+      To solve the problem, grant the current user the required access rights
+      by running the following command on the host:
+    </para>
 <screen>&prompt.user;sudo setfacl -m u:$(id -nu):r /etc/zypp/credentials.d/*</screen>
-  <para>
-    Log out and log in again to apply the changes.
-  </para>
-  <para>
-    To give multiple users the required access, create a dedicated group
-    using the <command>groupadd
-    <replaceable>GROUPNAME</replaceable></command> command. Then use the
-    following command to change the group ownership and rights of files in
-    the <filename>/etc/zypp/credentials.d/</filename> directory.
-  </para>
+    <para>
+      Log out and log in again to apply the changes.
+    </para>
+    <para>
+      To give multiple users the required access, create a dedicated group
+      using the <command>groupadd
+      <replaceable>GROUPNAME</replaceable></command> command. Then use the
+      following command to change the group ownership and rights of files in
+      the <filename>/etc/zypp/credentials.d/</filename> directory.
+    </para>
 <screen>&prompt.user;sudo chgrp <replaceable>GROUPNAME</replaceable> /etc/zypp/credentials.d/*
     &prompt.user;sudo chmod g+r /etc/zypp/credentials.d/*</screen>
-  <para>
-    You can then grant a specific user write access by adding them to the
-    created group.
-  </para>
-
+    <para>
+      You can then grant a specific user write access by adding them to the
+      created group.
+    </para>
+  </section>
 </topic>
