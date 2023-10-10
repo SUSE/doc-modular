@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/net_teaming.xml -->
+
+<topic xml:id="network-team-add-vlans"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Adding VLANS over a teamed device</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        VLANs allow the running of multiple <emphasis>logical</emphasis> (virtual) Ethernets over
+        one single physical Ethernet. They logically split the network into different broadcast
+        domains so that packets are only switched between members that are designated for the same VLAN.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="network-team-add-vlans-requirements">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          VLAN tags are enabled on the switch. Consult your hardware manual for details.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          To use load balancing for the teamed device, the switch must support LACP (802.3ad).
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          A teamed device is already configured.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="network-team-add-vlans-procedure">
+    <title>Adding VLANs over a teamed device</title>
+    <para>
+      The examples in this procedure use the IP addresses
+      <systemitem class="ipaddress">&subnetI;0.1</systemitem> and
+      <systemitem class="ipaddress">&subnetII;0.1</systemitem>.
+      Replace these with the actual IP addresses for your devices.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          In <filename>/etc/sysconfig/network</filename>, create a file named
+          <filename>ifcfg-vlan0</filename> and add the following content:
+        </para>
+<screen>STARTMODE="auto"
+BOOTPROTO="static" <co xml:id="co-team-vlan-bootproto"/>
+IPADDR='&subnetI;0.1/24' <co xml:id="co-team-vlan-ipaddr"/>
+ETHERDEVICE="team0" <co xml:id="co-team-vlan-etherdevice"/>
+VLAN_ID="0" <co xml:id="co-team-vlan-vlan-id"/>
+VLAN='yes'</screen>
+        <calloutlist>
+          <callout arearefs="co-team-vlan-bootproto">
+            <para>
+              Specifies that the IP address is fixed.
+            </para>
+          </callout>
+          <callout arearefs="co-team-vlan-ipaddr">
+            <para>
+              Defines the IP address and netmask.
+            </para>
+          </callout>
+          <callout arearefs="co-team-vlan-etherdevice">
+            <para>
+              Contains the real interface to use for the VLAN interface. This example uses the
+              teamed device <systemitem>team0</systemitem>.
+            </para>
+          </callout>
+          <callout arearefs="co-team-vlan-vlan-id">
+            <para>
+              Specifies a unique ID for the VLAN.
+            </para>
+          </callout>
+        </calloutlist>
+      </step>
+      <step>
+        <para>
+          Copy the file <filename>/etc/sysconfig/network/ifcfg-vlan0</filename> to
+          <filename>/etc/sysconfig/network/ifcfg-vlan1</filename> and change the following values:
+        </para>
+        <itemizedlist>
+        <listitem>
+          <para>
+            <literal>IPADDR='&subnetII;0.1/24'</literal>.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>VLAN_ID='1'</literal>.
+          </para>
+        </listitem>
+        </itemizedlist>
+      </step>
+      <step>
+        <para>
+          Start the two VLANs:
+        </para>
+<screen>&prompt.user;<command>sudo wicked ifup vlan0 vlan1</command></screen>
+      </step>
+      <step>
+        <para>
+          Check the status of the VLANs:
+        </para>
+<screen>&prompt.user;<command>ip addr</command></screen>
+        <para>
+          You can check a specific device by using the <command>show</command> subcommand:
+        </para>
+        <screen>&prompt.user;<command>ip addr show vlan0</command></screen>
+      </step>
+    </procedure>
+  </section>
+</topic>
