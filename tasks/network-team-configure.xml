@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/net_teaming.xml -->
+
+<topic xml:id="network-team-configure"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring network teaming</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Network teaming combines two or more network interfaces into a single teamed device to increase
+        bandwidth and/or provide redundancy. The behavior of the teamed device is configured using
+        <emphasis>teaming modes</emphasis>.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="network-team-requirements">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Network connection
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Basic understanding of networking and IP addresses
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Existing network interfaces to include in the teamed device
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Switch support, depending on the teaming mode
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          The package <package>libteam-tools</package> is installed
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="network-team-restrictions">
+    <title>Restrictions</title>
+    <variablelist>
+      <varlistentry>
+        <term>Do not split teams over multiple switches</term>
+        <listitem>
+          <para>
+            In most hardware setups, all network interfaces in a teamed device must be connected to
+            the same switch. For more information, consult your switch vendor documentation.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>No teaming in &yast;</term>
+        <listitem>
+          <para>
+            Currently, &yast; cannot create a teamed device.
+            You must configure network teaming manually.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Teaming and virtualization</term>
+        <listitem>
+          <para>
+            Teamed devices are made up of multiple network interfaces. In most configurations
+            you should only configure teaming in the host. Virtual interfaces to guests are then
+            created as a bridge with the teamed devices, simplifying guest creation and deployment.
+          </para>
+          <para>
+            It is possible, but not recommended, to configure teaming in a guest. When configuring
+            teaming in a guest, you must assign multiple interfaces to the guest and configure the
+            host without teaming. You must also be careful to configure the host and its network
+            bridges so that you do not mix teaming in the host and guests.
+      </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="network-team-modes">
+    <title>Teaming modes</title>
+    <para>
+      The following teaming modes are available:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><guimenu>broadcast</guimenu></term>
+        <listitem>
+          <para>
+            All traffic is broadcast on all interfaces. Provides fault tolerance.
+            Requires switch support.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><guimenu>roundrobin</guimenu></term>
+        <listitem>
+          <para>
+            Packets are transmitted in round-robin fashion from the first to the last available
+            interface. Provides fault tolerance and load balancing. Requires switch support.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><guimenu>activebackup</guimenu></term>
+        <listitem>
+          <para>
+            Only one network interface is active. If it fails, a different interface becomes active.
+            Provides fault tolerance.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><guimenu>loadbalance</guimenu></term>
+        <listitem>
+          <para>
+            The teamed device transmits packets via all its interfaces, performing load balancing
+            (passive or active) with a use of hash functions. For passive load balancing, only
+            the BPF hash function is used. For active load balancing, the runner finds the best
+            balance by moving hashes between available interfaces. Provides fault tolerance and
+            load balancing. No specific switch support is required.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><guimenu>lacp</guimenu></term>
+        <listitem>
+          <para>
+            All interfaces in the LACP group must share the same speed and duplex settings, and
+            must be connected to the same switch. Provides fault tolerance and load balancing.
+            Requires <command>ethtool</command> support in the interface drivers, and a switch that
+            supports and is configured for IEEE 802.3ad Dynamic link aggregation. If your switch
+            supports it, this is the preferred mode.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <para>
+      Consult your hardware manual to check which modes your switch supports.
+    </para>
+  </section>
+  <section xml:id="network-team-configure-with-ifcfg">
+    <title>Configuring network teaming with <literal>ifcfg</literal></title>
+    <procedure>
+      <step>
+        <para>
+          Create a configuration file named <filename>/etc/sysconfig/network/ifcfg-team0</filename>.
+          If you need more than one teamed device, give them ascending numbers.
+          For more information, see <command>man ifcfg</command>, <command>man ifcfg-team</command>,
+          and <filename>/etc/sysconfig/network/ifcfg.template</filename>.
+        </para>
+        <para>
+          In the configuration file, define the following parameters:
+        </para>
+<screen>STARTMODE=<replaceable>MODE</replaceable> <co xml:id="co-team-startmode"/>
+BOOTPROTO=<replaceable>IP_ASSIGNMENT</replaceable> <co xml:id="co-team-bootproto"/>
+IPADDR=<replaceable>IPv4_ADDRESS</replaceable><co xml:id="co-team-ip-addresses"/>
+IPADDR6=<replaceable>IPv6_ADDRESS</replaceable><xref linkend="co-team-ip-addresses"/>
+
+TEAM_RUNNER="<replaceable>TEAMING_MODE</replaceable>" <co xml:id="co-team-loadbalance"/>
+
+TEAM_PORT_DEVICE_0="<replaceable>FIRST_DEVICE_NAME</replaceable>" <co xml:id="co-team-dev"/>
+TEAM_PORT_DEVICE_1="<replaceable>SECOND_DEVICE_NAME</replaceable>" <xref linkend="co-team-dev"/>
+
+TEAM_LW_NAME="<replaceable>LINK_WATCHER</replaceable>" <co xml:id="co-team-name"/></screen>
+        <calloutlist>
+          <callout arearefs="co-team-startmode">
+            <para>
+              Defines how the teamed device starts. Use <literal>auto</literal> to start the
+              interface automatically on every reboot, or use <literal>manual</literal> to prevent
+              the interface from starting automatically.
+            </para>
+          </callout>
+          <callout arearefs="co-team-bootproto">
+            <para>
+              Defines how IP addresses are assigned to the teamed device. Use <literal>static</literal>
+              to manually assign static IP addresses, or use <literal>dhcp</literal> to
+              automatically assign dynamic IP addresses.
+            </para>
+          </callout>
+          <callout arearefs="co-team-ip-addresses">
+            <para>
+              Specifies the IPv4 and IPv6 addresses for the device, if you are manually assigning
+              <literal>static</literal> IP addresses.
+            </para>
+          </callout>
+          <callout arearefs="co-team-loadbalance">
+            <para>
+              Defines the teaming mode for this interface. Some teaming modes require additional
+              variables. See <command>man ifcfg-team</command> for more information about
+              mode-specific variables.
+            </para>
+          </callout>
+          <callout arearefs="co-team-dev">
+            <para>
+              Specifies two or more network interfaces to include in the teamed device.
+            </para>
+          </callout>
+          <callout arearefs="co-team-name">
+            <para>
+              Defines a link watcher to monitor the state of subordinate devices.
+            </para>
+            <para>
+              The default option <literal>ethtool</literal> only checks if the device is up and
+              accessible. This option is fast, but does not check if the device can actually send
+              or receive packets.
+            </para>
+            <para>
+              If you need higher confidence in the connection, use the <literal>arp_ping</literal>
+              option. This sends pings to a host specified by the variable
+              <varname>TEAM_LW_ARP_PING_TARGET_HOST</varname>. The teamed device is only
+              considered to be up if replies are received.
+            </para>
+            <para>
+              See <command>man ifcfg-team</command> for more information about watcher-specific
+              variables.
+            </para>
+          </callout>
+        </calloutlist>
+
+        <example xml:id="ex-team-lb">
+          <title>Configuration for load balancing with <literal>lacp</literal></title>
+<screen>STARTMODE=auto
+BOOTPROTO=static
+IPADDR="&subnetI;.1/24"
+IPADDR6="fd00:deca:fbad:50::1/64"
+
+TEAM_RUNNER="lacp"
+TEAM_LACP_SELECT_POLICY="lacp_prio"
+TEAM_LACP_TX_HASH="ipv4,ipv6,eth,vlan"
+TEAM_LACP_TX_BALANCER_NAME="basic"
+TEAM_LACP_TX_BALANCER_INTERVAL="100"
+
+TEAM_PORT_DEVICE_0="eth0"
+TEAM_PORT_DEVICE_1="eth1"
+
+TEAM_LW_NAME="ethtool"
+TEAM_LW_ETHTOOL_DELAY_UP="10"
+TEAM_LW_ETHTOOL_DELAY_DOWN="10"</screen>
+        </example>
+
+        <example xml:id="ex-team-failover">
+          <title>Configuration for failover with <literal>activebackup</literal></title>
+<screen>STARTMODE=auto
+BOOTPROTO=static
+IPADDR="&subnetI;.2/24"
+IPADDR6="fd00:deca:fbad:50::2/64"
+
+TEAM_RUNNER=activebackup
+
+TEAM_PORT_DEVICE_0="eth0"
+TEAM_PORT_DEVICE_1="eth1"
+
+TEAM_LW_NAME=ethtool
+TEAM_LW_ETHTOOL_DELAY_UP="10"
+TEAM_LW_ETHTOOL_DELAY_DOWN="10"</screen>
+        </example>
+      </step>
+      <step>
+        <para>
+          Back up the existing <filename>ifcfg</filename> files for the network interfaces that you
+          included in the teamed device, in case you need to restore them later.
+        </para>
+      </step>
+      <step>
+        <para>
+          Remove the <filename>ifcfg</filename> files of the network interfaces that you included
+          in the teamed device. Do not remove the backup files.
+        </para>
+      </step>
+      <step>
+        <para>
+          Check if everything is included in Wicked's configuration file:
+        </para>
+        <screen>&prompt.sudo;<command>wicked show-config</command></screen>
+      </step>
+      <step>
+        <para>
+          Start the teamed device:
+        </para>
+        <screen>&prompt.sudo;<command>wicked ifup all team0</command></screen>
+        <para>
+          If you need additional debug information, use the option <option>--debug all</option>
+          after the <command>all</command> subcommand.
+        </para>
+        <important role="compact">
+          <para>
+            Do <emphasis>not</emphasis> use <command>systemctl</command> to start or stop the
+            teamed device. Always use the <command>wicked</command> command.
+          </para>
+        </important>
+      </step>
+      <step>
+        <para>
+          Check the status of the teamed device:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              Get the state of the <literal>teamd</literal> instance from Wicked:
+            </para>
+            <screen>&prompt.sudo;<command>wicked ifstatus --verbose team0</command></screen>
+          </listitem>
+          <listitem>
+            <para>
+              Get the state of the entire instance:
+            </para>
+            <screen>&prompt.sudo;<command>teamdctl team0 state</command></screen>
+          </listitem>
+          <listitem>
+            <para>
+              Get the &systemd; state of the <literal>teamd</literal> instance:
+            </para>
+            <screen>&prompt.sudo;<command>systemctl status teamd@team0</command></screen>
+          </listitem>
+        </itemizedlist>
+        <para>
+          Each command shows a slightly different view depending on your needs.
+        </para>
+      </step>
+    </procedure>
+    <para>
+      If you make changes to the <filename>ifcfg-team0</filename> file after starting the device,
+      reload its configuration with the command <command>wicked ifreload team0</command>.
+    </para>
+  </section>
+  <!--section xml:id="task-example-summary">
+    <title>Summary</title>
+    <para>
+      A paragraph of text, summing up the result of the task.
+    </para>
+  </section-->
+  <!--section xml:id="task-example-troubleshooting">
+    <title>Troubleshooting</title>
+    <para>
+      Add some troubleshooting information, if applicable.
+    </para>
+  </section-->
+</topic>
