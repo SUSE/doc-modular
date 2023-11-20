@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="task-example"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring &opensm;</title>
+<!-- add author's e-mail -->
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        &opensm; is an &infiniband; compliant &subnetmanager; that performs all required tasks for
+        initializing &infiniband; hardware. This procedure shows how to configure &opensm; on
+        &productnameshort;.
+      </para>
+    </abstract>
+  </info>
+  <procedure>
+    <step>
+      <para>
+        Install the &opensm; package on any hosts that will be running the &subnetmanager;.
+      </para>
+<screen>&prompt.sudo;<command>zypper install opensm</command>
+   </screen>
+    </step>
+    <step>
+      <para>
+        Use the <command>ibstat -p</command> command to find <literal>GUID0</literal> and
+        <literal>GUID1</literal> of the host channel adapter (HCA) ports, for example:
+      </para>
+<screen>&prompt.user;<command>ibstat -p</command>
+0x248a070300a80a80
+0x248a070300a80a81</screen>
+    </step>
+    <step>
+      <para>
+        If you are using a single switch, follow these steps:
+      </para>
+      <substeps>
+        <step>
+          <para>
+            Start the <systemitem class="daemon">&opensm;</systemitem> service.
+          </para>
+<screen>&prompt.sudo;<command>systemctl start opensm</command></screen>
+        </step>
+        <step>
+          <para>
+            Enable the <systemitem class="daemon">&opensm;</systemitem> service on boot.
+          </para>
+<screen>&prompt.sudo;<command>systemctl enable opensm</command></screen>
+        </step>
+        <step>
+          <para>
+            Edit the <filename>/etc/rdma/opensm</filename> file to add the identifier for the
+            corresponding port.
+          </para>
+<screen>&prompt.sudo;<command>opensm -c /etc/rdma/opensm</command>
+# The port GUID on which the OpenSM is running
+guid 0x248a070300a80a80</screen>
+        </step>
+      </substeps>
+    </step>
+    <step>
+      <para>
+        If you are using s direct connect method or if you have multiple switches, enable the
+        &subnetmanager; on each port of the connected HCA on the host:
+      </para>
+      <substeps>
+        <step>
+          <para>
+            Add the following lines to <filename>/etc/rc.d/after.local</filename>. Substitute the
+            <literal>GUID0</literal> and <literal>GUID1</literal> with your discovered values. For
+            <literal>P0</literal> and <literal>P1</literal>, use the &subnetmanager; priorities,
+            with 1 being the lowest and 15 the highest.
+          </para>
+<screen>opensm -B -g <replaceable>GUID0</replaceable> -p <replaceable>P0</replaceable> -f /var/log/opensm-ib0.log
+opensm -B -g <replaceable>GUID1</replaceable> -p <replaceable>P1</replaceable> -f /var/log/opensm-ib1.log</screen>
+          <para>
+            For example:
+          </para>
+<screen>&prompt.sudo;<command>cat /etc/rc.d/rc.local</command>
+opensm -B -g 0x248a070300a80a80 -p 15 -f /var/log/opensm-ib0.log
+opensm -B -g 0x248a070300a80a81 -p 1 -f /var/log/opensm-ib1.log</screen>
+        </step>
+      </substeps>
+    </step>
+  </procedure>
+</topic>
