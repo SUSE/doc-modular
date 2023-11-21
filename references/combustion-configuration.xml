@@ -44,18 +44,48 @@
       10 characters and combine uppercase and lowercase letters and numbers.
     </para>
     <section xml:id="combustion-prepare-statement">
-      <title>Performing modifications in the intial RAM disk</title>
+      <title>Performing modifications in the initramfs</title>
       <para>
-        You may need to perform changes to the file system before the <filename>/sysroot</filename>
-        is mounted or to write network configuration for &nm; into
-        <filename>/etc/NetworkManager/system-connections/</filename>. To do so, you can use the
-        <literal>prepare</literal> statement as follows:
+        You may need to perform changes to the initramfs, for example, to write network configuration for &nm; into
+        <filename>/etc/NetworkManager/system-connections/</filename>. To do so, use the
+        <literal>prepare</literal> statement.
       </para>
-      <screen># combustion: prepare</screen>
-      <para>
-        To write the &nm; configuration, use the prepare statement as follows:
-      </para>
-      <screen># combustion: network prepare</screen>
+         <para>
+          For example, to create a static connection and configure DNS and IP address:
+        </para>
+        <screen>
+          #!/bin/bash
+          # combustion: network prepare
+          set -euxo pipefail
+          
+          nm_config() {
+              umask 077 # Required for NM config
+              mkdir -p /etc/NetworkManager/system-connections/
+              cat >/etc/NetworkManager/system-connections/static.nmconnection <<-EOF
+              [connection]
+              id=static
+              type=ethernet
+              autoconnect=true
+          
+              [ipv4]
+              method=manual
+              dns=192.168.100.1
+              address1=192.168.100.42/24,192.168.100.1
+          EOF
+          }
+          
+          if [ "${1-}" = "--prepare" ]; then
+              nm_config # Configure NM in the initrd
+              exit 0
+          fi
+          
+          # Redirect output to the console
+          exec > >(exec tee -a /dev/tty0) 2>&1
+          
+          nm_config # Configure NM in the system
+          curl example.com
+          # Leave a marker
+          echo "Configured with combustion" > /etc/issue.d/combustion</screen>
         </section>
     <section xml:id="sec-script-network">
       <title>Network configuration</title>
