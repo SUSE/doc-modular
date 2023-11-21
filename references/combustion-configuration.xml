@@ -31,9 +31,13 @@
       <title>Include interpreter declaration</title>
       <para>
         As the <filename>script</filename> file is interpreted by Bash, always
-        start the file with the interpreter declaration at its first line:
+        start the file with the interpreter declaration at its first line. For example, in case of Bash:
       </para>
-<screen>#!/usr/bin/bash</screen>
+<screen>#!/bin/<replaceable>INTERPRETER</replaceable></screen>
+<para>
+  Where <replaceable>INTERPRETER</replaceable> can be either <literal>bash</literal> or
+  <literal>sh</literal>. We cannot guarantee that other interpereters are available.
+</para>
     </important>
     <para>
       To log in to your system, include at least the &rootuser; password.
@@ -42,11 +46,29 @@
       secure password. If you use a randomly generated password, use at least
       10 characters. If you create your password manually, use even more than
       10 characters and combine uppercase and lowercase letters and numbers.
-    </para>
+    </para>    
+    <section xml:id="sec-script-network">
+      <title>Network configuration</title>
+      <para>
+        To configure and use the network connection during the first boot, add
+        the following statement to <filename>script</filename>:
+      </para>
+<screen># combustion: network</screen>
+      <para>
+        Using this statement will pass the <literal>rd.neednet=1</literal>
+        argument to dracut. The network configuration defaults to use DHCP, if other network
+        configuration is needed, proceed as described in <xref
+        linkend="combustion-prepare-statement"/>.
+      </para>
+        <para> 
+        If you do not use the statement, the system will be
+        configured without any network connection.
+      </para>
+    </section>
     <section xml:id="combustion-prepare-statement">
       <title>Performing modifications in the initramfs</title>
       <para>
-        You may need to perform changes to the initramfs, for example, to write network configuration for &nm; into
+        You may need to perform changes to the initramfs, for example, to write a custom network configuration for &nm; into
         <filename>/etc/NetworkManager/system-connections/</filename>. To do so, use the
         <literal>prepare</literal> statement.
       </para>
@@ -61,7 +83,7 @@
           nm_config() {
               umask 077 # Required for NM config
               mkdir -p /etc/NetworkManager/system-connections/
-              cat >/etc/NetworkManager/system-connections/static.nmconnection <<-EOF
+              cat &gt;/etc/NetworkManager/system-connections/static.nmconnection &lt;&lt;-EOF
               [connection]
               id=static
               type=ethernet
@@ -80,26 +102,13 @@
           fi
           
           # Redirect output to the console
-          exec > >(exec tee -a /dev/tty0) 2>&1
+          exec &gt; &gt;(exec tee -a /dev/tty0) 2&gt;&amp;1
           
           nm_config # Configure NM in the system
           curl example.com
           # Leave a marker
-          echo "Configured with combustion" > /etc/issue.d/combustion</screen>
+          echo "Configured with combustion" &gt; /etc/issue.d/combustion</screen>
         </section>
-    <section xml:id="sec-script-network">
-      <title>Network configuration</title>
-      <para>
-        To configure and use the network connection during the first boot, add
-        the following statement to <filename>script</filename>:
-      </para>
-<screen># combustion: network</screen>
-      <para>
-        Using this statement will pass the <literal>rd.neednet=1</literal>
-        argument to dracut. If you do not use the statement, the system will be
-        configured without any network connection.
-      </para>
-    </section>
     <section xml:id="combustion-script-partitioning">
       <title>Partitioning</title>
       <para>
