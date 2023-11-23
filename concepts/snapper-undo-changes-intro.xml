@@ -4,7 +4,7 @@
   <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
     %entities;
 ]>
-<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- refers to legacy doc: https://documentation.suse.com/sles/15-SP5/single-html/SLES-administration/#cha-snapper -->
 <!-- point back to this document with a similar comment added to your legacy doc piece -->
 <!-- refer to README.md for file and id naming conventions -->
 <!-- metadata is dealt with on the assembly level -->
@@ -21,22 +21,71 @@
     <abstract>
      <para>
       &snapper; on &productname; is preconfigured to serve as a tool that lets you
-      undo changes made by <command>zypper</command> and &yast;. For this purpose,
-      Snapper is configured to create a pair of snapshots before and after each
-      run of <command>zypper</command> and &yast;. Snapper also lets you restore
-      system files that have been accidentally deleted or modified. Timeline
-      snapshots for the root partition need to be enabled for this
-      purpose&mdash;see <!--
-      <xref linkend="sec-snapper-setup-customize-auto-snapshots"/> for details. TODO: Add correct link-->
-     </para>
+      undo changes made by <command>zypper</command> and &yast;. It does this
+      by creating a pair of snapshots before and after each run of <command>zypper</command> 
+      and &yast;.</para>
     </abstract>
   </info>
-     <para>By default, automatic snapshots as described above are configured for the
-      root partition and its subvolumes. To make snapshots available for other
-      partitions such as <filename>/home</filename> for example, you can create
-      custom configurations.<!-- TODO: Add link to custom configurations-->
-      </para>
-          
-      <para>...</para>
+  <para>
+    Taking snapshot pairs upon installing packages with &yast; or Zypper is
+    handled by <systemitem class="resource">snapper-zypp-plugin</systemitem>. An XML
+    configuration file, <filename>/etc/snapper/zypp-plugin.conf</filename>, defines 
+    when to make snapshots. By default, the file looks like the following:
+   </para>
+<screen> 1 &lt;?xml version="1.0" encoding="utf-8"?&gt;
+2 &lt;snapper-zypp-plugin-conf&gt;
+3  &lt;solvables&gt;
+4   &lt;solvable match="w"<co xml:id="zypp-conf-match"/> important="true"<co xml:id="zypp-conf-important"/>&gt;kernel-*<co xml:id="zypp-conf-kernel"/>&lt;/solvable&gt;
+5   &lt;solvable match="w" important="true"&gt;dracut&lt;/solvable&gt;
+6   &lt;solvable match="w" important="true"&gt;glibc&lt;/solvable&gt;
+7   &lt;solvable match="w" important="true"&gt;systemd*&lt;/solvable&gt;
+8   &lt;solvable match="w" important="true"&gt;udev&lt;/solvable&gt;
+9   &lt;solvable match="w"&gt;*&lt;/solvable&gt;<co xml:id="zypp-conf-packages"/>
+10  &lt;/solvables&gt;
+11 &lt;/snapper-zypp-plugin-conf&gt;</screen>
+   <calloutlist>
+    <callout arearefs="zypp-conf-match">
+     <para>
+      The match attribute defines whether the pattern is a Unix shell-style
+      wild card (<literal>w</literal>) or a Python regular expression
+      (<literal>re</literal>).
+     </para>
+    </callout>
+    <callout arearefs="zypp-conf-important">
+     <para>
+      If the pattern matches and the corresponding package is marked as
+      important (for example, kernel packages), the snapshot will also be
+      marked as important.
+     </para>
+    </callout>
+    <callout arearefs="zypp-conf-kernel">
+     <para>
+      Pattern to match a package name. Based on the setting of the
+      <literal>match</literal> attribute, special characters are
+      interpreted as shell wild cards or regular expressions. This pattern
+      matches all package names, starting with <literal>kernel-</literal>.
+     </para>
+    </callout>
+    <callout arearefs="zypp-conf-packages">
+     <para>
+      This line unconditionally matches all packages.
+     </para>
+    </callout>
+   </calloutlist>
+   <para>
+    With this configuration snapshot, pairs are made whenever a package is
+    installed (line 9). When the kernel, dracut, glibc, systemd, or udev packages
+    marked as important are installed, the snapshot pair will also be marked
+    as important (lines 4 to 8). All rules are evaluated.
+   </para>
+   <para>By default, automatic snapshots as described above are configured for the
+    root partition and its subvolumes. To make snapshots available for other
+    partitions such as <filename>/home</filename>, for example, you can create
+    custom configurations. For more information, see <!-- TODO: Add link to custom configurations-->
+   </para>
+   <para>Snapper also lets you restore system files that have been accidentally
+     deleted or modified. Timeline snapshots for the root partition need to be 
+     enabled for this purpose&mdash;see <!--
+        <xref linkend="sec-snapper-setup-customize-auto-snapshots"/> for details. TODO: Add correct link--></para>
       
 </topic>
