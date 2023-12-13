@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/edit/main/xml/uefi-httpboot-server.xml
+https://documentation.suse.com/sles/15-SP5/html/SLES-all/cha-deployment-prep-uefi-httpboot.html -->
+
+<topic xml:id="http-boot-configure-dhcp-server"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring a DHCP server for HTTP Boot</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        The DHCP server provides IP addresses and other networking information to clients.
+      </para>
+    </abstract>
+  </info>
+
+  <procedure>
+    <para>
+      In this procedure, replace the example IP addresses and subnets with the
+      appropriate values for your system.
+    </para>
+    <step>
+      <para>
+        Install the <package>dhcp-server</package> package:
+      </para>
+<screen>&prompt.user;<command>sudo zypper install dhcp-server</command></screen>
+    </step>
+    <step>
+      <para>
+        Edit the <filename>/etc/sysconfig/dhcpd</filename> file to specify the
+        network interface for the DHCPv4 and DHCPv6 servers:
+      </para>
+<screen>DHCPD_INTERFACE="eth0"
+DHCPD6_INTERFACE="eth0"</screen>
+    </step>
+    <step>
+      <para>
+        To configure the DHCPv4 server, edit the <filename>/etc/dhcpd.conf</filename>
+        file using the following example as a reference:
+      </para>
+<screen>option domain-name-servers 192.168.111.1;
+option routers 192.168.111.1;
+default-lease-time 14400;
+ddns-update-style none;
+subnet 192.168.111.0 netmask 255.255.255.0 {
+  range dynamic-bootp 192.168.111.100 192.168.111.120;
+  default-lease-time 14400;
+  max-lease-time 172800;
+  option vendor-class-identifier "HTTPClient"; <co xml:id="co-venclassID-v4"/>
+  filename "http://www.httpboot.local/sle/EFI/BOOT/bootx64.efi"; <co xml:id="co-booturl-v4"/>
+}</screen>
+      <calloutlist>
+        <callout arearefs="co-venclassID-v4">
+          <para>
+            The vendor class ID must be <literal>HTTPClient</literal>. The client uses
+            this ID to identify an HTTP Boot offer.
+          </para>
+        </callout>
+        <callout arearefs="co-booturl-v4">
+          <para>
+            The boot URL must point to the installation directory on the HTTP server.
+          </para>
+        </callout>
+      </calloutlist>
+    </step>
+    <step>
+      <para>
+        To configure the DHCPv6 server, edit the <filename>/etc/dhcpd6.conf</filename>
+        file using the following example as a reference:
+      </para>
+<screen>option dhcp6.bootfile-url code 59 = string;
+option dhcp6.vendor-class code 16 = {integer 32, integer 16, string};
+subnet6 2001:db8:f00f:cafe::/64 {
+        range6 2001:db8:f00f:cafe::42:10 2001:db8:f00f:cafe::42:99;
+        option dhcp6.bootfile-url "http://www.httpboot.local/sle/EFI/BOOT/bootx64.efi"; <co xml:id="co-booturl-v6"/>
+        option dhcp6.name-servers 2001:db8:f00f:cafe::1;
+        option dhcp6.vendor-class 0 10 "HTTPClient"; <co xml:id="co-venclassID-v6"/>
+}</screen>
+      <calloutlist>
+        <callout arearefs="co-booturl-v6">
+          <para>
+            The boot URL must point to the installation directory on the HTTP server.
+          </para>
+        </callout>
+        <callout arearefs="co-venclassID-v6">
+          <para>
+            The vendor class option must consist of the enterprise number, the
+            vendor class length, and the vendor class content. The HTTP Boot driver
+            ignores the enterprise number, so you can set it to <literal>0</literal>.
+            The vendor class length must <literal>10</literal>, and the content
+            must be <literal>HTTPClient</literal>. The client uses this ID
+            to identify an HTTP Boot offer.
+          </para>
+        </callout>
+      </calloutlist>
+    </step>
+    <step>
+      <para>
+        Start the DHCP servers:
+      </para>
+<screen>&prompt.user;<command>sudo systemctl enable --now dhcpd</command>
+&prompt.user;<command>sudo systemctl enable --now dhcpd6</command></screen>
+    </step>
+  </procedure>
+</topic>
