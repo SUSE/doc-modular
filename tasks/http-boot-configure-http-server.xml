@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/edit/main/xml/uefi-httpboot-server.xml
+https://documentation.suse.com/sles/15-SP5/html/SLES-all/cha-deployment-prep-uefi-httpboot.html-->
+
+<topic xml:id="http-boot-configure-http-server"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring an HTTP server for HTTP Boot</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        The HTTP server provides the installation sources to clients.
+      </para>
+    </abstract>
+  </info>
+  <procedure>
+    <step>
+      <para>
+        Install the <package>apache2</package> package:
+      </para>
+<screen>&prompt.user;<command>sudo zypper install apache2</command></screen>
+    </step>
+    <step>
+      <para>
+        In the root directory of the HTTP Boot server (<literal>/srv/www/htdocs/</literal>), create
+        a subdirectory for the installation content. For example, <literal>/srv/www/htdocs/sle/</literal>:
+      </para>
+<screen>&prompt.user;<command>sudo mkdir /srv/www/htdocs/sle</command></screen>
+    </step>
+    <step>
+      <para>
+        Copy or extract all of the files from the ISO to the new directory.
+      </para>
+    </step>
+    <step>
+      <para>
+        To configure the boot menu, edit the <filename>/srv/www/htdocs/sle/EFI/BOOT/grub.cfg</filename>
+        file using the following example as a reference:
+      </para>
+<screen> menuentry 'Installation IPv4' --class opensuse --class gnu-linux --class gnu --class os {
+  set gfxpayload=keep
+  echo 'Loading kernel ...'
+  linuxefi /sle/boot/x86_64/loader/linux install=http://www.httpboot.local/sle
+  echo 'Loading initial ramdisk ...'
+  initrdefi /sle/boot/x86_64/loader/initrd
+ }
+
+ menuentry 'Installation IPv6' --class opensuse --class gnu-linux --class gnu --class os {
+  set gfxpayload=keep
+  echo 'Loading kernel ...'
+  linuxefi /sle/boot/x86_64/loader/linux install=http://www.httpboot.local/sle ipv6only=1 ifcfg=*=dhcp6,DHCLIENT6_MODE=managed
+  echo 'Loading initial ramdisk ...'
+  initrdefi /sle/boot/x86_64/loader/initrd
+ }</screen>
+    </step>
+    <step>
+      <para>
+        Enable and start <literal>apache2</literal>:
+      </para>
+<screen>&prompt.user;<command>sudo systemctl enable --now apache2</command></screen>
+    </step>
+  </procedure>
+</topic>

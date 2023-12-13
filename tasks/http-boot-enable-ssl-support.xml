@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/edit/main/xml/uefi-httpboot-server.xml
+https://documentation.suse.com/sles/15-SP5/html/SLES-all/cha-deployment-prep-uefi-httpboot.html -->
+
+<topic xml:id="http-boot-enable-ssl-support"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Enabling SSL support for an HTTP server (HTTPS Boot)</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        To use HTTPS Boot, you must convert an SSL certificate into the <literal>DER</literal>
+        format and enroll it into the client's firmware.
+      </para>
+    </abstract>
+  </info>
+
+  <procedure>
+    <para>
+      This procedure assumes that you already have an SSL certificate installed on your server.
+    </para>
+    <step>
+      <para>
+        Convert the certificate into the <literal>DER</literal> format:
+      </para>
+<screen>&prompt.user;<command>sudo openssl x509 -in <replaceable>CERTIFICATE</replaceable>.crt -outform der -out <replaceable>CERTIFICATE</replaceable>.der</command></screen>
+    </step>
+    <step>
+      <para>
+        Enroll the server certificate into the client firmware. The procedure for enrolling the
+        converted certificate depends on the client. For some hardware, you must enroll the
+        certificate manually using an external storage device with the certificate on it.
+        For machines with Redfish support, you can enroll the certificate remotely. Consult the
+        documentation for your specific client for more information on enrolling certificates.
+      </para>
+    </step>
+    <step>
+      <para>
+        Edit the <filename>/etc/sysconfig/apache2</filename> file to add the SSL flag:
+      </para>
+<screen>APACHE_SERVER_FLAGS="SSL"</screen>
+    </step>
+    <step>
+      <para>
+        In the same file, ensure that the <literal>ssl</literal> module appears in
+        the <literal>APACHE_MODULES</literal> list:
+      </para>
+<screen>&prompt.user;<command>sudo grep 'APACHE_MODULES.*ssl' /etc/sysconfig/apache2</command>
+<emphasis role="bold">APACHE_MODULES</emphasis>="actions alias auth_basic authn_core authn_file authz_host
+authz_groupfile authz_core authz_user autoindex cgi dir env expires include
+log_config mime negotiation setenvif <emphasis role="bold">ssl</emphasis> socache_shmcb userdir reqtimeout"</screen>
+    </step>
+    <step>
+      <para>
+        Copy the private key and the certificate to the <filename>/etc/apache2/</filename> directory:
+      </para>
+<screen>&prompt.user;<command>sudo cp server.key /etc/apache2/ssl.key/</command>
+&prompt.user;<command>sudo chown wwwrun /etc/apache2/ssl.key/server.key</command>
+&prompt.user;<command>sudo chmod 600 /etc/apache2/ssl.key/server.key</command>
+&prompt.user;<command>sudo cp server.crt /etc/apache2/ssl.crt/</command></screen>
+    </step>
+    <step>
+      <para>
+        Create the SSL vhost configuration:
+      </para>
+<screen>&prompt.user;<command>sudo cp /etc/apache2/vhosts.d/vhost-ssl.template /etc/apache2/vhosts.d/vhost-ssl.conf</command></screen>
+    </step>
+    <step>
+      <para>
+        Edit the <filename>/etc/apache2/vhosts.d/vhost-ssl.conf</filename> file to
+        change the private key and the certificate to the following values:
+      </para>
+<screen>SSLCertificateFile /etc/apache2/ssl.crt/server.crt
+SSLCertificateKeyFile /etc/apache2/ssl.key/server.key</screen>
+    </step>
+    <step>
+      <para>
+        Restart Apache to activate the SSL support:
+      </para>
+<screen>&prompt.user;<command>sudo systemctl restart apache2</command></screen>
+    </step>
+    <step>
+      <para>
+        Replace the <literal>http://</literal> prefix with <literal>https://</literal> in the
+        <filename>/etc/dhcpd.conf</filename> and <filename>/etc/dhcpd6.conf</filename> files:
+      </para>
+<screen>filename "http<emphasis role="bold">s</emphasis>://www.httpboot.local/sle/EFI/BOOT/bootx64.efi";</screen>
+<screen>option dhcp6.bootfile-url "http<emphasis role="bold">s</emphasis>://www.httpboot.local/sle/EFI/BOOT/bootx64.efi";</screen>
+    </step>
+    <step>
+      <para>
+        Restart the DHCP servers:
+      </para>
+<screen>&prompt.user;<command>sudo systemctl restart dhcpd</command>
+&prompt.user;<command>sudo systemctl restart dhcpd6</command></screen>
+    </step>
+  </procedure>
+</topic>
