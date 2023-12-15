@@ -36,29 +36,6 @@
   </important>
   <variablelist>
     <title>Virtual disk cache modes</title>
-    <varlistentry xml:id="cache-writeback">
-      <term>writeback</term>
-      <listitem>
-        <para>
-          <literal>writeback</literal> uses the host page cache. Writes are reported to the guest
-          as completed when they are placed in the host cache. Cache management handles commitment
-          to the storage device, which can happen later. The guest's virtual storage adapter is informed of the
-          <emphasis>writeback</emphasis> cache and therefore expected to send flush commands as
-          needed to manage data integrity.
-        </para>
-      </listitem>
-    </varlistentry>
-    <varlistentry xml:id="cache-writethrough">
-      <term>writethrough</term>
-      <listitem>
-        <para>
-          Writes are reported as completed only when the data has been committed to the storage
-          device. The guest's virtual storage adapter is informed that there is no
-          <emphasis>writeback</emphasis> cache, so the guest do not need to send flush commands to
-          manage data integrity.
-        </para>
-      </listitem>
-    </varlistentry>
     <varlistentry xml:id="cache-none">
       <term>none</term>
       <listitem>
@@ -71,14 +48,37 @@
         </para>
       </listitem>
     </varlistentry>
+    <varlistentry xml:id="cache-writethrough">
+      <term>writethrough</term>
+      <listitem>
+        <para>
+          Writes are reported as completed only when the data has been written to the storage
+          device, which happens immediately. The guest's virtual storage adapter is informed that
+          there is no <emphasis>writeback</emphasis> cache, so the guest do not need to send flush
+          commands to manage data integrity.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id="cache-writeback">
+      <term>writeback</term>
+      <listitem>
+        <para>
+          <literal>writeback</literal> uses the host disk cache. Writes are reported to the guest
+          as completed when they are placed in the host cache. Cache management handles writing
+          cached data to the storage device, which can happen later. The guest's virtual storage
+          adapter is informed of the <emphasis>writeback</emphasis> cache and therefore expected to
+          send flush commands as needed to manage data integrity.
+        </para>
+      </listitem>
+    </varlistentry>
     <varlistentry xml:id="cache-unsafe">
       <term>unsafe</term>
       <listitem>
         <para>
           Similar to the <emphasis>writeback</emphasis> mode, except all flush commands from the
           guests are ignored. Using this mode implies that the user prioritizes performance gain
-          over the risk of data loss in case of a host failure. This mode can be useful during
-          guest installation, but not for production workloads.
+          over the risk of data loss in case of a host failure. Do not use this mode for production
+          workloads.
         </para>
       </listitem>
     </varlistentry>
@@ -86,9 +86,15 @@
       <term>directsync</term>
       <listitem>
         <para>
-          Writes are reported as completed only when the data has been committed to the storage
-          device and the host cache is bypassed. Similar to <emphasis>writethrough</emphasis>, this
-          mode can be useful for guests that do not send flushes when needed.
+          Similar to <emphasis>writethrough</emphasis> but the host cache is bypassed.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id="cache-default">
+      <term>default</term>
+      <listitem>
+        <para>
+          The default cache mode of the used hypervisor is used.
         </para>
       </listitem>
     </varlistentry>
@@ -113,8 +119,8 @@
             This mode informs the guest of the presence of a write cache, and it relies on the
             guest to send flush commands as needed to maintain data integrity within its disk
             image. This mode exposes the guest to data loss when the host fails. It is caused by
-            the gap between the moment a write is reported as completed and the time the write
-            being committed to the storage device.
+            the gap between when a write is reported as completed and when it is written to the
+            storage device.
           </para>
         </listitem>
       </varlistentry>
