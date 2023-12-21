@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="vm-assign-pci-device-virsh"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Assigning a PCI device to a virtual machine using &virsh;</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Assigning a &vmhost;'s PCI device to a &vmguest;&mdash;also known as
+        &pciback;&mdash;dedicates the PCI device's resources to the &vmguest;. After the PCI device
+        is assigned, it cannot be used by the &vmhost; or by any other &vmguest; on the same
+        &vmhost;. This article describe how to assign &vmhost;'s PCI device to a &vmguest; using
+        the &virsh; command-line tool.
+      </para>
+    </abstract>
+  </info>
+  <important>
+    <title>&kvm; guests using &qemu; Q35 machine type</title>
+    <para>
+      &kvm; guests using the &qemu; Q35 machine type have a PCI topology that includes a
+      <literal>pcie-root</literal> controller and seven <literal>pcie-root-port</literal>
+      controllers. The <literal>pcie-root</literal> controller does not support hotplugging. Each
+      <literal>pcie-root-port</literal> controller supports hotplugging a single PCIe device. PCI
+      controllers cannot be hotplugged, so plan accordingly and add more
+      <literal>pcie-root-port</literal>'s if more than seven PCIe devices will be hotplugged. A
+      <literal>pcie-to-pci-bridge</literal> controller can be added to support hotplugging legacy
+      PCI devices. See <link xlink:href="https://libvirt.org/pci-hotplug.html"/> for more
+      information about PCI topology between &qemu; machine types.
+    </para>
+  </important>
+  <procedure>
+    <step>
+      <para>
+        Identify the host PCI device to assign to the &vmguest;. The following example identifies a
+        DEC network card:
+      </para>
+<screen>&prompt.sudo;<command>lspci -nn</command>
+ [...]
+ <emphasis role="bold">03:07.0</emphasis> Ethernet controller [0200]: Digital Equipment Corporation DECchip \
+ 21140 [FasterNet] [1011:0009] (rev 22)
+ [...]</screen>
+      <para>
+        Write down the device ID, for example, <literal>03:07.0</literal>.
+      </para>
+    </step>
+    <step>
+      <para>
+        Gather detailed information about the device using <command>virsh nodedev-dumpxml
+        <replaceable>ID</replaceable></command>. To get the <replaceable>ID</replaceable>, replace
+        the colon and the period in the device ID (<literal>03:07.0</literal>) with underscores.
+        Prefix the result with <quote>pci_0000_</quote>: <literal>pci_0000_03_07_0</literal>.
+      </para>
+<screen>&prompt.sudo;<command>virsh nodedev-dumpxml pci_0000_03_07_0</command>
+ &lt;device&gt;
+   &lt;name&gt;pci_0000_03_07_0&lt;/name&gt;
+   &lt;path&gt;/sys/devices/pci0000:00/0000:00:14.4/0000:03:07.0&lt;/path&gt;
+   &lt;parent&gt;pci_0000_00_14_4&lt;/parent&gt;
+   &lt;driver&gt;
+     &lt;name&gt;tulip&lt;/name&gt;
+   &lt;/driver&gt;
+   &lt;capability type='pci'&gt;
+     <emphasis role="bold">&lt;domain&gt;0&lt;/domain&gt;
+     &lt;bus&gt;3&lt;/bus&gt;
+     &lt;slot&gt;7&lt;/slot&gt;
+     &lt;function&gt;0&lt;/function&gt;</emphasis>
+     &lt;product id='0x0009'&gt;DECchip 21140 [FasterNet]&lt;/product&gt;
+     &lt;vendor id='0x1011'&gt;Digital Equipment Corporation&lt;/vendor&gt;
+     &lt;numa node='0'/&gt;
+   &lt;/capability&gt;
+ &lt;/device&gt;</screen>
+      <para>
+        Write down the values for domain, bus and function.
+      </para>
+    </step>
+    <step>
+      <para>
+        Detach the device from the host system:
+      </para>
+<screen>&prompt.sudo;<command>virsh nodedev-detach pci_0000_03_07_0</command>
+   Device pci_0000_03_07_0 detached</screen>
+      <tip>
+        <title>Multi-function PCI devices</title>
+        <para>
+          When using a multi-function PCI device that does not support FLR (function level reset)
+          or PM (power management) reset, you need to detach all its functions from the &vmhost;.
+          The whole device must be reset for security reasons. <systemitem>libvirt</systemitem>
+          refuses to assign the device if one of its functions is still in use by the &vmhost; or
+          another &vmguest;.
+        </para>
+      </tip>
+    </step>
+    <step>
+      <para>
+        Convert the domain, bus, slot, and function values from decimal to hexadecimal. In this
+        example, domain = 0, bus = 3, slot = 7, and function = 0. Ensure that the values are
+        inserted in the right order:
+      </para>
+<screen>&prompt.user;<command>printf "&lt;address domain='0x%x' bus='0x%x' slot='0x%x' function='0x%x'/&gt;\n" 0 3 7 0</command></screen>
+      <para>
+        This results in:
+      </para>
+<screen>&lt;address domain='0x0' bus='0x3' slot='0x7' function='0x0'/&gt;</screen>
+    </step>
+    <step>
+      <para>
+        Run <command>virsh edit</command> on your domain, and add the following device entry in the
+        <literal>&lt;devices&gt;</literal> section using the result from the previous step:
+      </para>
+<screen>&lt;hostdev mode='subsystem' type='pci' managed='yes'&gt;
+   &lt;source&gt;
+     &lt;address domain='0x0' bus='0x03' slot='0x07' function='0x0'/&gt;
+   &lt;/source&gt;
+ &lt;/hostdev&gt;</screen>
+      <tip xml:id="tip-libvirt-config-pci-virsh-managed">
+        <title><literal>managed</literal> compared to <literal>unmanaged</literal></title>
+        <para>
+          <systemitem>libvirt</systemitem> recognizes two modes for handling PCI devices:
+          <literal>managed</literal> or <literal>unmanaged</literal>.
+        </para>
+        <para>
+          If the device is managed, <systemitem>libvirt</systemitem> handles all the details of
+          adding or removing the device. Before starting the domain,
+          <systemitem>libvirt</systemitem> unbinds the device from the existing driver if needed,
+          resets the device, and binds it to <systemitem>vfio-pci</systemitem>. When the domain is
+          terminated or the device is removed from the domain, <systemitem>libvirt</systemitem>
+          unbinds the device from <systemitem>vfio-pci</systemitem> and rebinds it to the original
+          driver.
+        </para>
+        <para>
+          If the device is unmanaged, you must manually manage these tasks before assigning the
+          device to a domain, and after the device is no longer used by the domain.
+        </para>
+      </tip>
+      <para>
+        In the example above, the <literal>managed='yes'</literal> option means that the device is
+        managed. To switch the device mode to unmanaged, set <literal>managed='no'</literal>. If
+        you do so, you need to take care of the related driver with the <command>virsh
+        nodedev-detach</command> and <command>virsh nodedev-reattach</command> commands. Before
+        starting the &vmguest; you need to detach the device from the host by running
+      </para>
+<screen>&prompt.sudo;virsh nodedev-detach <replaceable>pci_0000_03_07_0</replaceable></screen>
+      <para>
+        When the &vmguest; is not running, you can make the device available for the host by
+        running
+      </para>
+<screen>&prompt.sudo;virsh nodedev-reattach <replaceable>pci_0000_03_07_0</replaceable></screen>
+    </step>
+    <step>
+      <para>
+        Shut down the &vmguest;:
+      </para>
+<screen>&prompt.sudo;shutdown -h now</screen>
+    </step>
+    <step>
+      <para>
+        If &selnx; is running on the &vmhost;, you need to allow managing the PCI device
+        configuration:
+      </para>
+<screen>&prompt.sudo;<command>setsebool -P virt_use_sysfs 1</command></screen>
+    </step>
+    <step>
+      <para>
+        Start your &vmguest; to make the assigned PCI device available:
+      </para>
+<screen>&prompt.sudo;<command>virsh start <replaceable>VM_NAME</replaceable></command></screen>
+    </step>
+  </procedure>
+</topic>
