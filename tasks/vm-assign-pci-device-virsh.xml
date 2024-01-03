@@ -94,28 +94,16 @@
       </para>
 <screen>&prompt.sudo;<command>virsh nodedev-detach pci_0000_03_07_0</command>
    Device pci_0000_03_07_0 detached</screen>
-      <tip>
-        <title>Multi-function PCI devices</title>
-        <para>
-          When using a multi-function PCI device that does not support FLR (function level reset)
-          or PM (power management) reset, you need to detach all its functions from the &vmhost;.
-          The whole device must be reset for security reasons. <systemitem>libvirt</systemitem>
-          refuses to assign the device if one of its functions is still in use by the &vmhost; or
-          another &vmguest;.
-        </para>
-      </tip>
     </step>
     <step>
       <para>
         Convert the domain, bus, slot, and function values from decimal to hexadecimal. In this
         example, domain = 0, bus = 3, slot = 7, and function = 0. Ensure that the values are
-        inserted in the right order:
+        inserted in the right order. Use <command>printf</command> to output the PCI source address
+        line that you need when updating the domain XML specification, for example:
       </para>
-<screen>&prompt.user;<command>printf "&lt;address domain='0x%x' bus='0x%x' slot='0x%x' function='0x%x'/&gt;\n" 0 3 7 0</command></screen>
-      <para>
-        This results in:
-      </para>
-<screen>&lt;address domain='0x0' bus='0x3' slot='0x7' function='0x0'/&gt;</screen>
+<screen>&prompt.user;<command>printf "&lt;address domain='0x%x' bus='0x%x' slot='0x%x' function='0x%x'/&gt;\n" 0 3 7 0</command>
+&lt;address domain='0x0' bus='0x3' slot='0x7' function='0x0'/&gt;</screen>
     </step>
     <step>
       <para>
@@ -127,39 +115,6 @@
      &lt;address domain='0x0' bus='0x03' slot='0x07' function='0x0'/&gt;
    &lt;/source&gt;
  &lt;/hostdev&gt;</screen>
-      <tip xml:id="tip-libvirt-config-pci-virsh-managed">
-        <title><literal>managed</literal> compared to <literal>unmanaged</literal></title>
-        <para>
-          <systemitem>libvirt</systemitem> recognizes two modes for handling PCI devices:
-          <literal>managed</literal> or <literal>unmanaged</literal>.
-        </para>
-        <para>
-          If the device is managed, <systemitem>libvirt</systemitem> handles all the details of
-          adding or removing the device. Before starting the domain,
-          <systemitem>libvirt</systemitem> unbinds the device from the existing driver if needed,
-          resets the device, and binds it to <systemitem>vfio-pci</systemitem>. When the domain is
-          terminated or the device is removed from the domain, <systemitem>libvirt</systemitem>
-          unbinds the device from <systemitem>vfio-pci</systemitem> and rebinds it to the original
-          driver.
-        </para>
-        <para>
-          If the device is unmanaged, you must manually manage these tasks before assigning the
-          device to a domain, and after the device is no longer used by the domain.
-        </para>
-      </tip>
-      <para>
-        In the example above, the <literal>managed='yes'</literal> option means that the device is
-        managed. To switch the device mode to unmanaged, set <literal>managed='no'</literal>. If
-        you do so, you need to take care of the related driver with the <command>virsh
-        nodedev-detach</command> and <command>virsh nodedev-reattach</command> commands. Before
-        starting the &vmguest;, you need to detach the device from the host by running
-      </para>
-<screen>&prompt.sudo;virsh nodedev-detach <replaceable>pci_0000_03_07_0</replaceable></screen>
-      <para>
-        When the &vmguest; is not running, you can make the device available for the host by
-        running
-      </para>
-<screen>&prompt.sudo;virsh nodedev-reattach <replaceable>pci_0000_03_07_0</replaceable></screen>
     </step>
     <step>
       <para>

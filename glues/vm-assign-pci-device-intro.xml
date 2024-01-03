@@ -18,10 +18,52 @@
   <para>
     &libvirt; is a unified interface to multiple virtualization solutions. &libvirt; virtual
     machines are typically managed by either &virsh;, a command-line utility, or &vmm;, an
-    application with a graphical user interface. Assigning a &vmhost;'s PCI device to a
-    &vmguest;&mdash;also known as &pciback;&mdash;dedicates the PCI device's resources to the
-    &vmguest;. After the PCI device is assigned, it cannot be used by the &vmhost; or by any other
-    &vmguest; on the same &vmhost;. This article describes how to assign a &vmhost;'s PCI device to a
-    &vmguest; using the &vmm; GUI application.
+    application with a graphical user interface. Assigning a &vmhost;'s PCI (or USB) devices to a
+    &vmguest;&mdash;also known as &pciback;&mdash;dedicates the device's resources to the
+    &vmguest;. After the device is assigned, it cannot be used by the &vmhost; or by any other
+    &vmguest; on the same &vmhost;. This article describes how to assign a &vmhost;'s device to a
+    &vmguest; using both the &virsh; command-line utility and the &vmm; GUI application.
   </para>
+  <section xml:id="vm-assign-pci-device-unmanaged">
+    <title>Managed and unmanaged devices</title>
+    <para>
+      When assigning a host device to a &vmguest;, you can specify whether the device is either
+      <emphasis>managed</emphasis> or <emphasis>unmanaged</emphasis> by using the
+      <literal>managed='yes'</literal> (default) or <literal>managed='no'</literal> option in the
+      &libvirt; XML specification of the device, for example:
+    </para>
+<screen>&lt;hostdev mode='subsystem' type='pci' managed='yes'&gt;</screen>
+    <para>
+      <emphasis>Managed</emphasis> devices are automatically detached from the host driver and
+      attached to the virtual <systemitem>vfio-pci</systemitem> driver of the guest during the
+      domain startup. When the domain is terminated, the device is reattached to the original host
+      driver.
+    </para>
+    <para>
+      For <emphasis>unmanaged devices</emphasis>, you need to take care of detaching the device
+      from the host and attaching it to the <systemitem>vfio-pci</systemitem> driver manually as
+      suggested by the following steps:
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Before starting the domain, detach the device&mdash;identified by
+          <replaceable>pci_0000_03_07_0</replaceable>, for example, from the host.
+        </para>
+<screen>&prompt.sudo;virsh nodedev-detach <replaceable>pci_0000_03_07_0</replaceable></screen>
+      </step>
+      <step>
+        <para>
+          Start the domain. It is automatically assigned the unmanaged device identified by
+          <replaceable>pci_0000_03_07_0</replaceable>.
+        </para>
+      </step>
+      <step>
+        <para>
+          After you stop the domain, you can make the device available to the host again.
+        </para>
+<screen>&prompt.sudo;virsh nodedev-reattach <replaceable>pci_0000_03_07_0</replaceable></screen>
+      </step>
+    </procedure>
+  </section>
 </topic>
