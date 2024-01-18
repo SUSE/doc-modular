@@ -25,7 +25,7 @@
         A virtual disk is an essential part of a virtual machine (VM). To speed up disk reading and
         writing operations, you can enable a caching mechanism. This article describes available
         disk caching modes and how they behave with regards to data integrity and live migration of
-        VMs.
+        VMs. The cache modes are sorted from the safest one to the least safe one.
       </para>
     </abstract>
   </info>
@@ -54,8 +54,16 @@
         <para>
           Writes are reported as completed only when the data has been written to the storage
           device, which happens immediately. The guest's virtual storage adapter is informed that
-          there is no <emphasis>writeback</emphasis> cache, so the guest does not need to send flush
-          commands to manage data integrity.
+          there is no <emphasis>writeback</emphasis> cache, so the guest does not need to send
+          flush commands to manage data integrity.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id="cache-directsync">
+      <term>directsync</term>
+      <listitem>
+        <para>
+          Similar to <emphasis>writethrough</emphasis> but the host cache is bypassed.
         </para>
       </listitem>
     </varlistentry>
@@ -77,24 +85,16 @@
         <para>
           Similar to the <emphasis>writeback</emphasis> mode, except all flush commands from the
           guests are ignored. Using this mode implies that the user prioritizes performance gain
-          over the risk of data loss in case of a host failure. Do not use this mode for production
-          workloads.
+          over data security.
         </para>
-      </listitem>
-    </varlistentry>
-    <varlistentry xml:id="cache-directsync">
-      <term>directsync</term>
-      <listitem>
-        <para>
-          Similar to <emphasis>writethrough</emphasis> but the host cache is bypassed.
-        </para>
+        <xi:include href="../snippets/unsafe-cache-mode-warning.xml"/>
       </listitem>
     </varlistentry>
     <varlistentry xml:id="cache-default">
       <term>default</term>
       <listitem>
         <para>
-          The default cache mode of the used hypervisor is used.
+          The default cache mode of the used hypervisor is enabled.
         </para>
       </listitem>
     </varlistentry>
@@ -106,9 +106,9 @@
         <term>writethrough, none, directsync</term>
         <listitem>
           <para>
-            These modes are considered to be the safest when the guest operating system uses flushes as
-            needed. For unsafe or unstable guests, use <emphasis>writethrough</emphasis> or
-            <emphasis>directsync</emphasis>.
+            These modes are considered to be the safest when the guest operating system uses
+            flushes as needed. For unsafe or unstable guests, use <emphasis>writethrough</emphasis>
+            or <emphasis>directsync</emphasis>.
           </para>
         </listitem>
       </varlistentry>
@@ -118,10 +118,15 @@
           <para>
             This mode informs the guest of the presence of a write cache, and it relies on the
             guest to send flush commands as needed to maintain data integrity within its disk
-            image. This mode exposes the guest to data loss when the host fails. It is caused by
-            the gap between when a write is reported as completed and when it is written to the
-            storage device.
+            image.
           </para>
+          <warning>
+            <para>
+              Using the <emphasis>writeback</emphasis> mode exposes the guest to data loss in case
+              of a host failure. It is caused by the gap between when a write is reported as
+              completed and when it is written to the storage device.
+            </para>
+          </warning>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -129,8 +134,9 @@
         <listitem>
           <para>
             This mode is similar to <emphasis>writeback</emphasis> caching, except the guest flush
-            commands are ignored. This means a higher risk of data loss due to host failure.
+            commands are ignored.
           </para>
+          <xi:include href="../snippets/unsafe-cache-mode-warning.xml"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -149,16 +155,24 @@
       factors. If the guest storage is hosted on a clustered file system, is read-only, or is
       marked shareable, then the cache mode is ignored when determining if migration can be
       allowed. Otherwise, &libvirt; does not allow migration unless the cache mode is set to
-      <literal>none</literal>. However, this restriction can be overridden with the
-      <option>--unsafe</option> option to the migration APIs, which is also supported by
-      <command>virsh</command>. For example:
+      <literal>none</literal>.
     </para>
+    <warning>
+      <title>Unsafe live migration</title>
+      <para>
+        If you need to do a live migration with a different cache mode than
+        <literal>none</literal>, use the <option>--unsafe</option> option, for example:
+      </para>
 <screen>&prompt.user;virsh migrate --live --unsafe</screen>
+      <para>
+        Be aware that this option may cause loss of data that the migrated VM is caching.
+      </para>
+    </warning>
     <tip>
       <para>
-        The cache mode <literal>none</literal> is required for the AIO mode setting
-        <literal>native</literal>. If another cache mode is used, the AIO mode is silently switched
-        back to the default <literal>threads</literal>.
+        When using the <literal>native</literal> asynchronous I/O mode (AIO) in &libvirt;, the
+        cache mode <literal>none</literal> is required. Using a different caching mode switches the
+        AIO mode back to the default <literal>threads</literal>.
       </para>
     </tip>
   </section>
