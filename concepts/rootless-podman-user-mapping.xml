@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="rootless-podman-user-mapping"
+ role="glue" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Understanding user mapping</title>
+    <meta name="maintainer" content="dpopov@suse.com" its:translate="no"/>
+  </info>
+  <section xml:id="rootless-containers-user-mapping">
+    <title>User mapping and rootless containers</title>
+    <para>
+      By definition, rootless containers are run by a regular user. At the same
+      time, certain applications deployed using containers expect to be run as
+      root. This leads to a problem: how do you run a container as root, when
+      you are not root on the host system? To solve the issue, &podman; relies
+      on user namespaces to map user IDs in the container to different user IDs
+      on the host. By default, &podman; maps the root user inside the container
+      with the user ID (UID) 0 to the UID of the current user on the host system.
+    </para>
+    <para>
+      To illustrate how this is done in practice, create a temporary
+      &bcia;-Base container (the <literal>sleep</literal> value determines for
+      how long the container runs):
+    </para>
+<screen>&prompt.user;podman run -d --rm registry.suse.com/bci/bci-base sleep 600</screen>
+    <para>
+      Then run the <command>podman top</command> command as follows:
+    </para>
+<screen>&prompt.user;podman top -l user huser
+USER  HUSER
+root  1000</screen>
+    <para>
+      The output indicates that the root user in the container is mapped to the
+      user with UID 1000 on the host, so a root process inside the container is
+      treated by the kernel as UID 1000 outside the container. This means that
+      even though the process is running as root inside the container, this
+      process does not have root privileges outside of the container. In
+      addition to that, if a file owned by a UID that is not mapped into the
+      user namespace is treated as owned by <quote>nobody</quote> (UID 65534).
+      This also means that the container process is not allowed to access the
+      file, unless the file is world readable and writable.
+    </para>
+    <para>
+      There are also situations, when a process or an application inside a
+      container must run as the current host user. The
+      <option>--userns=keep-id</option> option solves this problem by
+      instructing &podman; to map the user as itself into the container. To see
+      how this works, create a temporary &bcia;-Base container, but this time
+      with <option>--userns=keep-id</option>:
+    </para>
+<screen>&prompt.user;podman run -d --rm --userns=keep-id registry.suse.com/bci/bci-base sleep 600</screen>
+    <para>
+      Run the <command>podman top</command> again:
+    </para>
+<screen>&prompt.user;podman top -l user huser
+
+USER  HUSER
+tux   tux</screen>
+    <para>
+      The output now shows that the regular user on the host system is mapped
+      into the container.
+    </para>
+    <para>
+      There is another way to see how this works in practice. First, run the
+      following command:
+    </para>
+<screen>&prompt.user;podman run --rm -it -v ~/Downloads/:/downloads:Z registry.suse.com/bci/bci-base:15.5 ls -al /downloads</screen>
+    <para>
+      The command creates a container from the &bcia;-Base container image,
+      mounts the <filename>Downloads</filename> directory on the host system as
+      the <filename>downloads</filename> directory inside, and then runs the
+      <command>ls -al</command> command in the <filename>downloads</filename>
+      directory. The output of the command looks something like this:
+    </para>
+<screen>-rw-r--r-- 1 root root  4417088 Aug 25 09:21 document.pdf</screen>
+    <para>
+      This shows that the file is owned by root. Now, run the same command, but
+      this time with the <option>--userns=keep-id</option> option:
+    </para>
+<screen>&prompt.user;podman run --userns=keep-id --rm -it -v ~/Downloads/:/downloads:Z registry.suse.com/bci/bci-base:15.5 ls -al /downloads</screen>
+    <para>
+      This time, the output looks slightly different, indicating that the file
+      is owned by the host user:
+    </para>
+<screen>-rw-r--r-- 1 tux users 4417088 Aug 25 09:21 document.pdf</screen>
+  </section>
+</topic>
