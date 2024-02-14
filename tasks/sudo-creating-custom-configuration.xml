@@ -61,8 +61,8 @@
         <term>Always create custom configurations under <filename>/etc/sudoers.d/</filename></term>
         <listitem>
           <para>
-            Custom configurations must reside under the 
-            <filename>/etc/sudoers.d</filename> to be pulled in by &sudo;. 
+            Custom configurations must reside under
+            <filename>/etc/sudoers.d/</filename> to be pulled in by &sudo;. 
             Settings in the custom configuration files take precedence over the 
             ones in the default configuration in <filename>/etc/sudoers</filename>. 
           </para>
@@ -91,6 +91,31 @@
         </listitem>
       </varlistentry>
     </variablelist>
+    <!-- this only applies to some ALP-based products. Don't copy over to SLE!-->
+    <!-- entities will be added as soon as we have proper products out there -->
+    <tip>
+      <title>&sudo; configuration and immutable file systems</title>
+      <para>
+        An immutable file system is a file system that cannot be changed once it
+        has been installed. It is accessed read-only. If the &suse; product you 
+        are using relies on an immutable file system, the &sudo; default 
+        configuration shipped with the product is installed under 
+        <filename>/usr/etc/sudoers</filename> and any pre-configured adjustments 
+        reside under <filename>/usr/etc/sudoers.d/</filename>.
+      </para>
+      <para>
+        Your own custom configurations are located under 
+        <filename>/etc/sudoers.d/</filename> and take precedence over anything 
+        that is provided in <filename>/usr/etc/sudoers.d/</filename>. The 
+        <command>visudo</command> command opens <filename>/usr/etc/sudoers</filename> 
+        and saves the changed file to <filename>/etc/sudoers</filename>, if 
+        there was no prior <filename>sudoers</filename> file. If there was 
+        already one, <command>visudo</command> opens and writes that one. The 
+        instance located under <filename>/etc/</filename> takes precedence over
+        the one that is kept under <filename>/usr/etc/</filename>. This way, 
+        user-made configuration adjustments will not get broken upon updates.
+      </para>
+    </tip>
   </section>
   
   <section xml:id="sudo-creating-custom-config-single-user">
@@ -110,7 +135,7 @@
             <command>visudo</command>. Use both numbering and a descriptive name:
           </para>
           <screen>
-            &prompt.root;<command>visudo -f /etc/sudoers.d/01_usermanagement</command>
+&prompt.root;<command>visudo -f /etc/sudoers.d/02_usermanagement</command>
           </screen>
         </step>
         <step>
@@ -120,7 +145,7 @@
             that this &sudo; configuration is applied to:
           </para>
           <screen>
-            tux<co xml:id="co-who"/> ALL<co xml:id="co-where"/> = /usr/sbin/useradd<co xml:id="co-what"/>
+&exampleuser_plain;<co xml:id="co-who"/> ALL<co xml:id="co-where"/> = /usr/sbin/useradd<co xml:id="co-what"/>
           </screen>
           <calloutlist>
             <callout arearefs="co-who">
@@ -186,30 +211,17 @@
         <step>
           <para>
             To let the user use their own password instead of the &rootuser; 
-            password, open <filename>/etc/sudoers</filename> with 
-            <command>visudo</command> and comment or remove the following lines 
-            and save the configuration:
+            password, add the following line:
           </para>
-          <screen>Defaults targetpw<co xml:id="co-targetpw"/>   # ask for the password of the target user i.e. root
-            ALL   ALL=(ALL) ALL<co xml:id="co-ALL"/>   # WARNING! Only use this together with 'Defaults targetpw'!
+          <screen>Defaults:&exampleuser_plain; !targetpw
           </screen>
-          <calloutlist>
-            <callout arearefs="co-targetpw">
-              <para>
-                When active, this flag requires the user to enter the password of 
-                the target user, i.e. &rootuser;. This flag is enabled by default on 
-                any &productname; system.
-              </para>
-            </callout>
-            <callout arearefs="co-ALL">
-              <para>
-                This rule allows all users on all hosts to run all executables as 
-                any user. Never use this rule without
-                <literal>Defaults targetpw</literal>. Disabling this rule lets 
-                &sudo; check for user-specific rules with user-specific permissions.
-              </para>
-            </callout>
-          </calloutlist>
+          <para>
+            When active, this flag requires the user to enter the password of 
+            the target user, i.e. &rootuser;. This flag is enabled by default on 
+            any &productname; system. Negate it using <literal>!</literal> to
+            require the user to just enter their own password instead of the
+            &rootuser; password.
+          </para>
         </step>
         <step>
           <para>
@@ -238,7 +250,7 @@
             To modify the example configuration, open it as system administrator with 
             <command>visudo</command>:
           </para>
-          <screen>&prompt.root;<command>visudo /etc/sudoers.d/01_usermanagement</command>
+          <screen>&prompt.root;<command>visudo /etc/sudoers.d/02_usermanagement</command>
           </screen>
         </step>
         <step>
@@ -255,6 +267,21 @@
           </para>
           <screen>&exampleuser_plain;, &exampleuserII_plain; ALL = /usr/sbin/useradd, /usr/sbin/usermod, /usr/sbin/userdel
           </screen>
+        </step>
+        <step>
+          <para>
+            To let the listed users use their own password instead of the &rootuser; 
+            password, add the following line:
+          </para>
+          <screen>Defaults:&exampleuser_plain;, &exampleuserII_plain; !targetpw
+          </screen>
+          <para>
+            When active, this flag requires the listed users to enter the password of 
+            the target user, i.e. &rootuser;. This flag is enabled by default on 
+            any &productname; system. Negate it using <literal>!</literal> to
+            require the listed users to just enter their own password instead of the
+            &rootuser; password.
+          </para>
         </step>
         <step>
           <para>
@@ -277,10 +304,10 @@
     <para>
       Using aliases and groups instead of lists is a much better way to address 
       changes in your setup. Should a user leave, just remove them from the 
-      global <literal>User_Alias</literal> declaration in 
-      <filename>/etc/sudoers</filename> instead of scouring all the separate 
-      custom configuration files. The same procedure applies for any other 
-      type of alias (<literal>Host_Alias</literal>, <literal>Cmnd_Alias</literal> 
+      global <literal>User_Alias</literal> declaration in your alias declaration 
+      file instead of scouring all the separate custom configuration files. 
+      The same procedure applies for any other type of alias 
+      (<literal>Host_Alias</literal>, <literal>Cmnd_Alias</literal> 
       and <literal>Runas_Alias</literal>).
     </para>
     <example xml:id="ex-sudo-custom-config-alias">
@@ -288,24 +315,22 @@
       <procedure>
         <step>
           <para>
-            To add user and command aliases to be used in the example 
-            configuration file, run <command>visudo</command> as system 
-            administrator to edit the global &sudo; configuration file 
-            (<filename>/etc/sudoers</filename>).
+            Create a new file to hold your global alias definitions:
           </para>
+          <screen>&prompt.root;<command>visudo /etc/sudoers.d/01_aliases</command>
+</screen>
         </step>
         <step>
           <para>
-            In the <literal>User_Alias</literal> section, add the following 
-            line to create the <literal>TEAMLEADERS</literal> alias:
+            Add the following line to create the <literal>TEAMLEADERS</literal> 
+            alias:
           </para>
           <screen>User_Alias    TEAMLEADERS = &exampleuser_plain;, &exampleuserII_plain;
           </screen>
         </step>
         <step>
           <para>
-            In the <literal>Cmnd_Alias</literal> section, add the following 
-            line to create the <literal>USERMANAGEMENT</literal> alias:
+            Add the following line to create the <literal>USERMANAGEMENT</literal> alias:
           </para>
           <screen>Cmnd_Alias    USERMANAGEMENT = /usr/sbin/useradd, /usr/sbin/usermod, /usr/sbin/userdel
           </screen>
@@ -320,7 +345,7 @@
             As system administrator, start <command>visudo</command> to edit the 
             example configuration file:
           </para>
-          <screen>&prompt.root;<command>visudo -f /etc/sudoers.d/01_usermanagement</command>
+          <screen>&prompt.root;<command>visudo -f /etc/sudoers.d/02_usermanagement</command>
           </screen>
         </step>
         <step>
@@ -330,6 +355,14 @@
           </para>
           <screen>TEAMLEADERS ALL = USERMANAGEMENT
           </screen>
+        </step>
+        <step>
+          <para>
+            To let all the users defined by <literal>User_Alias</literal> use 
+            their own password instead of the &rootuser; password, add
+            the following line:
+          </para>
+          <screen>Defaults:TEAMLEADERS !targetpw</screen>
         </step>
         <step>
           <para>
