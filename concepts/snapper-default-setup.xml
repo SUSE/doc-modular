@@ -21,7 +21,7 @@
     <meta name="maintainer" content="daria.vladykina@suse.com" its:translate="no"/>
     <abstract>
        <para>
-        Learn about the default setup of &snapper; and its default settings.
+        Learn about subvolumes, the default setup of &snapper; and its default settings.
        </para>
      </abstract>
   </info>
@@ -32,14 +32,78 @@
     is big enough (more than approximately 16&nbsp;GB). 
     By default, snapshots are disabled on partitions other than <filename>/</filename>.</para>
     
-    <section xml:id="snapper-default-basics">
-      <title>&snapper; on root</title> 
+    <section xml:id="snapper-subvolumes">
+      <title>What are subvolumes and why are certain subvolumes excluded from snapshots?</title>
+      <para>
+        A Btrfs subvolume is a part of a file system with its own independent file and directory 
+        hierarchy. Unlike LVM logical volumes, which operate at the block level, Btrfs 
+        subvolumes are file extent-based. A snapshot is also considered a subvolume, 
+        carrying the initial content of the original subvolume. Subvolumes appear 
+        as directories and can be manipulated like any other directory, including being 
+        renamed or moved.</para>
+      <para>One purpose of subvolumes is to be explicitly included or excluded from snapshots.
+        Because the primary use case for snapshots is to roll back the system to a previous state,
+        the following rules apply:</para>
+        <itemizedlist>
+           <listitem>
+              <para>
+                No loss of user-created data during a rollback (therefore <filename>/home</filename>
+                is excluded via a subvolume)
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Keep the snapshot size to a minimum (therefore all temporary data in 
+                <filename>/tmp</filename> is excluded via subvolumes)
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Exclude application-specific data (therefore <filename>/srv</filename> that hosts
+                Web or FTP server data is excluded)
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Exclude application runtime data (<filename>/run</filename>, <filename>/var</filename>)
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Exclude third-party applications (<filename>/opt</filename>, <filename>/usr/local</filename>)
+              </para>
+            </listitem>
+          </itemizedlist>
+  <note><title>Why is there a space limit?</title>
+    <para>
+      When creating a snapshot, no physical data copies are created. A snapshot only consists of 
+      pointers to the respective data blocks. As long as the snapshot remains consistent with 
+      the current system, it occupies almost no additional disk space (apart from the metadata 
+      it contains). However, if a file is modified on the system, the changed data is recorded
+      in the snapshot. Over time, as more changes accumulate and the snapshot diverges from 
+      the live system, the snapshot's size increases accordingly.</para>
+      <para>To prevent disks from running full (and the system becoming inoperable as a result), we 
+      recommend having a minimal root file system size. The required size depends on system usage:</para>
+      <itemizedlist>
+      <listitem>
+      <para>The frequency of snapshot creation</para>
+      </listitem>
+      <listitem>
+      <para>The duration for which snapshots are retained</para>
+      </listitem>
+      <listitem>
+      <para>The rate of changes to the system</para>
+      </listitem>
+    </itemizedlist>
+      <para>In general, the more snapshots you have, the longer they are kept, and the more 
+        frequently the system changes, the larger the root partition needs to be.</para>
+    </note>
+</section>
+
+<section xml:id="snapper-default-basics">
+   <title>&snapper; on root</title> 
     <para>When &snapper; is configured to operate on root, every Btrfs subvolume is
-    excluded by default. This means that if a user has the subvolume <filename>/srv</filename>,
-    &snapper; will not take snapshots of anything in <filename>/srv</filename> unless the user
-    decides to specifically do so. This also means that if you add a subvolume to 
-    <filename>/</filename> at any point in time, it will be excluded from &snapper;'s
-    default snapshot behavior.</para>
+    excluded by default.</para>
    <para>The default behavior of &snapper; is defined in a configuration file that 
     is specific for each partition or Btrfs subvolume. These configuration files reside
     under <filename>/etc/snapper/configs/</filename>.</para>
@@ -50,7 +114,7 @@
        any time later. To do so, create a default &snapper; configuration for the
        root file system by running:
       </para>
-      <screen>&prompt.sudo;snapper -c root create-config /</screen>
+<screen>&prompt.sudo;snapper -c root create-config /</screen>
       <para>
        Afterward, enable the different snapshot types as described in <!--<xref
        linkend="sec-snapper-setup-customize-auto-snapshots"/>.-->
@@ -65,162 +129,97 @@
 
   <section xml:id="snapper-default-settings">
     <title>&snapper; default settings</title>
-
-    <para>If the root partition (<filename>/</filename>) has enough space 
-      (16&nbsp;GB or more), taking snapshots for the root partition <filename class="directory">/</filename> is enabled automatically during installation. 
-      ```
-      The following table presents comparison details:</para>
-    
-    <table>
-      <title>Default aspects for disks larger than 16&nbsp;GB and smaller than 16&nbsp;GB</title>
-      <tgroup cols="2">
-          <colspec colnum="1" colname="1" colwidth="3334*"/>
-          <colspec colnum="2" colname="2" colwidth="3334*"/>
-        <thead>
-        <row>
-         <entry>
-          <para>
-            Disk &gt; 16 GB
-          </para>
-         </entry>
-         <entry>
-          <para>
-            Disk &lt; 16 GB
-          </para>
-         </entry>
-         </row>
-       </thead>
-       <tbody>
-        <row>
-         <entry>
-          <para>
-            Configuration <filename>/etc/snapper/configs/root</filename> (0 single) is created automatically.
-          </para>
-         </entry>
-         <entry>
-          <para>
-            No configuration <filename>/etc/snapper/configs/root</filename> (0 single) is created automatically.
-            It must be created manually by &snapper;'s <command>create-config</command> command.
-          </para>
-         </entry>
-         </row>
-        <row>
-         <entry>
-          <para>
-            Snapshot 1 single for root partition (<filename>/</filename>) is taken automatically 
-            with the name <literal>first root filesystem</literal>.
-          </para>
-         </entry>
-         <entry>
-          <para>
-            No snapshot 1 single is automatically taken. The user can create it manually with any name.
-          </para>
-         </entry>
-        </row>
-        <row>
-          <entry>
-           <para>
-            Snapshot 2 single <literal>After installation, important=yes</literal> is taken automatically.
-           </para>
-          </entry>
-          <entry>
-           <para>
-            No snapshot 2 single is automatically created.
-           </para>
-          </entry>
-         </row>
-         <row>
-          <entry>
-           <para>
-            Default <parameter>USE_SNAPPER=yes</parameter> parameter in 
-            <filename>/etc/sysconfig/yast2</filename> configuration.
-            <literal>Administrative Snapshots</literal> creation is <emphasis>ON</emphasis>.
-           </para>
-          </entry>
-          <entry>
-           <para>
-            Default <parameter>USE_SNAPPER=no</parameter> parameter in 
-            <filename>/etc/sysconfig/yast2</filename> configuration.
-            <literal>Administrative Snapshots</literal> creation is <emphasis>OFF</emphasis>.
-           </para>
-          </entry>
-         </row>
-         <row>
-          <entry>
-           <para>
-            Default <parameter>TIMELINE_CREATE=yes</parameter> in <filename>/etc/snapper/configs/root</filename>. 
-            This means that <literal>Timeline Snapshots</literal> creation is <emphasis>ON</emphasis>.
-           </para>
-          </entry>
-          <entry>
-           <para>
-            Default <parameter>TIMELINE_CREATE=no</parameter> in <filename>/etc/snapper/configs/root</filename>. 
-            <literal>Timeline Snapshots</literal> creation is <emphasis>OFF</emphasis>.
-           </para>
-          </entry>
-         </row>
-       </tbody>
-      </tgroup>
-     </table>
-<para>This is the list of snapshots directly after a fresh installation of a system with a root partition &gt; 16 GB:</para>
+      <para>By default, &snapper; on &productname; is automatically configured during 
+      system installation if the following requirements are met:</para>
+ <itemizedlist>
+  <listitem>
+  <para>Root partition size: &gt; 16&nbsp;GB</para>
+  </listitem>
+  <listitem>
+  <para>Root partition file system: Btrfs</para>
+  </listitem>
+ </itemizedlist>
+ <para>Snapshots are created for the root partition only, and the following 
+  directories are excluded by means of subvolumes. For the list of excluded subvolumes, 
+  see <xref linkend="snapper-excluded-directories"/>.</para>
+  <para>With the default configuration, &snapper; creates snapshots on the 
+    following occasions:</para>
+    <itemizedlist>
+      <listitem>
+      <para>Installation. Three snapshots are created.</para> 
+        <para>Snapshot <literal>0 single</literal>
+        is created automatically and always refers to the current system, as indicated in the 
+        <literal>Description</literal> column. This snapshot captures the state of 
+        the system right after the installation process has concluded.</para>
+        <para>Snapshot <literal>1 single</literal> for root partition (/) is taken automatically 
+        with the name <literal>first root filesystem</literal>. This snapshot is 
+        taken after the first set of system updates or configurations.</para>
+        <para>Snapshot <literal>2 single</literal> is taken automatically with the 
+        name <literal>after installation</literal>. This snapshot is created 
+        towards the end of the installation process and marked as 
+        <literal>important</literal>. It represents the state of the system after 
+        all initial setup has been completed.</para>
+      </listitem>
+      <listitem>
+      <para>System administration. A pair of snapshots is created whenever a user 
+        makes changes to the system using &zypper; or &yast;.
+        These snapshots are of the type <literal>pre/post</literal>. One snapshot is created 
+        prior to the system change, a second one after the system change.</para>
+      </listitem>
+      <listitem>
+      <para>Regular creation of timeline snapshots. Based on the configuration, 
+        timeline snapshots can be taken at different intervals: hourly, daily, weekly, 
+        monthly and yearly.</para>
+      </listitem>
+    </itemizedlist>
+    <para>This is the list of snapshots directly after a fresh installation of a system 
+      with a root partition &gt; 16&nbsp;GB:</para>
 <screen>
 # | Type   | Pre # | Date                     | User | Used Space | Cleanup | Description           | Userdata     
 -----+--------+-------+--------------------------+------+------------+---------+-----------------------+--------------
 0  | single |       |                          | root |            |         | current               |              
 1  | single |       | Thu Mar 24 12:14:34 2022 | root |  32.44 MiB |         | first root filesystem |              
 2  | single |       | Thu Mar 24 12:25:55 2022 | root | 280.40 MiB | number  | after installation    | important=yes
-45  | pre    |       | Mon Apr 25 17:58:45 2022 | root |  27.52 MiB | number  | zypp(zypper)          | important=yes
-46  | post   |    45 | Mon Apr 25 18:00:07 2022 | root |  39.04 MiB | number  |                       | important=yes
-    </screen>     
-     <note>
-      <title>Snapshot types and numbers</title>
-      <para>
-        In &snapper;, <quote>0 single</quote> refers to the type and number 
-        of a snapshot. The numbers in front of the snapshot type describe 
-        the order in which the snapshots were created. The word after the 
-        number describes the type of the snapshot. Snapshot <quote>0 single</quote>
-        always refers to the current system. There might already be several other 
-        snapshots depending on the uptime of your system and on whether you 
-        already used &yast; or &zypper;.    
-      </para>
-     </note>
-  </section>
-
-  <section xml:id="snapper-snapshot-creation"> 
-    <title>Snapshot creation</title>
-     <para>
-     When a snapshot is created, both the snapshot and the original point to the
-     same blocks in the file system. So, initially a snapshot does not occupy
-     additional disk space. If data in the original file system is modified,
-     changed data blocks are copied while the old data blocks are kept for the
-     snapshot. Therefore, a snapshot occupies the same amount of space as the
-     data modified. So, over time, the amount of space a snapshot allocates
-     constantly grows. As a consequence, deleting files from a
-     <literal>Btrfs</literal> file system containing snapshots may
-     <emphasis>not</emphasis> free disk space!</para>
-     <note>
-       <title>Snapshot location</title>
-       <para>
-        Snapshots always reside on the same partition or subvolume on which the
-        snapshot has been taken. It is not possible to store snapshots on a
-        different partition or subvolume.
-       </para>
-      </note>
-      <para>
-       As a result, partitions containing snapshots need to be larger than
-       partitions not containing snapshots. The exact amount depends strongly on the
-       number of snapshots you keep and the amount of data modifications. As a rule
-       of thumb, give partitions twice as much space as you normally would.
-       To prevent disks from running out of space, old snapshots are automatically
-       cleaned up.<!--Refer to <xref linkend="sec-snapper-setup-customize-archiving"/>
-       Section 10.1.4.4, “Controlling snapshot archiving” for details.-->
-      </para>  
-      <tip>
-        <para>
-          To see what subvolumes are created under <filename>/</filename> and 
-          therefore see which directories (subvolumes) are excluded from the 
-          default snapshots behavior, run:</para>
-        <screen>&prompt.sudo;btrfs subvolume list /</screen>
-      </tip> 
- </section>
+45 | pre    |       | Mon Apr 25 17:58:45 2022 | root |  27.52 MiB | number  | zypp(zypper)          | important=yes
+46 | post   |    45 | Mon Apr 25 18:00:07 2022 | root |  39.04 MiB | number  |                       | important=yes
+    </screen>
+      <para>&snapper; provides automatic snapshot cleanup algorithms to prevent running 
+        out of space on the root partition. These algorithms differentiate 
+        between timeline snapshots and <emphasis>numbered</emphasis> snapshots 
+        (administration plus installation snapshot pairs). The cleanup behavior can 
+        be configured based on the following criteria:</para>
+<itemizedlist>
+        <listitem><para>Number limit: The system can be set to automatically delete old snapshots 
+        when a certain count of snapshots is reached.</para></listitem>
+        <listitem><para>Age limit: Old snapshots can be deleted if they exceed a certain age, while 
+        still preserving a number of snapshots for each time period (hourly, daily, monthly, yearly).</para></listitem>
+        <listitem><para><literal>Pre</literal> and <literal>post</literal> snapshot pairs: 
+          <literal>pre</literal> and <literal>post</literal> snapshot pairs that do not 
+          differ can be automatically deleted.</para></listitem>
+        </itemizedlist>
+        <para>For numbered snapshots, which include administration and installation snapshot 
+          pairs, the cleanup is controlled by parameters such as <literal>NUMBER_CLEANUP</literal>,
+        <literal>NUMBER_LIMIT</literal>, <literal>NUMBER_LIMIT_IMPORTANT</literal>, and <literal>NUMBER_MIN_AGE</literal>. 
+          The default values are 2&ndash;10 for <literal>NUMBER_LIMIT</literal> and 4&ndash;10 for
+          <literal>NUMBER_LIMIT_IMPORTANT</literal>, meaning that only the youngest snapshots are kept.</para>
+          <para>For timeline snapshots, the cleanup is based on the number of snapshots to keep for 
+          each type (hourly, daily, weekly, monthly, yearly). For example, the last 24 hourly
+          snapshots, the first daily snapshot from the last seven days, the first snapshot 
+          made on the last day of the month for the last twelve months, and so forth. The parameters 
+          include <literal>TIMELINE_CLEANUP</literal>, <literal>TIMELINE_MIN_AGE</literal> and 
+          interval parameters such as <literal>TIMELINE_LIMIT_DAILY</literal>, 
+          <literal>TIMELINE_LIMIT_HOURLY</literal> and so on.</para>
+      <para>You can roll back to an existing snapshot at any time by booting from 
+        the respective snapshot and making it active afterwards.</para> <!--For more details refer to ???.</para>-->
+        <note>
+          <title>Disabling &snapper; automatically and manually</title>
+          <para>If your root partition is smaller than 16&nbsp;GB, the automatic creation 
+          of snapshots as described above is disabled by default. In this case, 
+          you can manually create snapshots.<!-- (refer to ??? for more instructions)--> Keep an 
+          eye on the available disk space.</para><!-- (see ??? for more information)-->
+          <para>To disable automatic snapshots even if your root partition is sufficiently 
+          sized, disable snapshots manually during the installation in the partition setup 
+          step.</para><!-- For more information on how to do this, see ????-->
+        </note>
+      </section>
 </topic>
