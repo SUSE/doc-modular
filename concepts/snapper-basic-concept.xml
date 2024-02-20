@@ -27,14 +27,12 @@
     modifies the content of snapshots.</para>
     <para>The standard setup of &snapper; is designed to allow rolling back system
     changes. However, you can also use it to create on-disk backups of user data.
-    As the basis for this functionality, &snapper; uses the Btrfs file system or
-    thinly provisioned LVM volumes with an XFS file system:</para>
+    As the basis for this functionality, &snapper; uses two types of file systems:</para>
      <itemizedlist>
       <listitem>
        <para>
         Btrfs, a copy-on-write file system for Linux that natively supports
-        file system snapshots of subvolumes. Subvolumes are separately mountable
-        file systems within a physical partition.
+        file system snapshots of subvolumes.
        </para>
        </listitem>
       <listitem>
@@ -100,47 +98,61 @@
   <title>Snapshot types based on triggering events</title>
     <para>Although snapshots themselves do not differ in a technical sense, we 
       distinguish between three types of snapshots, based on the events that trigger them.</para>
-    <varlistentry>
-        <term>Timeline snapshots</term>
-     <listitem>
-      <para>
-       A single snapshot is created every hour. Old snapshots are automatically
-       deleted. By default, the first snapshot of the last ten days, months,
-       and years is kept. Using the &yast; OS installation method (default),
-       timeline snapshots are enabled, except for the root file system.
-      </para>
-     </listitem>
-    </varlistentry>
-    <varlistentry>
+   <varlistentry>
      <term>Installation snapshots</term>
      <listitem>
       <para>
-       Whenever one or more packages are installed with &yast; or &zypper;, a
-       pair of snapshots is created: one before the installation starts
-       (<quote>pre</quote>) and another one after the installation has finished
-       (<quote>post</quote>). In case an important system component such as the
-       kernel has been installed, the snapshot pair is marked as important
-       (<literal>important=yes</literal>). Old snapshots are automatically
-       deleted. By default the last ten important snapshots and the last ten
-       <quote>regular</quote> (including administration snapshots) snapshots
-       are kept. Installation snapshots are enabled by default.
-      </para>
-     </listitem>
+        Whenever one or more packages are installed with &yast; or &zypper;,
+        three snapshots are created:</para>
+      <itemizedlist>
+        <listitem><para>Snapshot <literal>0 single</literal>
+        is created automatically and always refers to the current system, as 
+        indicated in the <literal>Description</literal> column. This snapshot 
+        captures the state of the system right after the installation process 
+        has concluded.</para></listitem>
+        <listitem><para>Snapshot <literal>1 single</literal> for root partition 
+        (/) is taken automatically with the name <literal>first root filesystem</literal>.
+        This snapshot is taken after the first set of system updates or 
+        configurations.</para></listitem>
+        <listitem><para>Snapshot <literal>2 single</literal> is taken automatically
+        with the name <literal>after installation</literal>. This snapshot is created 
+        towards the end of the installation process and marked as <literal>important</literal>.
+        It represents the state of the system after all initial setup has been 
+        completed.</para></listitem>  
+      </itemizedlist>
+      <para>Old snapshots are automatically deleted. By default, the last ten 
+        important snapshots and the last ten <quote>regular</quote> ones 
+        (including administration snapshots) are kept. Installation snapshots 
+        are enabled by default.</para>
+    </listitem>
     </varlistentry>
     <varlistentry>
      <term>Administration snapshots</term>
      <listitem>
       <para>
-       Whenever you administrate the system with &yast;, a pair of snapshots is
-       created: one when a &yast; module is started (<quote>pre</quote>) and
-       another when the module is closed (<quote>post</quote>). Old snapshots
-       are automatically deleted. By default, the last ten important snapshots
-       and the last ten <quote>regular</quote> snapshots (including
-       installation snapshots) are kept. Administration snapshots are enabled
-       by default.
+       Whenever you make changes to the system using &zypper; or &yast;, a 
+       pair of snapshots is created: one prior to the system change 
+       (<quote>pre</quote>) and the other one after the system change 
+       (<quote>post</quote>). Old snapshots are automatically deleted.
+       By default, the last ten important snapshots and the last ten 
+       <quote>regular</quote> snapshots (including installation snapshots) 
+       are kept. Administration snapshots are enabled by default.    
       </para>
      </listitem>
     </varlistentry>
+    <varlistentry>
+      <term>Timeline snapshots</term>
+   <listitem>
+    <para>
+     A single snapshot is created every hour. Using the &yast; OS installation 
+     method (default), timeline snapshots are enabled, except for the 
+     root file system. You can configure timeline snapshots to be taken 
+     at different intervals: hourly, daily, weekly, monthly and yearly.
+     Old snapshots are automatically deleted. By default, the first snapshot 
+     of the last ten days, months and years is kept. 
+    </para>
+   </listitem>
+  </varlistentry>
   </variablelist>
   
   <note>
@@ -151,9 +163,10 @@
 
   <variablelist>
     <title>Snapshot types based on the time of creation</title>
-    <para>&snapper; knows three different types of administration and installation
-      snapshots: pre, post and single. These do not differ physically, but 
-      &snapper; handles them differently.</para>
+    <para>
+      Among administration and installation snapshots, &snapper; recognizes 
+      three different types: pre, post and single. These do not differ physically,
+      but &snapper; handles them differently.</para>
   <varlistentry>
    <term><literal>pre</literal>
     </term>
@@ -189,6 +202,17 @@
      </listitem>
   </varlistentry>
  </variablelist>
+<para>This is the list of snapshots directly after a fresh installation of a system 
+  with a root partition &gt; 16&nbsp;GB:</para>
+<screen>
+# | Type   | Pre # | Date                     | User | Used Space | Cleanup | Description           | Userdata     
+-----+--------+-------+--------------------------+------+------------+---------+-----------------------+--------------
+0  | single |       |                          | root |            |         | current               |              
+1  | single |       | Thu Mar 24 12:14:34 2022 | root |  32.44 MiB |         | first root filesystem |              
+2  | single |       | Thu Mar 24 12:25:55 2022 | root | 280.40 MiB | number  | after installation    | important=yes
+45 | pre    |       | Mon Apr 25 17:58:45 2022 | root |  27.52 MiB | number  | zypp(zypper)          | important=yes
+46 | post   |    45 | Mon Apr 25 18:00:07 2022 | root |  39.04 MiB | number  |                       | important=yes
+</screen>
 </section>
 
 <section xml:id="snapper-snapshot-creation"> 
