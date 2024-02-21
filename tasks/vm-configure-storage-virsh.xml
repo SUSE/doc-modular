@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="vm-configure-storage-virsh"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring storage of a virtual machine using &virsh;</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        &virsh; is a command-line tool that helps you manage and configure
+        &libvirt;-based virtual machines (VM).
+      </para>
+    </abstract>
+  </info>
+  <para>
+    Storage devices are defined by the <tag>disk</tag> element and its
+    attributes. The following attributes are the most important:
+  </para>
+  <itemizedlist>
+    <listitem>
+      <para>
+        The <tag class="attribute">type</tag> attribute describes the source of
+        the virtual disk device. Valid values are
+        <tag class="attvalue">file</tag> , <tag class="attvalue">block</tag> ,
+        <tag class="attvalue">dir</tag> , <tag class="attvalue">network</tag> ,
+        or <tag class="attvalue">volume</tag> .
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        The <tag class="attribute">device</tag> attribute shows how the disk is
+        exposed to the &vmguest; OS. Possible values can include
+        <tag class="attvalue">floppy</tag> , <tag class="attvalue">disk</tag> ,
+        <tag class="attvalue">cdrom</tag> , and others.
+      </para>
+    </listitem>
+  </itemizedlist>
+  <para>
+    The following child elements are important:
+  </para>
+  <itemizedlist>
+    <listitem>
+      <para>
+        <tag>driver</tag> contains the driver and the bus. These are used by the
+        &vmguest; to work with the new disk device.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        The <tag>target</tag> element contains the device name under which the
+        new disk is shown in the &vmguest;. It also contains the optional bus
+        attribute, which defines the type of bus on which the new disk should
+        operate.
+      </para>
+    </listitem>
+  </itemizedlist>
+  <para>
+    To configure VM storage using &virsh;, proceed as follows:
+  </para>
+  <procedure>
+    <step>
+      <para>
+        Identify the VM whose boot options you want to change.
+      </para>
+<screen>&prompt.sudo;<command>virsh list --all</command>
+ Id   Name       State
+---------------------------
+[...]
+ -    sle15sp5   shut off</screen>
+    </step>
+    <step>
+      <para>
+        Edit the XML configuration of the VM and search for the
+        <literal>&lt;devices/></literal> specification.
+      </para>
+<screen>&prompt.sudo;<command>virsh edit <replaceable>sle15sp5</replaceable></command>
+[...]
+&lt;devices>
+    &lt;emulator>/usr/bin/qemu-system-x86_64&lt;/emulator>
+    &lt;disk type='file' device='disk'>
+[...]</screen>
+    </step>
+    <step>
+      <para>
+        Add a new <tag>disk</tag> element inside the <tag>devices</tag> element
+        together with the attributes <tag class="attvalue">type</tag> and
+        <tag class="attvalue">device</tag>:
+      </para>
+<screen>&lt;disk type='file' device='disk'&gt;</screen>
+    </step>
+    <step>
+      <para>
+        Specify a <tag>driver</tag> element and use the default values:
+      </para>
+<screen>&lt;driver name='qemu' type='qcow2'/&gt;</screen>
+    </step>
+    <step>
+      <para>
+        Create a disk image as a source for the new virtual disk device:
+      </para>
+<screen>&prompt.sudo;<command>qemu-img create -f qcow2 /var/lib/libvirt/images/sles15.qcow2 32G</command></screen>
+    </step>
+    <step>
+      <para>
+        Add the path for the disk source:
+      </para>
+<screen>&lt;source file='/var/lib/libvirt/images/sles15.qcow2'/&gt;</screen>
+    </step>
+    <step>
+      <para>
+        Define the target device name in the &vmguest; and the bus on which the
+        disk should work:
+      </para>
+<screen>&lt;target dev='vda' bus='virtio'/&gt;</screen>
+    </step>
+    <step>
+      <para>
+        Modify the boot configuration to fulfill your needs. For example, to add
+        a bootable ISO image as a CD-ROM device to be the first device to boot,
+        update the configuration as follows.
+      </para>
+<screen>
+[...]
+&lt;os>
+  &lt;type arch='x86_64' machine='pc-q35-7.2'>hvm&lt;/type>
+  &lt;boot dev='cdrom'/>
+  &lt;boot dev='hd'/>
+&lt;/os>
+[...]
+&lt;disk type='file' device='cdrom'>
+  &lt;driver name='qemu' type='raw'/>
+  &lt;source file='/home/&exampleuser;/downloaded-isos/SLE-15-SP5-Online-x86_64-GM-Media1.iso'/>
+  &lt;target dev='sda' bus='sata'/>
+  &lt;readonly/>
+  &lt;address type='drive' controller='0' bus='0' target='0' unit='0'/>
+&lt;/disk>
+</screen>
+    </step>
+    <step>
+      <para>
+        Save the changes and restart the VM if it is running.
+      </para>
+    </step>
+  </procedure>
+</topic>
