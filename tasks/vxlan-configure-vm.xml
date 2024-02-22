@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="vxlan-configure-vm"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Connecting virtual machines to the VXLAN</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <xi:include href="../snippets/vxlan-intro.xml"/>
+      <para>
+        This topic describes how to connect a virtual machine to the VXLAN via a
+        virtual network attached to a network bridge.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    You need to configure virtual machines to use the virtual network
+    <literal>vxlan1-br0</literal> to communicate via a network bridge with an
+    attached VXLAN network.
+  </para>
+  <tip>
+    <title>Configuring new VMs to use VXLAN</title>
+    <para>
+      To attach a new VM to a VXLAN network, configure it to use the
+      <literal>vxlan1-br0</literal> network when creating the VM. If you use the
+      <command>virt-install</command> tool to create VMs, for example, pass the
+      <option>--network network:vxlan1-br0</option> option to it.
+    </para>
+  </tip>
+  <para>
+    The following procedure describes how to adjust an existing VM. Our example
+    virtual machine <replaceable>VM1</replaceable> is running on host
+    <replaceable>SLES-HOST-A</replaceable>.
+  </para>
+  <procedure>
+    <itemizedlist>
+      <title>Requirements</title>
+      <listitem>
+        <para>
+          You created a VM using &libvirt;.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          You configured the virtual network <literal>vxlan1-br0</literal> using
+          &libvirt;.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <step>
+      <para>
+        Connect the network interface of the VM to the virtual network
+        <literal>vxlan1-br0</literal>.
+      </para>
+<screen>&prompt.sudo;virt-xml <replaceable>VM1</replaceable> --edit --network network=vxlan1-br0</screen>
+    </step>
+    <step>
+      <para>
+        Restart the VM, for example:
+      </para>
+<screen>
+&prompt.sudo;virsh shutdown <replaceable>VM1</replaceable>
+&prompt.sudo;virsh start <replaceable>VM1</replaceable>
+</screen>
+    </step>
+    <step>
+      <para>
+        Verify the virtual network interfaces on the host.
+      </para>
+<screen>
+&prompt.sudo;virsh domiflist <replaceable>VM1</replaceable>
+Interface   Type     Source           Model    MAC
+-------------------------------------------------------------------
+vnet1<co xml:id="co-vxlan-vnet1"/>    bridge   vxlan1-br0<co xml:id="co-vxlan-br"/>    virtio   52:54:12:a7:89:1f
+[...]
+</screen>
+      <calloutlist>
+        <callout arearefs="co-vxlan-vnet1">
+          <para>
+            A virtual network automatically created by &libvirt;. It is used by
+            the virtual machine <replaceable>VM1</replaceable>.
+          </para>
+        </callout>
+        <callout arearefs="co-vxlan-br">
+          <para>
+            A network bridge with the attached VXLAN network. The
+            <literal>vnet1</literal> network is connected to that bridge.
+          </para>
+        </callout>
+      </calloutlist>
+    </step>
+    <step>
+      <para>
+        Verify the interface attached to the <literal>vxlan1-br0</literal>
+        network bridge on the host.
+      </para>
+<screen>
+&prompt.sudo;ip link show master vxlan1-br0
+[...]
+14: vxlan1:<co xml:id="co-vxlan-vxlan"/> &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br0 state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 2a:53:bd:d5:b3:0a brd ff:ff:ff:ff:ff:ff
+15: vnet1:<co xml:id="co-vxlan-vnet2"/> &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br0 state UNKNOWN mode DEFAULT group default qlen 1000
+    link/ether 52:54:12:a7:89:1f brd ff:ff:ff:ff:ff:ff
+</screen>
+      <calloutlist>
+        <callout arearefs="co-vxlan-vxlan">
+          <para>
+            The configured VXLAN network attached to the
+            <literal>vxlan1-br0</literal> bridge.
+          </para>
+        </callout>
+        <callout arearefs="co-vxlan-vnet2">
+          <para>
+            A virtual network automatically created by &libvirt;. It is used by
+            the virtual machine <replaceable>VM1</replaceable>.
+          </para>
+        </callout>
+      </calloutlist>
+    </step>
+  </procedure>
+</topic>
