@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="vxlan-create-vlan"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Creating a virtual network with an existing bridge</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <xi:include href="../snippets/vxlan-intro.xml"/>
+      <para>
+        This topic describes how to create a virtual network attached to an
+        existing network bridge using &libvirt;.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    Virtual machines need a virtual network that uses the network bridge
+    <literal>br0</literal> to be able to communicate via a VXLAN attached to
+    that bridge. Run the following procedure on the &vmhost; to add such a virtual
+    network to the &libvirtd; service.
+  </para>
+  <procedure>
+    <itemizedlist>
+      <title>Requirements</title>
+      <listitem>
+        <para>
+          You installed &libvirt; virtualization tools and the &libvirtd;
+          service is enabled and started.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          You configured the network bridge <literal>br0</literal> with the
+          VXLAN attached on &productnameshort;.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <step>
+      <para>
+        Create a temporary XML file (<filename>/tmp/vxlan1-br0.xml</filename>)
+        that defines a new virtual network. The file should be similar to the
+        following one:
+      </para>
+<screen>&lt;network>
+&lt;name>vxlan1-br0&lt;/name>
+&lt;forward mode="bridge" />
+&lt;bridge name="br0" />
+&lt;/network></screen>
+    </step>
+    <step>
+      <para>
+        Use the XML file to create a new &libvirt;-based virtual network.
+      </para>
+<screen>&prompt.sudo;virsh net-define /tmp/vxlan1-br0.xml</screen>
+    </step>
+    <step performance="optional">
+      <para>
+        Remove the XML definition file from disk. It is no longer needed.
+      </para>
+<screen>&prompt.user;rm /tmp/vxlan1-br0.xml</screen>
+    </step>
+    <step>
+      <para>
+        Start the new <literal>vxlan1-br0</literal> virtual network and
+        configure it to start automatically when the &libvirtd; service starts.
+      </para>
+<screen>
+&prompt.sudo;virsh net-start vxlan1-br0
+&prompt.sudo;virsh net-autostart vxlan1-br0
+</screen>
+    </step>
+    <step>
+      <para>
+        Verify the status of the newly created network. If the newly created
+        virtual network is listed as active, the configuration was successful.
+      </para>
+<screen>
+&prompt.sudo;virsh net-list
+Name              State    Autostart   Persistent
+----------------------------------------------------
+vxlan1-br0        active   yes         yes
+</screen>
+    </step>
+  </procedure>
+</topic>
