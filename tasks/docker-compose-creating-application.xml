@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="compose-cretaing-application"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Creating a container-based application</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+        &compose; enables you to create a containerized application that uses several containers.
+        
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="compose-cretaing-application-yaml-file">
+    <title>Creating  <filename>compose. yml</filename></title>
+  <para>
+    To create the application, you need to create a YAML file that defines your application. The
+    <filename>compose.yml</filename> file should include the following parts.
+  </para>   
+  <variablelist>
+    <varlistentry>
+      <term>Service</term>
+      <listitem>
+        <para>
+          A service is a computing component of the application. It is a run of a container image
+          with a partiular configuration.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>Network</term>
+      <listitem>
+        <para>
+          Networks define IP routes between services.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>Volume</term>
+      <listitem>
+        <para>
+          A directory where services store and shares data.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>Environment variables</term>
+      <listitem>
+        <para>
+          You may also need to use a list of environment variables that will be passed to your services.
+        </para>        
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  <para>
+    For example, to define an application that uses the Prometheus monitoring system and the
+    Grafana analytics system, create a <filename>compose.yml</filename> similar to the following.
+  </para>
+  <screen>
+  services:
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - 9090:9090
+    restart: unless-stopped
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prom_data:/prometheus
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - 3000:3000
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=grafana
+    volumes:
+      - ./grafana:/etc/grafana/provisioning/datasources
+volumes:
+  prom_data:
+  </screen>
+  <para>
+    The project structure in this example must look like follows:
+  </para>
+  <screen>
+.
+├── compose.yaml
+├── grafana
+│   └── datasource.yml
+├── prometheus
+│   └── prometheus.yml
+└── README.md
+  </screen>
+  <note>
+    <title>Images can be pulled automatically</title>
+      <para>
+&podman; checks if the image name declared in the <filename>compose.yml</filename> file is located
+locally. If it is not, &podman; pulls the image from configured registries.
+      </para>
+      </note>
+  </section>
+  <section xml:id="compose-cretaing-application-deployment">
+    <title>Deploying applications </title>
+    <para>
+      After you create the proper directory structure and the <filename>compose.yml</filename>
+      file, you can deploy the application by running:
+        </para>
+        <screen>&prompt.user;podman compose up -d</screen>
+        <para>
+          You can verify that containers are running and ports are mapped by listing running containers:
+        </para>
+        <screen>&prompt.user;podman ps</screen>
+  </section>
+</topic>
