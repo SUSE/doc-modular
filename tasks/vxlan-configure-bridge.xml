@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="vxlan-configure-bridge"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Creating a network bridge with a VXLAN</title>
+    <meta name="maintainer" content="itbazant" its:translate="no"/>
+    <abstract>
+      <xi:include href="../snippets/vxlan-intro.xml"/>
+      <para>
+        This topic describes how to create a network bridge with an attached
+        VXLAN using &nm;.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    To make the communication with VXLAN more transparent, virtual machines
+    (VMs) use a network bridge to which the VXLAN is attached. Run the following
+    procedure on both &productnameshort; &vmhost;s.
+  </para>
+  <procedure>
+    <step>
+      <para>
+        Create the network bridge <literal>br0</literal> with no IPv4 and IPv6
+        addresses assigned.
+      </para>
+<screen>
+&prompt.sudo;nmcli connection add type bridge con-name br0 ifname br0 \
+ipv4.method disabled<co xml:id="vxlan-configure-bridge-ipv4"/> ipv6.method disabled<co xml:id="vxlan-configure-bridge-ipv6"/>
+</screen>
+      <calloutlist>
+        <callout arearefs="vxlan-configure-bridge-ipv4">
+          <para>
+            Disables IPv4 on the bridge.
+          </para>
+        </callout>
+        <callout arearefs="vxlan-configure-bridge-ipv6">
+          <para>
+            Disables IPv6 on the bridge.
+          </para>
+        </callout>
+      </calloutlist>
+      <tip>
+        <title>Custom destination port</title>
+        <para>
+          &nm; uses 8472 as the default destination port. To specify a different
+          destination port, pass the option <option>destination-port
+          <replaceable>PORT_NUMBER</replaceable></option> to the command.
+        </para>
+      </tip>
+    </step>
+    <step>
+      <para>
+        Create a VXLAN network interface attached to the bridge
+        <literal>br0</literal>.
+      </para>
+<screen>
+&prompt.sudo;nmcli connection add type vxlan slave-type bridge con-name br0-vxlan1 \
+ifname vxlan1 id 1<co xml:id="vxlan-configure-bridge-id"/> local 192.168.100.2<co xml:id="vxlan-configure-bridge-local"/> \
+remote 202.0.115.1<co xml:id="vxlan-configure-bridge-remote"/> master br0<co xml:id="vxlan-configure-bridge-master"/>
+</screen>
+      <calloutlist>
+        <callout arearefs="vxlan-configure-bridge-id">
+          <para>
+            Specifies the VXLAN identifier.
+          </para>
+        </callout>
+        <callout arearefs="vxlan-configure-bridge-local">
+          <para>
+            Specifies the source IP address for outgoing packets.
+          </para>
+        </callout>
+        <callout arearefs="vxlan-configure-bridge-remote">
+          <para>
+            Specifies the unicast or multicast IP address for outgoing packets
+            in case the destination link layer address is unknown in the VXLAN
+            device forwarding database.
+          </para>
+        </callout>
+        <callout arearefs="vxlan-configure-bridge-master">
+          <para>
+            Creates this VXLAN connection as a port in the
+            <literal>br0</literal> connection.
+          </para>
+        </callout>
+      </calloutlist>
+    </step>
+    <step>
+      <para>
+        Activate the bridge <literal>br0</literal>.
+      </para>
+<screen>
+&prompt.sudo;nmcli connection up br0
+</screen>
+    </step>
+    <step>
+      <para>
+        If firewall is active, modify its rules to allow incoming UDP
+        connections via port 8472.
+      </para>
+<screen>
+&prompt.sudo;firewall-cmd --permanent --add-port=8472/udp &amp;&amp; firewall-cmd --reload
+</screen>
+    </step>
+  </procedure>
+</topic>
