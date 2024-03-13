@@ -10,7 +10,7 @@
 <!-- point back to this document with a similar comment added to your legacy doc piece -->
 <!-- refer to README.md for file and id naming conventions -->
 <!-- metadata is dealt with on the assembly level -->
-<topic xml:id="upgrading-slemicro-preparation"
+<topic xml:id="upgrading-micro-preparation"
  role="task" xml:lang="en"
  xmlns="http://docbook.org/ns/docbook" version="5.2"
  xmlns:its="http://www.w3.org/2005/11/its"
@@ -28,71 +28,259 @@ in the assembly -->
        </para>
     </abstract>
   </info>
-  <section xml:id="task-example-introduction">
-    <title>Introduction</title>
+  <section xml:id="upgrading-micro-preparation-version">
+    <title>Identifying the &productnameshort; version</title>
+    <xi:include href="../snippets/SLE-Micro-upgrade-path.xml"/>
     <para>
-      A paragraph of text.
+      To check the &productnameshort; version, view the file <filename>/etc/os-release</filename>.
+      To get a machine readable XML output is available with <command>zypper</command>:
     </para>
+    <screen>
+      &prompt.sudo;<command>zypper --no-remote --no-refresh --xmlout --non-interactive products
+      -i</command>
+      
+&lt;?xml version='1.0'?>
+&lt;stream>
+&lt;message type="info">Ignoring repository &apos;SLE-Micro-5.5-Debuginfo-Pool&apos; because of &apos;no-remote&apos; option.&lt;/message>
+&lt;message type="info">Ignoring repository &apos;SLE-Micro-5.5-Debuginfo-Updates&apos; because of &apos;no-remote&apos; option.&lt;/message>
+&lt;message type="info">Ignoring repository &apos;SLE-Micro-5.5-Pool&apos; because of &apos;no-remote&apos; option.</message>
+&lt;message type="info">Ignoring repository &apos;SLE-Micro-5.5-Source-Pool&apos; because of &apos;no-remote&apos; option.&lt;/message>
+&lt;message type="info">Ignoring repository &apos;SLE-Micro-5.5-Updates&apos; because of &apos;no-remote&apos; option.&lt;/message>
+&lt;message type="info">Loading repository data...&lt;/message>
+&lt;message type="info">Reading installed packages...&lt;/message>
+&lt;product-list>
+&lt;product name="SLE-Micro" version="5.5" release="1" epoch="0" arch="x86_64" vendor="SUSE" summary="SUSE Linux Enterprise Micro 5.5" repo="@System" productline="SLE-Micro" registerrelease="" shortname="SUSE Linux Enterprise Micro" flavor="" isbase="true" installed="true">&lt;endoflife time_t="1809043200" text="2027-04-30T00:00:00Z"/>&lt;registerflavor/>&lt;description>SUSE Linux Enterprise Micro 5.5&lt;/description>&lt;/product>
+&lt;/product-list>
+&lt;/stream>
+
+    </screen>
   </section>
-  <section xml:id="task-example-requirements">
-    <title>Requirements</title>
-    <itemizedlist>
-      <listitem>
-        <para>
-          An
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          Unordered
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          List
-        </para>
-      </listitem>
-    </itemizedlist>
+  <section xml:id="upgrading-micro-preparation-release-notes">
+    <title>Read the release notes</title>
     <para>
-      A paragraph of text.
-    </para>
+      Find a list of all changes, new features, and known issues in the
+      <link xlink:href="https://www.suse.com/releasenotes/">release notes</link>.
+      You can also find the release notes on the installation media in the
+      <filename>docu</filename> directory.
+     </para>
+   
+     <para>
+      The release notes usually only contain the changes between two subsequent
+      releases.
+     </para>
+   
+     <para>
+      Check the release notes to see whether:
+     </para>
+   
+     <itemizedlist>
+      <listitem>
+       <para>
+        your hardware needs special considerations;
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+        any used software packages have changed significantly;
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+        special precautions are necessary for your installation.
+       </para>
+      </listitem>
+     </itemizedlist>
   </section>
-  <section xml:id="task-example-executing">
-    <title>Executing the task</title>
+  <section xml:id="upgrading-micro-preparation-registration">
+    <title>Registering the machine</title>
+    
+  <para>
+    On registration, the system receives repositories from the &scc; (see
+    <link xlink:href="&sccurl;"/>) or a local registration proxy like &smt;. The
+    repository names map to specific URIs in the customer center. To list all
+    available repositories on your system, use <command>zypper</command> as
+    follows:
+   </para>
+ 
+ <screen>&prompt.root;<command>zypper</command> repos -u</screen>
+ 
+   <para>
+    This gives you a list of all available repositories on your system. Each
+    repository is listed by its alias, name and whether it is enabled and will
+    be refreshed. The option <option>-u</option> also gives you the URI from
+    where it originated.
+   </para>
+ 
+     <para>
+    To register your machine, run the <command>transactional-update</command> as
+    follows:
+   </para>
+ 
+ <screen>
+ &prompt.sudo;<command>transactional-update</command> register -r <replaceable>REGCODE</replaceable>
+ </screen>
+ <para>
+  To check your locally installed products and their status, use the following
+  command:
+ </para>
+
+<screen>&prompt.root;<command>&suseconnect;</command> -s</screen>
+  </section>
+  <section xml:id="upgrading-micro-preparation-patching">
+    <title>Updating the system</title>
     <para>
-      A paragraph of text.
+      Upgrading the system is only supported from the most recent patch level.
+      Make sure the latest system updates are installed by running:
+     </para>
+     <screen>
+      &prompt.sudo;transactional-update patch
+      </screen>
+  </section>
+  <section xml:id="upgrading-micro-preparation-backup">
+    <title>Make a backup</title>
+    <para>
+      Before upgrading, back up your data by copying the existing configuration
+      files to a separate medium (such as tape device, removable hard disk, etc.).
+      This primarily applies to files stored in <filename>/etc</filename> and some
+      directories and files in <filename>/var</filename> and
+      <filename>/opt</filename>. You may also want to write the user data in
+      <filename>/home</filename> (the <envar>HOME</envar> directories) to a backup
+      medium.
+     </para>
+   
+     <para>
+      Back up all data as &rootuser;. Only &rootuser; has sufficient permissions
+      for all local files.
+     </para>  
+  </section>
+
+  <section xml:id="upgrading-micro-preparation-networkstack-switch">
+    <title>Switch from &wicked; to &nm;</title>
+    <para>
+      If your network service is &wicked;, you need to switch it to &nm; as &wicked; is not
+      supported in the new release.
     </para>
-    <procedure>
+    <important>
       <para>
-        A short introduction to the procedure.
+       Even though &nm; and <command>wicked</command> are similar in functionalities, we cannot guarantee full feature parity. The conversion of the <command>wicked</command> configuration or automated switching to &nm; is not supported.  
       </para>
-      <step>
-        <para>
-          A step.
-        </para>
-      </step>
-      <step>
-        <para>
-          A second step.
-        </para>
-      </step>
-      <step>
-        <para>
-          A third step.
-        </para>
-      </step>
-    </procedure>
-  </section>
-  <section xml:id="task-example-summary">
-    <title>Summary</title>
+     </important>
+     <para>
+      The <filename>/etc/sysconfig/network/ifcfg-*</filename> files are usually compatible except for some rare cases. But when you use the <command>wicked</command> configuration located in <filename>/etc/wicked/*.xml</filename>, you need to migrate the configuration manually.
+      </para>
     <para>
-      A paragraph of text, summing up the result of the task.
+      To change your networking managing service from <command>wicked</command> to &nm;, proceed as follows:
     </para>
+    <procedure xml:id="upgrading-micro-preparation-procedure">
+      <title>Switching from <command>wicked</command> to &nm;</title>
+      <step>
+       <para>
+        Run the following command to create a new snapshot where you perform all
+        other changes to the system:
+       </para>
+   <screen>&prompt.sudo;transactional-update shell</screen>
+      </step>
+      <step>
+       <para>
+        Install &nm;:
+       </para>
+   <screen>&prompt.sudo;zypper in NetworkManager</screen>
+      </step>
+      <step>
+       <para>
+        Remove <command>wicked</command> from the system:
+       </para>
+   <screen>&prompt.sudo;zypper rm wicked wicked-service</screen>
+      </step>
+      <step>
+       <para>
+        Enable the &nm; service:
+       </para>
+   <screen>&prompt.sudo;systemctl enable NetworkManager</screen>
+      </step>
+      <step>
+       <para>
+        If needed, configure the service according to your needs.
+       </para>
+      </step>
+      <step>
+       <para>
+        Close the <command>transactional-update</command> shell:
+       </para>
+   <screen>&prompt.sudo;exit</screen>
+      </step>
+      <step>
+       <para>
+        Reboot your system to switch to the new snapshot.
+       </para>
+      </step>
+     </procedure>
   </section>
-  <section xml:id="task-example-troubleshooting">
-    <title>Troubleshooting</title>
+
+  <section xml:id="upgrading-slemicro-preparation-disk-size">
+    <title>Check disk size</title>
     <para>
-      Add some troubleshooting information, if applicable.
-    </para>
+      Software tends to grow from version to version. Therefore, take a look at
+      the available partition space before updating. If you suspect you are
+      running short of disk space, back up your data before increasing the
+      available space by resizing partitions, for example. There is no general
+      rule regarding how much space each partition should have. Space requirements
+      depend on your particular partitioning profile and the software selected.
+     </para>
+     <para>
+      On a Btrfs file system, the output of <command>df</command> can be
+      misleading, because in addition to the space the raw data allocates, a
+      Btrfs file system also allocates and uses space for metadata.
+     </para>
+     <para>
+      Consequently a Btrfs file system may report being out of space even though
+      it seems that plenty of space is still available. In that case, all space
+      allocated for the metadata is used up. 
+     </para>
+     
+     <para>
+      Make sure there is enough free space as the root file system uses Btrfs and
+      might consume significant amount of space. Check the available space on all
+      mounted partitions. In the worst case, an upgrade needs as much disk space
+      as the current root file system (without <filename>/.snapshot</filename>)
+      for a new snapshot.
+     </para>
+     <para>
+      The following recommendations have been proven:
+     </para>
+     <itemizedlist>
+      <listitem>
+       <para>
+        For all file systems, including Btrfs, you need enough free disk space to
+        download and install big RPMs. The space of old RPMs is only freed after
+        new RPMs are installed.
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+        For Btrfs with snapshots, you need as a minimum as much free space as
+        your current installation takes. We recommend having twice as much free
+        space as the current installation.
+       </para>
+       <para>
+        If you do not have enough free space, you can try to delete old snapshots
+        with <command>snapper</command>:
+       </para>
+  <screen>&prompt.sudo;<command>snapper</command> list
+  &prompt.sudo;<command>snapper</command> delete NUMBER</screen>
+       <para>
+        However, this may not help in all cases. Before migration, most snapshots
+        occupy only little space.
+       </para>
+      </listitem>
+     </itemizedlist>
+  </section>
+  <section xml:id="">
+    <title>Shut down virtual machine guests</title>
+    <para>
+      If your machine serves as a &vmhost; for &kvm;, make sure to properly shut down all running &vmguest;s prior
+      to the update. Otherwise you may not be able to access the guests after the
+      update.
+     </para>
   </section>
 </topic>
