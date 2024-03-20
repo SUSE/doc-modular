@@ -19,8 +19,8 @@
     <abstract>
       <xi:include href="../snippets/vxlan-intro.xml"/>
       <para>
-        This topic describes how to configure an existing virtual machine to use
-        a VXLAN via a network bridge.
+        This topic describes how to connect an existing virtual machine to the
+        VXLAN via a network bridge.
       </para>
     </abstract>
   </info>
@@ -28,7 +28,9 @@
     Virtual machines (VMs) need to use the virtual network
     <literal>vxlan1-br0</literal> to communicate via a network bridge with an
     attached VXLAN network. Run the following procedure on &productnameshort;
-    hosts to change the network of an existing VM.
+    hosts to change the network of an existing VM. Our example virtual machine
+    <replaceable>VM1</replaceable> is running on host
+    <replaceable>VM1</replaceable>.
   </para>
   <procedure>
     <itemizedlist>
@@ -50,7 +52,7 @@
         Connect the network interface of the VM to the virtual network
         <literal>vxlan1-br0</literal>.
       </para>
-<screen>&prompt.sudo;virt-xml <replaceable>VM_NAME</replaceable> --edit
+<screen>&prompt.sudo;virt-xml <replaceable>VM1</replaceable> --edit
     --network network=vxlan1-br0</screen>
     </step>
     <step>
@@ -58,28 +60,63 @@
         Restart the VM, for example:
       </para>
 <screen>
-&prompt.sudo;virsh shutdown <replaceable>VM_NAME</replaceable>
-&prompt.sudo;virsh start <replaceable>VM_NAME</replaceable>
+&prompt.sudo;virsh shutdown <replaceable>VM1</replaceable>
+&prompt.sudo;virsh start <replaceable>VM1</replaceable>
 </screen>
     </step>
     <step>
       <para>
-        Verify the virtual network interfaces on the host and interface attached
-        to the <literal>vxlan1-br0</literal> network bridge.
+        Verify the virtual network interfaces on the host.
       </para>
 <screen>
-&prompt.sudo;virsh domiflist<replaceable>VM_NAME</replaceable>
+&prompt.sudo;virsh domiflist <replaceable>VM1</replaceable>
 Interface   Type     Source           Model    MAC
 -------------------------------------------------------------------
-vnet1       bridge   vxlan1-br0       virtio   52:54:12:a7:89:1f
+vnet1<co xml:id="co-vxlan-vnet1"/>    bridge   vxlan1-br0<co xml:id="co-vxlan-br"/>    virtio   52:54:12:a7:89:1f
 [...]
+</screen>
+      <calloutlist>
+        <callout arearefs="co-vxlan-vnet1">
+          <para>
+            A virtual network automatically created by &libvirt;. It is used by
+            the virtual machine <replaceable>VM1</replaceable>.
+          </para>
+        </callout>
+        <callout arearefs="co-vxlan-br">
+          <para>
+            A network bridge with the attached VXLAN network. The
+            <literal>vnet1</literal> network is connected to that bridge.
+          </para>
+        </callout>
+      </calloutlist>
+    </step>
+    <step>
+      <para>
+        Verify the interface attached to the <literal>vxlan1-br0</literal>
+        network bridge on the guest.
+      </para>
+<screen>
 &prompt.sudo;ip link show master vxlan1-br0
 [...]
-14: vxlan1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br0 state UNKNOWN mode DEFAULT group default qlen 1000
+14: vxlan1:<co xml:id="co-vxlan-vxlan"/> &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br0 state UNKNOWN mode DEFAULT group default qlen 1000
     link/ether 2a:53:bd:d5:b3:0a brd ff:ff:ff:ff:ff:ff
-15: vnet1: &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br0 state UNKNOWN mode DEFAULT group default qlen 1000
+15: vnet1:<co xml:id="co-vxlan-vnet2"/> &lt;BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br0 state UNKNOWN mode DEFAULT group default qlen 1000
     link/ether 52:54:12:a7:89:1f brd ff:ff:ff:ff:ff:ff
 </screen>
+      <calloutlist>
+        <callout arearefs="co-vxlan-vxlan">
+          <para>
+            The configured VXLAN network atatched to the
+            <literal>vxlan1-br0</literal> bridge.
+          </para>
+        </callout>
+        <callout arearefs="co-vxlan-vnet2">
+          <para>
+            A virtual network automatically created by &libvirt;. It is used by
+            the virtual machine <replaceable>VM1</replaceable>.
+          </para>
+        </callout>
+      </calloutlist>
     </step>
   </procedure>
 </topic>
