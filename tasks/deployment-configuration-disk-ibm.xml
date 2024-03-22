@@ -24,75 +24,103 @@ in the assembly -->
     <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
     <abstract><!-- can be changed via merge in the assembly -->
       <para>
-       Introductory text
+        During the installation process, you can pass a complex configuration
+        to define users, directories, or to provide SSH keys. To do so, create
+        a configuration device that is later processed by either &ignition; or
+        &combustion;.
       </para>
     </abstract>
   </info>
-  <section xml:id="task-example-introduction">
-    <title>Introduction</title>
+  <tip>
+    <title>Virtual versus physical disk</title>
     <para>
-      A paragraph of text.
+A virtual disk may be more suitable for production deployments, while a physical disk is better
+suited for development.
     </para>
-  </section>
-  <section xml:id="task-example-requirements">
-    <title>Requirements</title>
-    <itemizedlist>
-      <listitem>
-        <para>
-          An
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          Unordered
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          List
-        </para>
-      </listitem>
-    </itemizedlist>
-    <para>
-      A paragraph of text.
-    </para>
-  </section>
-  <section xml:id="task-example-executing">
-    <title>Executing the task</title>
-    <para>
-      A paragraph of text.
-    </para>
-    <procedure>
+  </tip>
+  <para>
+    To prepare the configuration device, proceed as follows:
+  </para>
+  <procedure>
+    <step>
       <para>
-        A short introduction to the procedure.
+        Identify the 5GB disk:
       </para>
-      <step>
-        <para>
-          A step.
-        </para>
-      </step>
-      <step>
-        <para>
-          A second step.
-        </para>
-      </step>
-      <step>
-        <para>
-          A third step.
-        </para>
-      </step>
-    </procedure>
-  </section>
-  <section xml:id="task-example-summary">
-    <title>Summary</title>
-    <para>
-      A paragraph of text, summing up the result of the task.
-    </para>
-  </section>
-  <section xml:id="task-example-troubleshooting">
-    <title>Troubleshooting</title>
-    <para>
-      Add some troubleshooting information, if applicable.
-    </para>
-  </section>
+      <screen>
+        lsdasd
+
+Bus-ID    Status    Name      Device  Type         BlkSz  Size      Blocks 
+================================================================================ 
+0.0.0100  active    dasda     94:0    ECKD         4096   30720MB   7864380 
+0.0.0101  active    dasdc     94:8    ECKD         4096   20480MB   5243040
+0.0.0102  active    dasdb     94:4    ECKD         4096   5120MB    1310760
+      </screen>
+      <para>
+        In the output above, the <literal>Bus-ID</literal> value of the disk to be used as a configuration device is <emphasis>0.0.0102</emphasis>.
+        Use the value of <literal>Bus-ID</literal> or the disk size to identify the disk, as the
+        device name (<literal>/dev/dasdX</literal> can change after each reboot).
+      </para>
+    </step>
+    <step>
+      <para>
+        Format the disk. Keep in mind that formatting removes all data on that disk.
+      </para>
+      <screen>
+        dasdfmt -b 4096 -y -p /dev/dasdb
+      </screen>
+    </step>
+    <step>
+      <para>
+        Create a partition:
+      </para>
+      <screen>
+        parted /dev/dasdb mkpart ext2 0% 100%
+      </screen>
+    </step>
+    <step>
+      <para>
+        Format the partition:
+      </para>
+      <screen>
+        mkfs.ext4 /dev/dasdb1
+      </screen>
+    </step>
+    <step>
+      <para>
+        Label the partition as <literal>ignition</literal>:
+      </para>
+      <screen>e2label /dev/dasdb1 ignition</screen>
+    </step>
+    <step>
+      <para>Verify the file system:</para>
+      <screen>blkid</screen>
+    </step>
+    <step>
+      <para>Mount the partition:</para>
+      <screen>
+        mount /dev/dasdb1 /mnt
+      </screen>
+    </step>
+    <step>
+      <para>
+        Prepare the directory structure for &ignition; and/or &combustion;. For &ignition;:
+      </para>
+      <screen>mkdor -p  /mnt/ignition</screen>
+      <para>
+        For &combustion;:
+      </para>
+      <screen>
+        mkdir -p /mnt/combustion
+      </screen>
+    </step>
+    <step>
+      <para>
+        Copy your public ssh key to <filename>/mnt/combustion</filename> as <filename>ssh_key.pub</filename>.</para>
+    </step>
+    <step>
+      <para>
+        Prepare the configuration as described further.
+      </para>
+    </step>
+  </procedure>
 </topic>
