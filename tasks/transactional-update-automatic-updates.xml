@@ -48,11 +48,30 @@
       When an automatic &tr-up; fails, the failed snapshot is deleted and the
       system may reboot. You then cannot find out that the last automatic
       update failed. Therefore, you can configure a &systemd; service that will
-      inform you about the failure of the automatic &tr-up;. To do so, follow
-      the procedure below:
+      inform you about the failure of the automatic &tr-up;. The procedure of doing so can be
+      summarized into the following steps:
     </para>
-    <procedure>
-      <step>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Installing the required packages if not present on the system. For details, refer to <xref linkend="tr-up-automatic-updates-configuring-notifications-packages"/>. 
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+Defining which event triggers sending of the notification. For details, refer to <xref linkend="tr-up-automatic-updates-configuring-notifications-events"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+Configuring the <literal>systemd-status-mail</literal> service. For details, refer to <xref linkend="tr-up-automatic-updates-configuring-notifications-service"/>.
+        </para>
+      </listitem>
+    </itemizedlist>
+
+
+    <section xml:id="tr-up-automatic-updates-configuring-notifications-packages">
+          <title>Installing required packages</title>
         <para>
           The packages <literal>mailsx</literal> and
           <literal>systemd-status-mail</literal> are required to configure the
@@ -64,109 +83,136 @@
         <para>
           Reboot the system.
         </para>
-      </step>
-      <step>
-        <para>
-          Add your configuration to the file
-          <filename>/etc/default/systemd-status-mail</filename>. For details,
-          refer to
-          <xref linkend="tr-up-automatic-updates-configuring-notifications-configuration"/>.
-        </para>
-      </step>
-      <step>
-        <para>
-          Define which event should trigger the sending of the status mail:
-        </para>
-        <substeps>
-          <step>
-            <para>
-              Create a file
-              <filename>/etc/systemd/system/os-update.service.d//etc/systemd/system/os-update.service.d/</filename>
-            </para>
-          </step>
-          <step>
-            <para>
-              Add the following configuration to the file:
-            </para>
-<screen>[Unit]
-OnFailure=systemd-status-mail@%n.service</screen>
-          </step>
-        </substeps>
-      </step>
-    </procedure>
-    <section xml:id="tr-up-automatic-updates-configuring-notifications-configuration">
-      <title>The <filename>/etc/default/systemd-status-mail</filename> configuration file</title>
+       
+        </section>
+
+        <section xml:id="tr-up-automatic-updates-configuring-notifications-events">
+          <title>Defining the events</title>
+          <para>
+            To instruct &systemd; to send an email notification when &tr-up; fails, proceed as follows:
+          </para>
+          <procedure>
+            <step>
+              <para>
+                Create a file
+                <filename>/etc/systemd/system/transactional-update.service.d/status-mail.conf</filename>.
+                The directory may not exist, so create it if needed.
+              </para>
+            </step>
+            <step>
+              <para>
+                Add the following snippet to the file:
+              </para>
+              <screen>
+[Unit]
+OnFailure=systemd-status-mail@%n.service
+              </screen>
+            </step>
+          </procedure>
+        </section>
+
+        <section xml:id="tr-up-automatic-updates-configuring-notifications-service">
+          <title>Configuring the <literal>systemd-status-mail</literal> service</title>
+<para>
+  To configure the <literal>systemd-status-mail</literal> service, you can create a configuration
+  file or you can use the <literal>jeos-config</literal> tool.
+</para>
+<section xml:id="tr-up-automatic-updates-configuring-notifications-jeos">
+  <title>Configuring the service using <literal>jeos-config</literal></title>
+  <para>
+    To configure the email notifications, you can use the <literal>jeos-config</literal> tools
+    as described bellow.
+  </para>
+  <procedure>
+    <step>
       <para>
-        You can start from scratch when creating the file
-        <filename>/etc/default/systemd-status-mail</filename>, or you can copy
-        the delivered <filename>/usr/etc/default/systemd-status-mail</filename>
-        to <filename>/etc/default/</filename> and edit the copy.
+        To open the configuration window, run the command:
       </para>
+      <screen>
+        &prompt.sudo;jeos-config status_mail
+      </screen>
+    </step>
+    <step>
       <para>
-        For proper notification email configuration, define the following
-        options.
+        In the dialog, configure the items according to your needs.
+      </para>          
+    </step>
+    <step>
+      <para>
+        Confirm with <guimenu>OK</guimenu>.
       </para>
-      <variablelist>
-        <varlistentry>
-          <term>ADDRESS</term>
-          <listitem>
-            <para>
-              A mandatory entry. Specify the e-mail address the notification is
-              sent to. For example:
-            </para>
+    </step>
+  </procedure>
+</section>
+<section xml:id="tr-up-automatic-updates-configuring-notifications-file">
+  <title>Configuring the service by editing a configuration file</title>
+  <para>
+    The default configuration file is in <filename>/usr/etc/default/systemd-status-mail</filename>.
+    To modify it, create a copy in <filename>/etc/default/</filename> and edit the following items:
+  </para>
+  <variablelist>
+    <varlistentry>
+      <term>ADDRESS</term>
+      <listitem>
+        <para>
+          A mandatory entry. Specify the e-mail address the notification is
+          sent to. For example:
+        </para>
 <screen>
 ADDRESS=“tux@example.com”
-          </screen>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term>FROM</term>
-          <listitem>
-            <para>
-              The sender e-mail of the notification mail. Ensure that the
-              address is valid. For example:
-            </para>
+      </screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>FROM</term>
+      <listitem>
+        <para>
+          The sender e-mail of the notification mail. Ensure that the
+          address is valid. For example:
+        </para>
 <screen>
 FROM=“geeko@example.com”
-          </screen>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term>MAILER</term>
-          <listitem>
-            <para>
-              The type of mail application for sending notifications. Use the
-              <literal>mailx</literal> value as follows:
-            </para>
+      </screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>MAILER</term>
+      <listitem>
+        <para>
+          The type of mail application for sending notifications. Use the
+          <literal>mailx</literal> value as follows:
+        </para>
 <screen>
 MAILER=“mailx”
-          </screen>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term>RELAYHOST</term>
-          <listitem>
-            <para>
-              Specify the mail relay used by mailx.
-            </para>
+      </screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>RELAYHOST</term>
+      <listitem>
+        <para>
+          Specify the mail relay used by mailx.
+        </para>
 <screen>
 RELAYHOST=“mailx”
-          </screen>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term>MAILX_OPTIONS</term>
-          <listitem>
-            <para>
-              Specify necessary options to ensure that the mail provider will
-              accept the notification mail. ``
-            </para>
+      </screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>MAILX_OPTIONS</term>
+      <listitem>
+        <para>
+          Specify necessary options to ensure that the mail provider will
+          accept the notification mail. ``
+        </para>
 <screen>
 MAILX_OPTIONS="-Sverbose -Ssmtp-use-starttls -Ssmtp-auth=login -Ssmtp-auth-user='tux@example.com' -Ssmtp-auth-password='TopSecret'"
-          </screen>
-          </listitem>
-        </varlistentry>
-      </variablelist>
+      </screen>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+</section>      
+        
     </section>
   </section>
 </topic>
