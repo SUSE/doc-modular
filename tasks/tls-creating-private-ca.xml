@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="tls-creating-private-ca"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Generating a private key and creating a private certificate authority</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <xi:include href="../snippets/tls-certificates-introduction.xml"/>
+    </abstract>
+  </info>
+  <para>
+    The following procedure describes how to generate a private SSL/TLS key and
+    create a self-signed certificate using a private CA.
+  </para>
+  <procedure>
+    <itemizedlist>
+      <title>REQUIREMENTS</title>
+      <listitem>
+        <para>
+          You have &rootuser; privileges.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <step>
+      <para>
+        Generate a private SSL/TLS key for your private CA. The following
+        example generates a 256-bit key without a passphrase using the AES256
+        algorithm.
+      </para>
+<screen>&prompt.user;openssl genpkey -algorithm AES256 -out <replaceable>CA.key</replaceable></screen>
+      <para>
+        The speed of generating the key depends on the hardware, the selected
+        encryption algorithm, and the length of the key.
+      </para>
+    </step>
+    <step>
+      <para>
+        Create a certificate that is signed by the private key that you have
+        just generated.
+      </para>
+<screen>&prompt.user;openssl req -key <replaceable>CA.key</replaceable><co xml:id="tls-co-input"/> -new -x509 -days 365<co xml:id="tls-co-days"/>\
+-addext keyUsage=critical,keyCertSign,cRLSign<co xml:id="tls-co-addtext"/> \
+-subj "/CN=Example CA"<co xml:id="tls-co-subj"/> -out <replaceable>CA.crt</replaceable></screen>
+      <calloutlist>
+        <callout arearefs="tls-co-input">
+          <para>
+            Specifies the path to the generated private key.
+          </para>
+        </callout>
+        <callout arearefs="tls-co-days">
+          <para>
+            The certificate will be valid for one year.
+          </para>
+        </callout>
+        <callout arearefs="tls-co-addtext">
+          <para>
+            This extension ensures that the certificate explicitly declares that
+            its public key is intended for signing other certificates and
+            revocation lists, and that it should be treated as critical.
+          </para>
+        </callout>
+        <callout arearefs="tls-co-subj">
+          <para>
+            You can replace the <literal>Example CA</literal> string with any
+            common name.
+          </para>
+        </callout>
+      </calloutlist>
+    </step>
+    <step>
+      <para>
+        Secure the private key file by restricting its permissions and ownership
+        so that only the &rootuser; can read it.
+      </para>
+<screen>&prompt.sudo;chown &rootuser;:&rootuser; <replaceable>CA.key</replaceable>
+&prompt.sudo;chmod 600 <replaceable>CA.key</replaceable></screen>
+    </step>
+    <step performance="optional">
+      <para>
+        To use the self-signed certificate on client systems, copy it to the
+        client's <filename>/etc/pki/trust/anchors/</filename> directory and add
+        it to the system-wide certificate store.
+      </para>
+<screen>&prompt.sudo;update-ca-certificates</screen>
+      <para>
+        Refer to MISSING for more details.
+      </para>
+    </step>
+  </procedure>
+</topic>
