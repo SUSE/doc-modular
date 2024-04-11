@@ -6,7 +6,7 @@
   <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
     %entities;
 ]>
-<topic xml:id="tls-creating-private-ca"
+<topic xml:id="tls-creating-private-key"
  role="task" xml:lang="en"
  xmlns="http://docbook.org/ns/docbook" version="5.2"
  xmlns:its="http://www.w3.org/2005/11/its"
@@ -14,15 +14,14 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Generating a private key and creating a private certificate authority</title>
+    <title>Creating a private SSL/TLS key</title>
     <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
     <abstract>
       <xi:include href="../snippets/tls-certificates-introduction.xml"/>
     </abstract>
   </info>
   <para>
-    The following procedure describes how to generate a private SSL/TLS key and
-    create a self-signed certificate using a private CA.
+    The following procedure describes how to generate a private SSL/TLS key.
   </para>
   <procedure>
     <itemizedlist>
@@ -35,22 +34,53 @@
     </itemizedlist>
     <step>
       <para>
-        Generate a private SSL/TLS key for your private CA. The following
-        example generates a 256-bit key without a passphrase using the AES256
-        algorithm.
+        Generate a private SSL/TLS key. The following example generates an
+        unencrypted 256-bit ECDSA key.
       </para>
-<screen>&prompt.user;openssl genpkey -algorithm AES256 -out <replaceable>CA.key</replaceable></screen>
+<screen>&prompt.user;openssl ecparam -name prime256v1 -genkey -out <replaceable>server.key</replaceable></screen>
       <para>
         The speed of generating the key depends on the hardware, the selected
         encryption algorithm, and the length of the key.
       </para>
+      <tip>
+        <title>Unencrypted private key</title>
+        <para>
+          Although encrypting the private key with a passphrase increases its
+          security, in some scenarios using an encrypted private key is not
+          convenient. For example, you need to enter the passphrase each time an
+          Apache Web server that uses an encrypted private key for a SSL/TLS
+          communication is restarted.
+        </para>
+      </tip>
     </step>
+    <step>
+      <para>
+        Move the generated private key to a safe location on the server and
+        secure it by restricting its permissions and ownership so that only the
+        &rootuser; can read it.
+      </para>
+<screen>&prompt.sudo;chown &rootuser;:&rootuser; <replaceable>server.key</replaceable>
+&prompt.sudo;chmod 600 <replaceable>server.key</replaceable></screen>
+    </step>
+    <step performance="optional">
+      <para>
+        Verify the consistency of the private key.
+      </para>
+<screen>&prompt.sudo;openssl pkey -check -in <replaceable>server.key</replaceable>
+Key is valid
+-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgUnW551Qru4+pbWqu
+JRXQVFi45N1j+qmx7dEnr+8eox+hRANCAAR+rRLHBGjq2H2jOq09efVt99JB/R7h
+QkDLjVMa9jemVH1g3YiVIEAHyCVjms2rC06lkU1S+z8WsRjh6A/ev8//
+-----END PRIVATE KEY-----</screen>
+    </step>
+<!--
     <step>
       <para>
         Create a certificate that is signed by the private key that you have
         just generated.
       </para>
-<screen>&prompt.user;openssl req -key <replaceable>CA.key</replaceable><co xml:id="tls-co-input"/> -new -x509 -days 365<co xml:id="tls-co-days"/>\
+<screen>&prompt.user;openssl req -key <replaceable>server.key</replaceable><co xml:id="tls-co-input"/> -new -x509 -days 365<co xml:id="tls-co-days"/>\
 -addext keyUsage=critical,keyCertSign,cRLSign<co xml:id="tls-co-addtext"/> \
 -subj "/CN=Example CA"<co xml:id="tls-co-subj"/> -out <replaceable>CA.crt</replaceable></screen>
       <calloutlist>
@@ -79,14 +109,6 @@
         </callout>
       </calloutlist>
     </step>
-    <step>
-      <para>
-        Secure the private key file by restricting its permissions and ownership
-        so that only the &rootuser; can read it.
-      </para>
-<screen>&prompt.sudo;chown &rootuser;:&rootuser; <replaceable>CA.key</replaceable>
-&prompt.sudo;chmod 600 <replaceable>CA.key</replaceable></screen>
-    </step>
     <step performance="optional">
       <para>
         To use the self-signed certificate on client systems, copy it to the
@@ -98,5 +120,17 @@
         Refer to MISSING for more details.
       </para>
     </step>
+    -->
   </procedure>
+  <itemizedlist>
+    <title>Next steps</title>
+    <listitem>
+      <para>
+        Create a certificate signing request (CSR) so that you preferred CA can
+        sign and validate it. Find more details in
+        <xref
+          linkend="tls-creating-certificate-signing-request"/>.
+      </para>
+    </listitem>
+  </itemizedlist>
 </topic>
