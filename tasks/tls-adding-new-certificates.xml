@@ -14,15 +14,15 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Adding new SSL/TLS certificates to a system-wide CA certificate store</title>
+    <title>Adding new TLS certificates to a system-wide CA certificate store</title>
     <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
     <abstract>
       <xi:include href="../snippets/tls-certificates-introduction.xml"/>
     </abstract>
   </info>
   <para>
-    To let applications know about a new SSL/TLS certificate on the system, add
-    the certificate to a system-wide certificate store and use the
+    To let applications know about a new TLS certificate on the system, add the
+    certificate to a system-wide certificate store and use the
     <command>update-ca-certificates</command> command to update it.
   </para>
   <procedure>
@@ -51,28 +51,55 @@
     </step>
     <step performance="optional">
       <para>
-        Verify that you certificate has been added to the certificate store by
-        listing all known trust anchors.
+        After having included the certificate into a server configuration, for
+        example, Apache Web server for HTTPS communication on port 443, you can
+        verify if the whole certificate chain is valid. Remember to replace
+        <replaceable>www.suse.com:433</replaceable> with the server's real host
+        name and port for secure communication.
       </para>
-<screen>&prompt.sudo;trust list
-pkcs11:id=%E6%E7%38%36%9E%F3%39%6C%F0%D8%09%6C%AB%12%90%04%AE%7D%C3%6F;type=cert
-type: certificate
-label: www.example.org
-trust: anchor
-category: other-entry
+<screen>&prompt.user;echo | openssl s_client -connect www.suse.com:443 -verify_return_error
+CONNECTED(00000003)
+depth=2 C = US, O = Amazon, CN = Amazon Root CA 1
+verify return:1
+depth=1 C = US, O = Amazon, CN = Amazon RSA 2048 M03
+verify return:1
+depth=0 CN = *.suse.com
+verify return:1
+---
+Certificate chain
+0 s:CN = *.suse.com
+i:C = US, O = Amazon, CN = Amazon RSA 2048 M03
+a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
+v:NotBefore: Sep 17 00:00:00 2023 GMT; NotAfter: Oct 15 23:59:59 2024 GMT
 
-[...]</screen>
+[...]
+
+subject=CN = *.suse.com
+issuer=C = US, O = Amazon, CN = Amazon RSA 2048 M03
+---
+No client certificate CA names sent
+Peer signing digest: SHA256
+Peer signature type: RSA-PSS
+Server Temp Key: X25519, 253 bits
+---
+SSL handshake has read 5485 bytes and written 378 bytes
+Verification: OK
+---
+New, TLSv1.3, Cipher is TLS_AES_128_GCM_SHA256
+Server public key is 2048 bit
+This TLS version forbids renegotiation.
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+Early data was not sent
+Verify return code: 0 (ok)
+---
+DONE
+</screen>
     </step>
   </procedure>
   <itemizedlist>
     <title>For more information</title>
-    <listitem>
-      <para>
-        The <command>man 1 trust</command> manual page describes how to use the
-        <command>trust</command> command to list, extract, add, remove or change
-        trust anchors.
-      </para>
-    </listitem>
     <listitem>
       <para>
         The <command>man 8 update-ca-certificates</command> manual page.
