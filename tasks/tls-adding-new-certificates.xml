@@ -14,24 +14,30 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Adding new TLS certificates to a system-wide CA certificate store</title>
+    <title>Adding new CA certificates to a system-wide store</title>
     <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
     <abstract>
       <xi:include href="../snippets/tls-certificates-introduction.xml"/>
     </abstract>
   </info>
   <para>
-    To let applications know about a new TLS certificate on the system, add the
-    certificate to a system-wide certificate store and use the
-    <command>update-ca-certificates</command> command to update it.
+    To let applications know about a new private CA certificate on the system,
+    add it certificate to a system-wide certificate store on the client and use
+    the <command>update-ca-certificates</command> command to update the store.
   </para>
   <procedure>
     <itemizedlist>
-      <title>REQUIREMENTS</title>
+      <title>Requirements</title>
       <listitem>
         <para>
           The <package>ca-certificate</package> package is installed on the
           system.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          You created a CA certificate as described in
+          <xref linkend="tls-creating-private-ca"/>.
         </para>
       </listitem>
       <xi:include href="../snippets/requirement-root-or-sudo-privileges.xml"/>
@@ -41,61 +47,13 @@
         Copy the certificate file to the
         <filename>/etc/pki/trust/anchors</filename> directory.
       </para>
-<screen>&prompt.sudo;cp ~/server.pem /etc/pki/trust/anchors/</screen>
+<screen>&prompt.sudo;cp <replaceable>myRootCA.crt</replaceable> /etc/pki/trust/anchors/</screen>
     </step>
     <step>
       <para>
         Update the system-wide certificate store.
       </para>
 <screen>&prompt.sudo;update-ca-certificates</screen>
-    </step>
-    <step performance="optional">
-      <para>
-        After having included the certificate into a server configuration, for
-        example, Apache Web server for HTTPS communication on port 443, you can
-        verify if the whole certificate chain is valid. Remember to replace
-        <replaceable>www.suse.com:433</replaceable> with the server's real host
-        name and port for secure communication.
-      </para>
-<screen>&prompt.user;echo | openssl s_client -connect www.suse.com:443 -verify_return_error
-CONNECTED(00000003)
-depth=2 C = US, O = Amazon, CN = Amazon Root CA 1
-verify return:1
-depth=1 C = US, O = Amazon, CN = Amazon RSA 2048 M03
-verify return:1
-depth=0 CN = *.suse.com
-verify return:1
----
-Certificate chain
-0 s:CN = *.suse.com
-i:C = US, O = Amazon, CN = Amazon RSA 2048 M03
-a:PKEY: rsaEncryption, 2048 (bit); sigalg: RSA-SHA256
-v:NotBefore: Sep 17 00:00:00 2023 GMT; NotAfter: Oct 15 23:59:59 2024 GMT
-
-[...]
-
-subject=CN = *.suse.com
-issuer=C = US, O = Amazon, CN = Amazon RSA 2048 M03
----
-No client certificate CA names sent
-Peer signing digest: SHA256
-Peer signature type: RSA-PSS
-Server Temp Key: X25519, 253 bits
----
-SSL handshake has read 5485 bytes and written 378 bytes
-Verification: OK
----
-New, TLSv1.3, Cipher is TLS_AES_128_GCM_SHA256
-Server public key is 2048 bit
-This TLS version forbids renegotiation.
-Compression: NONE
-Expansion: NONE
-No ALPN negotiated
-Early data was not sent
-Verify return code: 0 (ok)
----
-DONE
-</screen>
     </step>
   </procedure>
   <itemizedlist>
