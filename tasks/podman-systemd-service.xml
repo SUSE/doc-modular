@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/adm_sudo.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="podman-systemd-service"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <meta name="maintainer" content="dpopov@suse.com" its:translate="no"/>
+    <title>Creating a &systemd; unit file with &podman;</title>
+    <abstract>
+      <para>
+        The following procedure describes how to create a &systemd; service
+        unit file for a container using &podman;.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    The procedure below demonstrates how to use &podman; to create a &systemd;
+    service unit file for a simple NGINX container. In this example, the
+    container is deployed in the rootless mode, and the service is created and
+    run as a regular user.
+  </para>
+  <procedure>
+    <step>
+      <para>
+        Use the following command to pull the latest NGINX container image and
+        create a NGINX container named <literal>web</literal>
+      </para>
+<screen>&prompt.user;podman run -d --name web -p 8080:80 docker.io/nginx</screen>
+    </step>
+    <step>
+      <para>
+        Use &podman; to generate a &systemd; unit file:
+      </para>
+<screen>podman generate systemd --new --name web --files &amp;&amp; mv container-web.service $HOME/.config/systemd/user/</screen>
+      <para>
+        By default the unit file is tied to the currently running container.
+        This means that the service in not transferable and becomes useless
+        once the container is removed. The <option>--new</option> flag solves
+        the problem by instructing Podman to recreate the container on a
+        restart. The <option>--name</option> flag assigns a user-friendly name
+        to the container (<literal>web</literal> in this case). If the name is
+        not specified, &podman; uses the container IDs instead. The
+        <option>--files</option> flag ensures that the generated service
+        definition is saved in a file instead of sending it as output to the
+        console. The generated <filename>container-web.service</filename> is
+        then moved into the <filename>$HOME/.config/systemd/user/</filename>
+        directory.
+      </para>
+    </step>
+    <step>
+      <para>
+        Run the <command>systemctl --user daemon-reload</command> to load the
+        newly created &systemd; unit file.
+      </para>
+    </step>
+    <step>
+      <para>
+        Start the service:
+      </para>
+<screen>&prompt.user;systemctl --user start container-web</screen>
+    </step>
+    <step>
+      <para>
+        Use the following command to confirm that the service is active:
+      </para>
+<screen>&prompt.user;systemctl --user is-active container-web.service</screen>
+    </step>
+  </procedure>
+</topic>
