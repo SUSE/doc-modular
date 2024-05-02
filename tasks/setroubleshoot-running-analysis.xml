@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="setroubleshoot-running-analysis"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Running the <filename>/var/log/audit/audit.log</filename> analysis</title>
+    <!-- can be changed via merge
+      in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract>
+      <!-- can be changed via merge in the assembly -->
+      <para>
+        The topic covers the usage of <command>sealert</command>.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    To let the <command>setroubleshoot</command> tool analyze the audit log
+    file, run the command:
+  </para>
+<screen>&prompt.sudo;<command>sealert -a /var/log/audit/audit.log</command></screen>
+  <para>
+    In the following example output, there are two port values assigned to the
+    SSHD service:
+  </para>
+<screen>
+100% done
+found 1 alerts in /var/log/audit/audit.log
+--------------------------------------------------------------------------------
+
+SELinux is preventing sshd from name_bind access on the tcp_socket port 2222.
+
+*****  Plugin bind_ports (92.2 confidence) suggests   ************************ 
+
+If you want to allow sshd to bind to network port 2222
+Then you need to modify the port type.
+Do
+# semanage port -a -t PORT_TYPE -p tcp 2222  <co xml:id="setroubleshoot-bind-ports"/>
+    where PORT_TYPE is one of the following: ssh_port_t, vnc_port_t, xserver_port_t.
+
+*****  Plugin catchall_boolean (7.83 confidence) suggests   ******************
+
+If you want to allow nis to enabled
+Then you must tell SELinux about this by enabling the 'nis_enabled' boolean.
+
+Do
+setsebool -P nis_enabled 1
+
+*****  Plugin catchall (1.41 confidence) suggests   **************************
+
+If you believe that sshd should be allowed name_bind access on the port 2222 tcp_socket by default.
+Then you should report this as a bug.
+You can generate a local policy module to allow this access.
+Do
+allow this access for now by executing:
+# ausearch -c 'sshd' --raw | audit2allow -M my-sshd
+# semodule -X 300 -i my-sshd.pp
+
+Additional Information:
+...
+
+First Seen                    2024-02-07 14:26:27 UTC
+Last Seen                     2024-02-08 03:30:12 UTC
+Local ID                      b5cbdd75-3f8d-425d-af75-f6cbf1540ffd 
+
+Raw Audit Messages
+type=AVC msg=audit(1707363012.797:25): avc:  denied  { name_bind } for  pid=841 comm="sshd" src=2222 scontext=system_u:system_r:sshd_t:s0-s0:c0.c1023 tcontext=system_u:object_r:unreserved_port_t:s0 tclass=tcp_socket permissive=0
+
+
+Hash: sshd,sshd_t,unreserved_port_t,tcp_socket,name_bind
+
+  </screen>
+  <calloutlist>
+    <callout arearefs="setroubleshoot-bind-ports">
+      <para>
+        The <literal>bind_ports</literal> plug-in provides the most suitable
+        solution for the problem here.
+      </para>
+    </callout>
+  </calloutlist>
+  <para></para>
+</topic>
