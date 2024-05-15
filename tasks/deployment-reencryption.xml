@@ -37,8 +37,10 @@ in the assembly -->
   </note>
   <para>
     &productname; encrypted images ar delivered with a default LUKS passphrase. To secure your
-    system, make sure that you change it after the system is deployed. To do so, proceed as follows:
+    system, make sure that you change it after the system is deployed. To do so, proceed as
+    describe bellow. Make sure to perform the steps in the same shell session.
   </para>
+  
   <procedure>
     <step>
       <para>
@@ -56,6 +58,44 @@ in the assembly -->
         and:
       </para>
       <screen>&prompt.root;luks_dev=$(luks_get_underlying_device "$luks_name")</screen>
+    </step>
+    <step xml:id="creating-key-files">
+      <para>
+        Create a key file that stores the default passphrase '1234' and a key file with the new passphrase.
+      </para>
+    </step>
+    <step>
+      <para>
+        Change the recovery password:
+      </para>
+      <screen>&prompt.root;cryptsetup luksChangeKey --key-file <replaceable>PATH_TO_DEFAULT</replaceable> --pbkdf pbkdf2 "${luks_dev}" <replaceable>PATH_TO_NEW</replaceable></screen>
+    </step>
+    <step>
+      <para>
+        Reencrypt the LUKS device:
+      </para>
+      <screen>&prompt.root;cryptsetup reencrypt --key-file <replaceable>PATH_TO_NEW</replaceable> ${luks_dev}</screen>
+    </step>
+    <step>
+      <para>
+        Create a new random key and seal it with TPM
+      </para>
+      <screen>&prompt.sudo;fdectl regenerate-key --passfile <replaceable>PATH_TO_NEW</replaceable></screen>
+    </step>
+    <step>
+      <para>
+        Remove both of the key files you created in <xref linkend="creating-key-files"
+        xrefstyle="template:step 3"/>.
+      </para>
+    </step>
+    <step>
+      <para>Update the <filename>grub.cfg</filename> file by running:</para>
+      <screen>&prompt.sudo;transactional-update grub.cfg</screen>
+    </step>
+    <step>
+      <para>
+        Reboot the system.
+      </para>
     </step>
   </procedure>
 </topic>
