@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="deployment-reencryption"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Reencrypting the encrypted system</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+       The topic gives instructions on how to change the default passphrase after deploying the encrypted image.
+      </para>
+    </abstract>
+  </info>
+  <warning>
+    <title>The system is not secured</title>
+    <para>
+      The system is not secured. Thus, do not store any sensitive data in it until the disk
+      reencryption is complete.
+    </para>
+  </warning>
+  <note>
+    <title>The step is not needed if you deployed your system using &jeosfirstboot;</title>
+    <para>
+    &jeosfirstboot; prompts for a new passphrase during the deployment phase. After you enter it, the
+    system is reencrypted automatically, thus no further action is needed.
+    </para>
+  </note>
+  <para>
+    &productname; encrypted images are delivered with a default LUKS passphrase. To secure your
+    system, make sure that you change it after the system is deployed. To do so, proceed as
+    described below. Perform the steps in the same shell session.
+  </para>
+  
+  <procedure>
+    <step>
+      <para>
+        Import the needed functions to your shell:
+      </para>
+      <screen>&prompt.root;source /usr/share/fde/luks</screen>
+    </step>
+    <step>
+      <para>
+        Identify the underlying LUKS device and define further used variables:
+      </para>
+      <screen>&prompt.root;luks_name=$(expr "`df --output=source / | grep /dev/`" :
+      ".*/\(.*\)")</screen>
+      <para>
+        and:
+      </para>
+      <screen>&prompt.root;luks_dev=$(luks_get_underlying_device "$luks_name")</screen>
+    </step>
+    <step xml:id="creating-key-files">
+      <para>
+        Create a key file that stores the default passphrase <emphasis>1234</emphasis> 
+        and a key file with the new passphrase.
+      </para>
+    </step>
+    <step>
+      <para>
+        Change the recovery password:
+      </para>
+      <screen>&prompt.root;cryptsetup luksChangeKey --key-file <replaceable>PATH_TO_DEFAULT</replaceable> --pbkdf pbkdf2 "${luks_dev}" <replaceable>PATH_TO_NEW</replaceable></screen>
+   <para>
+    <replaceable>PATH_TO_DEFAULT</replaceable> is a path to the key file with the default
+    passphrase. <replaceable>PATH_TO_NEW</replaceable> is a path to the key file with your new passphrase.
+   </para>
+    </step>
+    <step>
+      <para>
+        Reencrypt the LUKS device:
+      </para>
+      <screen>&prompt.root;cryptsetup reencrypt --key-file <replaceable>PATH_TO_NEW</replaceable> ${luks_dev}</screen>
+    </step>
+    <step>
+      <para>
+        Create a new random key and seal it with TPM:
+      </para>
+      <screen>&prompt.sudo;fdectl regenerate-key --passfile <replaceable>PATH_TO_NEW</replaceable></screen>
+    </step>
+    <step>
+      <para>
+        Remove both key files you created in <xref linkend="creating-key-files"
+        xrefstyle="template:step 3"/>.
+      </para>
+    </step>
+    <step>
+      <para>Update the <filename>grub.cfg</filename> file by running:</para>
+      <screen>&prompt.sudo;transactional-update grub.cfg</screen>
+    </step>
+    <step>
+      <para>
+        Reboot the system.
+      </para>
+    </step>
+  </procedure>
+</topic>
