@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+     <!ENTITY snapper "entity-value">
+     <!ENTITY yast "entity-value">
+     <!ENTITY prompt.sudo "entity-value">
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="snapper-restore-files"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Using &snapper; to restore files</title>
+   <meta name="maintainer" content="daria.vladykina@suse.com" its:translate="no"/>
+    <abstract>
+     <para>
+     &snapper; provides the functionality to restore system files that may 
+     have been accidentally deleted or modified, or to restore previous versions
+     of files.</para>
+    </abstract>
+  </info> 
+    <para>To use the restore feature, timeline snapshots for the root partition 
+     must be activated. They provide a historical record of the state of the file 
+     system over time. This allows you to select a specific snapshot to restore 
+     from, rather than having to restore the entire file system.
+     You can also find out which modifications were made at a certain point 
+     in time. To do so, use &snapper;'s diff feature.</para>
+    <para>
+     Being able to restore files is especially interesting for data that may
+     reside on subvolumes or partitions for which snapshots are not taken by
+     default. For example, to restore files from home directories, you need to 
+     create a separate &snapper; configuration for <filename>/home</filename>
+     doing automatic timeline snapshots.
+    </para>
+    <warning>
+     <title>Restoring files compared to rollback</title>
+     <para>
+      Snapshots taken from the root file system (defined by &snapper;'s root
+      configuration) can be used to do a system rollback. The recommended way
+      to do such a rollback is to boot from the snapshot and then perform the
+      rollback.
+     </para>
+     <para>
+      Performing a rollback would also be possible by restoring all files from a
+      root file system snapshot as described below. However, this is not
+      recommended. You may restore single files, for example, a configuration
+      file from the <systemitem>/etc</systemitem> directory, but not the
+      complete list of files from the snapshot.
+     </para>
+     <para>
+      This restriction only affects snapshots taken from the root file system.
+     </para>
+    </warning>
+    <procedure xml:id="proc-snapper-restore-yast">
+     <title>Restoring files using the &yast; <guimenu>Snapper</guimenu> module</title>
+     <para>To restore files with the &snapper; module in &yast;, follow these steps:</para>
+     <step>
+      <para>
+       Open the <guimenu>Miscellaneous</guimenu> section in &yast; or enter the command
+       <command>yast2 snapper</command> to open it, and start the <guimenu>Filesystem
+       Snapshots</guimenu> module.
+      </para>
+     </step>
+     <step>
+      <para>
+       Select the <guimenu>Current Configuration</guimenu> from which to choose
+       a snapshot.
+      </para>
+     </step>
+     <step>
+      <para>
+       Select a timeline snapshot from which to restore a file and click
+       <guimenu>Show Changes</guimenu>. Timeline snapshots are of the type
+       <guimenu>Single</guimenu> with a description value of
+       <guimenu>timeline</guimenu>.
+      </para>
+     </step>
+     <step>
+      <para>
+       Select a file from the text box by clicking the file name. The difference
+       between the snapshot version and the current system is shown. Activate
+       the check box to select the file for restore. Do so for all files you
+       want to restore.
+      </para>
+     </step>
+     <step>
+      <para>
+       Click <guimenu>Restore Selected</guimenu> and confirm the action by
+       clicking <guimenu>Yes</guimenu>.
+      </para>
+     </step>
+    </procedure>
+    <procedure xml:id="proc-snapper-restore-cmdl">
+     <title>Restoring files using the <command>snapper</command> command</title>
+     <para>To restore files with the <command>snapper</command> command, perform 
+      the following steps:</para> 
+     <step>
+      <para>
+       Get a list of timeline snapshots for a specific configuration by running
+       the following command:
+      </para>
+ <screen>&prompt.sudo;snapper -c <replaceable>CONFIG</replaceable> list -t single | grep timeline</screen>
+      <para>
+       <replaceable>CONFIG</replaceable> needs to be replaced by an existing
+       &snapper; configuration. Use <command>snapper list-configs</command> to
+       display a list.
+      </para>
+     </step>
+     <step>
+      <para>
+       Get a list of changed files for a given snapshot by running the following
+       command:
+      </para>
+ <screen>&prompt.sudo;snapper -c <replaceable>CONFIG</replaceable> status <replaceable>SNAPSHOT_ID</replaceable>..0</screen>
+      <para>
+       Replace <replaceable>SNAPSHOT_ID</replaceable> with the ID for the snapshot
+       from which you want to restore the files.
+      </para>
+     </step>
+     <step>
+      <para>
+       Optionally list the differences between the current file version and the
+       one from the snapshot by running
+      </para>
+ <screen>&prompt.sudo;snapper -c <replaceable>CONFIG</replaceable> diff <replaceable>SNAPSHOT_ID</replaceable>..0 <replaceable>FILE NAME</replaceable></screen>
+      <para>
+       If you do not specify <replaceable>&lt;FILE NAME&gt;</replaceable>, the
+       difference for all files is shown.
+      </para>
+     </step>
+     <step>
+      <para>
+       To restore one or more files, run
+      </para>
+ <screen>&prompt.sudo;snapper -c <replaceable>CONFIG</replaceable> -v undochange <replaceable>SNAPSHOT_ID</replaceable>..0 <replaceable>FILENAME1</replaceable> <replaceable>FILENAME2</replaceable></screen>
+      <para>
+       If you do not specify file names, all changed files will be restored.
+      </para>
+     </step>
+    </procedure>
+  
+  <warning>
+    <title>Data consistency</title>
+    <para>
+     There is no mechanism to ensure data consistency when creating a snapshot.
+     Whenever a file (for example, a database) is written at the same time as the
+     snapshot is being created, it will result in a corrupted or partly written
+     file. Restoring such a file will cause problems. Furthermore, certain system
+     files, such as <filename>/etc/mtab</filename>, must never be restored.
+     Therefore, we strongly recommend to <emphasis>always</emphasis> closely
+     review the list of changed files and their diffs. Only restore files that
+     really belong to the action you want to revert.
+    </para>
+   </warning>
+ 
+</topic>
