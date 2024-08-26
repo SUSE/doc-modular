@@ -1,0 +1,1470 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<article xmlns="http://docbook.org/ns/docbook" xml:base="Micro-systemd-working-with-timers.xml" version="5.0" xml:id="systemd-timers" xml:lang="ja">
+  <info>
+    <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its"><systemitem class="daemon">systemd</systemitem>タイマの操作</title>
+    <revhistory xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" xml:id="rh-systemd-timers">
+      <revision>
+        <date>2023-02-28</date>
+        <revdescription>
+          <para>
+              Initial version
+            </para>
+        </revdescription>
+      </revision>
+    </revhistory>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="maintainer" content="fs@suse.com" its:translate="no"/>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="updated" content="2023-02-28" its:translate="no"/>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="architecture" its:translate="no">
+      <phrase>AMD64/Intel 64</phrase>
+      <phrase>POWER</phrase>
+      <phrase>IBM Z</phrase>
+      <phrase>AArch64</phrase>
+    </meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="productname" its:translate="no">
+      <productname condition="6.0" os="slmicro">
+        <phrase>
+          <phrase os="slmicro">SUSE Linux Micro</phrase>
+        </phrase>
+      </productname>
+    </meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="title" its:translate="yes"><systemitem class="daemon">systemd</systemitem>タイマの操作</meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="description" its:translate="yes">
+       <systemitem class="daemon">systemd</systemitem>タイマの作成、保守、テスト、トラブルシューティング、cronからの移行を網羅したタイマ全容の概要。
+     </meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="social-descr" its:translate="yes">
+       <systemitem class="daemon">systemd</systemitem>タイマ全容の概要。
+     </meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="category" its:translate="no">
+      <phrase>Systems Management</phrase>
+    </meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="task" its:translate="no">
+      <phrase>Configuration</phrase>
+      <phrase>Troubleshooting</phrase>
+      <phrase>Maintenance</phrase>
+    </meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="series" its:translate="no">Product &amp; Solutions</meta>
+    <dm:docmanager xmlns:dm="urn:x-suse:ns:docmanager" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" its:translate="no">
+      <dm:bugtracker>
+        <dm:url>https://bugzilla.suse.com/enter_bug.cgi</dm:url>
+        <dm:component>Smart Docs</dm:component>
+        <dm:product>Documentation</dm:product>
+        <dm:assignee>fs@suse.com</dm:assignee>
+      </dm:bugtracker>
+      <dm:translation>yes</dm:translation>
+    </dm:docmanager>
+    <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+      <variablelist>
+        <varlistentry>
+          <term>概要</term>
+          <listitem>
+            <para>
+                定期的なバックアップスクリプトの実行から、コンピュータの起動後直ちに特定のプロセスを開始する処理まで、Linuxシステム上でスケジュール設定を必要とする多数のタスクがあります。<systemitem class="daemon">systemd</systemitem>タイマは、ジョブやサービスをスケジュール設定し、管理するための柔軟なメカニズムを提供します。
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>目的</term>
+          <listitem>
+            <para>
+                この記事は、タイマの作成、保守、テスト、トラブルシューティング、およびcronからの移行を網羅した<systemitem class="daemon">systemd</systemitem>タイマの全容の概要を提供することを目的としています。
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>所要時間</term>
+          <listitem>
+            <para>
+                <systemitem class="daemon">systemd</systemitem>タイマの例を作成するには10分を要します。また、<systemitem class="daemon">systemd</systemitem>タイマの仕組みを十分に理解するには最長で30分が必要です。
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>要件</term>
+          <listitem>
+            <itemizedlist>
+              <listitem>
+                <para>
+                    <systemitem class="daemon">systemd</systemitem>の基本的な理解。
+                  </para>
+              </listitem>
+              <listitem>
+                <para><systemitem class="username">root</systemitem>特権またはsudo特権。通常のユーザとして<systemitem class="daemon">systemd</systemitem>タイマを使用するには、まず<xref linkend="systemd-timer-user"/>を参照してください。
+                  </para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </abstract>
+  </info>
+  <section role="concept" xml:lang="ja" version="5.2" xml:id="systemd-timer-concept">
+    <info>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion"><systemitem class="daemon">systemd</systemitem>タイマのコンセプト</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para><systemitem class="daemon">systemd</systemitem>タイマユニットは、Linux上でジョブのスケジュールを設定する機能を提供します。これらのジョブの実行時間は、日時またはイベントに基づいて設定できます。
+      </para>
+      </abstract>
+    </info>
+    <para><systemitem class="daemon">systemd</systemitem>タイマユニットは、ファイル名拡張子<filename class="extension">.timer</filename>で識別できます。各タイマファイルには、その制御対象になるサービスファイルが必要です。つまり、タイマファイルは、対応するサービスファイルを有効にし、管理します。<systemitem class="daemon">systemd</systemitem>タイマは次の機能をサポートしています。
+  </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+        タイマユニットを使用してスケジュールするジョブを、他の<systemitem class="daemon">systemd</systemitem>サービスに依存して動作するものとすることができます。タイマユニットは通常の<systemitem class="daemon">systemd</systemitem>サービスとして扱われるので、<command>systemctl</command>で管理できます。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        タイマは、カレンダイベントでトリガされるリアルタイムタイマまたは特定の開始点から指定された時間が経過するとトリガされる単調タイマとすることができます。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        タイマユニットはシステムジャーナルに記録されるため、監視やトラブルシューティングが容易になります。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        タイマでは、中央管理サービスである<systemitem class="daemon">systemd</systemitem>を使用します。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        予定のタイマ実行時間でシステムがオフになっている場合は、システムが再度稼働したときにタイマが実行されます。
+      </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section role="task" xml:lang="ja" version="5.2" xml:id="systemd-create-timer">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">タイマの作成</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+        次の例では、ブート時間後に<literal>helloworld.sh</literal>シェルスクリプトをトリガし、有効化された時刻を基準にして24時間ごとに実行を繰り返すタイマを設定する方法を示しています。また、このトリガを月曜日から金曜日の毎日午前10時にも実行します。
+      </para>
+      </abstract>
+    </info>
+    <section>
+      <title><emphasis>Hello World</emphasis>の例</title>
+      <procedure>
+        <step>
+          <para>
+          次の内容で<filename>/etc/systemd/system/helloworld.service</filename>ファイルを作成します。
+        </para>
+          <screen>[Unit]
+Description="Hello World script"
+
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh
+</screen>
+          <para>
+          これは、どのアプリケーションを実行するかを<systemitem class="daemon">systemd</systemitem>に指示する<systemitem class="daemon">systemd</systemitem>サービスファイルです。
+        </para>
+        </step>
+        <step>
+          <para>
+          次の内容で<filename>/etc/systemd/system/helloworld.timer</filename>ファイルを作成します。
+        </para>
+          <screen>[Unit]
+Description="Run helloworld.service 5min after boot and every 24 hours relative to activation time"
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=24h
+OnCalendar=Mon..Fri *-*-* 10:00:*
+Unit=helloworld.service
+
+[Install]
+WantedBy=multi-user.target
+</screen>
+          <para>
+          これは、各サービスファイルのアクティベーションを制御するタイマファイルです。
+        </para>
+        </step>
+        <step>
+          <para>
+          前記で作成したファイルにエラーがないことを確認します。
+        </para>
+          <screen><prompt>&gt; </prompt>systemd-analyze verify /etc/systemd/system/helloworld.*</screen>
+          <para>
+          このコマンドから出力が返されなければ、ファイルは検証に適合しています。
+        </para>
+        </step>
+        <step>
+          <para>
+          タイマを起動します。
+        </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl start helloworld.timer</screen>
+          <para>
+          現在のセッションでのみタイマを有効にします。
+        </para>
+        </step>
+        <step>
+          <para>
+          タイマを有効にして、ブート時にタイマが有効になることを確認します。
+        </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl enable helloworld.timer</screen>
+        </step>
+      </procedure>
+    </section>
+    <section>
+      <title>説明に沿った例</title>
+      <example xml:id="systemd-timer-example-service">
+        <title>サービスファイル</title>
+        <screen>[Unit]
+Description="Hello World script"<co xml:id="systemd-timer-example-service-descr"/>
+
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh<co xml:id="systemd-timer-example-service-exec"/></screen>
+        <calloutlist>
+          <callout arearefs="systemd-timer-example-service-descr">
+            <para>
+            サービスファイルの目的の簡単な説明。
+          </para>
+          </callout>
+          <callout arearefs="systemd-timer-example-service-exec">
+            <para>
+            実行するアプリケーション。
+          </para>
+          </callout>
+        </calloutlist>
+        <para>
+        <literal>[Unit]</literal>セクションと<literal>[Service]</literal>セクションは、サービスファイルが機能するために最小限必要なセクションです。通常、<systemitem class="daemon">systemd</systemitem>サービスファイルには、サービスでロードする1つ以上のターゲットを指定した<literal>[Install]</literal>セクションがあります。この情報はタイマファイルから提供されるので、タイマのサービスファイルにこのセクションは不要です。高度な設定については<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/reference-managing-systemd-targets-systemctl/reference-systemctl-managing-targets.html">Managing
+        <systemitem class="daemon">systemd</systemitem> targets with systemctl</link>を参照してください。
+      </para>
+      </example>
+      <example xml:id="systemd-timer-example-timer">
+        <title>タイマファイル</title>
+        <screen>[Unit]
+Description="Run helloworld.service 5min after boot and every 24 hours relative to activation time"<co xml:id="systemd-timer-example-timer-descr"/>
+
+[Timer]
+OnBootSec=5min<co xml:id="systemd-timer-example-timer-onboot"/>
+OnUnitActiveSec=24h<co xml:id="systemd-timer-example-timer-onunit"/>
+OnCalendar=Mon..Fri *-*-* 10:00:*<co xml:id="systemd-timer-example-timer-oncal"/>
+Unit=helloworld.service<co xml:id="systemd-timer-example-timer-unit"/>
+
+[Install]
+WantedBy=multi-user.target<co xml:id="systemd-timer-example-timer-wanted"/></screen>
+        <calloutlist>
+          <callout arearefs="systemd-timer-example-timer-descr">
+            <para>
+            タイマファイルの簡単な説明。
+          </para>
+          </callout>
+          <callout arearefs="systemd-timer-example-timer-onboot">
+            <para>
+            システムブートの5分後にサービスをトリガするタイマを指定します。詳細については<xref linkend="systemd-timer-types-monotonic"/>を参照してください。
+          </para>
+          </callout>
+          <callout arearefs="systemd-timer-example-timer-onunit">
+            <para>
+            サービスを有効にした時点から24時間後にサービスをトリガするタイマを指定します(つまり、このタイマは1日に1回サービスをトリガします)。詳細については<xref linkend="systemd-timer-types-realtime"/>を参照してください。
+          </para>
+          </callout>
+          <callout arearefs="systemd-timer-example-timer-oncal">
+            <para>
+            決まった時点(この例では、月曜日から金曜日の毎日午前10時)にサービスをトリガするタイマを指定します。詳細については<xref linkend="systemd-timer-types-realtime"/>を参照してください。
+          </para>
+          </callout>
+          <callout arearefs="systemd-timer-example-timer-unit">
+            <para>
+            実行するサービスファイル。
+          </para>
+          </callout>
+          <callout arearefs="systemd-timer-example-timer-wanted">
+            <para>
+            タイマが動作する<systemitem class="daemon">systemd</systemitem>ターゲット。<systemitem class="daemon">systemd</systemitem>ターゲットの詳細については、<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/reference-managing-systemd-targets-systemctl/reference-systemctl-managing-targets.html">Managing
+            <systemitem class="daemon">systemd</systemitem> targets with systemctl</link>を参照してください。
+          </para>
+          </callout>
+        </calloutlist>
+      </example>
+    </section>
+  </section>
+  <section role="reference" xml:lang="ja" version="5.2" xml:id="systemd-timer-manage">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">タイマの管理</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+        <command>systemctl</command>コマンドを使用してタイマを管理できます。
+      </para>
+      </abstract>
+    </info>
+    <variablelist>
+      <varlistentry>
+        <term>タイマの起動と停止</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl start <replaceable>TIMER</replaceable>.timer
+<prompt>&gt; </prompt><command>sudo</command> systemctl restart <replaceable>TIMER</replaceable>.timer
+<prompt>&gt; </prompt><command>sudo</command> systemctl stop <replaceable>TIMER</replaceable>.timer</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>タイマの有効化と無効化</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl enable <replaceable>TIMER</replaceable>.timer
+<prompt>&gt; </prompt><command>sudo</command> systemctl disable <replaceable>TIMER</replaceable>.timer</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>タイマファイルの内容の表示</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl cat <replaceable>TIMER</replaceable>.timer</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>特定のタイマの確認</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl status <replaceable>TIMER</replaceable>.timer</screen>
+          <example>
+            <title>タイマのステータス</title>
+            <screen><prompt>&gt; </prompt><command>sudo</command> systemctl status helloworld.timer
+● helloworld.timer - "Run helloworld.service 5min after boot and every 24 hours
+relative to activation time"<co xml:id="systemd-timer-status-1"/>
+Loaded: loaded (/etc/systemd/system/helloworld.timer; disabled; vendor preset: disabled)<co xml:id="systemd-timer-status-2"/>
+Active: active (waiting) since Tue 2022-10-26 18:35:41 CEST; 6s ago<co xml:id="systemd-timer-status-3"/>
+Trigger: Wed 2022-10-27 18:35:41 CEST; 23h left<co xml:id="systemd-timer-status-4"/>
+Triggers: ● helloworld.service<co xml:id="systemd-timer-status-5"/>
+<co xml:id="systemd-timer-status-6"/>
+Oct 26 18:35:41 neo systemd[1]: Started "Run helloworld.service 5min after boot and every 24 hours relative to activation time".<co xml:id="systemd-timer-status-7"/></screen>
+            <calloutlist>
+              <callout arearefs="systemd-timer-status-1">
+                <para>
+                タイマのファイル名と説明。
+              </para>
+              </callout>
+              <callout arearefs="systemd-timer-status-2">
+                <para>
+                タイマが正常に解析されてメモリ内に保持(ロード)されているかどうかを一覧にします。また、タイマファイルのフルパスを示し、タイマがブート時に開始されるか(有効)、されないか(無効)を示します。最初の値は現在のシステム設定を示し、2番目の値はベンダによるプリセット値を示しています。
+              </para>
+              </callout>
+              <callout arearefs="systemd-timer-status-3">
+                <para>
+                タイマがアクティブ(イベントのトリガを待機している状態)か非アクティブかを示します。アクティブな場合、前回のアクティベーションからの経過時間も表示されます(この例では6秒)。
+              </para>
+              </callout>
+              <callout arearefs="systemd-timer-status-4">
+                <para>
+                タイマが次回トリガされる日時。
+              </para>
+              </callout>
+              <callout arearefs="systemd-timer-status-5">
+                <para>
+                タイマによってトリガされるサービスファイルの名前。
+              </para>
+              </callout>
+              <callout arearefs="systemd-timer-status-6">
+                <para>
+                マニュアルページなどのドキュメントを示すオプション行。そのような情報がない場合は、この例のように空の行になります。
+              </para>
+              </callout>
+              <callout arearefs="systemd-timer-status-7">
+                <para>
+                タイマによって作成された最新のジャーナルエントリ。
+              </para>
+              </callout>
+            </calloutlist>
+          </example>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <para>
+    システムで利用できるすべてのタイマを一覧表示するには<command>systemctl list-timers</command>を使用します。次のオプションを指定できます。
+  </para>
+    <variablelist>
+      <varlistentry>
+        <term>すべてのアクティブなタイマを一覧表示します。</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>非アクティブなタイマも含め、すべてのタイマを一覧表示します。</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers --all</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>パターンに一致するすべてのタイマを一覧表示します。</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers <replaceable>PATTERN</replaceable>
+<prompt>&gt; </prompt><command>sudo</command> systemctl list-timers --all<replaceable>PATTERN</replaceable></screen>
+          <para><replaceable>PATTERN</replaceable>は、名前またはシェルのグロブ表現とする必要があります。オペレータ<literal>*</literal>、<literal>?</literal>、および<literal>[]</literal>を使用できます。グロブパターンの詳細については<command>man 7 glob</command>を参照してください。
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>特定の状態にあるタイマを一覧表示します。</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers --state=<replaceable>STATE</replaceable></screen>
+          <para><replaceable>STATE</replaceable>に指定できる値は、<literal>active</literal>、<literal>failed</literal>、<literal>load</literal>、<literal>sub</literal>です。詳細については<command>man systemctl</command>を参照してください。
+        </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <example>
+      <title>タイマの一覧表示</title>
+      <para>
+      どの<command>systemctl list-timers</command>を実行しても次のようなテーブルが表示されます。この例では、パターン<literal>snapper*</literal>に一致するすべてのアクティブなタイマが一覧表示されます。
+    </para>
+      <screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers snapper*
+NEXT<co xml:id="systemd-timer-list-next"/>                       LEFT<co xml:id="systemd-timer-list-left"/>      LAST<co xml:id="systemd-timer-list-last"/>                        PASSED<co xml:id="systemd-timer-list-passed"/>   UNIT<co xml:id="systemd-timer-list-unit"/>                  ACTIVATES<co xml:id="systemd-timer-list-activates"/>
+
+-----------------------------------------------------------------------------------------------------------------------------
+Tue 2022-10-26 19:00:00 CEST 39min left Tue 2022-10-26 18:00:29 CEST 19min ago snapper-timeline.timer snapper-timeline.service
+Wed 2022-10-27 08:33:04 CEST 14h   left Tue 2022-10-26 08:33:04 CEST 9h ago    snapper-cleanup.timer  snapper-cleanup.service</screen>
+      <calloutlist>
+        <callout arearefs="systemd-timer-list-next">
+          <para>
+          タイマの次回実行日時。
+        </para>
+        </callout>
+        <callout arearefs="systemd-timer-list-left">
+          <para>
+          タイマの次回実行までの残り時間。
+        </para>
+        </callout>
+        <callout arearefs="systemd-timer-list-last">
+          <para>
+          タイマの前回実行日時。
+        </para>
+        </callout>
+        <callout arearefs="systemd-timer-list-passed">
+          <para>
+          タイマの前回実行からの経過時間。
+        </para>
+        </callout>
+        <callout arearefs="systemd-timer-list-unit">
+          <para>
+          タイマユニットの名前。
+        </para>
+        </callout>
+        <callout arearefs="systemd-timer-list-activates">
+          <para>
+          タイマで有効になるサービスの名前。
+        </para>
+        </callout>
+      </calloutlist>
+    </example>
+  </section>
+  <section role="reference" xml:lang="ja" version="5.2" xml:id="systemd-timer-types">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">タイマのタイプ</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para><systemitem class="daemon">systemd</systemitem>は、リアルタイム(カレンダに基づく)と単調(イベントに基づく)の2種類のタイマをサポートしています。一般的にタイマは永続的ですが、<systemitem class="daemon">systemd</systemitem>を使用すると、現在のセッションでのみ有効な過渡タイマも設定できます。
+      </para>
+      </abstract>
+    </info>
+    <variablelist>
+      <varlistentry xml:id="systemd-timer-types-realtime">
+        <term>リアルタイムタイマ</term>
+        <listitem>
+          <para>
+          リアルタイムタイマは、カレンダイベントでトリガされます。その定義には<literal>OnCalendar</literal>オプションを使用します。
+        </para>
+          <para>
+          日時に基づいてイベントをトリガするタイミングを指定できます。次のテンプレートを使用します。
+        </para>
+          <screen>OnCalendar=DayOfWeek<co xml:id="systemd-timer-real-dayofweek"/> Year-Month-Day<co xml:id="systemd-timer-real-date"/> Hour:Minute:Second<co xml:id="systemd-timer-real-time"/></screen>
+          <calloutlist>
+            <callout arearefs="systemd-timer-real-dayofweek">
+              <para>
+              曜日。指定できる値は、<literal>Sun</literal>、<literal>Mon</literal>、<literal>Tue</literal>、<literal>Wed</literal>、<literal>Thu</literal>、<literal>Fri</literal>、<literal>Sat</literal>です。曜日を無視する場合は省略します。
+            </para>
+            </callout>
+            <callout arearefs="systemd-timer-real-date">
+              <para>
+              日付。月と日を2桁で指定し、年を4桁で指定します。該当するあらゆる日時と一致するように、各値をワイルドカード<literal>*</literal>で置き換えることができます。
+            </para>
+            </callout>
+            <callout arearefs="systemd-timer-real-time">
+              <para>
+              時刻。各値を2桁で指定します。該当するあらゆる日時と一致するように、各値をワイルドカード<literal>*</literal>で置き換えることができます。
+            </para>
+            </callout>
+          </calloutlist>
+          <para>
+          これらのすべての値については、2つのドットを使用して連続する範囲を定義でき(<literal>Mon..Fri</literal>)、個々の値をコンマで区切って複数の値を列挙できます(<literal>Mon,Wed,Fri</literal>)。
+        </para>
+          <example>
+            <title>リアルタイムタイマの例</title>
+            <itemizedlist>
+              <listitem>
+                <para>
+                毎週金曜日の午後6時:
+              </para>
+                <screen>OnCalendar=Fri *-*-* 18:00:00</screen>
+              </listitem>
+              <listitem>
+                <para>
+                毎日午前5時:
+              </para>
+                <screen>OnCalendar=Mon..Sun *-*-* 5:00:00</screen>
+              </listitem>
+              <listitem>
+                <para>
+                日曜日と火曜日の午前1時と午前3時:
+              </para>
+                <screen>OnCalendar=Tue,Sun *-*-* 01,03:00:00</screen>
+              </listitem>
+              <listitem>
+                <para>
+                単一の日付:
+              </para>
+                <screen>OnCalendar=Mo..Sun 2023-09-23 00:00:01</screen>
+              </listitem>
+              <listitem>
+                <para>
+                時刻が異なる複数のトリガを指定するには、1つのタイマファイルに複数のOnCalendarエントリを作成します。
+              </para>
+                <screen>OnCalendar=Mon..Fri *-*-* 10:00
+OnCalendar=Sat,Sun *-*-* 22:00</screen>
+              </listitem>
+            </itemizedlist>
+          </example>
+          <para>
+          使用可能な機能とオプションの全リストについては、<command>man 7
+          systemd.time</command>を参照してください。ここでは、次のトピックに関する追加情報が提供されています。
+        </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+              構文の短縮と略語の使用
+            </para>
+            </listitem>
+            <listitem>
+              <para>
+              繰り返しの指定
+            </para>
+            </listitem>
+            <listitem>
+              <para>
+              月の特定の日を検索(月の最終日、最後の日曜日など)
+            </para>
+            </listitem>
+            <listitem>
+              <para>
+              タイムゾーンの適用
+            </para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+      <varlistentry xml:id="systemd-timer-types-monotonic">
+        <term>単調タイマ</term>
+        <listitem>
+          <para>
+          単調タイマは、システムブートやシステムユニットのアクティベーションイベントなど、特定のイベントから指定の時間が経過するとトリガされます。この値は時間の単位(分、時間、日、月、年など)で定義します。使用できる単位は、<literal>usec</literal>、<literal>msec</literal>、<literal>seconds</literal>、<literal>minutes</literal>、<literal>hours</literal>、<literal>days</literal>、<literal>weeks</literal>、<literal>months</literal>、<literal>years</literal>です。単調タイマの定義で使用するオプションがいくつかあります。
+        </para>
+          <itemizedlist>
+            <listitem>
+              <para><literal>OnActiveSec</literal>: ユニットのアクティベーションからの時間
+            </para>
+              <screen>OnActiveSec=50minutes</screen>
+            </listitem>
+            <listitem>
+              <para><literal>OnBootSec</literal>: システムのブートからの時間
+            </para>
+              <screen>OnBootSec=10hours</screen>
+            </listitem>
+            <listitem>
+              <para><literal>OnStartupSec</literal>: サービスマネージャの起動からの時間。システムサービスの場合、これは<literal>OnActiveSec</literal>にほぼ等しくなります。ユーザがログインするとサービスマネージャが起動するユーザサービスで、このオプションを使用します。
+            </para>
+              <screen>OnStartupSec=5minutes 20seconds</screen>
+            </listitem>
+            <listitem>
+              <para><literal>OnUnitActiveSec</literal>: 該当サービスの前回有効化からの時間
+            </para>
+              <screen>OnUnitActiveSec=10seconds</screen>
+            </listitem>
+            <listitem>
+              <para><literal>OnUnitInactiveSec</literal>: 該当サービスの前回無効化からの時間
+            </para>
+              <screen>OnUnitInactiveSec=2hours 15minutes 18 seconds</screen>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>過渡タイマ</term>
+        <listitem>
+          <para>
+          過渡タイマは、現在のセッションでのみ有効な一時的タイマです。このタイマを使用すると、既存のサービスファイルを使用するか、プログラムを直接開始できます。<command>systemd-run</command>を実行することで過渡タイマを呼び出します。
+        </para>
+          <para>
+          次の例では、2時間ごとに<filename>helloworld.service</filename>ユニットを実行します。
+        </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemd-run --on-active="2hours" --unit="helloworld.service"</screen>
+          <para>
+          コマンドを直接実行するには、次の構文を使用します。この例では、スクリプト<filename>/usr/local/bin/helloworld.sh</filename>を直接呼び出します。
+        </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemd-run --on-active="2hours" /usr/local/bin/helloworld.sh</screen>
+          <para>
+          コマンドがパラメータを取る場合は、スペースで区切って追加します。
+        </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemd-run --on-active="2hours" /usr/local/bin/helloworld.sh --language=pt_BR</screen>
+          <para>
+          過渡タイマは、単調タイマまたはリアルタイムタイマとすることができます。次のスイッチがサポートされており、<xref linkend="systemd-timer-types-monotonic" xrefstyle="select:title"/>で説明されているように動作します。
+        </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <option>--on-active</option>
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <option>--on-startup</option>
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <option>--on-unit-active</option>
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <option>--on-unit-inactive</option>
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <option>--on-calendar</option>
+              </para>
+            </listitem>
+          </itemizedlist>
+          <para>
+          詳細については、<command>man 1 systemd-run</command>を参照してください。
+        </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section role="task" xml:lang="ja" version="5.2" xml:id="systemd-timer-test">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">カレンダエントリのテスト</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para><systemitem class="daemon">systemd</systemitem>では、リアルタイムタイマ用のカレンダタイマエントリをテストおよび作成するためのツール、<command>systemd-analyze calendar</command>が提供されています。このツールでは、リアルタイムタイマの設定に必要な<literal>OnCalendar</literal>エントリと同じ引数を使用できます。
+      </para>
+      </abstract>
+    </info>
+    <para>
+    スペースで区切って複数の引数を連結できます。テストする期間が正しい場合は、タイマが次回トリガされる日時(ローカル時間とUTC)が出力に表示されます。また、<literal>Normalized form</literal>の文字列も表示されます。タイマファイルではこの文字列を使用することを推奨します。次に例を示します。
+  </para>
+    <screen><prompt>&gt; </prompt>systemd-analyze calendar "Tue,Sun *-*-* 01,03:00:00"
+Normalized form: Tue,Sun *-*-* 01,03:00:00
+Next elapse: Sun 2021-10-31 01:00:00 CEST
+(in UTC): Sat 2021-10-30 23:00:00 UTC
+From now: 3 days left
+
+<prompt>&gt; </prompt>systemd-analyze calendar "Mon..Fri *-*-* 10:00" "Sat,Sun *-*-* 22:00"
+Original form: Mon..Fri *-*-* 10:00
+Normalized form: Mon..Fri *-*-* 10:00:00
+Next elapse: Thu 2021-10-28 10:00:00 CEST
+(in UTC): Thu 2021-10-28 08:00:00 UTC
+From now: 19h left
+
+Original form: Sat,Sun *-*-* 22:00
+Normalized form: Sat,Sun *-*-* 22:00:00
+Next elapse: Sat 2021-10-30 22:00:00 CEST
+(in UTC): Sat 2021-10-30 20:00:00 UTC
+From now: 3 days left</screen>
+    <para>
+    繰り返しタイマでは、<option>–iterations <replaceable>N</replaceable></option>スイッチを使用してトリガ時間を一覧表示し、想定どおりに動作するかどうかをテストします。引数<replaceable>N</replaceable>には、テストの繰り返し回数を指定します。次の例の文字列は、日曜日の00:00:00から8時間ごとにトリガすることを指定します。
+  </para>
+    <screen><prompt>&gt; </prompt>systemd-analyze calendar --iterations 5 "Sun *-*-* 0/08:00:00"
+Original form: Sun *-*-* 0/08:00:00
+Normalized form: Sun *-*-* 00/8:00:00
+Next elapse: Sun 2021-10-31 00:00:00 CEST
+(in UTC): Sat 2021-10-30 22:00:00 UTC
+From now: 3 days left
+Iter. #2: Sun 2021-10-31 08:00:00 CET
+(in UTC): Sun 2021-10-31 07:00:00 UTC
+From now: 3 days left
+Iter. #3: Sun 2021-10-31 16:00:00 CET
+(in UTC): Sun 2021-10-31 15:00:00 UTC
+From now: 4 days left
+Iter. #4: Sun 2021-11-07 00:00:00 CET
+(in UTC): Sat 2021-11-06 23:00:00 UTC
+From now: 1 week 3 days left
+Iter. #5: Sun 2021-11-07 08:00:00 CET
+(in UTC): Sun 2021-11-07 07:00:00 UTC
+From now: 1 week 3 days left</screen>
+  </section>
+  <section role="task" xml:lang="ja" version="5.2" xml:id="systemd-mailto">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">タイマの失敗を通知する電子メールの取得</title>
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <para><systemitem class="daemon">systemd</systemitem>には、cronのMAILTOに相当する機能が用意されていません。次の手順は、タイマの失敗を通知する電子メールを有効にする方法について説明しています。
+          </para>
+        <para>
+            この手順は次の各ステップで構成されます。
+          </para>
+        <orderedlist>
+          <listitem>
+            <para>
+                電子メールを送信するスクリプトを作成します。
+              </para>
+          </listitem>
+          <listitem>
+            <para>
+                この電子メール送信スクリプトを実行する<systemitem class="daemon">systemd</systemitem>サービスファイルを作成します。
+              </para>
+          </listitem>
+          <listitem>
+            <para>
+                この電子メールサービスファイルをテストします。
+              </para>
+          </listitem>
+          <listitem>
+            <para>
+                タイマで制御するサービスから、<literal>OnFailure</literal>を使用して、作成した電子メールサービスファイルを呼び出します。
+              </para>
+          </listitem>
+        </orderedlist>
+      </abstract>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+    </info>
+    <procedure>
+      <para>
+      次の例では、<package>mailx</package>パッケージの<command>mailx</command>コマンドを使用しています。Postfix電子メールサーバがインストールされ、正しく設定されている必要があります。
+    </para>
+      <step>
+        <para>
+        スクリプト<filename class="directory">/usr/local/bin/send_systemd_email</filename>を作成します。
+      </para>
+        <substeps>
+          <step>
+            <para>
+            このスクリプトには、<literal>$1</literal> (電子メールアドレス)と<literal>$2</literal> (失敗通知が受信されたサービスファイルの名前)の2つのパラメータが必要です。これらのパラメータはいずれも、メールスクリプトを実行するユニットファイルで指定します。
+          </para>
+            <screen>#!/bin/sh
+systemctl status --full "$2" | mailx -S sendwait\
+ -s "Service failure for $2" -r root@$HOSTNAME $1
+</screen>
+          </step>
+          <step>
+            <para>
+            スクリプトが実行可能であることを確認します。
+          </para>
+            <screen><prompt>&gt; </prompt><command>sudo</command> chmod 755 /usr/local/bin/send_systemd_email</screen>
+          </step>
+        </substeps>
+      </step>
+      <step>
+        <para>
+        ファイル<filename>/etc/systemd/system/send_email_to_<replaceable>USER</replaceable>@.service</filename>を作成します。
+      </para>
+        <screen>[Unit]
+Description=Send systemd status information by email for %i to <replaceable>USER</replaceable>
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/send_systemd_email <replaceable>EMAIL_ADDRESS</replaceable> %i
+User=root
+Group=systemd-journal
+</screen>
+        <para>
+        ファイル内の<replaceable>USER</replaceable>と<replaceable>EMAIL_ADDRESS</replaceable>を、電子メールを受信するユーザのログイン名と電子メールアドレスに置き換えます。<literal>%i</literal>は、失敗したサービスの名前です(<literal>%n</literal>パラメータで電子メールサービスに渡されます)。
+      </para>
+      </step>
+      <step>
+        <para>
+        サービスファイルを確認して、報告された問題を修正します。
+      </para>
+        <screen><prompt>&gt; </prompt>systemd-analyze verify /etc/systemd/system/send_email_to_<replaceable>USER</replaceable>@.service</screen>
+        <para>
+        このコマンドから出力が返されなければ、ファイルは検証に適合しています。
+      </para>
+      </step>
+      <step>
+        <para>
+        手順全体を確認するには、テスト用の<literal>dbus</literal>インスタンスを使用してサービスを開始します(現在実行している他のどのサービスも使用できます。あらゆるインストール環境でdbusサービスの動作が保証されているので、この例ではdbusを使用しています)。
+      </para>
+        <screen><prompt>&gt; </prompt><command>sudo</command> systemctl start send_email_to_<replaceable>USER</replaceable>@dbus.service</screen>
+        <para>
+        サービスが正常に動作すれば、本文にdbusステータスメッセージが記述されて件名を<literal>Service failure for dbus</literal>とした電子メールが<replaceable>EMAIL_ADDRESS</replaceable>に届きます(これはテストにすぎません。dbusサービスに問題は発生していないので、この電子メールを削除してもかまいません。どのようなアクションも不要です)。
+      </para>
+        <para>
+        テストの電子メールが正常に送信されていれば、それをサービスファイルに取り込んで作業を続けます。
+      </para>
+      </step>
+      <step>
+        <para>
+        サービスに電子メール通知を追加するには、失敗の通知対象とするサービスファイルの<literal>Unit</literal>セクションに<literal>OnFailure</literal>オプションを追加します。
+      </para>
+        <screen>[Unit]
+Description="Hello World script"
+OnFailure<co xml:id="systemd-mailto-onfailure"/>=send_email_to_<replaceable>USER</replaceable><co xml:id="systemd-mailto-user"/>@%n<co xml:id="systemd-mailto-name"/>.service
+
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh
+</screen>
+        <calloutlist>
+          <callout arearefs="systemd-mailto-onfailure">
+            <para>
+            <literal>OnFailure</literal>オプションは、引数としてサービス名を取ります。
+          </para>
+          </callout>
+          <callout arearefs="systemd-mailto-user">
+            <para>
+            サービスユニットファイル名をログイン名で置き換えます。
+          </para>
+          </callout>
+          <callout arearefs="systemd-mailto-name">
+            <para>
+            サービスの名前を指定します(この例では<literal>helloworld</literal>)。電子メールサービスファイルでは、この名前が%iで表現されます。
+          </para>
+          </callout>
+        </calloutlist>
+      </step>
+      <result>
+        <para>
+        これで、<systemitem class="daemon">systemd</systemitem>サービスの失敗通知が正常に設定されました。
+      </para>
+      </result>
+    </procedure>
+    <tip>
+      <title>複数のユーザへの電子メール通知の送信</title>
+      <para>
+      電子メールサービスファイルでは、受信者の電子メールアドレスがハードコーディングされています。別のユーザに通知電子メールを送信するには、電子メールサービスファイルをコピーして、ファイル名のユーザログインとコピー内の電子メールアドレスを置き換えます。
+    </para>
+      <para>
+      複数の受信者に失敗通知を同時に送信するには、次のように、サービスファイルにそれぞれのサービスファイル名をスペースで区切って追加します。
+    </para>
+      <screen>OnFailure=send_email_to_tux@%n.service send_email_to_wilber@%n.service</screen>
+    </tip>
+  </section>
+  <section role="task" xml:lang="ja" version="5.2" xml:id="systemd-timer-user">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">通常のユーザとしてのタイマの使用</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>通常のユーザでも<systemitem class="daemon">systemd</systemitem>タイマを使用できます。バックアップ、イメージの処理、クラウドへのデータの移動など、繰り返し実行するタスクの自動化で効果的です。
+      </para>
+      </abstract>
+    </info>
+    <para>
+    システム規模タイマの場合と同じ手順とタスクが有効です。ただし、次のような違いがあります。
+  </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+        タイマとサービスファイルは<filename>~/.config/systemd/user/</filename>に配置する必要があります。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        すべての<command>systemctl</command>コマンドと<command>journalctl</command>コマンドは、<option>--user</option>スイッチを使用して実行する必要があります。<command>systemd-analyze</command>では、このオプションは不要です。<emphasis/>
+      </para>
+        <para>
+        通常のユーザは、次の例のようにユニットファイルへのパスを指定する必要があります。これを指定しない場合、同じ名前のシステム規模タイマが存在すると、それが代わりに実行されるか列挙されます。
+      </para>
+        <screen><prompt>&gt; </prompt>systemctl --user start ~/.config/systemd/user/helloworld.timer
+<prompt>&gt; </prompt>systemctl --user enable ~/.config/systemd/user/helloworld.timer
+<prompt>&gt; </prompt>systemctl --user list-timers
+<prompt>&gt; </prompt>journalctl --user -u helloworld.*
+<prompt>&gt; </prompt>systemd-analyze verify ~/.config/systemd/user/helloworld.timer</screen>
+      </listitem>
+    </itemizedlist>
+    <important>
+      <title>ユーザタイマはアクティブなセッションでのみ実行可能</title>
+      <para>
+      通常のユーザとして開始した他の<systemitem class="daemon">systemd</systemitem>サービスと同様に、ユーザタイマはユーザがログインしているときにのみ実行されます。代わりに、ブート時にユーザタイマを開始し、ログアウト後も実行し続けるには、影響を受ける各ユーザに対して「リンガ」を有効にします。<emphasis/>
+    </para>
+      <screen>sudo loginctl enable-linger <replaceable>USER</replaceable></screen>
+      <para>
+      詳細については、<command>man 1 loginctl</command>を参照してください。
+    </para>
+    </important>
+    <important>
+      <title>環境変数は非継承</title>
+      <para>
+      <systemitem class="daemon">systemd</systemitem>のユーザインスタンスでは、<filename>~/.profile</filename>や<filename>~/.bashrc</filename>などのスクリプトで設定した環境変数が継承されません。<systemitem class="daemon">systemd</systemitem>の環境を確認するには<command>systemctl --user show-environment</command>を実行します。
+    </para>
+      <para>
+      <systemitem class="daemon">systemd</systemitem>の環境にない変数をインポートするには、<filename>~/.bashrc</filename>の末尾で次のコマンドを指定します。
+    </para>
+      <screen>systemctl --user import-environment <replaceable>VARIABLE1</replaceable> <replaceable>VARIABLE2</replaceable></screen>
+    </important>
+  </section>
+  <section role="task" xml:lang="ja" version="5.2" xml:id="systemd-timer-catchup">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">cronから<systemitem class="daemon">systemd</systemitem>タイマへの移行</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+        すべてのcronジョブを<systemitem class="daemon">systemd</systemitem>のタイマへ移行できます。手順と例はこちらをご覧ください。
+      </para>
+      </abstract>
+    </info>
+    <procedure>
+      <step>
+        <para>
+        スクリプトを実行するサービスファイルを作成します。詳細については<xref linkend="systemd-timer-example-service"/>を参照してください。
+      </para>
+      </step>
+      <step>
+        <para>
+        サービスファイルを実行するタイマファイルを作成します。一般的な手順については、<xref linkend="systemd-timer-example-timer"/>を参照してください。
+      </para>
+        <substeps>
+          <step>
+            <para>
+            カレンダのエントリを変換します。時間はcronと<systemitem class="daemon">systemd</systemitem>では指定方法が異なります。次のパターンを変換テンプレートとして使用します。
+          </para>
+            <screen>Cron:               Minute Hour Day Month DayOfWeek
+systemd: OnCalendar=DayOfWeek Year-Month-Day Hour:Minute:Second</screen>
+            <para>
+            変換したカレンダエントリをテストするには<xref linkend="systemd-timer-test"/>の手順に従います。
+          </para>
+          </step>
+          <step>
+            <para>
+            次のようにcronのニックネーム(<literal>@<replaceable>NICK</replaceable></literal>)を変換します。
+          </para>
+            <screen>Cron     : <systemitem class="daemon">systemd</systemitem> timer
+-------- : ----------------------------
+@reboot  : OnBootSec=1s
+@yearly  : OnCalendar=*-01-01 00:00:00
+@annually: OnCalendar=*-01-01 00:00:00
+@monthly : OnCalendar=*-*-01 00:00:00
+@weekly  : OnCalendar=Sun *-*-* 00:00:00
+@daily   : OnCalendar=*-*-* 00:00:00
+@hourly  : OnCalendar=*-*-* *:00:00</screen>
+          </step>
+          <step>
+            <para>
+            変数の割り当てを変換します。<systemitem class="daemon">systemd</systemitem>での変数の割り当ては<literal>[Service]</literal>セクションに記述する必要があります。<envar>MAILTO</envar>は、この方法では変換できません。その変換方法については次のステップを参照してください。
+          </para>
+            <screen>cron: <replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>
+systemd: Environment="<replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>"</screen>
+          </step>
+          <step>
+            <para>
+            <xref linkend="systemd-mailto"/>の手順に従って、cronのMAILTO機能を置き換える電子メール通知を設定します。
+          </para>
+          </step>
+        </substeps>
+      </step>
+    </procedure>
+    <example>
+      <title>cronから<systemitem class="daemon">systemd</systemitem>のタイマへの移行</title>
+      <para>
+      以下は、ブートの5分後と、毎週月曜日～金曜日の10時にスクリプト<literal>helloworld.sh</literal>を呼び出すcrontabエントリです。
+    </para>
+      <screen>@reboot sleep 300 &amp;&amp; /usr/local/bin/helloworld.sh
+0 10 * * * 1-5 /usr/local/bin/helloworld.sh</screen>
+      <para>
+      このスクリプトを呼び出す<systemitem class="daemon">systemd</systemitem>のサービスファイル(<filename>helloworld.service</filename>)は次のようになります。
+    </para>
+      <screen>[Unit]
+Description="Hello World script"
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh</screen>
+      <para>
+      タイマファイル(<filename>helloworld.timer</filename>)は次のようになります。
+    </para>
+      <screen>[Unit]
+Description="Run helloworld.service 5min after boot and at 10am every Mon-Fri"
+[Timer]
+OnBootSec=5min
+OnCalendar=Mon..Fri *-*-* 10:00:*
+Unit=helloworld.service
+[Install]
+WantedBy=multi-user.target</screen>
+    </example>
+  </section>
+  <section role="task" xml:lang="ja" version="5.2" xml:id="systemd-timer-troubleshoot">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">トラブルシューティングとFAQ</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+        失敗した<systemitem class="daemon">systemd</systemitem>タイマをデバッグおよびトラブルシューティングする方法を説明します。<systemitem class="daemon">systemd</systemitem>のタイマに関するFAQ (よくある質問と答え)の回答を参照してください。
+      </para>
+      </abstract>
+    </info>
+    <section>
+      <title>エラーの回避</title>
+      <para>
+      <systemitem class="daemon">systemd</systemitem>のタイマでエラーを回避するには次のベストプラクティスに従います。
+    </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+          <literal>ExecStart</literal>を使用してサービスで指定した実行可能ファイルを正しく実行できることを確認します。
+        </para>
+        </listitem>
+        <listitem>
+          <para>
+          <command>systemd-analyze
+          verify <replaceable>FILE</replaceable></command>を実行して、サービスとタイマファイルの構文を確認します。
+        </para>
+        </listitem>
+        <listitem>
+          <para>
+          <command>systemd-analyze calendar
+          <replaceable>CALENDER_ENTRY</replaceable></command>を実行して、カレンダのエントリの実行時間を確認します。
+        </para>
+        </listitem>
+      </itemizedlist>
+    </section>
+    <section>
+      <title>イベントがトリガされない</title>
+      <para>
+      <systemitem class="daemon">systemd</systemitem>では、重大ではないエラーがあるタイマを有効にすると、それらのエラーが暗黙的に無視されます。次に例を示します。
+    </para>
+      <example>
+        <title>致命的ではないエラーがある<systemitem class="daemon">systemd</systemitem>タイマファイルの抜粋</title>
+        <screen>[Timer]
+OnBootSec=5min
+OnClendar=Mon..Fri 10:00
+Unit=helloworld.service
+</screen>
+        <para>
+        3行目に、<literal>OnCalendar</literal>ではなく<literal>OnClendar</literal>を使用している構文エラーがあります。<literal>[Timer]</literal>セクションに2つ目のタイマエントリ(OnBoot)が含まれるため、このエラーは重大ではなく、無視されて何も表示されません。その結果、月曜日から金曜日までのトリガが実行されません。このエラーを検出するには<command>systemd-analyze verify</command>コマンドを使用する以外にありません。
+      </para>
+        <screen><prompt role="root"># </prompt> systemd-analyze verify /etc/systemd/system/helloworld.timer
+/etc/systemd/system/helloworld.timer:7: Unknown key name 'OnClendar' in section 'Timer', ignoring.</screen>
+      </example>
+    </section>
+    <section>
+      <title>システムジャーナルのエラー確認</title>
+      <para>
+      すべての<systemitem class="daemon">systemd</systemitem>サービスと同様に、タイマによってトリガされたイベントやアクションは、システムジャーナルに記録されます。トリガが想定どおりに動作しない場合は、<command>journalctl</command>を使用してログメッセージを確認します。ジャーナルをフィルタして関連する情報を表示するには、<option>-u</option>スイッチを使用して<systemitem class="daemon">systemd</systemitem>タイマとサービスファイルを指定します。このオプションを使用して、タイマおよび対応するサービスファイルのログエントリを表示します。<emphasis/>
+    </para>
+      <screen>sudo journalctl -u  helloworld.timer -u helloworld.service</screen>
+      <para>
+      短縮形で十分な場合は次のとおりです。
+    </para>
+      <screen>sudo journalctl -u  helloworld.*</screen>
+      <para><command>journalctl</command>は、さまざまなオプションとフィルタをサポートするツールです。詳細については、<command>man 1 journalctl</command>を参照してください。次のオプションはタイマのトラブルシューティングで効果的です。
+    </para>
+      <itemizedlist>
+        <listitem>
+          <para><option>-b</option>: 現在のブートのエントリのみを表示します。
+        </para>
+        </listitem>
+        <listitem>
+          <para><option>-S today</option>: 今日からのエントリのみを表示します。
+        </para>
+        </listitem>
+        <listitem>
+          <para><option>-x</option>: ログエントリの隣にヘルプテキストを表示します。
+        </para>
+        </listitem>
+        <listitem>
+          <para><option>-f</option>: 最新のエントリから開始し、新しいエントリが追加されるたびにログを継続的に出力します。短い間隔で発生するトリガの確認で有用です。<keycombo><keycap function="control"/><keycap>C</keycap></keycombo>を押すと終了します。
+        </para>
+        </listitem>
+      </itemizedlist>
+    </section>
+    <section>
+      <title><systemitem class="daemon">systemd</systemitem>のタイマ: 実行されなかったトリガの再実行</title>
+      <para>
+      <systemitem class="daemon">systemd</systemitem>のタイマに想定したトリガ時刻にタイマが非アクティブであったかシステムがオフ状態であった場合、タイマを再度有効にすると、イベントに対して実行されなかったトリガを必要に応じて実行できます。この機能を有効にするには、次のように<literal>[Timer]</literal>セクションに設定オプション<literal>Persistent=true</literal>を追加します。
+    </para>
+      <screen>[Timer]
+OnCalendar=Mon..Fri 10:00
+Persistent=true
+Unit=helloworld.service</screen>
+    </section>
+    <section>
+      <title>cronから<systemitem class="daemon">systemd</systemitem>のタイマへ移行する方法</title>
+      <para>
+      すべてのcronジョブを<systemitem class="daemon">systemd</systemitem>のタイマへ移行できます。ここでは、cronジョブを移行するための一般的な手順を示します。
+    </para>
+      <procedure>
+        <step>
+          <para>
+          スクリプトを実行するサービスファイルを作成します。詳細については<xref linkend="systemd-timer-example-service"/>を参照してください。
+        </para>
+        </step>
+        <step>
+          <para>
+          サービスファイルを実行するタイマファイルを作成します。一般的な手順については、<xref linkend="systemd-timer-example-timer"/>を参照してください。
+        </para>
+          <substeps>
+            <step>
+              <para>
+              カレンダのエントリを変換します。時間はcronと<systemitem class="daemon">systemd</systemitem>では指定方法が異なります。次のパターンを変換テンプレートとして使用します。
+            </para>
+              <screen>Cron:               Minute Hour Day Month DayOfWeek
+systemd: OnCalendar=DayOfWeek Year-Month-Day Hour:Minute:Second</screen>
+              <para>
+              変換したカレンダエントリをテストするには<xref linkend="systemd-timer-test"/>の手順に従います。
+            </para>
+            </step>
+            <step>
+              <para>
+              次のようにcronのニックネーム(<literal>@<replaceable>NICK</replaceable></literal>)を変換します。
+            </para>
+              <screen>Cron     : <systemitem class="daemon">systemd</systemitem> timer
+-------- : ----------------------------
+@reboot  : OnBootSec=1s
+@yearly  : OnCalendar=*-01-01 00:00:00
+@annually: OnCalendar=*-01-01 00:00:00
+@monthly : OnCalendar=*-*-01 00:00:00
+@weekly  : OnCalendar=Sun *-*-* 00:00:00
+@daily   : OnCalendar=*-*-* 00:00:00
+@hourly  : OnCalendar=*-*-* *:00:00</screen>
+            </step>
+            <step>
+              <para>
+              変数の割り当てを変換します。<systemitem class="daemon">systemd</systemitem>での変数の割り当ては<literal>[Service]</literal>セクションに記述する必要があります。<envar>MAILTO</envar>は、この方法では変換できません。その変換方法については次のステップを参照してください。
+            </para>
+              <screen>cron: <replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>
+systemd: Environment="<replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>"</screen>
+            </step>
+            <step>
+              <para>
+              <xref linkend="systemd-mailto"/>の手順に従って、cronのMAILTO機能を置き換える電子メール通知を設定します。
+            </para>
+            </step>
+          </substeps>
+        </step>
+      </procedure>
+      <example>
+        <title>cronから<systemitem class="daemon">systemd</systemitem>のタイマへの移行</title>
+        <para>
+        以下は、ブートの5分後と、毎週月曜日～金曜日の10時にスクリプト<literal>helloworld.sh</literal>を呼び出すcrontabエントリです。
+      </para>
+        <screen>@reboot sleep 300 &amp;&amp; /usr/local/bin/helloworld.sh
+0 10 * * * 1-5 /usr/local/bin/helloworld.sh</screen>
+        <para>
+        このスクリプトを呼び出す<systemitem class="daemon">systemd</systemitem>のサービスファイル(<filename>helloworld.service</filename>)は次のようになります。
+      </para>
+        <screen>[Unit]
+Description="Hello World script"
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh</screen>
+        <para>
+        タイマファイル(<filename>helloworld.timer</filename>)は次のようになります。
+      </para>
+        <screen>[Unit]
+Description="Run helloworld.service 5min after boot and at 10am every Mon-Fri"
+[Timer]
+OnBootSec=5min
+OnCalendar=Mon..Fri *-*-* 10:00:*
+Unit=helloworld.service
+[Install]
+WantedBy=multi-user.target</screen>
+      </example>
+    </section>
+  </section>
+  <section role="glue" xml:lang="ja" version="5.2" xml:id="systemd-timers-more-info">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">詳細情報</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+    </info>
+    <itemizedlist>
+      <listitem>
+        <para>
+        高度な設定オプション(遅延やクロックの処理やタイムゾーンの変更など)を含む<systemitem class="daemon">systemd</systemitem>タイマの完全な参照については、<command>man 5
+        systemd.timer</command>を参照してください。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+          <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/concept-systemd/concept-systemd.html">Basic
+        <systemitem class="daemon">systemd</systemitem> concepts</link>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/reference-systemctl-start-stop-services/reference-systemctl-start-stop-services.html">Starting
+        and stopping <systemitem class="daemon">systemd</systemitem> services</link>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/reference-systemctl-enable-disable-services/reference-systemctl-enable-disable-services.html">Enabling
+        and disabling <systemitem class="daemon">systemd</systemitem> services</link>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/task-debug-failed-systemd-services/index.html">Debugging
+        failed <systemitem class="daemon">systemd</systemitem> services</link>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/task-send-termination-signals-systemd/task-send-termination-signals-systemd.html">Sending
+        termination signals to <systemitem class="daemon">systemd</systemitem> services</link>
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section version="5.2" xml:id="legal-disclaimer">
+    <info>
+      <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">法的事項</title>
+    </info>
+    <para> Copyright © 2006–<?dbtimestamp format="Y"?>
+
+ SUSE LLC and contributors. All rights reserved. </para>
+    <para>
+    この文書は、GNUフリー文書ライセンスのバージョン1.2または(オプションとして)バージョン1.3の条項に従って、複製、頒布、および/または改変が許可されています。ただし、この著作権表示およびライセンスは変更せずに記載すること。ライセンスバージョン1.2のコピーは、<quote>GNUフリー文書ライセンス</quote>セクションに含まれています。
+  </para>
+    <para>
+    SUSEの商標については、<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.suse.com/company/legal/"/>を参照してください。その他の第三者のすべての商標は、各社の所有に帰属します。商標記号(®、™など)は、SUSEおよび関連会社の商標を示します。アスタリスク(*)は、第三者の商標を示します。
+  </para>
+    <para>
+    本書のすべての情報は、細心の注意を払って編集されています。しかし、このことは正確性を完全に保証するものではありません。SUSE LLC、その関係者、著者、翻訳者のいずれも誤りまたはその結果に対して一切責任を負いかねます。
+  </para>
+  </section>
+  <appendix xmlns:its="http://www.w3.org/2005/11/its" version="5.2" role="legal" its:translate="no" xml:id="doc-gfdl-license">
+    <info>
+      <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">GNUフリー文書利用許諾契約書(GFDL)</title>
+    </info>
+    <para>
+  Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc. 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.この使用許諾書を一字一句そのままの複製および頒布することは許可されますが、変更は許可されません。
+ </para>
+    <bridgehead renderas="sect4">
+    0. 序文
+  </bridgehead>
+    <para>
+  この利用許諾契約書の目的は、マニュアル、テキストブック、またはその他の機能的で有用な文書を、自由という意味で「フリー」にすることです。つまり、そのような文書を、変更の有無や商用非商用に関わらず、コピーまたは再配布する実効的な自由をすべての人々に保証することです。第二に、本利用許諾契約書は、作者または発行者が他者によって行われた変更について責任を負わないとともに、その著作物の功績が確保されるように意図されています。
+ </para>
+    <para>
+  本利用許諾契約書は、「コピーレフト」(著作物を自由に複製および改変できるようにすること)の一種であり、文書の派生著作物は、それ自体が同じ意味においてフリーでなければなりません。フリーソフトウェア向けに考慮されたコピーレフト利用許諾であるGNU一般公衆利用許諾契約書(GPL)を補足するものです。
+ </para>
+    <para>
+  弊社は、この利用許諾契約書をフリーソフトウェアのマニュアルに使用するために設計しました。それは、フリーソフトウェアにはフリーマニュアルが必要であるためです。つまり、フリープログラムには、そのソフトウェアと同じ自由を提供するマニュアルが付属しなければなりません。ただし、本利用許諾契約書は、ソフトウェアマニュアルに制限されるものではありません。主題であるか否か、または印刷された本として発行されるか否かに関わらず、任意のテキスト著作物に使用することができます。本利用許諾契約書は、その目的が指示または参照に置かれている著作物に主に使用することを推奨します。
+ </para>
+    <bridgehead renderas="sect4">
+    1. 適用範囲と定義
+  </bridgehead>
+    <para>
+  本利用許諾契約書は、この利用許諾の条項に従って頒布できることを定めた著作権者の通告が記載されている任意のメディアにおけるマニュアルまたは他の著作物に適用されます。そのような通告は、その著作物をここに記載されている条件に従って使用するための世界的な無償の利用許諾を無期限で付与します。次に示す「文書」は、そのような任意のマニュアルまたは著作物を指します。その公衆ユーザはいずれも被許諾者であり、「利用者」と呼ばれます。利用者は、著作権法に従った許可が必要になるような方法で著作物を複製、変更または頒布する場合に、利用許諾を受け入れます。
+ </para>
+    <para>
+  文書の「変更された版」とは、そのまま複製されるか、変更または別の言語に翻訳された(またはその両方)文書あるいはその一部を含んだ著作物のことです。
+ </para>
+    <para>
+  「二次セクション」は、文書の発行者または作者と文書の全体的な主題(または関連事項)との関係のみを示す文書の名前付き付録または前付け部分です。総体的な主題に直接関わる内容は含まれていません。(したがって、文書が部分的に数学のテキストブックになっている場合、二次セクションでは数学について説明されない場合があります)。関係には、主題または関連事項との歴史的なつながり、あるいはそれらに関する法的、商的、哲学的、倫理的、政治的位置付けが含まれる場合があります。
+ </para>
+    <para>
+  「不変セクション」は、文書が本利用許諾契約書の条件の下でリリースされる旨を述べている通告において、そのタイトルが不変セクションのものとして指定されている、ある特定の二次セクションです。セクションが、すでに説明した二次セクションの定義に一致しない場合は、不変として指定することはできません。文書には、不変セクションが含まれない場合があります。文書で不変セクションを特定しない場合、不変セクションは含まれません。
+ </para>
+    <para>
+  「カバーテキスト」とは、文書が本利用許諾契約書の条件の下でリリースされる旨を述べている通告において、表カバーテキストまたは裏カバーテキストとして列挙されている、ある一定の短い文章のことです。表カバーテキストは、最大で5語、裏カバーテキストは、最大で25語によって構成できます。
+ </para>
+    <para>
+  文書の「透過的な複製」とは、その仕様が一般の利用者にとって入手可能で、一般的なテキストエディタまたは一般的な描画プログラム(画素で構成される画像用)、あるいは広く使用されている図面エディタ(図面用)で文書を直接改訂するのに適した形式で表される機械可読の複製のことです。テキストフォーマッタへの入力またはテキストフォーマッタへの入力に適したさまざまな形式への変換に適していることも前提になります。読者による以後の変更を阻止または妨げるようにマークアップまたはマークアップのない状態が調整されている、他の点では透過的なファイル形式で行われた複製は、透過的な複製ではありません。イメージ形式は、相当量のテキストに使用されている場合、透過的ではありません。「透過的」ではない複製は、「不透明」と呼ばれます。
+ </para>
+    <para>
+  透過的な複製に適した形式として、マークアップのないプレーンなASCII、Texinfo入力形式、LaTeX入力形式、一般に取得可能なDTDを使用するSGMLまたはXML、標準に準拠したHTML、人為的変更用のPostScriptまたはPDFがあります。透過的なイメージ形式には、PNG、XCF、JPGが含まれます。不透明な形式には、独自のワードプロセッサのみで読み取りおよび編集を行える独自の形式、DTDまたは処理(またはその両方)ツールを一般に取得できないSGMLまたはXML、機械生成HTML、出力のみを目的として一部のワードプロセッサによって作成されるPostScriptまたはPDFが含まれます。
+ </para>
+    <para>
+  「タイトルページ」とは、印刷された本の場合、タイトルページ自体、および本利用許諾契約書でタイトルページに表示することが要求されるマテリアルを読みやすいように保持するために必要な以降のページのことを指します。そのようなタイトルページがない形式の著作物の場合、「タイトルページ」は、本文の開始部分に先行する、著作物のタイトルを最も顕著に表している部分の近くにあるテキストのことを指します。
+ </para>
+    <para>
+  「XYZという表題の付いた」セクションとは、そのタイトルが正確にXYZになっているか、またはXYZを別の言語に翻訳しているテキストに続いてカッコ付きのXYZが含まれている文書の名前付きサブユニットのことです。(ここで、XYZは、次に示すように、「謝辞」、「献辞」、「推薦」、「履歴」などの特定のセクション名を表します)。文書を変更するときに、そのようなセクションの「タイトルを保存する」とは、この定義に従って「XYZという表題の付いた」セクションが残されることを表します。
+ </para>
+    <para>
+  文書では、本利用許諾契約書が文書に適用される旨を述べている通告の付近に保証の放棄を含めることができます。保証の放棄条項は、本利用許諾契約書内の参照によって、保証の放棄に関してのみ組み込まれると見なされます。つまり、これらの保証の放棄条項がもつ可能性のある他のいかなる含意も無効であり、本利用許諾契約書の意味にまったく影響を与えません。
+ </para>
+    <bridgehead renderas="sect4">
+    2. そのままの複製
+  </bridgehead>
+    <para>
+  利用者は、商用か否かを問わず、任意のメディアにおいて文書を複製または頒布することができます。その際に、本利用許諾契約書、著作権表示、および本利用許諾契約書が文書に適用される旨を述べる利用許諾通告をすべての複製で再生し、本利用許諾契約書の条件に他のいかなる条件も追加しないことが前提条件になります。利用者は、技術的手段によって、作成または頒布する複製の読み込みまたはさらなる複製を妨げたり、制御したりすることはできません。ただし、複製と引き換えに対価を受け取ることができます。十分に大量の複製を頒布する場合は、セクション3の条件に従う必要もあります。
+ </para>
+    <para>
+  すでに述べた同じ条件に従って複製を貸与したり、複製を公開したりすることもできます。
+ </para>
+    <bridgehead renderas="sect4">
+    3. 大量の複製
+  </bridgehead>
+    <para>
+  発行する文書の印刷した複製(または、通常、印刷したカバーをもつメディアに含まれた複製)が 100部を超え、文書の利用許諾通告でカバーテキストを必要とする場合は、すべてのカバーテキスト(表カバーの表カバーテキスト、裏カバーの裏カバーテキスト)を明瞭かつ読みやすく記載したカバーに文書の複製を同封する必要があります。また、両方のカバーでは、これらの複製の発行者として、利用者を読みやすい状態で明確に識別しなければなりません。表カバーには、フルタイトルを記述し、タイトルのすべての語が同等に目立つようにする必要があります。カバーには他のマテリアルを追加することもできます。カバーに限って変更を行った場合の複製は、文書のタイトルが保持されていて、これらの条件を満たしている限り、他の点に関してそのままの複製と見なすことができます。
+ </para>
+    <para>
+  いずれかのカバーで、必要なテキストが多すぎて、読みやすい状態に収まらない場合は、列挙されている最初の部分(問題なく収まる分)を実際のカバーに記載し、残りの部分を隣接ページに入れます。
+ </para>
+    <para>
+  文書の不透明な複製を100部以上公開または頒布する場合は、それぞれの不透明な複製とともに機械可読の透過的な複製を含めるか、それぞれの不透明な複製内あるいはその複製とともに、ネットワークの一般利用者が標準的な一般ネットワークプロトコルを使用して、追加マテリアルのない文書の完全な透過的複製をダウンロードするときにアクセスできるコンピュータネットワークの場所を明記する必要があります。後者のオプションを使用する場合は、不透明な複製の大量頒布を開始するときに十分慎重な手順を取り、この透過的な複製が、その版の不透明な複製を最後に一般頒布した後(直接またはエージェントや小売業者を通じて)少なくとも1年間、指定した場所で継続的にアクセス可能となるように配慮する必要があります。
+ </para>
+    <para>
+  大量の複製を再頒布する時点よりもかなり前に、文書の作者に連絡して、文書の更新版を提供する機会を与えることが要求されますが、必須ではありません。
+ </para>
+    <bridgehead renderas="sect4">
+    4. 変更
+  </bridgehead>
+    <para>
+  文書の変更された版を、すでに述べた第2項および第3項の条件に従って複製および頒布することができます。その際は、本利用許諾契約書に確実に従って、変更された版をリリースし、変更された版が文書の役割を担うようにして、その複製を所要する任意の利用者に変更された版の頒布および変更の利用許諾を与えることが前提になります。また、変更された版で次のことを行う必要があります。
+ </para>
+    <orderedlist numeration="upperalpha" spacing="normal">
+      <listitem>
+        <para>
+    タイトルページ(カバーがある場合はカバー上も含める)で、文書、および以前の版の文書(以前の版がある場合は、その旨、文書の履歴セクションに列挙する)と識別されるタイトルを使用します。前の版と同じタイトルは、その版の元の発行者が許可を与えた場合に、使用することができます。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    タイトルページ上に、この要件から解放されない限り、変更された版において変更の著者としての責任を担う1人以上の人またはエンティティとともに、文書の筆頭著者を少なくとも5人、作者として列挙します(5人に満たない場合は、その筆頭著者のすべて)。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    タイトルページ上に、変更された版の発行者の名前を、発行者として記載します。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    文書のすべての著作権表示を保持します。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    変更に関する適切な著作権表示を、他の著作権表示の隣に追加します。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    著作権表示の直後に、本利用許諾契約書の条項に従って変更された版を利用するための許可を一般利用者に与える利用許諾通告を、次の補遺に示す形式で含めます。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    その利用許諾通告に、不変セクションの全リスト、および文書の利用許諾通告で指定されている必須カバーテキストを保持します。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    本利用許諾契約書の変更されていない複製を含めます。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    「履歴」という表題のセクションを保持して、そのタイトルを保持し、タイトルページに記載されているとおりに、変更された版のタイトル、年度、新しい作者、発行者を少なくとも示す項目を追加します。文書に履歴というセクションがない場合は、そのタイトルページに記載されているとおりに文書のタイトル、年度、作者、発行者を示すセクションを作成し、前の文章に記載されているとおりに変更された版を示す項目を追加します。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    文書の透過的な複製に一般利用者がアクセスできるように文書で指定されている場合は、そのネットワークの場所、およびその文書の基盤となった前の版に対応して文書で指定されているネットワークの場所を保持します。これらは、「履歴」セクションに配置することができます。文書自体よりも4年以上前に発行された著作物の場合、または参照されているその版の元の発行者が許可を与えている場合は、そのネットワークの場所を省略することができます。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    「謝辞」または「献辞」という表題のセクションの場合は、そのセクションのタイトルを保持し、セクション内に、それぞれの貢献者謝辞またはその中の献辞(またはその両方)のすべての内容と意味合いを保持します。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    文書のすべての不変セクションを保持し、そのテキストおよびタイトルを未変更のままにします。セクション番号またはそれと同等の要素は、セクションタイトルの一部と見なされません。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    「推薦」という表題の任意のセクションを削除します。そのようなセクションは、変更された版に含めることはできません。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    既存のセクションのタイトルを変更して、「推薦」という表題にしたり、タイトルが不変セクションと矛盾したりしないようにします。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    保証の放棄を保持します。
+   </para>
+      </listitem>
+    </orderedlist>
+    <para>
+  変更された版に、二次セクションと見なされ、文書から複製されたマテリアルを含まない新しい前付けセクションまたは付録が含まれる場合は、これらの一部またはすべてを任意に「不変」として指定することができます。これを行うには、変更された版の利用許諾表示内で列挙されている不変セクションにそのタイトルを追加します。これらのタイトルは、他のすべてのセクションタイトルと異なっている必要があります。
+ </para>
+    <para>
+  「推薦」という表題のセクションを追加することができますが、その際は、変更された版のさまざまな当事者による推薦以外の要素が含まれていないことが前提になります。たとえば、校正者によるコメント、または文が標準的な信頼できる定義として組織によって承認されていることを示すという宣言文などが相当します。
+ </para>
+    <para>
+  表カバーテキストとしての最大5語の短い文、および裏カバーテキストとしての最大25語の短い文を、変更された版のカバーテキストのリストの終わりに追加できます。表カバーテキストの短い1文および裏カバーテキストの短い1文のみを、1つのエンティティが追加できます(またはエンティティによって行われた調整を通じて)。文書に、利用者または利用者が関わる同じエンティティによって行われた調整を通じて前に追加された同じカバーのカバーテキストがすでに含まれている場合は、別のものを追加することはできませんが、古いものを置き換えることができます。ただし、その古いものを追加した前の発行者から明示的な許可を得る必要があります。
+ </para>
+    <para>
+  文書の作者および発行者は、本利用許諾契約書により、その名前を得るために使用したり、変更された版の推薦を主張または暗示したりする許可を与えるものではありません。
+ </para>
+    <bridgehead renderas="sect4">
+    5. 文書の結合
+  </bridgehead>
+    <para>
+  文書は、すでに述べた変更された版に関するセクション4の条件に従って、本利用許諾契約書の下でリリースされた他の文書と結合することができます。その際は、その組み合わせの中に、元の全文書のすべての不変セクションを未変更のまま含めて、そのすべてを結合された著作物の不変セクションとしてその利用許諾表示に列挙し、そのすべての保証の放棄を保持することが前提となります。
+ </para>
+    <para>
+  結合された著作物には、本利用許諾契約書の複製を1つのみ含める必要があります。複数の同一の不変セクションは、単一の複製で置き換えることができます。同じ名前だが内容の異なる複数の不変セクションがある場合は、そのような各セクションのタイトルを固有なものにします。その際は、その終わりに、カッコ付きで、そのセクションの元の作者または発行者の名前(既知の場合)、あるいは固有の番号を追加します。不変セクションのリスト内のセクションタイトルには、結合された著作物の利用許諾表示の場合と同じ調整を加えます。
+ </para>
+    <para>
+  組み合わせでは、さまざまな元の文書の「履歴」という表題のセクションを結合して、1つの「履歴」というセクションを構築する必要があります。同じように、「謝辞」という表題のセクション、および「献辞」という表題のセクションも結合します。「推薦」という表題のすべてのセクションを削除する必要があります。
+ </para>
+    <bridgehead renderas="sect4">
+    6. 文書のコレクション
+  </bridgehead>
+    <para>
+  文書および本利用許諾契約書の下でリリースされた他の文書から成るコレクションを作成して、さまざまな文書に含まれる本利用許諾契約書の個々の複製を、コレクションに含まれる単一の複製で置き換えることができますが、他のすべての点での各文書のそのままの複製に関する本利用許諾契約書の規則に従うことが前提になります。
+ </para>
+    <para>
+  そのようなコレクションから単一の文書を抽出して、その文書を本利用許諾契約書に従って個々に頒布することができますが、その際は、本利用許諾契約書の複製を抽出した文書に挿入して、その文書のそのままの複製に関するその他のすべての点で、本利用許諾契約書に従う必要があります。
+ </para>
+    <bridgehead renderas="sect4">
+    7. 独立した著作物の集積
+  </bridgehead>
+    <para>
+  文書またはその派生物を他の個別および独立した文書または著作物とともに、ストレージまたは頒布メディア内またはそのボリューム上に蓄積することを「集積」と呼びます。その場合は、個々の著作物の許可を超えてその蓄積の利用者の法的権限を制限することに、蓄積による著作権を使用しないことが前提になります。文書が集積に含まれる場合、本利用許諾契約書は、それ自体が文書の派生著作物ではない集積内の他の著作物に適用されません。
+ </para>
+    <para>
+  セクション3のカバーテキスト要件が文書のこれらの複製に適用可能であり、文書が集積全体の半分に満たない場合は、文書のカバーテキストを、集積内の文書のカバー、または文書が電子形式の場合は、電子的な同等のカバーに配置することができます。それ以外の場合は、集積全体の印刷されたカバー上に表示する必要があります。
+ </para>
+    <bridgehead renderas="sect4">
+    8. 翻訳
+  </bridgehead>
+    <para>
+  翻訳は一種の変更と見なされるため、セクション4の条件に従って文書の翻訳を配布することができます。不変セクションを翻訳で置き換えるには、著作権者からの特別な許可が必要ですが、これらの不変セクションの元のバージョンのほかに、一部またはすべての不変セクションの翻訳を含めることができます。本利用許諾契約書、文書内のすべての利用許諾表示、および保証の放棄の翻訳を含めることができますが、その際は、本利用許諾契約書の元の英語版、およびそれらの利用許諾表示と保証の放棄の元の版も含めることが前提になります。本利用許諾契約書、利用許諾表示、または保証の放棄の翻訳と元の版との間に不一致がある場合は、元の版が優先されます。
+ </para>
+    <para>
+  文書内のセクションに、「謝辞」、「献辞」、または「履歴」という表題が付いている場合は、そのタイトルを保持する(セクション1)ための要件(セクション4)により、通常は実際のタイトルを変更する必要があります。
+ </para>
+    <bridgehead renderas="sect4">
+    9. 終了
+  </bridgehead>
+    <para>
+  利用者は、本利用許諾契約書に明示的に記載されている形態を除き、文書を複製、改変、二次利用許諾、および頒布してはなりません。別の方法で文書を複製、改変、二次利用許諾、または頒布しようとするのは無効であり、本利用許諾契約書の下で利用者の権利は自動的に消滅します。ただし、本使用許諾の下で利用者から複製物または権利を受領した関係者は、条項を遵守している限り、権利が消滅することはありません。
+ </para>
+    <bridgehead renderas="sect4">
+    10. 本利用許諾契約書の将来の改訂
+  </bridgehead>
+    <para>
+  フリーソフトウェア財団は、GNUフリー文書利用許諾契約書(GFDL)の新版または改訂版を随時公表することがあります。そのような新版は、性格的には現行版と似たものになりますが、新たな問題や懸案事項に対応するために細部が異なる可能性があります。<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.gnu.org/copyleft/"/>を参照してください。
+ </para>
+    <para>
+  本利用許諾契約書の各版には、区別するための版番号が設定されます。文書に、それに適用される本利用許諾契約書の特定の版番号と「後継版」が指定されている場合、利用者は、選択によって、その指定された版の条項またはフリーソフトウェア財団から公開される後継版の条項(ドラフトではない)に従うことになります。文書に、本利用許諾契約書の版番号が指定されていない場合、利用者は、フリーソフトウェア財団からこれまでに公開された任意の版(ドラフトではない)を選択することができます。
+ </para>
+    <bridgehead renderas="sect4">
+    補遺: 本利用許諾書をご使用の文書に使用する方法
+  </bridgehead>
+    <screen>Copyright (c) YEAR YOUR NAME.
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2
+or any later version published by the Free Software Foundation;
+with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+A copy of the license is included in the section entitled “GNU
+Free Documentation License”.</screen>
+    <para>
+  不変セクション、表カバーテキスト、および裏カバーテキストがある場合は、「with...Texts」の行を次のように置き換えます。
+ </para>
+    <screen>with the Invariant Sections being LIST THEIR TITLES, with the
+Front-Cover Texts being LIST, and with the Back-Cover Texts being LIST.</screen>
+    <para>
+  カバーテキストのない不変セクションが含まれている場合、またはこの3つの他の組み合わせの場合は、その2つの代替要素をマージして状況に合わせます。
+ </para>
+    <para>
+  文書にプログラムコードの重要な例が含まれている場合は、GNU一般公衆利用許諾契約書(GPL)などの選択したフリーソフトウェアの利用許諾に従って、これらの例を平行してリリースし、フリーソフトウェアでのその利用を許可することを推奨します。
+</para>
+  </appendix>
+</article>
