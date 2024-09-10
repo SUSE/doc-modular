@@ -256,7 +256,90 @@ https://download.nvidia.com/suse/sle15sp6/ nvidia-sle15sp6-main</command>
       </step>
     </procedure>
   </section>
-  <section xml:id="nvidia-gui-more-info">
+  <section xml:id="nvidia-gpu-validation">
+    <title>Validation of the driver installation</title>
+    <para>
+      The <command>nvidia-smi</command> command has verified that, at the host
+      level, the &nvidia; device can be accessed and that the drivers are
+      loading successfully. To validate that it is functioning, you need to
+      validate that the GPU can take instructions from a user-space application,
+      ideally via a container, and through the CUDA library, as that is
+      typically what a real workload would use. For this, we can make a further
+      modification to the host OS by installing
+      <package>nvidia-container-toolkit</package>.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Open another transactional-update shell.
+        </para>
+<screen>&prompt.root; &tr-up-shell;</screen>
+      </step>
+      <step>
+        <para>
+          Install the <package>nvidia-container-toolkit</package> package from
+          the &nvidia; Container Toolkit repository.
+        </para>
+<screen>&prompt.tr-up;<command>zypper ar https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo</command>
+&prompt.tr-up;zypper --gpg-auto-import-keys install -y nvidia-container-toolkit</screen>
+        <para>
+          The <filename>nvidia-container-toolkit.repo</filename> file contains a
+          stable repository <literal>nvidia-container-toolkit</literal> and an
+          experimental repository
+          <literal>nvidia-container-toolkit-experimental</literal>. Use the
+          stable repository for production use. The experimental repository is
+          disabled by default.
+        </para>
+      </step>
+      <step>
+        <para>
+          Exit the &tr-up; session and reboot to the new snapshot that contains
+          the changes you have made.
+        </para>
+<screen>&prompt.tr-up;<command>exit</command>
+&prompt.root;reboot</screen>
+      </step>
+      <step>
+        <para>
+          Verify that the system can successfully enumerate the devices using
+          the &nvidia; Container Toolkit. The output should be verbose, with
+          INFO and WARN messages, but no ERROR messages.
+        </para>
+<screen>&prompt.root;<command>nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml</command></screen>
+        <para>
+          This ensures that any container started on the machine can employ
+          discovered &nvidia; GPU devices. You can then run a &podman;-based
+          container. Doing this via <command>podman</command> gives you a good
+          way of validating access to the &nvidia; device from within a
+          container, which should give confidence for doing the same with &kube;
+          at a later stage.
+        </para>
+      </step>
+      <step>
+        <para>
+          Give &podman; access to the labeled &nvidia; devices that were taken
+          care of by the previous command and simply run the
+          <command>bash</command> command.
+        </para>
+<screen>&prompt.root;<command>podman run --rm --device nvidia.com/gpu=all \
+  --security-opt=label=disable \
+  -it registry.suse.com/bci/bci-base:latest bash</command></screen>
+        <para>
+          You can now execute commands from within a temporary &podman;
+          container. It does not have access to your underlying system and is
+          <emphasis>ephemeral</emphasis>&mdash;whatever you change hin the
+          container does not persist. Also, you cannot break anything on the
+          underlying host.
+        </para>
+      </step>
+      <step>
+        <para>
+          
+        </para>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="nvidia-gpu-more-info">
     <title>For more information</title>
     <itemizedlist>
       <listitem>
