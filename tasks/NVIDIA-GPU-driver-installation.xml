@@ -18,20 +18,21 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Installing &nvidia; GPU drivers on &slm; 6.0</title>
+    <title>Installing &nvidia; GPU drivers on &productname;</title>
     <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
   </info>
   <section xml:id="nvidia-gpu-introduction">
     <title>Introduction</title>
     <para>
       This guide demonstrates how to implement host-level &nvidia; GPU support
-      via the open-driver on &slm; 6.0. The open-driver is now part of the core
-      &slm; package repositories and there is no need to compile it or download
-      executable packages. This driver is built into the operating system rather
-      than dynamically loaded by the &nvidia; GPU Operator. This configuration
-      is highly desirable for customers that want to pre-build all artifacts
-      required for deployment into the image, and where the dynamic selection of
-      the driver version via &kube; is not a requirement.
+      via the open-driver on &productname; &productnumber;. The open-driver is
+      now part of the core &productname; package repositories and there is no
+      need to compile it or download executable packages. This driver is built
+      into the operating system rather than dynamically loaded by the &nvidia;
+      GPU Operator. This configuration is highly desirable for customers that
+      want to pre-build all artifacts required for deployment into the image,
+      and where the dynamic selection of the driver version via &kube; is not a
+      requirement.
     </para>
   </section>
   <section xml:id="nvidia-gpu-requirements">
@@ -43,7 +44,8 @@
     <itemizedlist>
       <listitem>
         <para>
-          At least one host with &slm; 6.0 installed, physical or virtual.
+          At least one host with &productname; &productnumber; installed,
+          physical or virtual.
         </para>
       </listitem>
       <listitem>
@@ -57,7 +59,7 @@
           A
           <link xlink:href="https://github.com/NVIDIA/open-gpu-kernel-modules#compatible-gpus">compatible
           &nvidia; GPU</link> installed or fully passed through to the virtual
-          machine in which &slm; is running.
+          machine in which &productname; is running.
         </para>
       </listitem>
       <listitem>
@@ -87,15 +89,16 @@
     <section xml:id="nvidia-gpu-pre-install-additional-components">
       <title>Additional &nvidia;components</title>
       <para>
-        Besides the &nvidia; open-driver provided by &suse; as part of &slm;,
-        you might also need additional &nvidia; components. These could include
-        OpenGL libraries, CUDA toolkits, command-line utilities such as
-        <command>nvidia-smi</command>, and container-integration components such
-        as nvidia-container-toolkit. Many of these components are not shipped by
-        &suse; as they are proprietary &nvidia; software. Therefore, this
-        section describes how to configure additional repositories that give you
-        access to these components and walk through certain examples of how to
-        use these tools, resulting in a fully functional system.
+        Besides the &nvidia; open-driver provided by &suse; as part of
+        &productname;, you might also need additional &nvidia; components. These
+        could include OpenGL libraries, CUDA toolkits, command-line utilities
+        such as <command>nvidia-smi</command>, and container-integration
+        components such as nvidia-container-toolkit. Many of these components
+        are not shipped by &suse; as they are proprietary &nvidia; software.
+        Therefore, this section describes how to configure additional
+        repositories that give you access to these components and walk through
+        certain examples of how to use these tools, resulting in a fully
+        functional system.
       </para>
     </section>
     <section xml:id="nvidia-gpu-pre-install-version-mismatch">
@@ -136,14 +139,14 @@
           To find the &nvidia; open-driver versions, either run <command>zypper
           se -s nvidia-open-driver</command> on the target machine or search the
           &scc; for the <quote>nvidia-open-driver</quote> string in SLE Micro
-          6.0 for x86_64.
+          &productnumber; for x86_64.
         </para>
         <para>
           In the following example, you can see four versions available, with
           550.54.14 being the newest:
         </para>
         <figure>
-          <title>SCC with &slm; drivers selection</title>
+          <title>SCC with &productname; drivers selection</title>
           <mediaobject>
             <imageobject role="fo">
               <imagedata fileref="scc-packages-nvidia.png" width="80%"/>
@@ -151,7 +154,7 @@
             <imageobject role="html">
               <imagedata fileref="scc-packages-nvidia.png" width="80%"/>
             </imageobject>
-            <textobject role="description"><phrase>SCC with &slm; drivers selection</phrase>
+            <textobject role="description"><phrase>SCC with &productname; drivers selection</phrase>
             </textobject>
           </mediaobject>
         </figure>
@@ -163,7 +166,7 @@
     <procedure>
       <step>
         <para>
-          On &slm; host, open up a &tr-up-shell; session to create a new
+          On &productname; host, open up a &tr-up-shell; session to create a new
           read/write snapshot of the underlying operating system so that we can
           make changes to the immutable platform.
         </para>
@@ -334,22 +337,77 @@ https://download.nvidia.com/suse/sle15sp6/ nvidia-sle15sp6-main</command>
       </step>
       <step>
         <para>
-          
+          Inside the container, install the required CUDA libraries In the
+          example below, we are installing CUDA 12.3 and pulling many examples,
+          demos and development kits so you can fully validate the GPU
         </para>
+<screen>&prompt.root;<command>zypper ar http://developer.download.nvidia.com/compute/cuda/repos/sles15/x86_64/ cuda-sle15-sp6</command>
+&prompt.root;<command>zypper in -y cuda-libraries-devel-12-3 cuda-minimal-build-12-3 cuda-demo-suite-12-3</command>
+        </screen>
+      </step>
+      <step>
+        <para>
+          Inside the container, run the <command>deviceQuery</command> CUDA
+          example, which comprehensively validates GPU access via CUDA and from
+          within the container itself.
+        </para>
+<screen>&prompt.root;<command>/usr/local/cuda-12/extras/demo_suite/deviceQuery</command> Starting...
+CUDA Device Query (Runtime API) version (CUDART static linking)
+
+Detected 2 CUDA Capable device(s)
+
+Device 0: "NVIDIA A100-PCIE-40GB"
+  CUDA Driver Version / Runtime Version          12.2 / 12.1
+  CUDA Capability Major/Minor version number:    8.0
+  Total amount of global memory:                 40339 MBytes (42298834944 bytes)
+  (108) Multiprocessors, ( 64) CUDA Cores/MP:     6912 CUDA Cores
+  GPU Max Clock rate:                            1410 MHz (1.41 GHz)
+  Memory Clock rate:                             1215 Mhz
+  Memory Bus Width:                              5120-bit
+  L2 Cache Size:                                 41943040 bytes
+  Maximum Texture Dimension Size (x,y,z)         1D=(131072), 2D=(131072, 65536), 3D=(16384, 16384, 16384)
+  Maximum Layered 1D Texture Size, (num) layers  1D=(32768), 2048 layers
+  Maximum Layered 2D Texture Size, (num) layers  2D=(32768, 32768), 2048 layers
+  Total amount of constant memory:               65536 bytes
+  Total amount of shared memory per block:       49152 bytes
+  Total number of registers available per block: 65536
+  Warp size:                                     32
+  Maximum number of threads per multiprocessor:  2048
+  Maximum number of threads per block:           1024
+  Max dimension size of a thread block (x,y,z): (1024, 1024, 64)
+  Max dimension size of a grid size    (x,y,z): (2147483647, 65535, 65535)
+  Maximum memory pitch:                          2147483647 bytes
+  Texture alignment:                             512 bytes
+  Concurrent copy and kernel execution:          Yes with 3 copy engine(s)
+  Run time limit on kernels:                     No
+  Integrated GPU sharing Host Memory:            No
+  Support host page-locked memory mapping:       Yes
+  Alignment requirement for Surfaces:            Yes
+  Device has ECC support:                        Enabled
+  Device supports Unified Addressing (UVA):      Yes
+  Device supports Compute Preemption:            Yes
+  Supports Cooperative Kernel Launch:            Yes
+  Supports MultiDevice Co-op Kernel Launch:      Yes
+  Device PCI Domain ID / Bus ID / location ID:   0 / 23 / 0
+  Compute Mode:
+      &lt; Default (multiple host threads can use ::cudaSetDevice() with device simultaneously) >
+
+Device 1: &lt;snip to reduce output for multiple devices>
+      &lt; Default (multiple host threads can use ::cudaSetDevice() with device simultaneously) >
+> Peer access from NVIDIA A100-PCIE-40GB (GPU0) -> NVIDIA A100-PCIE-40GB (GPU1) : Yes
+> Peer access from NVIDIA A100-PCIE-40GB (GPU1) -> NVIDIA A100-PCIE-40GB (GPU0) : Yes
+
+deviceQuery, CUDA Driver = CUDART, CUDA Driver Version = 12.3, CUDA Runtime Version = 12.3, NumDevs = 2, Device0 = NVIDIA A100-PCIE-40GB, Device1 = NVIDIA A100-PCIE-40GB
+Result = PASS</screen>
+        <para>
+          From inside the container, you can continue to run any other CUDA
+          workload&mdash;such as compilers&mdash;to run further tests. When
+          done, you can exit from the container, noting that whatever you have
+          installed in there will be lost and has not impacted the underlying
+          operating system.
+        </para>
+<screen>&prompt.root;<command>exit</command></screen>
       </step>
     </procedure>
-  </section>
-  <section xml:id="nvidia-gpu-more-info">
-    <title>For more information</title>
-    <itemizedlist>
-      <listitem>
-        <para>
-          For more details on the &tr-up; command, refer to
-          <link
-          xlink:href="https://documentation.suse.com/sle-micro/6.0/html/Micro-transactional-updates/transactional-updates.html">Administering
-          &slm; using the &tr-up; command</link>.
-        </para>
-      </listitem>
-    </itemizedlist>
   </section>
 </topic>
