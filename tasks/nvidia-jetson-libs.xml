@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="nvidia-jetson-sidecar-libs"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Installing &nvidia; libraries for &nvidia; &jetson; platforms</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="stefan.dirsch@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+        &nvidiareg; libraries consume the &nvidia; &jetsonreg; graphics drivers.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="nvidia-jetson-sidecar-libs-introduction">
+    <title>Introduction</title>
+    <para>
+      To exploit the &nvidia; &orinreg; GPU and DLA, third-party kernel drivers and
+      libraries are needed.
+    </para>
+    <para>
+      The &slsa; <literal>NVIDIA Compute Module</literal>
+      does not offer RPM packages for &nvidia; &jetson;'s integrated GPU today.
+      As alternative we explain how to adapt the &nvidia; provided downloads
+      for &suse; systems.
+    </para>
+  </section>
+  <section xml:id="nvidia-jetson-sidecar-libs-requirements">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          &nvidia; &jetson; &orin; System-on-Module or &nvidia; IGX &orin; based system
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          &sles; 15 SP6 or &slm; 6.0
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Linux kernel modules for &nvidia; &orin; GPU
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      &nvidia; &jetson; &xavierreg; and earlier System-on-Module generations
+      are no longer supported in &nvidia; &jetpackreg; SDK 6.0 release.
+    </para>
+  </section>
+  <section xml:id="nvidia-jetson-sidecar-libs-install">
+    <title>Installing the libraries</title>
+    <para>
+      Install third-party libraries provided by &nvidia;.
+    </para>
+    <procedure>
+      <para>
+        Perform the following steps on your &nvidia; based system.
+      </para>
+      <step>
+        <para>
+          Download the <literal>Driver Package (BSP)</literal> from
+          <link xlink:href="https://developer.nvidia.com/embedded/jetson-linux-r363"/>
+        </para>
+      </step>
+      <step>
+        <para>
+          Extract the tarball:
+        </para>
+<screen>&prompt.user;<command>tar xf jetson_linux_r36.3.0_aarch64.tbz2</command></screen>
+      </step>
+      <step>
+        <para>
+          Convert foreign packages to tarballs:
+        </para>
+<screen>&prompt.user;<command>pushd Linux_for_Tegra</command>
+&prompt.user;<command>sed -i 's/lbzip2/bzip2/g' nv_tools/scripts/nv_repackager.sh</command>
+&prompt.user;<command>./nv_tools/scripts/nv_repackager.sh -o ./nv_tegra/l4t_tar_packages --convert-all</command>
+&prompt.user;<command>popd</command></screen>
+      </step>
+      <step>
+        <para>
+          Modify one of the tarballs:
+        </para>
+<screen>&prompt.user;<command>pushd Linux_for_Tegra/nv_tegra/l4t_tar_packages</command>
+&prompt.user;<command>cat &gt; nvidia-l4t-init.txt &lt;&lt; EOF
+etc/asound.conf.tegra-ape
+etc/asound.conf.tegra-hda-jetson-agx
+etc/asound.conf.tegra-hda-jetson-xnx
+etc/nvidia-container-runtime/host-files-for-container.d/devices.csv
+etc/nvidia-container-runtime/host-files-for-container.d/drivers.csv
+etc/nvsciipc.cfg
+etc/sysctl.d/60-nvsciipc.conf
+etc/systemd/nv_nvsciipc_init.sh
+etc/systemd/nvpower.sh
+etc/systemd/nv.sh
+etc/systemd/system.conf.d/watchdog.conf
+etc/systemd/system/multi-user.target.wants/nv_nvsciipc_init.service
+etc/systemd/system/multi-user.target.wants/nvpower.service
+etc/systemd/system/multi-user.target.wants/nv.service
+etc/systemd/system/nv_nvsciipc_init.service
+etc/systemd/system/nvpower.service
+etc/systemd/system/nv.service
+etc/udev/rules.d/99-tegra-devices.rules
+usr/share/alsa/cards/tegra-ape.conf
+usr/share/alsa/cards/tegra-hda.conf
+usr/share/alsa/init/postinit/00-tegra.conf
+usr/share/alsa/init/postinit/01-tegra-rt565x.conf
+usr/share/alsa/init/postinit/02-tegra-rt5640.conf
+EOF</command>
+&prompt.user;<command>tar xf nvidia-l4t-init_36.3.0-20240404104251_arm64.tbz2</command>
+&prompt.user;<command>rm nvidia-l4t-init_36.3.0-20240404104251_arm64.tbz2</command>
+&prompt.user;<command>tar cjf nvidia-l4t-init_36.3.0-20240404104251_arm64.tbz2 $(cat nvidia-l4t-init.txt)</command>
+&prompt.user;<command>popd</command></screen>
+      </step>
+      <step>
+        <para>
+          Extract the tarballs into the system's root filesystem:
+        </para>
+<screen>&prompt.user;<command>pushd Linux_for_Tegra/nv_tegra/l4t_tar_packages</command>
+&prompt.user;<command>for i in \
+nvidia-l4t-core \
+nvidia-l4t-3d-core \
+nvidia-l4t-cuda \
+nvidia-l4t-gbm \
+nvidia-l4t-multimedia-utils \
+nvidia-l4t-multimedia \
+nvidia-l4t-nvfancontrol \
+nvidia-l4t-nvpmodel \
+nvidia-l4t-tools \
+nvidia-l4t-x11 \
+nvidia-l4t-nvsci \
+nvidia-l4t-pva \
+nvidia-l4t-wayland \
+nvidia-l4t-camera \
+nvidia-l4t-vulkan-sc-sdk \
+nvidia-l4t-nvml \
+nvidia-l4t-init; do
+  sudo tar xjf ${i}_36.3.0-20240404104251_arm64.tbz2 -C /
+done</command>
+&prompt.user;<command>popd</command></screen>
+<!-- nvidia-l4t-firmware_36.3.0-20240404104251_arm64.tbz2 moved to KMP -->
+        <warning>
+          <para>
+            This will overwrite any existing files.
+          </para>
+        </warning>
+      </step>
+      <step>
+        <para>
+          Adjust some file locations:
+        </para>
+<screen>&prompt.sudo;<command>mv /usr/lib/xorg/modules/drivers/nvidia_drv.so \
+/usr/lib64/xorg/modules/drivers/</command>
+&prompt.sudo;<command>mv /usr/lib/xorg/modules/extensions/libglxserver_nvidia.so \
+/usr/lib64/xorg/modules/extensions/</command>
+&prompt.sudo;<command>rm -rf /usr/lib/xorg</command></screen>
+      </step>
+      <step>
+        <para>
+          Run <command>ldconfig</command>:
+        </para>
+<screen>&prompt.sudo;<command>echo /usr/lib/aarch64-linux-gnu >> /etc/ld.so.conf.d/nvidia-tegra.conf</command>
+&prompt.sudo;<command>ldconfig</command></screen>
+      </step>
+      <step>
+        <para>
+          Reboot the system:
+        </para>
+<screen>&prompt.sudo;<command>reboot</command></screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="nvidia-jetson-sidecar-cuda-verify">
+    <title>Verifying driver and library installation</title>
+    <para>
+      The &nvidia; System Management Interface (SMI) utility uses the
+      just installed &nvidia; Management Library (NVML) to query the kernel
+      drivers for hardware status.
+    </para>
+    <para>
+      <link xlink:href="https://developer.nvidia.com/system-management-interface"/>
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Run <command>nvidia-smi</command> tool:
+        </para>
+<screen>&prompt.user;<command>sudo nvidia-smi</command></screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="nvidia-jetson-sidecar-libs-summary">
+    <title>Summary</title>
+    <para>
+      You have installed libraries and tools and checked that they work in principle.
+    </para>
+    <para>
+      Having been installed from downloaded tarballs, these files will not get updated
+      automatically and will require the equivalent procedure to be repeated
+      for future updated downloads.
+      Similarly, the files will be difficult to remove from the system.
+    </para>
+  </section>
+  <section xml:id="nvidia-jetson-sidecar-libs-troubleshooting">
+    <title>Troubleshooting</title>
+    <para>
+      RPM packages for discrete GPUs and these files for integrated GPUs
+      cannot be installed side-by-side. You need to choose which ones to install.
+    </para>
+  </section>
+</topic>
