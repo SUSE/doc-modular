@@ -18,7 +18,7 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Deploying the raw disk image on the DASD disk</title>
+    <title>Deploying the raw disk image on the disk</title>
     <!-- can be changed via merge
       in the assembly -->
     <!-- add author's e-mail -->
@@ -31,7 +31,7 @@
     </abstract>
   </info>
   <para>
-    To deploy the &productname; to the 20&nbsp;GB DASD disk, proceed as
+    To deploy &productname; on your machine, proceed as
     follows:
   </para>
   <procedure>
@@ -48,13 +48,13 @@
       </para>
 <screen>&prompt.user;unpack xz -d <replaceable>BUILD_IDENTIFICATION</replaceable>.raw.xz</screen>
     </step>
-    <step>
+    <step condition="dasd">
       <para>
         Export a variable that finds and stores the 20&nbsp;GB device name.
       </para>
 <screen>&prompt.root;export SMDASD=$(lsdasd -s | grep 20480MB | tr -s [:blank:] | cut -d' ' -f3)</screen>
     </step>
-    <step>
+    <step condition="dasd">
       <para>
         Format the disk:
       </para>
@@ -75,10 +75,20 @@
     </step>
     <step>
       <para>
-        Copy the raw disk image to the disk (the device name is /dev/dasdc in
-        our case):
+        Copy the raw disk image to the disk:
       </para>
-<screen>dd if=<replaceable>IMAGE_NAME</replaceable>.raw status=progress  of=/dev/dasdc bs=4k</screen>
+<screen condition="dasd">dd if=<replaceable>IMAGE_NAME</replaceable>.raw status=progress
+of=/dev/dasdc bs=4k</screen>
+<screen condition="zfcp">dd if=<replaceable>IMAGE_NAME</replaceable>.raw status=progress  of=/dev/sda bs=4096</screen>
+    </step>
+    <step condition="zfcp">
+      <para>
+        To check the proper setup with the following command:
+      </para>
+      <screen>&prompt.root;lsblk</screen>
+      <para>
+        The command should return two partitions on <literal>/dev/sda</literal>
+      </para>
     </step>
     <step>
       <para>
@@ -86,12 +96,30 @@
       </para>
 <screen>&prompt.root;init 0</screen>
     </step>
-    <step>
+    <step condition="dasd">
       <para>
         Start &productname; by booting the second DASD minidisk in an x3270
         terminal:
       </para>
 <screen>&prompt.root;ipl 101</screen>
+    </step>
+    <step condition="zfcp">
+      <para>
+Open the x3270 terminal and define the device to load the system from. Use the LUN number of the
+<literal>/dev/sda</literal> device, but split it to 8-digit chunks. For example, the command for LUN
+<emphasis>0.0.fa00:0x500507630b181216:0x4021400a00000000</emphasis> looks as follows:
+      </para>
+      <screen>
+&prompt.root;<command>SET LOADDEV PORTNAME 50050763 0b181216 LUN 4021400a 00000000</command>
+      </screen>
+    </step>
+    <step condition="zfcp">
+      <para>
+        Start &productname;:
+      </para>
+      <screen>
+&prompt.root;<command>ipl FA00</command>
+      </screen>
     </step>
   </procedure>
 </topic>
