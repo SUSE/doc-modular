@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="deployment-network-dhcp"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Setting up a DHCP server</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+       The topic covers steps to configure the DHCP server for PXE network boot.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    A DHCP server provides both dynamic and static IP address assignments  to your network clients.
+    It advertises servers, routes, and domains. The clients transmit their architecture type in their DHCP requests. Based on this information, the DHCP server decides which files the client must download for booting.
+  </para>
+  <section xml:id="deployment-network-dhcp">
+    <title>Dynamic address assignment</title>
+    <para>
+      The following example shows how to set up a DHCP server that dynamically
+      assigns IP addresses to clients, and advertises servers, routers, domains,
+      and boot files.
+     </para>
+     <procedure>
+      <step>
+       <para>
+        Log in as &rootuser; to the machine hosting the DHCP server.
+       </para>
+      </step>
+      <step>
+       <para>
+        Enable the DHCP server by executing <command>systemctl enable
+        dhcpd</command>.
+       </para>
+      </step>
+      <step>
+       <para>
+        Append the following lines to a subnet configuration of your DHCP
+        server's configuration file located under
+        <filename>/etc/dhcpd.conf</filename>:
+       </para>
+  <screen># The following lines are optional
+  option domain-name "my.lab";
+  option domain-name-servers 192.168.1.1;
+  option routers 192.168.1.1;
+  option ntp-servers 192.168.1.1;
+  ddns-update-style none;
+  default-lease-time 3600;
+  
+  # The following lines are required
+  option arch code 93 = unsigned integer 16; # RFC4578
+  subnet 192.168.1.0 netmask 255.255.255.0 {
+   next-server 192.168.1.1;
+   range 192.168.1.100 192.168.1.199;
+   default-lease-time 3600;
+   max-lease-time 3600;
+   if option arch = 00:07 or option arch = 00:09 {
+     filename "/EFI/x86/grub.efi";
+   }
+   else if option arch = 00:0b {
+     filename "/EFI/aarch64/bootaa64.efi";
+   }
+   else  {
+     filename "/BIOS/x86/pxelinux.0";
+   }
+  }</screen>
+       <para>
+        This configuration example uses the subnet
+        <literal>192.168.1.0/24</literal> with the DHCP, DNS and gateway on the
+        server with the IP <literal>192.168.1.1</literal>. Make sure that all
+        IP addresses are changed according to your network layout. For more
+        information about the options available in
+        <filename>dhcpd.conf</filename>, refer to the
+        <systemitem>dhcpd.conf</systemitem> manual page.
+       </para>
+      </step>
+      <step>
+       <para>
+        Restart the DHCP server by executing <command>systemctl restart
+        dhcpd</command>.
+       </para>
+      </step>
+     </procedure>
+  </section>
+  <section xml:id="task-example-executing">
+    <title>Executing the task</title>
+    <para>
+      A paragraph of text.
+    </para>
+    <procedure>
+      <para>
+        A short introduction to the procedure.
+      </para>
+      <step>
+        <para>
+          A step.
+        </para>
+      </step>
+      <step>
+        <para>
+          A second step.
+        </para>
+      </step>
+      <step>
+        <para>
+          A third step.
+        </para>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="task-example-summary">
+    <title>Summary</title>
+    <para>
+      A paragraph of text, summing up the result of the task.
+    </para>
+  </section>
+  <section xml:id="task-example-troubleshooting">
+    <title>Troubleshooting</title>
+    <para>
+      Add some troubleshooting information, if applicable.
+    </para>
+  </section>
+</topic>
