@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="task-example"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Preparing configuration on the TFTP server</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+        The topic describes how to prepare the server so that the
+        client machines with UEFI can boot remotely using files exported by
+        TFTP.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    To deploy &productname; using the PXE client, you need to perform the following steps:
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Review the <systemitem class="daemon">tftpd</systemitem> configuration in
+      <filename>/etc/sysconfig/tftp</filename> and add or change options as
+      required. Refer to <command>man 8 tftpd</command> for more details.
+      The TFTP daemon works without changing the configuration. The default root
+      directory for the files is <filename>/srv/tftpboot</filename>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Ensure that <systemitem class="daemon">tftpd</systemitem> is started at
+          boot time, and restart it to read the new configuration.
+         </para>
+         <screen>&prompt.sudo;<command>systemctl enable tftp.socket</command>
+    &prompt.sudo;<command>systemctl restart tftp.socket</command></screen>
+      </step>
+      <step>
+        <para>
+          Prepare the directory structure:
+        </para>
+        <screen>
+          &prompt.sudo;mkdir /srv/tftpboot/sl-micro
+        </screen>
+      </step>
+      <step>
+        <para>
+          Navigate to the directory:
+        </para>
+        <screen>&prompt.user;<command>cd /srv/tftpboot/sl-micro</command></screen>
+      </step>
+      <step>
+        <para>
+          Download the
+          <literal>SL-Micro.<replaceable>ARCHITECTURE</replaceable>-6.1-<replaceable>IMAGE_TYPE</replaceable>-GM.install.tar</literal>
+          to the TFTP server.
+        </para>
+      </step>
+      <step>
+        <para>
+          Unpack the TAR file:
+        </para>
+        <screen>&prompt.sudo;<command>tar xvf <replaceable>IMAGE_TAR</replaceable> -C .</command></screen>
+      </step>
+      <step>
+        <para>
+          Create symlinks as follows:
+                </para>
+<screen>
+&prompt.sudo;<command>ln -s pxeboot.*.kernel linux</command>
+
+&prompt.sudo;<command>ln -s pxeboot.*.initrd initrd</command>
+</screen>
+      </step>
+      <step>
+        <para>
+          Create a configuration file with specific boot parameters.
+        </para>
+        <screen>
+rd.zdev=qeth,0.0.0800:0.0.0801:0.0.0802,layer2=1,portno=0
+ip=10.144.136.50::10.144.136.254:255.255.255.0
+rd.kiwi.install.pxe 
+rd.kiwi.install.image=ftp://10.144.55.15/fvogt/slm-fcp/SL-Micro.s390x-6.0.xz 
+hvc_iucv=8 TERM=dumb security=selinux selinux=1
+rd.kiwi.install.pass.bootparam
+        </screen>
+      </step>
+    </procedure>
+</topic>
