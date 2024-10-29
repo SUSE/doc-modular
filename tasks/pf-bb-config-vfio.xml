@@ -24,75 +24,99 @@ in the assembly -->
     <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
     <abstract><!-- can be changed via merge in the assembly -->
       <para>
-       Introductory text
+       The topic covers preparing the machine to use the vfio-pci driver.
       </para>
     </abstract>
   </info>
-  <section xml:id="task-example-introduction">
-    <title>Introduction</title>
-    <para>
-      A paragraph of text.
-    </para>
-  </section>
-  <section xml:id="task-example-requirements">
-    <title>Requirements</title>
-    <itemizedlist>
-      <listitem>
-        <para>
-          An
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          Unordered
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          List
-        </para>
-      </listitem>
-    </itemizedlist>
-    <para>
-      A paragraph of text.
-    </para>
-  </section>
-  <section xml:id="task-example-executing">
-    <title>Executing the task</title>
-    <para>
-      A paragraph of text.
-    </para>
-    <procedure>
+  <para>
+    To enable you device direct access to the hardware resources, you need use the
+    vfio-pci driver. Before proceeding further, ensure that the following conditions are met: 
+  </para>
+  <itemizedlist>
+    <listitem>
       <para>
-        A short introduction to the procedure.
+        the vfio-pci module is built-in
       </para>
-      <step>
-        <para>
-          A step.
-        </para>
-      </step>
-      <step>
-        <para>
-          A second step.
-        </para>
-      </step>
-      <step>
-        <para>
-          A third step.
-        </para>
-      </step>
-    </procedure>
-  </section>
-  <section xml:id="task-example-summary">
-    <title>Summary</title>
-    <para>
-      A paragraph of text, summing up the result of the task.
-    </para>
-  </section>
-  <section xml:id="task-example-troubleshooting">
-    <title>Troubleshooting</title>
-    <para>
-      Add some troubleshooting information, if applicable.
-    </para>
-  </section>
+    </listitem>
+    <listitem>
+      <para>
+        Intel&trade; VT-d is enabled in kernel and UEFI and implemented in IOMMU
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        IOMMU is enabled on runtime. To check that, run the command:
+      </para>
+      <screen>
+&prompt.sudo;<command>dmesg | grep "DMAR: IOMMU"</command>
+      </screen>
+    </listitem>
+    <listitem>
+      <para>
+        DPDK is installed.
+      </para>
+    </listitem>
+  </itemizedlist>
+  <para>
+    If the above conditions are met, you can enable the vfio-pci driver as described below.
+  </para>
+  <procedure>
+    <step>
+      <para>
+        The vfio-pci module is loaded automatically during boot, you just need to pass parameters
+        to the module. You can do that in three ways:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            pass the following parameters on the kernel CLI:
+          </para>
+          <screen>vfio_pci.enable_sriov=1 vfio_pci.disable_idle_d3=1</screen>
+        </listitem>
+        <listitem>
+          <para>
+            set the required parameters after the system is fully booted:
+          </para>
+          <screen>
+&prompt.root;<command>echo 1 | sudo tee /sys/module/vfio_pci/parameters/enable_sriov</command>
+
+&prompt.root;<command>echo 1 | sudo tee /sys/module/vfio_pci/parameters/disable_idle_d3</command>
+          </screen>
+        </listitem>
+        <listitem>
+          <para>
+            or you can use <command>modprobe</command> to load the module with these parameters
+          </para>
+          <screen>
+&prompt.root;<command>modprobe vfio-pci enable_sriov=1 disable_idle_d3=1</command>
+          </screen>
+        </listitem>
+      </itemizedlist>
+    </step>
+    <step>
+      <para>
+        Bind the PF with the vfio-pci module
+      </para>
+      <screen>
+&prompt.sudo;<replaceable>PATH_TO_DPDK</replaceable>/usertools/dpdk-devbind.py --bind=vfio-pci $<replaceable>PCI_DRIVER_ADDRESS</replaceable>
+      </screen>
+    </step>
+    <step>
+      <para>
+        Configure the device using the <literal>pf_bb_config</literal> tool:
+      </para>
+      <screen>
+&prompt.sudo;<command>./pf_bb_config ACC100 -v 00112233-4455-6677-8899-aabbccddeeff -c acc100/acc100_config_2vf_4g5g.cfg
+</command>
+      </screen>
+    </step>
+    <step>
+      <para>
+        For example, create two VF on the device:
+      </para>
+      <screen>
+&prompt.sudo;<command>echo 2 | sudo tee /sys/bus/pci/devices/0000:$<replaceable>PF_PCI_DEVICE_ADDRESS</replaceable>/sriov_numvfs</command>
+      </screen>
+    </step>
+  </procedure>
 </topic>
