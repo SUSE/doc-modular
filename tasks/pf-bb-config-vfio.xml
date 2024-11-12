@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="pf-bb-config-vfio"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Using the <literal>vfio-pci</literal> module</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+       The topic covers preparing the machine to use the vfio-pci driver.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    To enable your device's direct access to hardware resources, you need 
+    to use the vfio-pci driver. Before proceeding further, ensure that the following 
+    conditions are met: 
+  </para>
+  <itemizedlist>
+    <listitem>
+      <para>
+        The vfio-pci module is built in.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        Intel&trade; VT-d is enabled in kernel and UEFI and implemented in IOMMU.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        IOMMU is enabled on runtime. To check that, run the command:
+      </para>
+      <screen>
+&prompt.sudo;<command>dmesg | grep "DMAR: IOMMU"</command>
+      </screen>
+    </listitem>
+    <listitem>
+      <para>
+        DPDK is installed.
+      </para>
+    </listitem>
+  </itemizedlist>
+  <para>
+    If the above conditions are met, you can enable the vfio-pci driver as described below.
+  </para>
+  <procedure>
+    <step>
+      <para>
+        The vfio-pci module is loaded automatically during boot. You just need to pass parameters
+        to the module. You can do that in three ways:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            pass the following parameters on the kernel CLI:
+          </para>
+          <screen>vfio_pci.enable_sriov=1 vfio_pci.disable_idle_d3=1</screen>
+        </listitem>
+        <listitem>
+          <para>
+            set the required parameters after the system is fully booted:
+          </para>
+          <screen>
+&prompt.root;<command>echo 1 | sudo tee /sys/module/vfio_pci/parameters/enable_sriov</command>
+
+&prompt.root;<command>echo 1 | sudo tee /sys/module/vfio_pci/parameters/disable_idle_d3</command>
+          </screen>
+        </listitem>
+        <listitem>
+          <para>
+            or you can use <command>modprobe</command> to load the module with these parameters:
+          </para>
+          <screen>
+&prompt.root;<command>modprobe vfio-pci enable_sriov=1 disable_idle_d3=1</command>
+          </screen>
+        </listitem>
+      </itemizedlist>
+    </step>
+    <step>
+      <para>
+        Bind the PF with the vfio-pci module:
+      </para>
+      <screen>
+&prompt.sudo;<replaceable>PATH_TO_DPDK</replaceable>/usertools/dpdk-devbind.py --bind=vfio-pci $<replaceable>PCI_DRIVER_ADDRESS</replaceable>
+      </screen>
+    </step>
+    <step>
+      <para>
+        Configure the device using the <literal>pf_bb_config</literal> tool:
+      </para>
+      <screen>
+&prompt.sudo;<command>./pf_bb_config ACC100 -v 00112233-4455-6677-8899-aabbccddeeff -c acc100/acc100_config_2vf_4g5g.cfg
+</command>
+      </screen>
+    </step>
+    <step>
+      <para>
+        For example, create two VFs on the device:
+      </para>
+      <screen>
+&prompt.sudo;<command>echo 2 | sudo tee /sys/bus/pci/devices/0000:$<replaceable>PF_PCI_DEVICE_ADDRESS</replaceable>/sriov_numvfs</command>
+      </screen>
+    </step>
+  </procedure>
+</topic>
