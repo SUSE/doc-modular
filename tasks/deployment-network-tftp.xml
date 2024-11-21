@@ -49,14 +49,18 @@ in the assembly -->
           boot time, and restart it to read the new configuration.
          </para>
          <screen>&prompt.sudo;<command>systemctl enable tftp.socket</command>
-    &prompt.sudo;<command>systemctl restart tftp.socket</command></screen>
+&prompt.sudo;<command>systemctl restart tftp.socket</command></screen>
+    <para>
+      Configure that  <literal>tftp.socket</literal> remains active during the whole deployment
+      process which may take several minutes. 
+    </para>
       </step>
       <step>
         <para>
           Prepare the directory structure:
         </para>
         <screen>
-          &prompt.sudo;mkdir /srv/tftpboot/sl-micro
+&prompt.sudo;mkdir /srv/tftpboot/sl-micro
         </screen>
       </step>
       <step>
@@ -77,6 +81,23 @@ in the assembly -->
           Unpack the TAR file:
         </para>
         <screen>&prompt.sudo;<command>tar xvf <replaceable>IMAGE_TAR</replaceable> -C .</command></screen>
+        <para>
+          Make sure that all the needed files are present in the
+          <filename>/srv/tftpboot/sl-micro</filename>:
+          </para>
+          <screen>
+&prompt.user;<command>ls</command>
+
+pxeboot.SL-Micro.<replaceable>ARCH</replaceable>-<replaceable>VERSION</replaceable>.kernel
+pxeboot.SL-Micro.<replaceable>ARCH</replaceable>-<replaceable>VERSION</replaceable>.initrd
+SL-Micro.<replaceable>ARCH</replaceable>-<replaceable>VERSION</replaceable>.append 
+SL-Micro.<replaceable>ARCH</replaceable>-<replaceable>VERSION</replaceable>.config.bootoptions
+SL-Micro.<replaceable>ARCH</replaceable>-<replaceable>VERSION</replaceable>.initrd
+SL-Micro.<replaceable>ARCH</replaceable>-<replaceable>VERSION</replaceable>.kernel
+SL-Micro.<replaceable>ARCH</replaceable>-<replaceable>VERSION</replaceable>.md5
+SL-Micro.<replaceable>ARCH</replaceable>-<replaceable>VERSION</replaceable>.xz          
+        </screen>
+        
       </step>
       <step>
         <para>
@@ -120,14 +141,25 @@ in the assembly -->
       </step>
       <step>
         <para>
-          Adjust the <filename>SL-Micro.<replaceable>ARCH</replaceable>-&productnumber;.append</filename> file:
+          Adjust/add the following parameters in the <filename>SL-Micro.<replaceable>ARCH</replaceable>-&productnumber;.append</filename> file:
         </para>
         <itemizedlist>
           <listitem>
             <para>
-              <literal>rd.kiwi.install.image</literal> &ndash; provide the full URL to the
-              installation image <literal>SL-Micro.<replaceable>ARCH</replaceable>&productnumber;.xz</literal>
+              <literal>rd.kiwi.install.image</literal> &ndash; provide the path to the
+              installation image
+              <literal>SL-Micro.<replaceable>ARCH</replaceable>&productnumber;.xz</literal>. The
+              path must include the protocol, IP address and the relative path to the installation
+              image:
             </para>
+            <screen>tftp://<replaceable>TFTP_SERVER</replaceable>/sl-micro/<replaceable>IMAGE_NAME</replaceable></screen>
+            <para>
+              If the TFTP root directory is defined, make sure to omit it from the path. The
+              default directory <literal>/srv/tftboot</literal>, can be either configured in
+              <filename>/etc/sysconfig/tftp</filename>, or you can specify the directory in a service
+              unit file attribute that defines the binary to run using the <literal>-s</literal> option.
+            </para>
+
           </listitem>
           <listitem>
             <para>
@@ -160,6 +192,18 @@ in the assembly -->
            &ndash; the attribute specifies booting from network over a network device.</para>
           </listitem>
         </itemizedlist>        
+      </step>
+      <step>
+        <para>
+          Adjust the <filename>/srv/tftpboot/pxelinux.cfg/default
+          </filename> file to include &productname;:
+        </para>
+        <screen>
+LABEL Install SUSE Linux Micro
+    LINUX sl-micro/linux
+    INITRD sl-micro/initrd
+    APPEND <replaceable>PATH_TO_APPEND_FILE</replaceable>
+        </screen>        
       </step>
     </procedure>
 </topic>
