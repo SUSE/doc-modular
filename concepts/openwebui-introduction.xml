@@ -15,8 +15,7 @@ xmlns:trans="http://docbook.org/ns/transclusion">
     <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        This document provides an overview of &owui; and its user
-        interface.
+        This document provides an overview of &owui; and its user interface.
       </para>
     </abstract>
   </info>
@@ -26,9 +25,9 @@ xmlns:trans="http://docbook.org/ns/transclusion">
       &owui; is a Web-based interface that allows you to interact with AI
       models, such as <emphasis>large language models</emphasis> (LLMs). It
       simplifies working with AI by providing a graphical user interface (GUI)
-      instead of relying on command-line tools. The goal of &owui; is to
-      make AI accessible to a broader audience, including those without
-      technical expertise in AI development.
+      instead of relying on command-line tools. The goal of &owui; is to make AI
+      accessible to a broader audience, including those without technical
+      expertise in AI development.
     </para>
   </section>
   <section xml:id="benefits-of-openwebui">
@@ -47,8 +46,8 @@ xmlns:trans="http://docbook.org/ns/transclusion">
         <term><emphasis role="bold">Custom data handling for RAG workflows</emphasis></term>
         <listitem>
           <para>
-            &owui; allows you to upload documents or specify URLs of pages
-            that the AI can parse and reference during interaction, which is
+            &owui; allows you to upload documents or specify URLs of pages that
+            the AI can parse and reference during interaction, which is
             particularly useful for RAG workflows.
           </para>
         </listitem>
@@ -57,9 +56,9 @@ xmlns:trans="http://docbook.org/ns/transclusion">
         <term><emphasis role="bold">User-friendly interface</emphasis></term>
         <listitem>
           <para>
-            By providing a graphical user interface, &owui; makes AI tools
-            more accessible to non-technical users. It helps them use the
-            power of advanced AI models with no need for technical knowledge.
+            By providing a graphical user interface, &owui; makes AI tools more
+            accessible to non-technical users. It helps them use the power of
+            advanced AI models with no need for technical knowledge.
           </para>
         </listitem>
       </varlistentry>
@@ -181,8 +180,8 @@ xmlns:trans="http://docbook.org/ns/transclusion">
             </listitem>
             <listitem>
               <para>
-                Upload custom documents that you want the AI to process 
-                and use as a source of information when answering
+                Upload custom documents that you want the AI to process and use
+                as a source of information when answering
               </para>
             </listitem>
             <listitem>
@@ -213,8 +212,8 @@ xmlns:trans="http://docbook.org/ns/transclusion">
       <xi:include href="../snippets/openwebui-requirement-admin-privileges.xml"/>
     </important>
     <para>
-      The <guimenu>Workspace</guimenu> area of the &owui; is a place where
-      you can manage important parts of the AI stack. To access it, click
+      The <guimenu>Workspace</guimenu> area of the &owui; is a place where you
+      can manage important parts of the AI stack. To access it, click
       <guimenu>Workspace</guimenu> at the top of the left panel.
       <guimenu>Workspace</guimenu> consists of the following parts:
     </para>
@@ -247,8 +246,8 @@ xmlns:trans="http://docbook.org/ns/transclusion">
         <term>Prompts</term>
         <listitem>
           <para>
-            Define the system prompts that guide the AI model to respond accurately
-            in the style and format that you prefer. Refer to
+            Define the system prompts that guide the AI model to respond
+            accurately in the style and format that you prefer. Refer to
 <!-- TODO tbazant: add link to Managing Prompts
 -->
             for more details and related procedures.
@@ -306,6 +305,58 @@ xmlns:trans="http://docbook.org/ns/transclusion">
         </textobject>
       </mediaobject>
     </figure>
+  </section>
+  <section xml:id="owui-known-issues">
+    <title>Known issues</title>
+    <para>
+      This section lists the known issues with the &owui; and their solutions.
+    </para>
+    <section xml:id="owui-reset-password">
+      <title>User password reset</title>
+      <para>
+        An &owui; user can only reset their own password if they are logged in
+        to &owui; and have an active Web browser session. However, if the user
+        has lost their password and cannot login to &owui;, the password must be
+        reset by an &rke2; administrator using the <command>kubectl</command>
+        command.
+      </para>
+      <procedure>
+        <step>
+          <para>
+            Generate a new password hash using the <command>htpasswd</command>
+            command. <command>htpasswd</command> is part of the
+            <package>apache2-utils</package> package.
+          </para>
+<screen>&prompt.user;htpasswd -bnBC 10 "" <replaceable>NEW_PASSWORD</replaceable> | tr -d ':\n'</screen>
+        </step>
+        <step>
+          <para>
+            Identify the Pod where the &owui; application is running.
+          </para>
+<screen>&prompt.user;kubectl get pod -n suse-private-ai | grep open-webui | grep -v pipelines</screen>
+        </step>
+        <step>
+          <para>
+            Update the password.
+          </para>
+<screen>&prompt.user;kubectl exec <replaceable>open-webui-0</replaceable> -n suse-private-ai – \
+  python3.11 -c 'import sqlite3; con = sqlite3.connect("/usr/lib/python3.11/site-packages/data/webui.db"); \
+  con.cursor().execute("UPDATE auth SET password=\"<replaceable>PASSWORD_HASH</replaceable>\" WHERE email=\"admin@example.org\""); con.commit()'</screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="owui-audio-processing">
+      <title>Audio processing stops after several minutes</title>
+      <para>
+        When the voice recorder is used as described in
+        <link xlink:href="&dsc;/suse-ai/1.0/html/openwebui-using/index.html#openwebui-chat-window-usage"/>,
+        &owui; tries to process the audio, but it times out without any warning
+        and no text is generated. The API endpoint
+        <literal>/audio/api/v1/transcriptions</literal>, which receives the
+        audio to be processed, results in a <literal>504 Gateway
+        Timeout</literal>.
+      </para>
+    </section>
   </section>
   <section xml:id="openwebui-more-info">
     <title>For more information</title>
