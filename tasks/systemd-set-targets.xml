@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/adm_sudo.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="systemd-set-targets"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <title>Setting up a &systemd; target</title>
+    <abstract>
+      <para>
+To set up a &systemd; target, you need to create a new target unit file and define any required dependencies.
+A target is a group of unit files that manages the state of services. A target can be used to control groups of services
+or define system states.
+        </para>
+    </abstract>
+  </info>
+      <procedure>
+      <step>
+      <para>Create a new file with the <literal>.target</literal> extension in <filename>/etc/systemd/system/</filename>. </para>
+      <para>For example:</para>
+      <screen>&prompt.sudo; <command>vi /etc/systemd/system/test.target</command></screen>
+    </step>
+    <step>
+      <para>Define the target with basic configuration.</para>
+      <para>For example:</para>
+<screen>[Unit]
+Description= Test target
+Requires=multi-user.target
+After=multi-user.target
+
+[Install]
+WantedBy=multi-user.target
+</screen>
+<itemizedlist>
+  <listitem>
+    <para>
+     <emphasis>Requires:</emphasis> specifies that <literal>multi-user.target</literal> must be reached
+     for <literal>test.target</literal>  to be active.
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+      <emphasis>After:</emphasis> specifies that this target starts after the <literal>multi-user.target</literal>.
+         </para>
+  </listitem>
+       <listitem>
+        <para>
+          <emphasis>WantedBy:</emphasis> specifies that this target should be a part of <literal>multi-user.target</literal>.
+        </para>
+        </listitem>
+        </itemizedlist>
+    </step>
+    <step>
+      <para>Set permissions for the target file. </para>
+      <para>For example:</para>
+      <screen>&prompt.sudo; <command>sudo chmod 644 /etc/systemd/system/test.target
+      </command></screen> </step>
+      <step>
+      <para>Link the required services to the target file. Create a <literal>.wants</literal> directory and then create
+      symbolic links to the services you want to include in your custom target.</para>
+      <para>For example:</para>
+      <screen>&prompt.sudo; <command>mkdir -p /etc/systemd/system/custom.target.wants/ </command></screen>
+      <screen>&prompt.sudo; <command>sudo ln -s /etc/systemd/system/test.service /etc/systemd/system/custom.target.wants/
+      </command></screen>
+    </step>
+    <step>
+      <para>Reload &systemd;. </para>
+      <para>For example:</para>
+      <screen>&prompt.sudo; <command>systemctl daemon-reload</command></screen> </step>
+      <step>
+        <para>Start and enable the target. </para>
+        <para>For example:</para>
+        <screen>&prompt.sudo; <command>systemctl start test.target</command></screen>
+        <screen>&prompt.sudo; <command>systemctl enable test.target</command></screen>
+      </step>
+      <step>
+        <para>Verify the status of the custom target. </para>
+        <para>For example:</para>
+        <screen>&prompt.sudo; <command>systemctl status test.target</command></screen>
+        </step>
+        <step>
+          <para>Verify all the units that are part of this target. </para>
+          <para>For example:</para>
+          <screen>&prompt.sudo; <command>systemctl list-dependencies test.target </command></screen>
+          </step>
+         <step><para>Your custom &systemd; target is set up and configured.</para></step>
+        </procedure>
+        <para>You can use the following common configuration options: </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+             <emphasis>Description:</emphasis> human-readable description of the target.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <emphasis>Documentation:</emphasis> URIs to documentation.</para>
+          </listitem>
+               <listitem>
+                <para>
+                  <emphasis>AllowIsolate:</emphasis>
+                  If set to <literal>true</literal>, this unit can be used with the <command>systemctl isolate</command> command.
+                </para>
+                </listitem>
+                <listitem>
+                  <para>
+                    <emphasis>Wants:</emphasis>
+                    Units that can be started but is not mandatory.
+                  </para>
+                  </listitem>
+                  <listitem>
+                    <para>
+                      <emphasis>After/Before:</emphasis>
+                      the order of the dependency.
+                    </para>
+                    </listitem>
+                    <listitem>
+                      <para>
+                        <emphasis>Conflicts:</emphasis>
+                        units that should not be active while this target is active.
+                      </para>
+                      </listitem>
+                </itemizedlist>
+      </topic>
