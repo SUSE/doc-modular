@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="owui-known-issues"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>&owui; known issues</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        This section lists the known issues with the &owui; and their solutions.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="owui-reset-password">
+    <title>User password reset</title>
+    <para>
+      An &owui; user can only reset their own password if they are logged in to
+      &owui; and have an active Web browser session. However, if the user has
+      lost their password and cannot log in to &owui;, the password must be
+      reset by an &rke2; administrator using the <command>kubectl</command>
+      command.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Generate a new password hash using the <command>htpasswd</command>
+          command. <command>htpasswd</command> is part of the
+          <package>apache2-utils</package> package.
+        </para>
+<screen>&prompt.user;htpasswd -bnBC 10 "" <replaceable>NEW_PASSWORD</replaceable> | tr -d ':\n'</screen>
+      </step>
+      <step>
+        <para>
+          Identify the Pod where the &owui; application is running.
+        </para>
+<screen>&prompt.user;kubectl get pod -n suse-private-ai | grep open-webui | grep -v pipelines</screen>
+      </step>
+      <step>
+        <para>
+          Update the password.
+        </para>
+<screen>&prompt.user;kubectl exec <replaceable>open-webui-0</replaceable> -n suse-private-ai – \
+  python3.11 -c 'import sqlite3; con = sqlite3.connect("/usr/lib/python3.11/site-packages/data/webui.db"); \
+  con.cursor().execute("UPDATE auth SET password=\"<replaceable>PASSWORD_HASH</replaceable>\" WHERE email=\"admin@example.org\""); con.commit()'</screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="owui-audio-processing">
+    <title>Audio processing stops after several minutes</title>
+    <para>
+      When the voice recorder is used as described in
+      <link xlink:href="&dsc;/suse-ai/1.0/html/openwebui-using/index.html#openwebui-chat-window-usage"/>,
+      &owui; tries to process the audio, but it times out without any warning
+      and no text is generated. The API endpoint
+      <literal>/audio/api/v1/transcriptions</literal>, which receives the audio
+      to be processed, results in a <literal>504 Gateway Timeout</literal>.
+    </para>
+  </section>
+  <section xml:id="owui-known-issues-cert-manager">
+    <title>&ollama; and &owui; fail to deploy reporting a cert-manager error</title>
+    <para>
+      By default, public endpoints such as &owui; are protected by self-signed
+      SSL/TLS certificates. You also have the option to either have the
+      certificate issued by a public Certification Authority (CA), or bring your
+      own certificate (BYO). Except for the BYO case,
+      <systemitem>cert-manager</systemitem> is required to facilitate the
+      certificate management. Therefore, you must verify that the
+      <systemitem>cert-manager</systemitem> <emphasis>custom resource
+      definitions</emphasis> (CRDs) are installed using the
+      <command>kubectl</command> utility, for example:
+    </para>
+<screen>&prompt.user;<command>kubectl get crds | grep cert-manager</command>
+certificaterequests.cert-manager.io                   2024-12-05T22:22:56Z
+certificates.cert-manager.io                          2024-12-05T22:22:56Z
+challenges.acme.cert-manager.io                       2024-12-05T22:22:57Z
+clusterissuers.cert-manager.io                        2024-12-05T22:22:57Z
+issuers.cert-manager.io                               2024-12-05T22:22:57Z
+orders.acme.cert-manager.io                           2024-12-05T22:22:57Z</screen>
+    <para>
+      If the <literal>cert-manager</literal> CRDs are not installed, install
+      them by running the following command:
+    </para>
+<screen>kubectl apply -f \
+https://github.com/cert-manager/cert-manager/releases/download/v1.6.2/cert-manager.crds.yaml</screen>
+    <para>
+      For BYO certificates, <systemitem>cert-manager</systemitem> is not
+      required. Therefore, you may disable it by adding the following option
+      when installing the &productname; components via &helm;:
+    </para>
+<screen>--set cert-manager.enabled=false</screen>
+  </section>
+</topic>
