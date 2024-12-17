@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+  <!ENTITY snapper "Snapper">
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="snapper-default-setup"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+ <info>
+  <title>&snapper; default setup</title>    
+    <meta name="maintainer" content="daria.vladykina@suse.com" its:translate="no"/>
+    <abstract>
+       <para>
+        Learn about the default setup of &snapper; and its default settings.
+       </para>
+     </abstract>
+  </info>
+  <para>&snapper; is set up as an undo and recovery tool for system
+    changes. By default, the root partition (<filename>/</filename>) of 
+    &productname; is formatted with <literal>Btrfs</literal>. Taking snapshots
+    is automatically enabled if the root partition (<filename>/</filename>) 
+    is big enough (more than approximately 16&nbsp;GB). 
+    By default, snapshots are disabled on partitions other than <filename>/</filename>.</para>
+    <important>
+      <para>We do not recommend activating snapshots manually after the system 
+        has been installed with snapshots. Enabling &snapper; after the installation 
+        results in a different setup compared to what is described here.</para>
+    </important>
+<tip>
+  <title>Checking root partition size</title>
+  <para>The size of the root partition is product-specific. To find out the disk 
+    space that the root partition occupies, run:</para>
+<screen>&prompt.user;<command>df -h</command></screen>
+</tip>
+
+    <section xml:id="snapper-default-settings">
+    <title>&snapper; default settings</title>
+      <para os="sles">By default, &snapper; on &productname; is automatically configured during 
+      system installation if the following requirements are met:</para>
+ <itemizedlist os="sles">
+  <listitem>
+  <para>Root partition size: &gt; 16&nbsp;GB</para>
+  </listitem>
+  <listitem>
+  <para>Root partition file system: Btrfs</para>
+  </listitem>
+ </itemizedlist>
+ <para>Snapshots are created for the root partition only, and certain 
+  directories are excluded by means of subvolumes. For the list of excluded subvolumes, 
+  see <xref linkend="snapper-subvolumes"/>.<phrase os="sles"> For detailed information about the types
+  of snapshots, the time and occasions of their creation, see <xref linkend="snapshot-types"/>.</phrase></para>
+ <para>&snapper; provides automatic snapshot cleanup algorithms to prevent running 
+        out of space on the root partition. These algorithms differentiate 
+        between timeline snapshots and <emphasis>numbered</emphasis> snapshots 
+        (administration plus installation snapshot pairs). The cleanup behavior can 
+        be configured based on the following criteria:</para>
+    <itemizedlist>
+        <listitem><para>Number limit: The system can be set to automatically delete old snapshots 
+        when a certain count of snapshots is reached.</para></listitem>
+        <listitem><para>Age limit: Old snapshots can be deleted if they exceed a certain age, while 
+        still preserving a number of snapshots for each time period (hourly, daily, monthly, yearly).</para></listitem>
+        <listitem><para><literal>Pre</literal> and <literal>post</literal> snapshot pairs: 
+          <literal>pre</literal> and <literal>post</literal> snapshot pairs that do not 
+          differ can be automatically deleted.</para></listitem>
+        </itemizedlist>
+        <para>For numbered snapshots, which include administration and installation snapshot 
+          pairs, the cleanup is controlled by parameters such as <literal>NUMBER_CLEANUP</literal>,
+        <literal>NUMBER_LIMIT</literal>, <literal>NUMBER_LIMIT_IMPORTANT</literal>, and <literal>NUMBER_MIN_AGE</literal>. 
+          The default values are 2&ndash;10 for <literal>NUMBER_LIMIT</literal> and 4&ndash;10 for
+          <literal>NUMBER_LIMIT_IMPORTANT</literal>, meaning that only the youngest snapshots are kept.</para>
+          <para>For timeline snapshots, the cleanup is based on the number of snapshots to keep for 
+          each type (hourly, daily, weekly, monthly, yearly). For example, the last 24 hourly
+          snapshots, the first daily snapshot from the last seven days, the first snapshot 
+          made on the last day of the month for the last twelve months, and so forth. The parameters 
+          include <literal>TIMELINE_CLEANUP</literal>, <literal>TIMELINE_MIN_AGE</literal> and 
+          interval parameters such as <literal>TIMELINE_LIMIT_DAILY</literal>, 
+          <literal>TIMELINE_LIMIT_HOURLY</literal> and so on.</para>
+      <para>You can roll back to an existing snapshot at any time by booting from 
+        the respective snapshot and making it active afterwards.</para> <!--For more details refer to ???.</para>-->
+        <note>
+          <title>Disabling &snapper; automatically and manually</title>
+          <para>If your root partition is smaller than 16&nbsp;GB, the automatic creation 
+          of snapshots as described above is disabled by default. In this case, 
+          you can manually create snapshots.<!-- (refer to ??? for more instructions)--> Keep an 
+          eye on the available disk space.</para><!-- (see ??? for more information)-->
+          <para>To disable automatic snapshots even if your root partition is sufficiently 
+          sized, disable snapshots manually during the installation in the partition setup 
+          step.</para><!-- For more information on how to do this, see ????-->
+        </note>
+</section>
+
+<section xml:id="snapper-on-root">
+        <title>&snapper; on root</title> 
+         <para>When &snapper; is configured to operate on root, every Btrfs subvolume is
+         excluded by default.</para>
+        <para>The default behavior of &snapper; is defined in a configuration file that 
+         is specific for each partition or Btrfs subvolume. These configuration files reside
+         under <filename>/etc/snapper/configs/</filename>.</para>
+         <warning os="sles">
+          <title>Enabling &snapper; in the installed system</title>
+          <para>
+            If you disabled &snapper; during the installation, it is possible to enable it later.
+            However, enabling &snapper; after the installation results in differences
+            in the subvolume layout and variables, among other things. We strongly recommend
+            deciding whether you need snapshots in your system <emphasis>before</emphasis>
+            starting the installation.
+          </para>
+         </warning>
+</section>
+
+<section xml:id="snapper-subvolumes">
+        <title>Subvolumes excluded from snapshots</title>
+         <para>The primary use case for snapshots is to roll back the system 
+          to a previous state. Therefore, there are certain subvolumes (directories)
+          for which snapshotting is disabled.</para>
+          <para>The following list contains directories that are excluded from snapshots. 
+            Depending on your product and architecture, not all of them may be available
+            on your system.
+          </para>
+          <variablelist>
+          <varlistentry>
+            <term><filename>/boot/grub2/i386-pc</filename>,
+             <filename>/boot/grub2/x86_64-efi</filename>,
+             <filename>/boot/grub2/powerpc-ieee1275</filename>,
+             <filename>/boot/grub2/s390x-emu</filename>
+            </term>
+            <listitem>
+             <para>
+              A rollback of the boot loader configuration is not supported. The
+              directories listed above are architecture-specific. The first two
+              directories are present on AMD64/Intel 64 machines, the latter two are
+              on IBM &power; and on &zseries;, respectively.
+             </para>
+            </listitem>
+           </varlistentry>
+           <varlistentry>
+            <term><filename>/home</filename>
+            </term>
+            <listitem>
+             <para>
+              If <filename>/home</filename> does not reside on a separate partition, it
+              is excluded to avoid the loss of user-created data on rollbacks.
+             </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+           <term><filename>/opt</filename>, <filename>/usr/local</filename>
+           </term>
+           <listitem>
+            <para>
+              These directories are used when manually installing third-party products.
+              They are excluded to avoid uninstalling these installations on rollbacks.
+            </para>
+           </listitem>
+          </varlistentry>
+           <varlistentry>
+            <term><filename>/srv</filename>
+            </term>
+            <listitem>
+             <para>
+              Contains data for Web and FTP servers. It is excluded to avoid data loss on
+              rollbacks.
+             </para>
+            </listitem>
+           </varlistentry>
+           <varlistentry>
+            <term><filename>/tmp</filename>
+            </term>
+            <listitem>
+             <para>
+              All directories containing temporary files and caches are excluded from
+              snapshots.
+             </para>
+            </listitem>
+           </varlistentry>           
+           <varlistentry>
+            <term><filename>/var</filename>
+            </term>
+            <listitem>
+             <para>
+              This directory contains many variable files, including logs, temporary
+              caches, third-party products in <filename>/var/opt</filename>, and is the
+              default location for virtual machine images and databases. Therefore, this
+              subvolume is created to exclude all of this variable data from snapshots
+              and has copy-on-write disabled.
+             </para>
+            </listitem>
+           </varlistentry>
+           <varlistentry>
+            <term><filename>/run</filename>
+            </term>
+            <listitem>
+             <para>
+              This directory contains application runtime data and is excluded from
+              snapshots to reduce the size of the snapshot and to avoid including 
+              potentially sensitive information.
+             </para>
+            </listitem>
+           </varlistentry>
+          </variablelist>
+         <tip>
+            <para>
+              The list of subvolumes is product-specific. To see what subvolumes 
+              are created under <filename>/</filename> and 
+              therefore see which directories are excluded from the 
+              default snapshots behavior, run:</para>
+            <screen>&prompt.sudo;btrfs subvolume list /</screen>
+         </tip>  
+      <note><title>Why is there a space limit?</title>
+      <para>
+        When creating a snapshot, no physical data copies are created. A snapshot only consists of 
+        pointers to the respective data blocks. As long as the snapshot remains consistent with 
+        the current system, it occupies almost no additional disk space (apart from the metadata 
+        it contains). However, if a file is modified on the system, the changed data is recorded
+        in the snapshot. Over time, as more changes accumulate and the snapshot diverges from 
+        the live system, the snapshot's size increases accordingly.</para>
+        <para>To prevent disks from running full (and the system becoming inoperable as a result), we 
+        recommend having a minimal root file system size. The required size depends on system usage:</para>
+        <itemizedlist>
+        <listitem>
+        <para>The frequency of snapshot creation</para>
+        </listitem>
+        <listitem>
+        <para>The duration for which snapshots are retained</para>
+        </listitem>
+        <listitem>
+        <para>The rate of changes to the system</para>
+        </listitem>
+      </itemizedlist>
+        <para>In general, the more snapshots you have, the longer they are kept, and the more 
+          frequently the system changes, the larger the root partition needs to be.</para>
+      </note>
+  </section>
+    </topic>

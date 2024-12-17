@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="virtual-disk-cache-mode-configure-using-virsh"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configure virtual disk cache mode using &virsh;</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        A virtual disk is an essential part of a virtual machine (VM). To speed up disk reading and
+        writing operations, you can enable a caching mechanism. This article describes how to
+        configure a virtual disk cache mode using the command-line tool &virsh;.
+      </para>
+    </abstract>
+  </info>
+  <procedure>
+    <step>
+      <para>
+        Open your favorite terminal application and identify the VM.
+      </para>
+<screen>&prompt.sudo;<command>virsh list --all</command>
+Id   Name       State
+---------------------------
+-    sle15sp5   shut off</screen>
+    </step>
+    <step>
+      <para>
+        Identify the disk for which you want to configure the cache mode.
+      </para>
+<screen>&prompt.sudo;<command>virsh domblklist sle15sp5</command>
+Target   Source
+------------------------------------------
+vda      /home/example-user/virt/sle15.qcow2
+sda      -</screen>
+    </step>
+    <step>
+      <para>
+        Dump the XML definition of the VM to a file.
+      </para>
+<screen>&prompt.sudo;<command>virsh dumpxml sle15sp5 > virt/sle15sp5.xml</command></screen>
+    </step>
+    <step>
+      <para>
+        Edit the dumped XML file and search for a <literal>&lt;disk/></literal> definition that
+        includes a path to your disk in the <literal>&lt;source></literal>definition, for example:
+      </para>
+<screen>&lt;disk type='file' device='disk'>
+  &lt;driver name='qemu' type='qcow2' cache='writethrough'/>
+  &lt;source file='/home/example-user/virt/sle15.qcow2'/>
+  &lt;target dev='vda' bus='virtio'/>
+  &lt;address type='pci' domain='0x0000' bus='0x04' slot='0x00' function='0x0'/>
+&lt;/disk></screen>
+    </step>
+    <step>
+      <para>
+        Update the <literal>&lt;driver/></literal> definition and append
+        <literal>cache='<replaceable>CACHE_TYPE</replaceable>'</literal>. Replace
+        <replaceable>CACHE_TYPE</replaceable> with one of the caching modes described in
+        <xref linkend="virtual-disk-cache-modes"/>. For example:
+      </para>
+<screen>&lt;driver name='qemu' type='qcow2' cache='writethrough'/></screen>
+    </step>
+    <step>
+      <para>
+        Save the updated XML definition and update the VM accordingly, for example:
+      </para>
+<screen>&prompt.sudo;<command>sudo virsh define  virt/sle15sp5.xml</command>
+Domain 'sle15sp5' defined from virt/sle15sp5.xml</screen>
+    </step>
+  </procedure>
+</topic>

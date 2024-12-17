@@ -1,0 +1,815 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="selinux-tools"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Tools for managing &selnx;</title>
+    <!-- can be changed via merge in the assembly -->
+    <!--add author's email address-->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract>
+      <!-- can be changed via merge in the assembly -->
+      <para>
+        The topic covers the tools that you can use to configure &selnx;
+      </para>
+    </abstract>
+  </info>
+  <para>
+    &productnameshort; provides you with tools to manage &selnx; on your
+    system. If the below described tools are not installed on your system,
+    install the tools by running:
+  </para>
+<screen>&prompt.root;transactional-update pkg install policycoreutils-python-utils</screen>
+  <para>
+    After successful installation, reboot the system.
+  </para>
+  <section xml:id="selinux-z-option">
+    <title>Using the <option>Z</option> option</title>
+    <para>
+      Where &selnx; is installed and configured, you can use the
+      <option>-Z</option> to regular commands like <command>ls</command>,
+      <command>id</command> or <command>ps</command>. Using this option, you
+      can display the security context of files or processes. For example, with the
+      <command>ls</command> command:
+    </para>
+<screen>&prompt.user;ls -Z /etc/shadow
+
+        system_u:object_r:shadow_t:s0 /etc/shadow
+      </screen>
+  </section>
+  <section xml:id="sec-chcon-command">
+    <title>The <command>chcon</command> command</title>
+    <para>
+      The command name <command>chcon</command> stands for change context. The
+      command can change the full security context of a file to the value
+      provided on the CLI, or it can change parts of the context.
+      Alternatively, you can provide a file that serves as a reference.
+    </para>
+    <para>
+      To change the full security context of a file, the command syntax looks
+      as follows:
+    </para>
+<screen>&prompt.root;chcon <replaceable>SECURITY_CONTEXT</replaceable> <replaceable>FILENAME</replaceable></screen>
+    <para>
+      where:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <replaceable>SECURITY_CONTEXT</replaceable> is in the format:
+          <replaceable>SELinux_USER</replaceable>:<replaceable>ROLE</replaceable>:<replaceable>TYPE</replaceable>:<replaceable>LEVEL</replaceable>:<replaceable>CATEGORY</replaceable>.
+          For example, the context could be:
+          <emphasis>system_u:object_r:httpd_config_t:s0</emphasis>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <replaceable>FILENAME</replaceable> is a path to the file whose
+          context should be changed.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      To set a security context according to a provided file that serves as a
+      reference, run <command>chcon</command> as follows:
+    </para>
+<screen>&prompt.root;chcon --reference=<replaceable>REFERENCE_FILE</replaceable> <replaceable>FILENAME</replaceable></screen>
+    <para>
+      where:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <replaceable>REFERENCE_FILE</replaceable> is a path to a file that
+          should be used as a reference.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <replaceable>FILENAME</replaceable> is a path to the file whose
+          context should be changed.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      Alternatively, you can change only one part of the security context. The
+      general syntax of the <command>chcon</command> command is as follows:
+    </para>
+<screen>&prompt.root;chcon <replaceable>CONTEXT_OPTION</replaceable> <replaceable>CONTEXT_PART</replaceable> <replaceable>FILENAME</replaceable></screen>
+    <para>
+      The options and arguments have the following meaning:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          depending on the context part,
+          <replaceable>CONTEXT_OPTION</replaceable> can be any of the
+          following:
+        </para>
+        <variablelist>
+          <varlistentry>
+            <term><option>-u</option> resp <option>--user</option></term>
+            <listitem>
+              <para>
+                denotes that an &selnx; user context will be changed on the
+                provided file:
+              </para>
+<screen>&prompt.root;chcon -u system_u logind.conf</screen>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>-r</option> resp <option>--role</option></term>
+            <listitem>
+              <para>
+                only the role part will be changed in the context of the
+                provided file:
+              </para>
+<screen>&prompt.root;chcon -r object_r logind.conf</screen>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>-t</option> resp <option>--type</option></term>
+            <listitem>
+              <para>
+                only the type part will be changed in the context of the
+                provided file:
+              </para>
+<screen>&prompt.root;chcon -t etc_t logind.conf</screen>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>-l</option> resp <option>--range</option></term>
+            <listitem>
+              <para>
+                only the range part of the security context will be changed:
+              </para>
+<screen>&prompt.root;chcon -l s0 logind.conf</screen>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+      </listitem>
+      <listitem>
+        <para>
+          <replaceable>CONTEXT_PART</replaceable> is the particular value of
+          the security context to be set.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <replaceable>FILENAME</replaceable> is a path to the file whose
+          context will be changed.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <note>
+      <title>Using <command>chcon</command> on symbolic links</title>
+      <para>
+        By default, when you change the security context on a symbolic link,
+        the context of the link target is changed and the symbolic link context
+        is <emphasis role="bold">not</emphasis> changed. To force
+        <command>chcon</command> to change the context of the symbolic link and
+        not the link target, use the <option>--no-dereference</option> option
+        as shown below:
+      </para>
+<screen>&prompt.root;chcon --no-dereference -u system_u -t etc_t network.conf</screen>
+    </note>
+    <para>
+      You can change the context of all files in a directory by using the
+      recursive option:
+    </para>
+<screen>&prompt.root;chcon --recursive  system_u:object_r:httpd_config_t:s0 conf.d</screen>
+  </section>
+  <section xml:id="sec-getenforce-setenforce">
+    <title><command>getenforce</command> and <command>setenforce</command> commands</title>
+    <para>
+      The <command>getenforce</command> command returns the current &selnx;
+      mode: <literal>Enforcing</literal>, <literal>Permissive</literal> or
+      <literal>Disabled</literal>.
+    </para>
+<screen>&prompt.root;getenforce
+
+Permissive
+    </screen>
+    <para>
+      The <command>setenforce</command> command temporarily changes the SELinux
+      mode to enforcing or permissive. You cannot use this command to disable
+      &selnx;. Remember that the change persists only until the next reboot. To
+      change the state permanently, follow the description in
+      <xref linkend="selinux-switching-modes"/>.
+    </para>
+<screen>&prompt.root;setenforce <replaceable>MODE_ID</replaceable></screen>
+    <para>
+      where <replaceable>MODE_ID</replaceable> is <replaceable>0</replaceable>
+      for the <literal>permissive</literal> mode or
+      <replaceable>1</replaceable> for the <literal>enforced</literal> mode.
+    </para>
+  </section>
+  <section xml:id="sec-fixfiles-command">
+    <title>The <command>fixfiles</command> script</title>
+    <para>
+      The script enables you to perform the following tasks with the security
+      context:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          check if the context is correct
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          change any incorrect file context labels
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          relabel your system if you added a new policy
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      The script syntax is as follows:
+    </para>
+<screen>&prompt.root;fixfiles [<replaceable>OPTIONS</replaceable>] <replaceable>ARGUMENT</replaceable></screen>
+    <para>
+      where:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <replaceable>OPTIONS</replaceable> can be the following:
+        </para>
+        <variablelist>
+          <varlistentry>
+            <term><option>-l</option> <replaceable>LOGFILE</replaceable></term>
+            <listitem>
+              <para>
+                saves the output to the provided file
+              </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>-o</option> <replaceable>OUTPUT_FILE</replaceable></term>
+            <listitem>
+              <para>
+                saves to the provided output file the names of all files whose
+                file context differs from the default
+              </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>-F</option></term>
+            <listitem>
+              <para>
+                forces a reset of context
+              </para>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+      </listitem>
+      <listitem>
+        <para>
+          <replaceable>ARGUMENT</replaceable> can be one of the following:
+        </para>
+        <variablelist>
+          <varlistentry>
+            <term><command>check</command></term>
+            <listitem>
+              <para>
+                shows previous and current file context for an incorrect label
+                without performing any changes
+              </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><command>relabel</command></term>
+            <listitem>
+              <para>
+                relabels incorrect file contexts according to the currently
+                loaded policy
+              </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><command>restore</command></term>
+            <listitem>
+              <para>
+                restores incorrect file contexts to the default values
+              </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><command>verify</command></term>
+            <listitem>
+              <para>
+                lists all files with incorrect file context labels without
+                performing any changes
+              </para>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="sec-semanage-command">
+    <title>The <command>semanage</command> command</title>
+    <para>
+      The <command>semanage</command> command can be used to configure parts of
+      the policy without the need to recompile the policy from sources. The
+      command enables you to perform the following tasks:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          manage Booleans by using the <option>boolean</option> argument. For
+          details about Booleans, refer to
+          <xref linkend="selinux-working-with-booleans"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          adjust the context of files by using the <option>fcontext</option>
+          argument
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          manage user mappings using the <option>login</option> argument
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          manage &selnx; users using the <option>user</option> argument
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          manage &selnx; policy modules using the <option>module</option>
+          argument
+        </para>
+      </listitem>
+    </itemizedlist>
+    <!-- JH: Add all options! -->
+    <para>
+      The general command syntax looks as follows:
+    </para>
+<screen>&prompt.root;semanage <replaceable>ARGUMENT</replaceable> <replaceable>OPTIONS</replaceable> [<replaceable>OBJECT_NAME</replaceable>]</screen>
+    <para>
+      where:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <replaceable>ARGUMENT</replaceable> is one of the following:
+          <command>login</command>, <command>user</command>,
+          <command>fcontext</command>, <command>boolean</command>,
+          <command>module</command>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <replaceable>OPTIONS</replaceable> depends on the provided
+          <replaceable>ARGUMENT</replaceable>. Common options are described in
+          <xref linkend="list-common-options"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <replaceable>OBJECT_NAME</replaceable>, depending on the provided
+          <replaceable>ARGUMENT</replaceable>, can be a login name, module name,
+          file name or &selnx; user.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <variablelist xml:id="list-common-options">
+      <title>Common options</title>
+      <varlistentry>
+        <term><option>-a</option>, <option>--add</option></term>
+        <listitem>
+          <para>
+            adds a provided object
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-h</option>, <option>--help</option></term>
+        <listitem>
+          <para>
+            prints the command help
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>--extract</term>
+        <listitem>
+          <para>
+            displays commands that were used to change the system (Booleans,
+            file context, and so on)
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-l</option>, <option>--list</option></term>
+        <listitem>
+          <para>
+            lists all objects
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-m</option>, <option>--modify</option></term>
+        <listitem>
+          <para>
+            modifies the provided object
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-n</option>, <option>--noheading</option></term>
+        <listitem>
+          <para>
+            modifies the output of the listing operation by omitting headings
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-s</option>, <option>--seuser</option></term>
+        <listitem>
+          <para>
+            specifies the &selnx; user
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <para>
+      Other options are specific to particular <command>semanage</command>
+      commands and are described in corresponding sections.
+    </para>
+    <section xml:id="sec-semanage-fcontext">
+      <title>The <command>semanage fcontext</command> command</title>
+      <para>
+        Using the <command>semanage fcontext</command> command, you can perform
+        the following tasks:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            query file context definitions
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            add contexts on files
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            add your own rules
+          </para>
+        </listitem>
+      </itemizedlist>
+      <para>
+        Changes performed to the file context using the <command>semanage
+        fcontext</command> command do not require modifications or
+        recompilation of the policy.
+      </para>
+      <para>
+        On top of the common options described in
+        <xref linkend="list-common-options"/>, the <command>semanage
+        fcontext</command> command takes the following options:
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>-e</option>, <option>--equal</option></term>
+          <listitem>
+            <para>
+              The option enables you to use the context of the provided path
+              context to label files in a different directory (the provided
+              target path). For example, you want to assign the same context as
+              <filename>/home</filename> has to an alternative home directory
+              <filename>/export/home</filename>. If you use this option, you
+              need to provide the source path and the target path:
+            </para>
+<screen>&prompt.root;semanage fcontext -a -e /home /export/home</screen>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>-f</option>, <option>--ftype</option></term>
+          <listitem>
+            <para>
+              To specify a file type. Use one of the following values:
+            </para>
+            <itemizedlist>
+              <listitem>
+                <para>
+                  <option>a</option> - all files, which is also the default
+                  value
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  <option>b</option> - a block device
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  <option>c</option> - a character device
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  <option>d</option> - a directory
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  <option>f</option> - regular files
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  <option>l</option> - a symbolic link
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  <option>p</option> - a named pipe
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  <option>s</option> - a socket
+                </para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </section>
+    <section xml:id="semanage-login-command">
+      <title>The <command>semanage login</command> command</title>
+      <para>
+        The <command>semanage login</command> enables you the perform the
+        following tasks:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            Mapping of Linux users on a particular &selnx; user. For example,
+            to map the Linux user <emphasis>tux</emphasis> on
+            <literal>sysadm_u</literal>, run the command:
+          </para>
+<screen>&prompt.root;<command>semanage login -a -s sysadm_u tux</command></screen>
+        </listitem>
+        <listitem>
+          <para>
+            Mapping of a group of Linux users on a particular &selnx; user. For
+            example, to map users of the <emphasis>writers</emphasis> group on
+            <literal>user_u</literal>, run the command:
+          </para>
+<screen>&prompt.root;<command>semanage login -a -s user_u %writers</command></screen>
+          <para>
+            The group is then listed in the output of <command>semanage login
+            -l</command>, prefixed with the % character.
+          </para>
+          <para>
+            Keep in mind that the user group should be primary because mapping
+            &selnx; users on supplementary groups may result in incompatible
+            mappings.
+          </para>
+<screen>&prompt.root;<command>semanage login -m -s staff_u %writers</command></screen>
+        </listitem>
+        <listitem>
+          <para>
+            Mapping of Linux users on a particular &selnx; MLS/MCS security
+            range.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Modifying of the already created mapping. For this purpose, just
+            replace the <option>-a</option> option with <option>-m</option> in
+            the previous commands.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Setting the default &selnx; user for new Linux users. The usual
+            default &selnx; user is <literal>unconfined_u</literal>. To change
+            the value to <literal>staff_u</literal>, run the command:
+          </para>
+<screen>&prompt.root;<command>semanage login -m -s staff_u __default__</command></screen>
+        </listitem>
+      </itemizedlist>
+    </section>
+    <section xml:id="semanage-boolean-command">
+      <title>The <command>semanage boolean</command> command</title>
+      <para>
+        The <command>semanage boolean</command> command is used to control
+        Booleans in the &selnx; policy.
+      </para>
+      <para>
+        The command synopsis looks as follows:
+      </para>
+<screen>semanage boolean [-h] [-n]  [ --extract |
+       --deleteall | --list [-C] | --modify ( --on | --off | -1 | -0 ) boolean ]</screen>
+      <para>
+        On top of the common options, you can use the following ones specific
+        to the <command>semanage boolean</command> command:
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term>--list -C</term>
+          <listitem>
+            <para>
+              To display a list of local modifications to Booleans.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>-m --on | -1</term>
+          <listitem>
+            <para>
+              To switch the provided Boolean on.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>-m --off | -0</term>
+          <listitem>
+            <para>
+              To switch the provided Boolean off.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>-D, --deleteall</term>
+          <listitem>
+            <para>
+              To delete all local modifications to Booleans.
+            </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+      <para>
+        The most common usage of the command is to switch on or off a
+        particular Boolean. For example, to switch on the
+        <literal>authlogin_yubikey</literal> Boolean, run:
+      </para>
+<screen>&prompt.root;<command>semanage boolean -m on authlogin_yubikey</command></screen>
+    </section>
+    <section xml:id="semanage-user-command">
+      <title>The <command>semanage user</command> command</title>
+      <para>
+        The <command>semanage user</command> command controls the mapping
+        between the &selnx; user and the roles and MLS/MCS levels.
+      </para>
+      <para>
+        On top of the common options described in
+        <xref linkend="list-common-options"/>, the <command>semanage
+        use</command> command takes the following options:
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term>-R [ROLES], --roles [ROLES]</term>
+          <listitem>
+            <para>
+              A list of &selnx; roles. You can enclose multiple roles within
+              double quotes and separate them by spaces, or you can use the
+              <option>-R</option> several times.
+            </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+      <para>
+        Using this command, you can perform the following tasks:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            Listing the mapping of &selnx; users on roles by running:
+          </para>
+<screen>&prompt.root;<command>semanage user -l</command></screen>
+        </listitem>
+        <listitem>
+          <para>
+            Changing the roles assigned to the <literal>user_u</literal>
+            &selnx; user:
+          </para>
+<screen>&prompt.root;<command>semanage user -m -R "system_r unconfined_r user_r"</command></screen>
+        </listitem>
+        <listitem>
+          <para>
+            Assigning to <literal>admin_u</literal> the role
+            <literal>staff_r</literal> and a category <literal>s0</literal>:
+          </para>
+<screen>&prompt.root;<command>semanage user -a -R "staff_r -r s0 admin_u</command></screen>
+        </listitem>
+        <listitem>
+          <para>
+            Creating a new &selnx; user, for example,
+            <literal>admin_u</literal> with the <literal>staff_r</literal>
+            role. You also need to define the labeling prefix for this user by
+            using the <option>-P</option>:
+          </para>
+<screen>&prompt.root;<command>semanage user -a -R "staff_r" -P admin admin_u</command></screen>
+        </listitem>
+      </itemizedlist>
+    </section>
+    <section xml:id="semanage-module-command">
+      <title>The <command>semanage module</command> command</title>
+      <para>
+        The <command>semanage module</command> command can install, remove,
+        disable or enable &selnx; policy modules.
+      </para>
+      <para>
+        On top of the common options described in
+        <xref linkend="list-common-options"/>, the <command>semanage
+        fcontext</command> command takes the following options:
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><option>-d</option>, <option>--disable</option></term>
+          <listitem>
+            <para>
+              To disable the provided &selnx; policy module:
+            </para>
+<screen>&prompt.root;<command>semanage module --disable <replaceable>MODULE_NAME</replaceable></command></screen>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>-e</option>, <option>--enable</option></term>
+          <listitem>
+            <para>
+              To enable the provided &selnx; policy module:
+            </para>
+<screen>&prompt.root;<command>semanage module --enable <replaceable>MODULE_NAME</replaceable></command></screen>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </section>
+  </section>
+  <section xml:id="sestatus-command">
+    <title>The <command>sestatus</command> command</title>
+    <para>
+      The <command>sestatus</command> gets the status of a system where &selnx;
+      is running.
+    </para>
+    <para>
+      The generic syntax of the command looks as follows:
+    </para>
+<screen>sestatus <replaceable>[OPTION]</replaceable> </screen>
+    <para>
+      When run without any options and arguments, the command outputs the
+      following information:
+    </para>
+<screen>&prompt.root;<command>sestatus</command>
+
+SELinux status:                 enabled
+SELinuxfs mount:                /sys/fs/selinux
+SELinux root directory:         /etc/selinux
+Loaded policy name:             targeted
+Current mode:                   enforcing
+Mode from config file:          enforcing
+Policy MLS status:              enabled
+Policy deny_unknown status:     allowed
+Memory protection checking:     requested (insecure)
+Max kernel policy version:      33
+      </screen>
+    <para>
+      The command can take the following options:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>-b</term>
+        <listitem>
+          <para>
+            Displays the status of Booleans on the system.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>-v</term>
+        <listitem>
+          <para>
+            Displays the security context of files and processes listed in the
+            <filename>/etc/sestatus.conf</filename> file.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+</topic>

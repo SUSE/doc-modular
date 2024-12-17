@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="nvidia-operator-installation"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Installing the &nvoperator; on the &rke2; &kube; cluster</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        This topic describes how to install the &nvoperator; on the &rke2;
+        &kube; cluster.
+      </para>
+    </abstract>
+  </info>
+  <procedure>
+    <title>Installation of the &nvoperator;</title>
+    <itemizedlist>
+      <title>Requirements</title>
+      <para>
+        If you are following this guide, it assumes that you have the following
+        already available:
+      </para>
+      <listitem>
+        <para>
+          A successfully deployed and fully operational &rke2; &kube; cluster.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          At least one worker node with a
+          <link xlink:href="https://github.com/NVIDIA/open-gpu-kernel-modules#compatible-gpus">compatible
+          &nvidia; GPU</link> and corresponding &nvidia; drivers installed.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          The &helm; package manager available on a host from which you operate
+          the &rke2; cluster.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <step>
+      <para>
+        Create a <filename>values.yaml</filename> configuration file and insert
+        the following <literal>toolkit</literal> environmental variables.
+      </para>
+<screen>toolkit:
+  env:
+  - name: CONTAINERD_CONFIG<co xml:id="co-containerd-config"/>
+    value: /var/lib/rancher/rke2/agent/etc/containerd/config.toml.tmpl
+  - name: CONTAINERD_SOCKET<co xml:id="co-containerd-socket"/>
+    value: /run/k3s/containerd/containerd.sock
+  - name: CONTAINERD_RUNTIME_CLASS<co xml:id="co-containerd-class"/>
+    value: nvidia
+  - name: CONTAINERD_SET_AS_DEFAULT<co xml:id="co-containerd-default"/>
+    value: "true"</screen>
+      <calloutlist>
+        <callout arearefs="co-containerd-config">
+          <para>
+            The path on the host to the &containerd; configuration you want to
+            have updated with support for the
+            <systemitem>nvidia-container-runtime</systemitem>. It defaults to
+            <filename>/etc/containerd/config.toml</filename>.
+          </para>
+        </callout>
+        <callout arearefs="co-containerd-socket">
+          <para>
+            The path on the host to the socket file used to communicate with
+            &containerd;. The &nvoperator; uses it to send a SIGHUP signal to
+            the <systemitem class="daemon">&containerd;</systemitem> daemon to
+            reload its configuration. It defaults to
+            <filename>/run/containerd/containerd.sock</filename>.
+          </para>
+        </callout>
+        <callout arearefs="co-containerd-class">
+          <para>
+            The name of the
+            <link
+            xlink:href="https://kubernetes.io/docs/concepts/containers/runtime-class">Runtime
+            Class</link> you would like to associate with the
+            <systemitem>nvidia-container-runtime</systemitem>. Pods launched
+            with a <option>runtimeClassName</option> equal to
+            <option>CONTAINERD_RUNTIME_CLASS</option> always run with the
+            <systemitem>nvidia-container-runtime</systemitem>. The default
+            <option>CONTAINERD_RUNTIME_CLASS</option> is
+            <literal>nvidia</literal>.
+          </para>
+        </callout>
+        <callout arearefs="co-containerd-default">
+          <para>
+            A flag indicating whether you want to set
+            <systemitem>nvidia-container-runtime</systemitem> as the default
+            runtime used to launch all containers. When set to
+            <literal>false</literal>, only containers in pods with a
+            <option>runtimeClassName</option> equal to
+            <option>CONTAINERD_RUNTIME_CLASS</option> run with the
+            <systemitem>nvidia-container-runtime</systemitem>. The default value
+            is <literal>true</literal>.
+          </para>
+        </callout>
+      </calloutlist>
+    </step>
+    <step>
+      <para>
+        Pass the <filename>values.yaml</filename> file to the following
+        <command>helm</command> command:
+      </para>
+<screen>&prompt.user;<command>helm install gpu-operator -n gpu-operator \
+  --create-namespace nvidia/gpu-operator \
+  --set driver.enabled=false -f values.yaml</command></screen>
+    </step>
+  </procedure>
+  <note>
+    <title>Installation without a YAML file</title>
+    <para>
+      An alternative way of installing the &nvoperator; is by specifying the
+      above configuration options directly with the <command>helm</command>
+      command. In this case, you do not store the <option>toolkit</option>
+      options in the YAML file.
+    </para>
+<screen>&prompt.user;<command>helm install gpu-operator -n gpu-operator --create-namespace \
+  nvidia/gpu-operator $HELM_OPTIONS \
+    --set toolkit.env[0].name=CONTAINERD_CONFIG \
+    --set toolkit.env[0].value=/var/lib/rancher/rke2/agent/etc/containerd/config.toml.tmpl \
+    --set toolkit.env[1].name=CONTAINERD_SOCKET \
+    --set toolkit.env[1].value=/run/k3s/containerd/containerd.sock \
+    --set toolkit.env[2].name=CONTAINERD_RUNTIME_CLASS \
+    --set toolkit.env[2].value=nvidia \
+    --set toolkit.env[3].name=CONTAINERD_SET_AS_DEFAULT \
+    --set-string toolkit.env[3].value=true \
+    --set driver.enabled=false
+</command></screen>
+  </note>
+</topic>
+<!-- TODO tbazant: It may be interesting to place a section describing how to
+use the NVIDIA GPU resources from an application helm chart perspective. I
+discussed it briefly in the document "Node Assignment for Applications," but
+maybe it would be better to place it elsewhere. Basically, in the application
+helm chart the user needs to declare the need for the GPU resources and enable
+GPU passthrough. Ollama is a good example
+https://github.com/SUSE/private-ai-charts/tree/main/charts/ollama  -->

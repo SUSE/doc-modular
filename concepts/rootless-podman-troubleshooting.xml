@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="rootless-podman-troubleshooting"
+ role="glue" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Troubleshooting</title>
+    <meta name="maintainer" content="dpopov@suse.com" its:translate="no"/>
+  </info>
+  <section xml:id="rootless-podman-troubleshoot-fix-root">
+    <title>Rootless mode fails</title>
+    <para>
+      If &podman; fails to launch containers in rootless mode, check
+      whether an entry for the current user is present in
+      <literal>/etc/subuid</literal> on the host system:
+    </para>
+<screen>&prompt.user;grep $(id -nu) /etc/subuid
+  user:10000:65536</screen>
+    <para>
+      When no entry is found, add the required sub-UID and sub-GID entries via
+      the following command:
+    </para>
+<screen>&prompt.user;sudo usermod --add-subuids 100000-165535 --add-subgids 100000-165535 $(id -nu)</screen>
+    <para>
+      To enable the change, reboot the machine or stop the session of the
+      current user. To do the latter, run <command>loginctl list-sessions |
+      grep <replaceable>USER</replaceable></command> and note the session ID.
+      Then run <command>loginctl kill-session
+      <replaceable>SESSION_ID</replaceable></command> to stop the session.
+    </para>
+    <para>
+      The <command>usermod</command> command above defines a range of local
+      UIDs to which the UIDs allocated to users inside the container are mapped
+      on the host. Note that the ranges defined for different users must not
+      overlap. It is also important that the ranges do not reuse the UID of an
+      existing local user or group. By default, adding a user with the
+      <command>useradd</command> command on &productname; automatically
+      allocates sub-UID and sub-GID ranges.
+    </para>
+  </section>
+  <section xml:id="rootless-podman-troubleshoot-storage-graph-root">
+    <title>Rootless containers and the storage graph root</title>
+    <para>
+      &podman; stores the containers' data in the storage graph root (default is
+      <filename>~/.local/share/containers/storage</filename>). Because of the
+      way &podman; remaps user IDs in rootless containers, the graph root may
+      contain files that are not owned by your current user but by a user ID in
+      the sub-UID region assigned to your user. As these files do not belong to
+      your current user, they can be inaccessible to you.
+    </para>
+    <para>
+      To read or modify any file in the graph root, enter a shell as follows:
+    </para>
+  <screen>&prompt.user;podman unshare bash
+&prompt.user;id
+  uid=0(root) gid=0(root) groups=0(root),65534(nobody)</screen>
+    <para>
+      Note that <command>podman unshare</command> performs the same user
+      remapping as <command>podman run</command> does when launching a rootless
+      container. You cannot gain elevated privileges via <command>podman
+      unshare</command>.
+    </para>
+    <warning>
+      <para>
+        Do not modify files in the graph root as this can corrupt &podman;'s
+        internal state and render your containers, images and volumes inoperable.
+      </para>
+    </warning>
+  </section>
+</topic>

@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="pxe-boot-prepare-tftp"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Preparing the TFTP server</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+        The topic describes how to prepare the server so that the
+        client machines with UEFI can boot remotely using files exported by
+        TFTP.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    To deploy &productname; using the PXE client, you need to perform the following steps:
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Review the <systemitem class="daemon">tftpd</systemitem> configuration in
+      <filename>/etc/sysconfig/tftp</filename> and add or change options as
+      required. Refer to <command>man 8 tftpd</command> for more details.
+      The TFTP daemon works without changing the configuration. The default root
+      directory for the files is <filename>/srv/tftpboot</filename>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Ensure that <systemitem class="daemon">tftpd</systemitem> is started at
+          boot time, and restart it to read the new configuration.
+         </para>
+         <screen>&prompt.sudo;<command>systemctl enable tftp.socket</command>
+&prompt.sudo;<command>systemctl restart tftp.socket</command></screen>
+    <para>
+      Ensure that <literal>tftp.socket</literal> remains active during the whole deployment
+      process, which may take several minutes. 
+    </para>
+      </step>
+      <step>
+        <para>
+          Prepare the directory structure:
+        </para>
+        <screen>
+&prompt.sudo;mkdir /srv/tftpboot/sl-micro
+        </screen>
+      </step>
+      <step>
+        <para>
+          Navigate to the directory:
+        </para>
+        <screen>&prompt.user;<command>cd /srv/tftpboot/sl-micro</command></screen>
+      </step>
+      <step>
+        <para>
+          Download the
+          <literal>SL-Micro.<replaceable>ARCHITECTURE</replaceable>-6.1-<replaceable>IMAGE_TYPE</replaceable>-GM.install.tar</literal>
+          to the TFTP server.
+        </para>
+      </step>
+      <step>
+        <para>
+          Unpack the TAR file:
+        </para>
+        <screen>&prompt.sudo;<command>tar xvf <replaceable>IMAGE_TAR</replaceable> -C .</command></screen>
+        <para>
+          Make sure that all necessary files are present in the
+          <filename>/srv/tftpboot/sl-micro</filename>:
+          </para>
+          <screen>
+&prompt.user;<command>ls</command>
+
+pxeboot.SL-Micro.<replaceable>ARCH</replaceable>-<replaceable>VERSION</replaceable>.kernel
+pxeboot.SL-Micro.<replaceable>ARCH</replaceable>-<replaceable>VERSION</replaceable>.initrd
+SL-Micro.<replaceable>ARCH</replaceable>-<replaceable>VERSION</replaceable>.append 
+SL-Micro.<replaceable>ARCH</replaceable>-<replaceable>VERSION</replaceable>.config.bootoptions
+SL-Micro.<replaceable>ARCH</replaceable>-<replaceable>VERSION</replaceable>.initrd
+SL-Micro.<replaceable>ARCH</replaceable>-<replaceable>VERSION</replaceable>.kernel
+SL-Micro.<replaceable>ARCH</replaceable>-<replaceable>VERSION</replaceable>.md5
+SL-Micro.<replaceable>ARCH</replaceable>-<replaceable>VERSION</replaceable>.xz          
+        </screen>
+        
+      </step>
+      <step>
+        <para>
+          Create symlinks as follows:
+                </para>
+<screen>
+&prompt.sudo;<command>ln -s pxeboot.*.kernel linux</command>
+
+&prompt.sudo;<command>ln -s pxeboot.*.initrd initrd</command>
+</screen>
+      </step>
+      <step performance="optional">
+        <para>
+          Create directories for the first boot configuration:
+          
+          for &combustion; and/or &ignition; configuration:
+        </para>
+        <substeps>
+          <step>
+            <para>
+              for the &combustion; configuration:
+            </para>
+            <screen>
+&prompt.root;<command>mkdir combustion</command>
+            </screen>
+          </step>
+          <step>
+<para>
+  for the &ignition; configuration:
+</para>
+<screen>
+&prompt.root;<command>mkdir ignition</command>
+</screen>
+          </step>          
+        </substeps>     
+      </step>
+      <step>
+        <para>
+          Place the &combustion; and/or &ignition; configuration to corresponding directories.
+        </para>        
+      </step>
+      <step>
+        <para>
+          Adjust/add the following parameters in the <filename>SL-Micro.<replaceable>ARCH</replaceable>-&productnumber;.append</filename> file:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              <literal>rd.kiwi.install.image</literal> &ndash; provide the path to the
+              installation image
+              <literal>SL-Micro.<replaceable>ARCH</replaceable>&productnumber;.xz</literal>. The
+              path must include the protocol, IP address and the relative path to the installation
+              image:
+            </para>
+            <screen>tftp://<replaceable>TFTP_SERVER</replaceable>/sl-micro/<replaceable>IMAGE_NAME</replaceable></screen>
+            <para>
+              If the TFTP root directory is defined, make sure to omit it from the path. The
+              default directory <literal>/srv/tftboot</literal> can be configured in
+              <filename>/etc/sysconfig/tftp</filename>, or you can specify the directory 
+              in a service unit file attribute that defines the binary to run using the 
+              <literal>-s</literal> option.
+            </para>
+
+          </listitem>
+          <listitem>
+            <para>
+              <literal>rd.kiwi.oem.installdevice</literal> &ndash; enables you to perform
+              unattended installation.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>rd.kiwi.install.pass.bootparam</literal> &ndash; after the image is copied
+              to the target disk, kiwi performs a kexec. This parameter instructs kiwi that it must
+             pass additional parameters to the kernel. For example, the below described ones.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>combustion.url</literal> &ndash; if needed, provide a full URL to the
+              &combustion; script that is passed to the kernel CLI. 
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>ignition.config.url</literal> &ndash; if needed, provide a full URL to the
+              &ignition; configuration file that is passed to the kernel CLI. Can be used along with &combustion;.
+            </para>
+          </listitem>
+          <listitem arch="zseries">
+            <para>
+<literal>rd.zdev=qeth,<replaceable>READ_CHANNEL</replaceable><replaceable>WRITE_CHANNEL</replaceable>:<replaceable>DATA_CHANNEL</replaceable></literal>
+           &ndash; the attribute specifies booting from network over a network device.</para>
+          </listitem>
+        </itemizedlist>        
+      </step>
+      <step>
+        <para>
+          Adjust the <filename>/srv/tftpboot/pxelinux.cfg/default
+          </filename> file to include &productname;:
+        </para>
+        <screen>
+LABEL Install SUSE Linux Micro
+    LINUX sl-micro/linux
+    INITRD sl-micro/initrd
+    APPEND <replaceable>PATH_TO_APPEND_FILE</replaceable>
+        </screen>        
+      </step>
+    </procedure>
+</topic>

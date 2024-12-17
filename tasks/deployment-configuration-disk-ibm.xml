@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="deployment-raw-ibmz-dasd-preparing-configuration"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Preparing the configuration disk</title>
+    <!-- can be changed via merge
+      in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract>
+      <!-- can be changed via merge in the assembly -->
+      <para>
+        The topic covers formatting the configuration disk, labeling the
+        partitions and creating a proper directory structure.
+      </para>
+    </abstract>
+  </info>
+  <tip>
+    <title>Virtual versus physical disk</title>
+    <para>
+      A virtual disk may be more suitable for production deployments, while a
+      physical disk is better suited for development.
+    </para>
+  </tip>
+  <para>
+    During the installation process, you can pass a complex configuration to
+    define users, directories, or to provide SSH keys. To do so, create a
+    configuration device that stores a complete configuration. The following
+    example procedure describes how to create such a device:
+  </para>
+  <procedure>
+    <step>
+      <para>
+        Identify the disk:
+      </para>
+<screen>
+&prompt.root;lsdasd
+
+Bus-ID    Status    Name      Device  Type         BlkSz  Size      Blocks 
+================================================================================ 
+0.0.0100  active    dasda     94:0    ECKD         4096   30720MB   7864380 
+0.0.0101  active    dasdc     94:8    ECKD         4096   20480MB   5243040
+0.0.0102  active    dasdb     94:4    ECKD         4096   5120MB    1310760
+      </screen>
+      <para>
+        In the output above, the <literal>Bus-ID</literal> value of the disk to
+        be used as a configuration device is <emphasis>0.0.0102</emphasis>. Use
+        the value of <literal>Bus-ID</literal> or the disk size to identify the
+        disk, as the device name (<literal>/dev/dasdX</literal>) can change
+        after each reboot.
+      </para>
+    </step>    
+    <step>
+      <para>
+        Format the disk. Keep in mind that formatting removes all data on that
+        disk.
+      </para>
+<screen>
+&prompt.root;dasdfmt -b 4096 -y -p /dev/dasdb
+      </screen>
+    </step>
+    <step>
+      <para>
+        Create a partition:
+      </para>
+<screen>
+&prompt.root;parted /dev/dasdb mkpart ext4 0% 100%
+      </screen>      
+    </step>
+    <step>
+      <para>
+        Format the partition:
+      </para>
+<screen>
+&prompt.root;mkfs.ext4 /dev/dasdb
+      </screen>     
+    </step>
+    <step>
+      <para>
+        Label the partition as <literal>ignition</literal>:
+      </para>
+<screen>&prompt.root;e2label /dev/dasdb1 ignition</screen>
+    </step>
+    <step>
+      <para>
+        Verify the file system:
+      </para>
+<screen>&prompt.root;blkid</screen>
+    </step>
+    <step>
+      <para>
+        Mount the partition:
+      </para>
+<screen>
+&prompt.root;mount /dev/dasdb1 /mnt
+      </screen>
+    </step>
+    <step>
+      <para>
+        Prepare the directory structure for &ignition; and/or &combustion;. For
+        &ignition;:
+      </para>
+<screen>&prompt.root;mkdir -p  /mnt/ignition</screen>
+      <para>
+        For &combustion;:
+      </para>
+<screen>
+&prompt.root;mkdir -p /mnt/combustion
+      </screen>
+    </step>
+    <step>
+      <para>
+        Copy your public SSH key to <filename>/mnt/combustion</filename> as
+        <filename>ssh_key.pub</filename>.
+      </para>
+    </step>
+    <step>
+      <para>
+        Prepare the configuration as described further.
+      </para>
+    </step>
+  </procedure>
+</topic>

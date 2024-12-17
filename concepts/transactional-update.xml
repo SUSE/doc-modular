@@ -23,14 +23,22 @@
     <title>What are transactional updates?</title>
     <para>
       To keep the base operating system stable and consistent, the
-      &productname; (&productnameshort;) uses a read-only root file system.
+      &productname; uses a read-only root file system.
       Therefore, you cannot perform direct changes to the root file system, for
       example, by using the <command>zypper</command> command. Instead,
       &productnameshort; introduces <emphasis>transactional updates</emphasis>
       that allow you to apply one or more changes to the root file system.
     </para>
+    <para>
+      The default &tr-up; behavior is to create a new snapshot from the current
+      root file system after each change. To apply the changes, you need to
+      reboot the host. You cannot run the &tr-up; command multiple times without
+      rebooting to add more changes to the snapshot. This action creates
+      separate independent snapshots that do not include changes from the
+      previous snapshots.
+    </para>
   </section>
-  <section xml:id="how-it-works-transactional-update">
+  <section xml:id="how-transactional-update-works">
     <title>How do transactional updates work?</title>
     <para>
       Each time you call the &tr-up; command to change your system&mdash;either
@@ -67,16 +75,6 @@
         </para>
       </step>
     </procedure>
-    <tip>
-      <title>Multiple changes to the root file system without reboots</title>
-      <para>
-        Normally, each transactional update requires the system reboot before
-        the changes are applied. If you want to perform multiple transactional
-        updates in one snapshot, use the <option>--continue</option> option.
-        This way you will need to reboot the system only once after you perform
-        all the required updates.
-      </para>
-    </tip>
   </section>
   <section xml:id="benefits-transactional-update">
     <title>Benefits of transactional updates</title>
@@ -99,53 +97,24 @@
         </para>
       </listitem>
     </itemizedlist>
-  </section>
-  <section xml:id="how-it-works-transactional-update-etc">
-    <title><filename>/etc</filename> on a read-only file system</title>
+    </section>
+  <section xml:id="tr-up-environment">
+    <title>Environment within the &tr-up; command</title>
     <para>
-      Even though <filename>/etc</filename> is part of the read-only file
-      system, using an <literal>OverlayFS</literal> layer on this directory
-      enables you to write to this directory. All modifications that you
-      performed on the content of <filename>/etc</filename> are written to the
-      <filename>/var/lib/overlay/<replaceable>SNAPSHOT_NUMBER</replaceable>/etc</filename>.
-      Each snapshot has one associated <literal>OverlayFS</literal> directory.
+      Each time you run the &tr-up; command, the changes are performed in a
+      new snapshot. The environment in the snapshot may differ from
+      the one in the shell you run the &tr-up; command from. For example, the
+      current working directory (<literal>$PWD</literal>) is not set to the
+      directory from which you run the &tr-up;, but is set to
+      <literal>/</literal>.
     </para>
     <para>
-      Whenever a new snapshot is created (for example, as a result of a system
-      update), the content of <filename>/etc</filename> is synchronized and
-      used as a base in the new snapshot. In the <literal>OverlayFS</literal>
-      terminology, the current snapshot's <filename>/etc</filename> is mounted
-      as <literal>lowerdir</literal>. The new snapshot's
-      <filename>/etc</filename> is mounted as <literal>upperdir</literal>. If
-      there were no changes in the <literal>upperdir</literal>
-      <filename>/etc</filename>, any changes performed to the
-      <literal>lowerdir</literal> are visible to the
-      <literal>upperdir</literal>. Therefore, the new snapshot also contains
-      the changes from the current snapshot's <filename>/etc</filename>.
+      From within the snapshot, you cannot access the
+      <filename>/var</filename> directory. This directory is also not
+      included in the snapshot. However, some directories
+      are not included in the snapshot but are accessible inside the &tr-up;
+      environment, for example, the <filename>/root</filename> directory.
     </para>
-    <important>
-      <title>Concurrent modification of <literal>lowerdir</literal> and <literal>upperdir</literal></title>
-      <para>
-        If <filename>/etc</filename> in both snapshots is modified, only the
-        changes in the new snapshot (<literal>upperdir</literal>) persist.
-        Changes made to the current snapshot (<literal>lowerdir</literal>) are
-        not synchronized to the new snapshot. Therefore, we do not recommend
-        changing <filename>/etc</filename> after a new snapshot has been
-        created and the system has not been rebooted. However, you can still
-        find the changes in the <filename>/var/lib/overlay/</filename>
-        directory for the snapshot in which the changes were performed.
-      </para>
-    </important>
-    <note>
-      <title>Using the <literal>--continue</literal> option of the <command>transactional-update</command> command</title>
-      <para>
-        When using the <option>--continue</option> option and the new snapshot
-        is a descendant of the current snapshot, then the
-        <filename>/etc</filename> overlays of all the snapshots in between will
-        be added as additional directories to the <filename>lowerdir</filename>
-        (the <filename>lowerdir</filename> can have several mount points).
-      </para>
-    </note>
   </section>
   <!-- 2023-05-17 tbazant, not available any more
     <section xml:id="how-it-works-transactional-update-repositories">

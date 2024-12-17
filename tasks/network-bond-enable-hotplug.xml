@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/net_bonding.xml -->
+
+<topic xml:id="network-bond-enable-hotplug"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Enabling hotplugging for network bond members</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        In some network environments (such as &ha;), you might need to replace a bond member
+        interface with a new one, for example, if a network interface has a fault.
+        However, before you can replace the interface, you must configure the networking
+        setup to recognize when a new device is added.
+      </para>
+      <para>
+        You can enable hotplugging either manually or with &yast;.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="network-bond-enable-hotplug-requirements">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          A bonded device is already configured.
+      </para>
+     </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="network-bond-enable-hotplug-yast">
+    <title>Enabling hotplugging for network bond members with &yast;</title>
+    <procedure>
+      <step>
+        <para>
+          Start the graphical version of &yast;, or run the command <command>yast2</command>
+          to start YaST in text mode.
+        </para>
+      </step>
+      <step>
+        <para>
+          Select <menuchoice><guimenu>System</guimenu><guimenu>Network Settings</guimenu></menuchoice>.
+          The <guimenu>Overview</guimenu> tab shows the existing devices. If devices are already
+          configured in a bond, this is stated in the <guimenu>Note</guimenu> column.
+        </para>
+      </step>
+      <step xml:id="network-bond-enable-hotplug-step-edit">
+        <para>
+          Select one of the bond members, then select <guimenu>Edit</guimenu>.
+          The <guimenu>Network Card Setup</guimenu> menu opens.
+        </para>
+      </step>
+      <step>
+        <para>
+          Switch to the <guimenu>General</guimenu> tab.
+        </para>
+      </step>
+      <step>
+        <para>
+          Under <guimenu>Udev rules</guimenu>, select <guimenu>Change</guimenu>.
+          A dialog box opens.
+        </para>
+      </step>
+      <step>
+        <para>
+          In the dialog box, choose the <guimenu>BusID</guimenu> option, then select
+          <guimenu>OK</guimenu>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Make sure that <guimenu>Activate device</guimenu> is set to <literal>On Hotplug</literal>.
+        </para>
+      </step>
+      <step xml:id="network-bond-enable-hotplug-step-confirm">
+        <para>
+          Select <guimenu>Next</guimenu> to return to the <guimenu>Network Settings</guimenu> menu.
+          When you select the bond member now, the bottom pane shows the device's details,
+          including the bus ID.
+        </para>
+      </step>
+      <step>
+        <para>
+          Repeat <xref linkend="network-bond-enable-hotplug-step-edit"/> to
+          <xref linkend="network-bond-enable-hotplug-step-confirm"/> for all bond members.
+        </para>
+      </step>
+      <step>
+        <para>
+        Select <guimenu>OK</guimenu> to confirm your changes.
+        </para>
+      </step>
+      <step>
+        <para>
+          Select <guimenu>Quit</guimenu> or press <keycap>F9</keycap> to close &yast;.
+        </para>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="network-bond-enable-hotplug-procedure">
+    <title>Enabling hotplugging for network bond members manually</title>
+    <procedure>
+      <step>
+        <para>
+          Check that the bond members are configured with <literal>BOOTPROTO=none</literal> and
+          <literal>STARTMODE=hotplug</literal>. If you configured the bonded device with &yast;,
+          this is the default setting.
+        </para>
+      </step>
+      <step>
+        <para>
+          List the hardware information for the network interfaces. You can use
+          <command>grep</command> to show only the information required for this procedure:
+        </para>
+<screen>&prompt.user;<command>sudo hwinfo --netcard | grep -E "SysFS BusID|Device File"</command>
+  SysFS BusID: 0000:00:17.0
+  Device File: eth0
+  SysFS BusID: 0000:00:19.0
+  Device File: eth1</screen>
+        <para>
+          For each bond member, make a note of the associated <literal>SysFS BusID</literal>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Open the file <filename>/etc/udev/rules.d/70-persistent-net.rules</filename>.
+          For each bond member, change the value of <literal>KERNELS</literal> to match the
+          <literal>SysFS BusID</literal> from the previous step. For example:
+        </para>
+<screen>SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", <emphasis role="bold">KERNELS=="0000:00:17.0"</emphasis>,
+ATTR{dev_id}=="0x0", ATTR{type}=="1", KERNEL=="eth*", NAME="eth0"
+
+SUBSYSTEM=="net", ACTION=="add", DRIVERS=="?*", <emphasis role="bold">KERNELS=="0000:00:19.0"</emphasis>,
+ATTR{dev_id}=="0x0", ATTR{type}=="1", KERNEL=="eth*", NAME="eth1"</screen>
+        <para>
+          This configures the <systemitem>udev</systemitem> rules to match the device by bus ID
+          instead of by MAC address, allowing the bond to detect a new device in the same slot but
+          with a different MAC address.
+        </para>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="network-bond-enable-hotplug-summary">
+    <title>Summary</title>
+        <para>
+      When one of the bond member interfaces is removed from the system, the kernel removes it from
+      the bond automatically. When a new card is added to the system, <systemitem>udev</systemitem>
+      uses the bus-based persistent name rule to rename the interface to the name of the bond member,
+      and calls <command>ifup</command> for it. The <command>ifup</command> call automatically joins
+      the new interface into the bond.
+    </para>
+    <para>
+      At boot time, <systemitem>network.service</systemitem> does not wait for the hotplugged
+      bond members, but for the bond to become ready, which only requires one available bond member.
+    </para>
+  </section>
+</topic>

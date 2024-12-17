@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="minimal-vm-vs-sles"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Differences between &minvm; and &sls;</title>
+    <meta name="maintainer" content="dpopov@suse.com" its:translate="no"/>
+  </info>
+  <para>
+    There are several significant differences between &minvm; and &sls;.
+  </para>
+  <variablelist xml:id="vl-minvm-sles-diff">
+    <varlistentry>
+      <term>&jeosfirstboot;</term>
+      <listitem>
+        <para>
+          &minvm; comes with the <package>&jeosfirstboot;</package> tool (except
+          &minvm; for &ostack;, which uses <package>cloud-init</package>) that
+          can be used to configure basic settings during the first boot. This
+          includes keyboard layout, time zone and &rootuser;
+          password.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><package>kernel-default-base</package></term>
+      <listitem>
+        <para>
+          Because of size constraints, &minvm; images use the
+          <package>kernel-default-base</package> as the default kernel. Since
+          the kernel does not contain drivers for bare metal, this allows for a
+          smaller footprint.
+        </para>
+        <para>
+          If a specific usage scenario requires any of the omitted modules,
+          install the <package>kernel-default</package> package to get a full
+          tree of the kernel modules. This is the same kernel used by a regular
+          &sls; installation.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>No repositories by default</term>
+      <listitem>
+        <para>
+          When installing a &sls; from the installation media, the system
+          automatically sets the installation media as the default offline
+          channel.
+        </para>
+        <note>
+          <para>
+            By default, the <package>jeos-firstboot</package>,
+            <package>jeos-licenses</package> and
+            <package>live-langset-data</package> packages do not receive
+            updates. These packages are only required for the initial
+            configuration of the system, and they can safely be removed or left
+            untouched. If you prefer to keep them up to date, enable the Development Tools module.
+          </para>
+        </note>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>&zypper; configuration</term>
+      <listitem>
+        <para>
+          &minvm; is a slimmed-down version of &sls;. The reduction in size is
+          achieved in part by enabling the following two options in
+          <filename>/etc/zypp/zypp.conf</filename>:
+          <literal>rpm.install.excludedocs = yes</literal> (excludes all files
+          marked as documentation from being installed by default) and
+          <literal>solver.onlyRequires = true</literal> (disables installation
+          of suggested and recommended packages by default).
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>Base packages</term>
+      <listitem>
+        <para>
+          &minvm; images are built using the &kiwi; tool. &kiwi;'s configuration
+          files, called templates, list packages that must be included in the
+          images. Keep in mind that packages listed in the template may pull
+          required dependencies during the image building process. This means
+          that the resulting image may contain more packages than those specified in the template.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>Disk layout</term>
+      <listitem>
+        <para>
+          Unlike &sls;, which calculates an adjustable disk layout proposal
+          during installation, &minvm; features the following fixed virtual
+          image partitioning scheme:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              2&nbsp;MB BIOS boot
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              33&nbsp;MB EFI system
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              24&nbsp;GB Linux file system
+            </para>
+          </listitem>
+        </itemizedlist>
+        <para>
+          To get additional disk space, you can either extend the existing disk
+          from the virtual host or add a secondary disk to the virtual machine.
+          If you choose the latter option, you must partition and format it
+          manually.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>systemd-coredump disabled</term>
+      <listitem>
+        <para>
+          systemd-coredump is disabled by default on &minvm; images. To collect
+          application core dumps necessary for troubleshooting, follow these
+          steps:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              Install the <package>systemd-coredump</package> package, which
+              contains <filename>/usr/lib/sysctl.d/50-coredump.conf</filename>.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Reboot the system or use the <command>sysctl --system</command>
+              command to enable core dumps.
+            </para>
+          </listitem>
+        </itemizedlist>
+        <para>
+          For further information, refer to
+          <link xlink:href="https://documentation.suse.com/sles/html/SLES-all/cha-tuning-systemd-coredump.html"/>.
+        </para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+</topic>

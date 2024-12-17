@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="vxlan-configure-bridge"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Creating a network bridge with a VXLAN attached</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <xi:include href="../snippets/vxlan-intro.xml"/>
+      <para>
+        This topic describes how to create a network bridge with an attached
+        VXLAN using &nm;.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    To make the communication with VXLAN more transparent, virtual machines
+    use a network bridge to which the VXLAN is attached. Run the following
+    procedure on the &vmhost;.
+  </para>
+  <procedure>
+    <step>
+      <para>
+        Create the network bridge <literal>br0</literal> with no IPv4 and IPv6
+        addresses assigned.
+      </para>
+<screen>
+&prompt.sudo;nmcli connection add type bridge con-name br0 ifname br0 \
+ipv4.method disabled<co xml:id="vxlan-configure-bridge-ipv4"/> ipv6.method disabled<co xml:id="vxlan-configure-bridge-ipv6"/>
+</screen>
+      <calloutlist>
+        <callout arearefs="vxlan-configure-bridge-ipv4">
+          <para>
+            Prevents assigning an IPv4 address on the bridge.
+          </para>
+        </callout>
+        <callout arearefs="vxlan-configure-bridge-ipv6">
+          <para>
+            Prevents assigning an IPv6 address on the bridge.
+          </para>
+        </callout>
+      </calloutlist>
+      <tip>
+        <title>Custom destination port</title>
+        <para>
+          &nm; uses 8472 as the default destination port. To specify a different
+          destination port, pass the option <option>destination-port
+          <replaceable>PORT_NUMBER</replaceable></option> to the command.
+        </para>
+      </tip>
+    </step>
+    <step>
+      <para>
+        Create a VXLAN network interface attached to the bridge
+        <literal>br0</literal>.
+      </para>
+<screen>
+&prompt.sudo;nmcli connection add type vxlan slave-type bridge con-name vxlan1-br0 \
+ifname vxlan1<co xml:id="vxlan-configure-bridge-ifname"/> id 1<co xml:id="vxlan-configure-bridge-id"/> local 192.10.3.1<co xml:id="vxlan-configure-bridge-local"/> \
+remote 10.5.0.2<co xml:id="vxlan-configure-bridge-remote"/> master br0<co xml:id="vxlan-configure-bridge-master"/>
+</screen>
+      <calloutlist>
+        <callout arearefs="vxlan-configure-bridge-ifname">
+          <para>
+            Specifies the interface name for the VXLAN connection. This is the
+            name that will be assigned to the VXLAN interface.
+          </para>
+        </callout>
+        <callout arearefs="vxlan-configure-bridge-id">
+          <para>
+            Specifies a unique numeric VXLAN identifier to differentiate between
+            different VXLAN networks.
+          </para>
+        </callout>
+        <callout arearefs="vxlan-configure-bridge-local">
+          <para>
+            Specifies the local IP address to be used for the VXLAN interface.
+            This is the IP address that &nm; will use for the local VXLAN
+            endpoint. This address must be reachable by the VMs that will be
+            using the VXLAN network.
+          </para>
+        </callout>
+        <callout arearefs="vxlan-configure-bridge-remote">
+          <para>
+            Specifies the remote IP address of the VXLAN endpoint with which the
+            local VXLAN interface will communicate. This address must be
+            reachable by the &vmhost; that hosts the VMs that will be using the
+            VXLAN network.
+          </para>
+        </callout>
+        <callout arearefs="vxlan-configure-bridge-master">
+          <para>
+            Specifies the name of the bridge device to which the VXLAN interface
+            will be attached. This is typically the bridge device that acts as
+            the VXLAN endpoint.
+          </para>
+        </callout>
+      </calloutlist>
+      <tip>
+        <title>Multiple VXLANs attached to a single bridge</title>
+        <para>
+          You can attach multiple VXLAN interfaces to a single bridge device. In
+          this case, VMs on a single &vmhost; can belong to different VXLANs.
+        </para>
+      </tip>
+    </step>
+    <step>
+      <para>
+        Activate the bridge <literal>br0</literal>.
+      </para>
+<screen>
+&prompt.sudo;nmcli connection up br0
+</screen>
+    </step>
+    <step>
+      <para>
+        If &firewalld; is active, modify its rules to allow incoming UDP
+        connections via port 8472.
+      </para>
+<screen>
+&prompt.root;firewall-cmd --permanent --add-port=8472/udp &amp;&amp; firewall-cmd --reload
+</screen>
+    </step>
+  </procedure>
+</topic>

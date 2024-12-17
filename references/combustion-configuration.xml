@@ -9,7 +9,7 @@
   <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
     %entities;
 ]>
-<topic xml:id="reference-combustion-configuration" xml:lang="en"
+<topic xml:id="deployment-combustion-configuration" xml:lang="en"
  role="reference"
  xmlns="http://docbook.org/ns/docbook" version="5.1"
  xmlns:its="http://www.w3.org/2005/11/its"
@@ -27,23 +27,33 @@
       article provides examples of configuration tasks performed by
       &combustion;.
     </para>
+    <tip>
+      <title>Use Fuel Ignition to generate the &combustion; script</title>
+      <para>
+        To create the &combustion; script, you can use the &fuelignition; Web application. There
+        you can select appropriate parameters and the application generates a &combustion; script
+        that you can download.
+      </para>
+    </tip>
     <important>
       <title>Include interpreter declaration</title>
       <para>
-        As the <filename>script</filename> file is interpreted by Bash, always
-        start the file with the interpreter declaration at its first line:
+        As the <filename>script</filename> file is interpreted by the shell,
+        always start the file with the interpreter declaration on its first
+        line. For example, in case of Bash:
       </para>
-<screen>#!/usr/bin/bash</screen>
+<screen>#!/bin/<replaceable>bash</replaceable></screen>
     </important>
     <para>
       To log in to your system, include at least the &rootuser; password.
       However, it is recommended to establish the authentication using SSH
       keys. If you need to use a &rootuser; password, make sure to configure a
-      secure password. If you use a randomly generated password, use at least
-      10 characters. If you create your password manually, use even more than
-      10 characters and combine uppercase and lowercase letters and numbers.
+      secure password. For a randomly generated password, use at least 10
+      characters. If you create your password manually, use even more than 10
+      characters and combine uppercase and lowercase letters and numbers.
     </para>
-    <section xml:id="sec-script-network">
+    <xi:include href="../snippets/deployment-raw-partitioning.xml"/>
+    <section xml:id="deployment-combustion-network">
       <title>Network configuration</title>
       <para>
         To configure and use the network connection during the first boot, add
@@ -51,25 +61,92 @@
       </para>
 <screen># combustion: network</screen>
       <para>
-        Using this statement will pass the <literal>rd.neednet=1</literal>
-        argument to dracut. If you do not use the statement, the system will be
-        configured without any network connection.
+        Using this statement passes the <literal>rd.neednet=1</literal>
+        argument to dracut. The network configuration defaults to using DHCP.
+        If a different network configuration is needed, proceed as described in
+        <xref
+        linkend="combustion-prepare-statement"/>.
+      </para>
+      <para>
+        If you do not use the statement, the system remains configured without
+        any network connection.
       </para>
     </section>
+    <section xml:id="combustion-prepare-statement">
+      <title>Performing modifications in the initramfs</title>
+      <para>
+        You may need to perform changes to the initramfs environment, for
+        example, to write a custom network configuration for &nm; into
+        <filename>/etc/NetworkManager/system-connections/</filename>. To do so,
+        use the <literal>prepare</literal> statement.
+      </para>
+      <para>
+        For example, to create a connection with a static IP address and
+        configure DNS:
+      </para>
+<screen>
+#!/bin/bash
+# combustion: network prepare
+set -euxo pipefail
+          
+nm_config() {
+  umask 077 # Required for NM config
+  mkdir -p /etc/NetworkManager/system-connections/
+  cat &gt;/etc/NetworkManager/system-connections/static.nmconnection &lt;&lt;-EOF
+  [connection]
+  id=static
+  type=ethernet
+  autoconnect=true
+          
+  [ipv4]
+  method=manual
+  dns=192.168.100.1
+  address1=192.168.100.42/24,192.168.100.1
+EOF
+}
+          
+if [ "${1-}" = "--prepare" ]; then
+  nm_config # Configure NM in the initrd
+  exit 0
+fi
+          
+# Redirect output to the console
+exec &gt; &gt;(exec tee -a /dev/tty0) 2&gt;&amp;1
+          
+  nm_config # Configure NM in the system
+  curl example.com
+
+# Close outputs and wait for tee to finish
+exec 1&gt;&amp;- 2&gt;&amp;-; wait;
+
+# Leave a marker
+echo "Configured with combustion" &gt; /etc/issue.d/combustion</screen>
+    </section>
+
+    <section xml:id="combustion-script-wait">
+      <title>Waiting for the task to complete</title>
+      <para>
+        Some processes may be run in background, for example, the <command>tee</command> process
+        that redirects output to the terminal. To ensure that all running processes are completed before the
+        <filename>script</filename>
+        execution finishes, add the following line:
+      </para>
+      <screen>exec 1&gt;&amp;- 2&gt;&amp;-; wait;</screen>
+    </section>
+
     <section xml:id="combustion-script-partitioning">
       <title>Partitioning</title>
       <para>
         &productnameshort; raw images are delivered with a default partitioning
-        scheme as described in
-        <xref linkend="alp-deployment-default-partitioning"/>. You might want
-        to use a different partitioning. The following set of example snippets
+        scheme. You might want to
+        use a different partitioning. The following set of example snippets
         moves the <filename>/home</filename> to a different partition.
       </para>
       <note>
         <title>Performing changes outside of directories included in snapshots</title>
         <para>
           The following script performs changes that are not included in
-          snapshots. If the script fails and the snapshot is discarded, some
+          snapshots. If the script fails and the snapshot is discarded, certain
           changes remain visible and cannot be reverted, for example, the
           changes to the <literal>/dev/vdb</literal> device.
         </para>
@@ -80,14 +157,20 @@
       </para>
 <screen>
 sfdisk /dev/vdb &lt;&lt;EOF
+sleep 1
 label: gpt
 type=linux
 EOF
 
 partition=/dev/vdb1
 </screen>
+<para>
+  As the <command>sfdisk</command> command may take longer time to complete, postpone
+  <command>label</command> by using the
+  <command>sleep</command> command after <command>sfdisk</command>.
+</para>
       <para>
-        The partition is formatted to BTRFS:
+        The partition is formatted to Btrfs:
       </para>
 <screen>
 wipefs --all ${partition}
@@ -112,15 +195,35 @@ awk -i inplace '$2 != "/home"' /etc/fstab
 echo "$(blkid -o export ${partition} | grep ^UUID=) /home btrfs defaults 0 0" >>/etc/fstab
 </screen>
     </section>
+    <section xml:id="combustion-adding-users">
+      <title>Creating new users</title>
+      <para>
+        As some services, such as &cockpit;, require login using a non-root user, define at
+        least one unprivileged user here. Alternatively, you can create such a user from a running
+        system as described in <xref linkend="deployment-postinstall-adding-users"/>.
+      </para>
+      <para>
+        To add a new user account, first create a hash string that represents
+        the user's password. Use the <command>openssl passwd -6</command>
+        command.
+      </para>
+      <para>
+        After you obtain the password hash, add the following lines to the
+        <filename>script</filename>:
+      </para>
+<screen>mount /home
+useradd -m <replaceable>EXAMPLE_USER</replaceable>
+echo '<replaceable>EXAMPLE_USER</replaceable>:<replaceable>PASSWORD_HASH</replaceable>' | chpasswd -e</screen>
+    </section>
     <section xml:id="combustion-script-security">
       <title>Setting a password for &rootuser;</title>
       <para>
         Before you set the &rootuser; password, generate a hash of the
         password, for example, by using the <command>openssl passwd
-        -6</command>. To set the password, add the following to the
+        -6</command>. To set the password, add the following line to the
         <filename>script</filename>:
       </para>
-<screen>echo 'root:$5$.wn2BZHlEJ5R3B1C$TAHEchlU.h2tvfOpOki54NaHpGYKwdNhjaBuSpDotD7' | chpasswd -e</screen>
+<screen>echo 'root:<replaceable>PASSWORD_HASH</replaceable>' | chpasswd -e</screen>
     </section>
     <section xml:id="combustion-script-sshkeys">
       <title>Adding SSH keys</title>
@@ -154,9 +257,9 @@ cat id_rsa_new.pub >> /root/.ssh/authorized_keys
       <important>
         <title>Network connection and registering your system may be necessary</title>
         <para>
-          As some packages may require additional subscription, you may need to
-          register your system beforehand. An available network connection may
-          also be needed to install additional packages.
+          As certain packages may require additional subscription, you may need
+          to register your system beforehand. An available network connection
+          may also be needed to install additional packages.
         </para>
       </important>
       <para>
@@ -175,5 +278,130 @@ cat id_rsa_new.pub >> /root/.ssh/authorized_keys
         </para>
       </note>
     </section>
+  </section>
+  <section arch="zseries" xml:id="combustion-script-example-ibmz">
+    <title>A complete example of the <filename>script</filename> file</title>
+    <para>
+      The following <filename>script</filename> provides complete settings that
+      may serve you as a guide on how to write your own &combustion;
+      configuration. The example does not require any further &ignition;
+      configuration.
+    </para>
+<screen>
+    #!/bin/bash
+    # combustion: network prepare
+    
+    
+    set -euxo pipefail
+    
+    ## The OSA subchannels to enable
+    ZNET_SUBCHANNELS=0.0.1000,0.0.1001,0.0.1002
+    
+    ## Network information to configure
+    IPADDRESS="10.144.64.155/24" ## Formet is ipaddress/cidr
+    GATEWAY="10.144.64.254"
+    NAMESERVERS="10.144.53.53;10.144.53.54" ## A semicolon-separated list of name servers
+    
+    ## Hostname information
+    NODE_HOSTNAME="micro6"
+    
+    ## Add password for root user
+    ## Use either 'openssl passwd -6' or 'mkpasswd --method=sha-512' to encrypt the password.
+    ROOT_USER_PASSWORD='<replaceable>PASSWORD_HASH</replaceable>'
+    SSH_ROOT_PUBLIC_KEY=ssh_key.pub
+    
+    ## Add a regular user, because root login may be disallowed in some services.
+    CREATE_NORMAL_USER=user ## Replace the "user" with a desired username here.
+    NORMAL_USER_PASSWORD='<replaceable>PASSWORD_HASH</replaceable>'
+    SSH_USER_PUBLIC_KEY=ssh_key.pub
+    
+    ## Register to SUSE Customer Center and install additional packages
+    REG_EMAIL='tux@suse.com' ## Email address for product registration
+    SLMICRO_REGCODE='<replaceable>REGISTRATIONCODE</replaceable>' ## A registration code required to install additional packages
+    ADDITIONAL_PACKAGES='' ## A space separated list of additional packages to install
+    
+    
+    nm_config() {
+      umask 077 # Required for Network Manager configuration
+      mkdir -p /etc/NetworkManager/system-connections/
+      cat &gt;'/etc/NetworkManager/system-connections/Wired connection 1.nmconnection' &lt;&lt;EOF
+      [connection]
+      id=static
+      type=ethernet
+      autoconnect=true
+    
+      [ipv4]
+      method=manual
+      address1=$IPADDRESS
+      gateway=$GATEWAY
+      dns=$NAMESERVERS
+    EOF
+    }
+    
+    if [ "${1-}" = "--prepare" ]; then
+      # Configure Network Manager in the initrd
+      nm_config
+      # Enable OSA network devices
+      chzdev qeth $ZNET_SUBCHANNELS -ep
+      chzdev qeth $ZNET_SUBCHANNELS -e    
+      exit 0
+    fi
+    
+    
+    
+    ## Post output on stdout
+    exec &gt; &gt;(exec tee -a /dev/ttyS0) 2&gt;&amp;1
+    
+    ## Set hostname
+    echo $NODE_HOSTNAME &gt; /etc/hostname
+    
+    ## Set root password
+    echo root:$ROOT_USER_PASSWORD | chpasswd -e
+    ## Add ssh public key as authorized key for the root user
+    mkdir -pm700 /root/.ssh/
+    cat $SSH_ROOT_PUBLIC_KEY &gt;&gt; /root/.ssh/authorized_keys
+    
+    ## Mount /var and /home so user can be created smoothly
+    if [ "$CREATE_NORMAL_USER" ]
+    then
+      mount /var &amp;&amp; mount /home
+    fi
+    ## User creation
+    if [ "$CREATE_NORMAL_USER" ]
+    then
+      echo "User creation is requested, creating user."
+      useradd -m $CREATE_NORMAL_USER -s /bin/bash -g users
+      echo $CREATE_NORMAL_USER:$NORMAL_USER_PASSWORD | chpasswd -e
+      echo $CREATE_NORMAL_USER "ALL=(ALL) NOPASSWD: ALL" &gt;&gt; /etc/sudoers.d/adminusers
+      mkdir -pm700 /home/$CREATE_NORMAL_USER/.ssh/
+      chown -R $CREATE_NORMAL_USER:users /home/$CREATE_NORMAL_USER/.ssh/
+      cat $SSH_USER_PUBLIC_KEY &gt;&gt; /home/$CREATE_NORMAL_USER/.ssh/authorized_keys
+      echo "Requested user has been created, requested password has been set."
+    else
+      echo "No user will be created"
+    fi
+    
+    # Configure NM in the system
+    nm_config
+    # Enable OSA network device
+    chzdev qeth $ZNET_SUBCHANNELS -ep
+    chzdev qeth $ZNET_SUBCHANNELS -e
+    
+    ## Enable services
+    echo "Enabling services."
+    systemctl enable cockpit.socket
+    systemctl enable sshd
+    
+    ## Unmount var and home
+    if [ "$CREATE_NORMAL_USER" ]
+    then
+      umount /var &amp;&amp; umount /home
+    fi  
+    
+    # Close outputs and wait for tee to finish
+    exec 1&gt;&amp;- 2&gt;&amp;-; wait;
+    
+    echo "Configured with Combustion at $(date)" &gt; /etc/issue.d/combustion
+     </screen>
   </section>
 </topic>

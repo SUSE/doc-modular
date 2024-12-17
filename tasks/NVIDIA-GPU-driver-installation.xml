@@ -1,0 +1,416 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="nvidia-gpu-driver-installation-on-sl-micro"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Installing &nvidia; GPU drivers on &productname;</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+  </info>
+  <section xml:id="nvidia-gpu-introduction">
+    <title>Introduction</title>
+    <para>
+      This guide demonstrates how to implement host-level &nvidia; GPU support
+      via the open-driver on &productname; &productnumber;. The open-driver is
+      part of the core &productname; package repositories. Therefore, there is
+      no need to compile it or download executable packages. This driver is
+      built into the operating system rather than dynamically loaded by the
+      &nvidia; GPU Operator. This configuration is desirable for customers that
+      want to pre-build all artifacts required for deployment into the image,
+      and where the dynamic selection of the driver version via &kube; is not a
+      requirement.
+    </para>
+  </section>
+  <section xml:id="nvidia-gpu-requirements">
+    <title>Requirements</title>
+    <para>
+      If you are following this guide, it assumes that you have the following
+      already available:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          At least one host with &productname; &productnumber; installed,
+          physical or virtual.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Your hosts are attached to a subscription as this is required for
+          package access.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          A
+          <link xlink:href="https://github.com/NVIDIA/open-gpu-kernel-modules#compatible-gpus">compatible
+          &nvidia; GPU</link> installed or fully passed through to the virtual
+          machine in which &productname; is running.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Access to the &rootuser; user&mdash;these instructions assume you are
+          the &rootuser; user, and not escalating your privileges via &sudo;.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="nvidia-gpu-pre-install">
+    <title>Considerations before the installation</title>
+    <section xml:id="nvidia-gpu-install-generation">
+      <title>Select the driver generation</title>
+      <para>
+        You must verify the driver generation for the &nvidia; GPU that your
+        system has. For modern GPUs, the <literal>G06</literal> driver is the
+        most common choice. Find more details in
+        <link xlink:href="https://en.opensuse.org/SDB:NVIDIA_drivers#Install">the
+        support database</link>.
+      </para>
+      <para>
+        This section details the installation of the <literal>G06</literal>
+        generation of the driver.
+      </para>
+    </section>
+    <section xml:id="nvidia-gpu-pre-install-additional-components">
+      <title>Additional &nvidia;components</title>
+      <para>
+        Besides the &nvidia; open-driver provided by &suse; as part of
+        &productname;, you might also need additional &nvidia; components. These
+        could include OpenGL libraries, CUDA toolkits, command-line utilities
+        such as <command>nvidia-smi</command>, and container-integration
+        components such as nvidia-container-toolkit. Many of these components
+        are not shipped by &suse; as they are proprietary &nvidia; software.
+        This section describes how to configure additional
+        repositories that give you access to these components and 
+        provides examples of using these tools to achieve a fully
+        functional system.
+      </para>
+    </section>
+    <section xml:id="nvidia-gpu-pre-install-version-mismatch">
+      <title>Package version mismatch</title>
+      <para>
+        It is important to distinguish between &suse; and &nvidia; repositories.
+        There can be a mismatch between the package versions that &nvidia; makes
+        available versus what &suse; has built. This usually arises when &suse;
+        makes a new version of the open-driver available, and it takes a couple
+        of days before the equivalent packages are made available in &nvidia;
+        repositories to match.
+      </para>
+      <para>
+        We recommend ensuring that the selected driver version 
+        is compatible with your GPU and meets any specific CUDA 
+        requirements by checking:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            The CUDA
+            <link
+            xlink:href="https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/">release
+            notes</link>.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The driver version you plan to deploy has a matching version
+            in the &nvidia; SLE15-SP6 repository. Ensure that you also have
+            equivalent package versions available for the supporting 
+            components.
+          </para>
+        </listitem>
+      </itemizedlist>
+      <tip>
+        <title>Finding &nvidia; open-driver versions</title>
+        <para>
+          To find the &nvidia; open-driver versions, either run <command>zypper
+          se -s nvidia-open-driver</command> on the target machine or search the
+          &scc; for the <quote>nvidia-open-driver</quote> string in SLE Micro
+          &productnumber; for x86_64.
+        </para>
+        <para>
+          In the following example, you can see four versions available, with
+          550.54.14 being the newest:
+        </para>
+        <figure>
+          <title>SCC with &productname; drivers selection</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="scc-packages-nvidia.png" width="80%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="scc-packages-nvidia.png" width="80%"/>
+            </imageobject>
+            <textobject role="description"><phrase>SCC with &productname; drivers selection</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
+      </tip>
+    </section>
+  </section>
+  <section xml:id="nvidia-gpu-pre-install-procedure">
+    <title>The installation procedure</title>
+    <procedure>
+      <step>
+        <para>
+          On &productname; host, open up a &tr-up-shell; session to create a new
+          read/write snapshot of the underlying operating system so that we can
+          make changes to the immutable platform.
+        </para>
+<screen>&prompt.root;&tr-up-shell;</screen>
+      </step>
+      <step>
+        <para>
+          When you are in the &tr-up-shell; session, add an additional package
+          repository from &nvidia;. This allows us to pull in additional
+          utilities, for example, <literal>nvidia-smi</literal>.
+        </para>
+<screen>&prompt.tr-up;<command>zypper ar
+https://download.nvidia.com/suse/sle15sp6/ nvidia-sle15sp6-main</command>
+&prompt.root;<command>zypper --gpg-auto-import-keys refresh</command></screen>
+      </step>
+      <step>
+        <para>
+          You can then install the driver and
+          <package>nvidia-compute-utils</package> for additional utilities that
+          are useful for testing purposes.
+        </para>
+<screen>&prompt.tr-up;<command>zypper install -y --auto-agree-with-licenses \
+  nvidia-open-driver-G06-signed-kmp nvidia-compute-utils-G06</command></screen>
+        <note>
+          <title>Possible version mismatch</title>
+          <para>
+            If the installation fails now, this might indicate a dependency
+            mismatch between the selected driver version and what &nvidia; ships
+            in their repositories. Refer to
+            <xref
+    linkend="nvidia-gpu-pre-install-version-mismatch"/> to
+            verify that the versions match. Attempt to install a different
+            driver version. For example, if the &nvidia; repositories have an
+            earlier version, you can try specifying
+            <literal>nvidia-open-driver-G06-signed-kmp=550.54.14</literal> on
+            your install command to specify a version that aligns.
+          </para>
+        </note>
+      </step>
+      <step performance="optional">
+        <para>
+          If you are not using a supported GPU, you can see if the driver works
+          by enabling support at the module level.
+        </para>
+<screen>&prompt.tr-up;<command>sed -i '/NVreg_OpenRmEnableUnsupportedGpus/s/^#//g' /etc/modprobe.d/50-nvidia-default.conf</command></screen>
+      </step>
+      <step>
+        <para>
+          Exit the &tr-up; session and reboot to the new snapshot that contains
+          the changes you have made.
+        </para>
+<screen>&prompt.tr-up;<command>exit</command>
+&prompt.root;reboot</screen>
+      </step>
+      <step>
+        <para>
+          After the system has rebooted, log back in and use the
+          <command>nvidia-smi</command> tool to verify that the driver is loaded
+          successfully and that it can both access and enumerate your GPUs.
+        </para>
+<screen>&prompt.root;<command>nvidia-smi</command></screen>
+        <para>
+          The output of this command should show you something similar to the
+          following output. In the example below, we have two GPUs.
+        </para>
+<screen>Wed Oct 28 12:31:06 2024
+  +-----------------------------------------------------------------------------+
+  | NVIDIA-SMI 550.54.14    Driver Version: 550.54.14    CUDA Version: 12.3     |
+  |-------------------------------+----------------------+----------------------+
+  | GPU  Name       Persistence-M | Bus-Id        Disp.A | Volatile Uncorr. ECC |
+  | Fan  Temp  Perf Pwr:Usage/Cap |         Memory-Usage | GPU-Util  Compute M. |
+  |                               |                      |               MIG M. |
+  |===============================+======================+======================|
+  |  0  NVIDIA A100-PCIE-40GB Off | 00000000:17:00.0 Off |                    0 |
+  | N/A   29C    P0    35W / 250W |      4MiB / 40960MiB |      0%      Default |
+  |                               |                      |             Disabled |
+  +-------------------------------+----------------------+----------------------+
+  |  1  NVIDIA A100-PCIE-40GB Off | 00000000:CA:00.0 Off |                    0 |
+  | N/A   30C    P0    33W / 250W |      4MiB / 40960MiB |      0%      Default |
+  |                               |                      |             Disabled |
+  +-------------------------------+----------------------+----------------------+
+  
+  +-----------------------------------------------------------------------------+
+  | Processes:                                                                  |
+  |  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
+  |        ID   ID                                                   Usage      |
+  |=============================================================================|
+  |  No running processes found                                                 |
+  +-----------------------------------------------------------------------------+</screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="nvidia-gpu-validation">
+    <title>Validation of the driver installation</title>
+    <para>
+      Running the <command>nvidia-smi</command> command has verified that, at
+      the host level, the &nvidia; device can be accessed and that the drivers
+      are loading successfully. To validate that it is functioning, you need to
+      validate that the GPU can take instructions from a user-space application,
+      ideally via a container and through the CUDA library, as that is typically
+      what a real workload would use. For this, we can make a further
+      modification to the host OS by installing
+      <package>nvidia-container-toolkit</package>.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Open another transactional-update shell.
+        </para>
+<screen>&prompt.root; &tr-up-shell;</screen>
+      </step>
+      <step>
+        <para>
+          Install the <package>nvidia-container-toolkit</package> package from
+          the &nvidia; Container Toolkit repository.
+        </para>
+<screen>&prompt.tr-up;<command>zypper ar https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo</command>
+&prompt.tr-up;zypper --gpg-auto-import-keys install -y nvidia-container-toolkit</screen>
+        <para>
+          The <filename>nvidia-container-toolkit.repo</filename> file contains a
+          stable repository <literal>nvidia-container-toolkit</literal> and an
+          experimental repository
+          <literal>nvidia-container-toolkit-experimental</literal>. Use the
+          stable repository for production use. The experimental repository is
+          disabled by default.
+        </para>
+      </step>
+      <step>
+        <para>
+          Exit the &tr-up; session and reboot to the new snapshot that contains
+          the changes you have made.
+        </para>
+<screen>&prompt.tr-up;<command>exit</command>
+&prompt.root;reboot</screen>
+      </step>
+      <step>
+        <para>
+          Verify that the system can successfully enumerate the devices using
+          the &nvidia; Container Toolkit. The output should be verbose, with
+          INFO and WARN messages, but no ERROR messages.
+        </para>
+<screen>&prompt.root;<command>nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml</command></screen>
+        <para>
+          This ensures that any container started on the machine can employ
+          discovered &nvidia; GPU devices.
+        </para>
+      </step>
+      <step>
+        <para>
+          You can then run a &podman;-based container. Doing this via
+          <command>podman</command> gives you a good way of validating access to
+          the &nvidia; device from within a container, which should give
+          confidence for doing the same with &kube; at a later stage.
+        </para>
+        <para>
+          Give &podman; access to the labeled &nvidia; devices that were taken
+          care of by the previous command and simply run the
+          <command>bash</command> command.
+        </para>
+<screen>&prompt.root;<command>podman run --rm --device nvidia.com/gpu=all \
+  --security-opt=label=disable \
+  -it registry.suse.com/bci/bci-base:latest bash</command></screen>
+        <para>
+          You can now execute commands from within a temporary &podman;
+          container. It does not have access to your underlying system and is
+          <emphasis>ephemeral</emphasis>&mdash;whatever you change in the
+          container does not persist. Also, you cannot break anything on the
+          underlying host.
+        </para>
+      </step>
+      <step>
+        <para>
+          Inside the container, install the required CUDA libraries. In the
+          example below, we are installing CUDA 12.3 and pulling many examples,
+          demos and development kits so you can fully validate the GPU.
+        </para>
+<screen>&prompt.root;<command>zypper ar http://developer.download.nvidia.com/compute/cuda/repos/sles15/x86_64/ cuda-sle15-sp6</command>
+&prompt.root;<command>zypper in -y cuda-libraries-devel-12-3 cuda-minimal-build-12-3 cuda-demo-suite-12-3</command>
+        </screen>
+      </step>
+      <step>
+        <para>
+          Inside the container, run the <command>deviceQuery</command> CUDA
+          example, which comprehensively validates GPU access via CUDA and from
+          within the container itself.
+        </para>
+<screen>&prompt.root;<command>/usr/local/cuda-12/extras/demo_suite/deviceQuery</command> Starting...
+CUDA Device Query (Runtime API) version (CUDART static linking)
+
+Detected 2 CUDA Capable device(s)
+
+Device 0: "NVIDIA A100-PCIE-40GB"
+  CUDA Driver Version / Runtime Version          12.2 / 12.1
+  CUDA Capability Major/Minor version number:    8.0
+  Total amount of global memory:                 40339 MBytes (42298834944 bytes)
+  (108) Multiprocessors, ( 64) CUDA Cores/MP:     6912 CUDA Cores
+  GPU Max Clock rate:                            1410 MHz (1.41 GHz)
+  Memory Clock rate:                             1215 Mhz
+  Memory Bus Width:                              5120-bit
+  L2 Cache Size:                                 41943040 bytes
+  Maximum Texture Dimension Size (x,y,z)         1D=(131072), 2D=(131072, 65536), 3D=(16384, 16384, 16384)
+  Maximum Layered 1D Texture Size, (num) layers  1D=(32768), 2048 layers
+  Maximum Layered 2D Texture Size, (num) layers  2D=(32768, 32768), 2048 layers
+  Total amount of constant memory:               65536 bytes
+  Total amount of shared memory per block:       49152 bytes
+  Total number of registers available per block: 65536
+  Warp size:                                     32
+  Maximum number of threads per multiprocessor:  2048
+  Maximum number of threads per block:           1024
+  Max dimension size of a thread block (x,y,z): (1024, 1024, 64)
+  Max dimension size of a grid size    (x,y,z): (2147483647, 65535, 65535)
+  Maximum memory pitch:                          2147483647 bytes
+  Texture alignment:                             512 bytes
+  Concurrent copy and kernel execution:          Yes with 3 copy engine(s)
+  Run time limit on kernels:                     No
+  Integrated GPU sharing Host Memory:            No
+  Support host page-locked memory mapping:       Yes
+  Alignment requirement for Surfaces:            Yes
+  Device has ECC support:                        Enabled
+  Device supports Unified Addressing (UVA):      Yes
+  Device supports Compute Preemption:            Yes
+  Supports Cooperative Kernel Launch:            Yes
+  Supports MultiDevice Co-op Kernel Launch:      Yes
+  Device PCI Domain ID / Bus ID / location ID:   0 / 23 / 0
+  Compute Mode:
+      &lt; Default (multiple host threads can use ::cudaSetDevice() with device simultaneously) >
+
+Device 1: &lt;snip to reduce output for multiple devices>
+      &lt; Default (multiple host threads can use ::cudaSetDevice() with device simultaneously) >
+> Peer access from NVIDIA A100-PCIE-40GB (GPU0) -> NVIDIA A100-PCIE-40GB (GPU1) : Yes
+> Peer access from NVIDIA A100-PCIE-40GB (GPU1) -> NVIDIA A100-PCIE-40GB (GPU0) : Yes
+
+deviceQuery, CUDA Driver = CUDART, CUDA Driver Version = 12.3, CUDA Runtime Version = 12.3, NumDevs = 2, Device0 = NVIDIA A100-PCIE-40GB, Device1 = NVIDIA A100-PCIE-40GB
+Result = PASS</screen>
+        <para>
+          From inside the container, you can continue to run any other CUDA
+          workload&mdash;such as compilers&mdash;to run further tests. When
+          done, you can exit from the container, noting that whatever you have
+          installed in there will be lost and has not impacted the underlying
+          operating system.
+        </para>
+<screen>&prompt.root;<command>exit</command></screen>
+      </step>
+    </procedure>
+  </section>
+</topic>

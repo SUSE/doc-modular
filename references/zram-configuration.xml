@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="zram-configuration"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+   <title>Configuration needed for zram</title><!-- can be changed via merge in the assembly -->
+    <!--add author's email address-->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+      The topic covers how to prepare configuration before generating zram.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    The main configuration  file of zram is <filename>/etc/systemd/zram-generator.conf</filename>.
+    However, you can create a directory <filename>/etc/systemd/zram-generator.conf.d/</filename>
+    with a set of drop-in files that can override entries in the main configuration file.
+  </para>
+  <section xml:id="zram-configuration-main-config">
+    <title>The <filename>/etc/systemd/zram-generator.conf</filename> file</title>
+    <para>
+    The file is not installed along with the <literal>zram-generator</literal> package, so you need
+    to write your own. Options to add are described below. An example is provided in <xref linkend="zram-configuration-main-config-example"/>. 
+  </para>
+  <para>
+    Define at least one zram device. Numbering starts at 0, so to define one zram device, add a
+    <literal>[zram0]</literal> section to the configuration file.
+  </para>
+  <para>
+    You can define the following entries under the zram device section:
+  </para>
+  <variablelist>
+    <varlistentry>
+      <term>host-memory-limit</term>
+      <listitem>
+        <para>
+Specify the maximum RAM size of the host in MiB when a block device can be
+created. If the value is higher, the zram device will not be created. If not set or set to
+<literal>none</literal>, there is no limit to the host RAM. 
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>zram-size</term>
+      <listitem>
+        <para>
+Specify the size of the zram device as compared to the host RAM. The default value is
+<literal>zram-size = min(ram / 10, <replaceable>RAM_HARD_LIMIT</replaceable>)</literal>. 
+It is a minimum of either, where <literal>ram</literal> is the host RAM
+size obtained using <command>MemTotal</command>. 
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para><literal>ram</literal> is the total amount of the host memory in MB.</para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>ram/10</literal> &ndash; is the ratio of total host memory that can be used
+              for zram. According to the example, zram can use 10% of the total host memory. We recommend
+              fractions of the host RAM in the range 10 &ndash; 50%.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <replaceable>RAM_HARD_LIMIT</replaceable> is the maximum amount of RAM in MB
+              that can be used by zram.
+            </para>
+          </listitem>
+          <listitem>
+            <para><literal>min()</literal> is a function that compares the value of
+            <replaceable>RAM_HARD_LIMIT</replaceable> and the calculated ratio 
+            and selects the lower one. </para>
+          </listitem>
+        </itemizedlist>       
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>compression-algorithm</term>
+      <listitem>
+        <para>
+          Specify the algorithm used to compress data in zram. You can use any of the following values:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              <literal>deflate</literal> &mdash; a lossless data compression file format
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>lz4</literal> or <literal>lz4hc</literal> &mdash; a lossless data compression algorithm that is focused on compression and decompression speed
+            </para>
+          </listitem>          
+          <listitem>
+            <para>
+              <literal>lzo-rle</literal> &mdash; a lossless data compression algorithm that is focused on decompression speed
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>zstd</literal> aka Zstandard &mdash; a lossless data compression algorithm
+              comparable to DEFLATE with the compression ratio but faster during decompression
+              </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>842</literal> &mdash; a data compression algorithm
+            </para>
+          </listitem>
+        </itemizedlist>
+        <para>
+If omitted, the kernel default is used (usually LZO-RLE).
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>options</term>
+      <listitem>
+        <para>
+          Specify options for swap or mount options for a RAM disk.        
+If set to <literal>discard</literal> or omitted, the unused compressed pages are trimmed during the system
+run. Such a solution provides efficient zram management. To override the default
+(<literal>discard</literal>), leave the value empty:
+        </para>
+        <screen>options =</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>writeback-device</term>
+      <listitem>
+        <para>
+         Specify a device where to store incompressible pages. These pages are then removed from zram. 
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>fs-type</term>
+      <listitem>
+        <para>
+          If the device is used as a disk, specify the file system to be used there. For example, <literal>ext4</literal>.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>mount-point</term>
+      <listitem>
+        <para>
+          Specify a directory where to mount the file system. This option is not used when the zram
+          device is used for swap.
+        </para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  <section xml:id="zram-configuration-main-config-example">
+    <title>An example of <filename>/etc/systemd/zram-generator.conf</filename></title>
+    <para>
+      The following example creates two block devices in RAM &mdash; <literal>zram0</literal> for swap
+      and <literal>zram1</literal> with the ext4 file system. If the machine has over 9&nbsp;GB of RAM,
+      <literal>zram0</literal> will not be created. Each block device will allocate up to 2&nbsp;GB of RAM.
+    </para>
+
+    <screen>
+[zram0]
+host-memory-limit = 9048      
+zram-size = min(ram / 10, 2048)    
+compression-algorithm = lzo-rle    
+options = discard      
+writeback-device = /dev/zvol/tarta-zoot/swap-writeback
+    
+[zram1]      
+zram-size = ram / 10
+fs-type = ext4
+mount-point = /run/compressed-mount-point     
+</screen>
+  </section>
+  
+  </section>
+</topic>

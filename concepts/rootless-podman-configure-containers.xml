@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="rootless-podman-configure-containers"
+ role="glue" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring rootless containers</title>
+    <meta name="maintainer" content="dpopov@suse.com" its:translate="no"/>
+  </info>
+  <section xml:id="rootless-podman-configure-port-below-1024">
+    <title>Giving &podman; access to ports below 1024</title>
+    <para>
+      On Linux, unprivileged users cannot open ports below port number 1024.
+      This limitation also applies to &podman;, so by default, rootless
+      containers cannot expose ports below port number 1024. You can remove
+      this limitation temporarily using the following command:
+    </para>
+<screen>sysctl net.ipv4.ip_unprivileged_port_start=0</screen>
+    <para>
+      To remove the limitation permanently, run <command>sysctl -w
+      net.ipv4.ip_unprivileged_port_start=0</command>.
+    </para>
+    <para>
+      Note that this allows <emphasis role="strong">all</emphasis> unprivileged
+      applications to bind to ports below 1024.
+    </para>
+  </section>
+  <section xml:id="rootless-podman-configure-cgroups-v2">
+    <title>Using cgroups v2</title>
+    <para>
+      When using rootless containers with &podman;, it is recommended to use
+      cgroups v2. cgroups v1 have limited functionality compared to v2. For
+      example, cgroups v1 do not allow proper hierarchical delegation to the
+      user's subtrees. Additionally, &podman; is unable to read container logs
+      properly with cgroups v1 and the systemd log driver.
+    </para>
+    <para>
+      To find out which cgroups version is default on your system, use the
+      following command:
+    </para>
+<screen>&prompt.user;mount|grep ^cgroup|awk '{print $1}'|uniq
+cgroup2
+cgroup</screen>
+    <para>
+      The first entry in the output indicates the default cgroups version.
+    </para>
+    <para>
+      If you are using a version of &productname; with cgroups v1, you can
+      enable cgroups v2 by adding the following to the kernel cmdline:
+      <option>systemd.unified_cgroup_hierarchy=1</option>. Then update GRUB
+      using the <command>grub2-mkconfig -o /boot/grub2/grub.cfg</command>
+      command.
+    </para>
+    <para>
+      Even on setups of &productname; with cgroup v2, the default
+      configuration delegates no controllers  to user sessions
+      (for performance reasons) and chosen controllers should be enabled explicitly,
+      <link xlink:href="https://documentation.suse.com/sles/single-html/SLES-tuning/#sec-cgroups-user-sessions"/>.
+    </para>
+  </section>
+  <section xml:id="rootless-podman-troubleshoot-read-access">
+    <title>Enabling read access to the &scc; credentials</title>
+    <para>
+      Running a container with &podman; in rootless mode on &sls; may fail,
+      because the container needs read access to the &scc; credentials. For
+      example, running a container with the command <command>podman run -it
+      --rm registry.suse.com/suse/sle15 bash</command> and then executing
+      <command>zypper ref</command> results in the following error message:
+    </para>
+<screen>Refreshing service 'container-suseconnect-zypp'.
+  Problem retrieving the repository index file for service 'container-suseconnect-zypp':
+  [container-suseconnect-zypp|file:/usr/lib/zypp/plugins/services/container-suseconnect-zypp]
+  Warning: Skipping service 'container-suseconnect-zypp' because of the above error.
+  Warning: There are no enabled repositories defined.
+  Use 'zypper addrepo' or 'zypper modifyrepo' commands to add or enable repositories</screen>
+    <para>
+      To solve the problem, grant the current user the required access rights
+      by running the following command on the host:
+    </para>
+<screen>&prompt.user;sudo setfacl -m u:$(id -nu):r /etc/zypp/credentials.d/*</screen>
+    <para>
+      Log out and log in again to apply the changes.
+    </para>
+    <para>
+      To give multiple users the required access, create a dedicated group
+      using the <command>groupadd
+      <replaceable>GROUPNAME</replaceable></command> command. Then use the
+      following command to change the group ownership and rights of files in
+      the <filename>/etc/zypp/credentials.d/</filename> directory.
+    </para>
+<screen>&prompt.user;sudo chgrp <replaceable>GROUPNAME</replaceable> /etc/zypp/credentials.d/*
+&prompt.user;sudo chmod g+r /etc/zypp/credentials.d/*</screen>
+    <para>
+      You can then grant a specific user write access by adding them to the
+      created group.
+    </para>
+  </section>
+</topic>

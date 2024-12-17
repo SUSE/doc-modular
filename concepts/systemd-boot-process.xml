@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="boot-process"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>About the &systemd; boot process </title>
+      <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+
+      <abstract>
+        <para>
+      The first step in the boot process is to load the Linux kernel, which is the main component of the Linux operating system.
+      Once the kernel is loaded, it initializes the hardware and starts the &systemd; process, which is the first
+      process that runs on the system.
+        </para>
+      </abstract>
+    </info>
+    <section xml:id="linux-boot-process">
+      <title>Linux boot process</title>
+      <para>The Linux boot process is the initial stage of the operating system's startup.
+        It is the process by which the operating system loads the memory, initializes the components and
+        prepares to execute user applications.</para>
+        <para>The Linux boot process is divided into four main stages:</para>
+      <variablelist>
+      <varlistentry>
+        <term>Stage 1: BIOS</term>
+        <listitem>
+          <para>
+           When you power on your computer, your computer starts BIOS (Basic Input/Output System) and
+           performs a POST (Power On Self Test). This is an integrity check that probes the hardware functionality of
+           components such as hard disks, SSD, keyboard, RAM, USB ports and any other hardware.
+           If the hardware works as expected, the boot process moves on to the next stage.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Stage 2: The boot loader</term>
+        <listitem>
+          <para> Once POST is complete, BIOS searches for and loads the boot loader program stored
+            in the MBR (Master Boot Record). The MBR is a 512-byte code that is usually located at <filename>/dev/sda</filename>
+            or <filename>/dev/hda</filename> depending on your hard drive architecture. The MBR can also be located
+            on a live USB or DVD installation of Linux. BIOS loads and executes this MBR code.</para>
+            <para>There are three main boot loaders in Linux: LILO, GRUB and GRUB2. The GRUB2 (Grand Unified Bootloader)
+              boot loader is the latest and primary boot loader in modern Linux distributions. The GRUB2 configuration file is
+              located at <filename> /boot/grub2/grub2.cfg</filename>. Once BIOS locates the GRUB2 boot loader, It executes and loads it into the main memory (RAM).</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Stage 3: Linux kernel initialization</term>
+        <listitem>
+          <para>The Linux kernel is the heart of the operating system. In your Linux
+            system, the kernel interfaces with the hardware, controls memory management
+            and manages processes. The boot loader loads the selected Linux kernel.
+            The kernel self extracts from a compressed version and mounts the root file system.
+            It then runs the <filename>/sbin/init</filename> program.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Stage 4: &systemd;</term>
+        <listitem>
+          <para>The kernel loads &systemd;, which is a system and service manager for Linux operating systems. &systemd; then runs
+           all the other initialization processes.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+      </section>
+
+      <section xml:id="systemd-linux-boot-process">
+        <title>Boot process with &systemd; </title>
+      <para> Once the kernel loads &systemd;, &systemd; takes over and starts the other system services that are required
+        to bring the system up and running. This includes services such as networking service, the login manager, etc.</para>
+
+<para> The boot process is parallelized in the order in which specific target units are executed.
+  &systemd; uses the <filename>/etc/systemd/system/default.target </filename> file to determine the target that the Linux system should boot into.
+  This file is a link to <filename>graphical.target</filename> which boots the graphical login manager.
+  &systemd; activates all target units that are dependencies of <filename>default.target</filename> as well as recursively all dependencies of these dependencies.
+Once all the services are started, your system is ready to use and the login manager displays. You can now log in and start using the system.
+  </para>
+
+      </section>
+
+      <section xml:id="systemd-analyze-command">
+        <title>Analyzing the system boot process performance with the <command>systemd-analyze</command> command </title>
+      <para>Use the <command>systemd-analyze</command> command to analyze the performance of the system
+        boot process. The command can also be used to retrieve other state and tracing information
+        from the system and service manager. It is used to check that unit files are correct and also to access special functions
+        useful for advanced system manager debugging.
+      </para>
+          <para>Some examples include:</para>
+    <variablelist>
+      <varlistentry>
+        <term><emphasis>Viewing the time it takes for the system to boot</emphasis></term>
+        <listitem>
+<screen>&prompt.user;systemd-analyze time
+Startup finished in 3.404s (kernel) + 2.415s (initrd) + 13.125s (userspace) = 18.945s
+graphical.target reached after 13.117s in userspace
+</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+      <term><emphasis>Getting a high-level overview of the boot process, which includes
+        services that are started and the time it takes for each service to start</emphasis></term>
+      <listitem>
+<screen>&prompt.user;systemd-analyze critical-chain
+  The time when unit became active or started is printed after the "@" character.
+  The time the unit took to start is printed after the "+" character.
+
+  graphical.target @13.117s
+  └─multi-user.target @13.117s
+    └─getty.target @13.117s
+      └─getty@tty1.service @13.116s
+        └─plymouth-quit-wait.service @10.775s +2.338s
+          └─systemd-user-sessions.service @10.769s +3ms
+            └─remote-fs.target @10.764s
+              └─iscsi.service @10.747s +16ms
+                └─network-online.target @10.744s
+                  └─NetworkManager-wait-online.service @1.547s +9.197s
+                    └─NetworkManager.service @1.507s +37ms
+                      └─network-pre.target @1.504s
+                        └─wpa_supplicant.service @2.341s +5ms
+                          └─dbus.service @1.042s
+                            └─basic.target @1.036s
+                              └─sockets.target @1.036s
+                                └─snapd.socket @1.035s +590us
+                                  └─sysinit.target @1.030s
+                                    └─systemd-update-utmp.service @1.025s +5ms
+                                      └─auditd.service @976ms +47ms
+                                        └─systemd-tmpfiles-setup.service @964ms +9ms
+                                          └─local-fs.target @962ms
+                                            └─snapd.mounts.target @961ms
+                                              └─snap-core18-2796.mount @417ms +543ms
+                                                └─dev-loop9.device @961ms +628us
+</screen>
+<para>This command prints a tree of time-critical units either for each of the specified units or for the default target. The initialization of services might depend on socket activation and the parallel execution of units. Similar to the <command>blame</command>
+command, it displays the time taken by a unit to activate, which is not defined for units like device units that transition directly to active state. </para>
+</listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><emphasis>Viewing a list of services started during the boot process and displayed according to
+        the time taken by each service</emphasis></term>
+      <listitem>
+<screen>&prompt.user;systemd-analyze blame
+  9.197s NetworkManager-wait-online.service
+  4.002s fwupd.service
+  2.338s plymouth-quit-wait.service
+  1.282s dracut-pre-udev.service
+  1.062s sys-devices-platform-serial8250-tty-ttyS0.device
+  1.062s dev-ttyS0.device
+  1.061s dev-ttyS1.device
+  1.061s sys-devices-platform-serial8250-tty-ttyS1.device
+  1.060s dev-ttyS11.device
+  1.060s sys-devices-platform-serial8250-tty-ttyS11.device
+  1.059s sys-devices-platform-serial8250-tty-ttyS13.device
+  1.059s dev-ttyS13.device
+  1.059s sys-devices-platform-serial8250-tty-ttyS10.device
+  1.059s dev-ttyS10.device
+  1.058s sys-devices-platform-serial8250-tty-ttyS14.device
+  1.058s dev-ttyS14.device
+  1.058s dev-ttyS12.device
+  1.058s sys-devices-platform-serial8250-tty-ttyS12.device
+  1.056s sys-devices-platform-serial8250-tty-ttyS17.device
+</screen>
+<para>The initialization of one service might be slow because it is waiting for another service initialization to complete.
+It displays the time taken by a unit to activate, which is not defined for units
+like device units that transition directly to active state. This command does
+not display results for services with <literal>Type=simple</literal> because
+&systemd; considers these services to be started immediately, hence the initialization delays
+cannot be analyzed.
+</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><emphasis>Generating a vector graphics file that displays the events that take place during the boot process
+            </emphasis></term>
+      <listitem>
+<screen>&prompt.user;systemd-analyze plot > /temp/sample.svg
+</screen>
+<para>This command creates a SVG file in the <literal>temp</literal> directory.
+  The SVG file is a text file that defines a set of graphics vectors that applications
+  such as LibreOffice Draw use to generate a graph.</para>
+      </listitem>
+    </varlistentry>
+      </variablelist>
+      </section>
+ </topic>
