@@ -16,104 +16,156 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Configuring network connections</title><!-- can be changed via merge
+    <title>Creating network connections</title><!-- can be changed via merge
 in the assembly -->
     <!-- add author's e-mail -->
     <meta name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
     <abstract>
-        <para>You can configure the network using the <command>nmcli</command> command.</para></abstract>
+        <para>You can create a network connction profile using the <command>nmcli</command> command.</para></abstract>
    </info>
-<para>&nm; stores all network configurations as a connection, which is a collection of data that describes how to create or connect to a network. These connections are stored as files in the <filename>/etc/NetworkManager/system-connections/</filename> directory by default. Each network connection (Wi-Fi, Ethernet, VPN) is represented by a separate file in this directory.</para>
-<para>A connection is active when a particular device uses the connection. The device may have more than one connection configured, but only one can be active at a given time. The other connections can be used to fast switch from one connection to another. For example, if the active connection is not available, &nm; tries to connect the device to another configured connection.</para>
+<para>&nm; stores all network configurations as a connection profile, which is a collection of data
+that describes how to create or connect to a network. These connection profiles are stored as files in the
+<filename>/etc/NetworkManager/system-connections/</filename> directory by default. Each network
+connection profile (Wi-Fi, Ethernet, VPN) is represented by a separate file in this directory.</para>
+<para>A connection is an instance of a particular connection profile that is active when a
+particular device uses the connection. The device may have more than one connection profile
+configured. The other connections can be used to fast
+switch from one connection to another. For example, if the active connection is not available, &nm;
+tries to connect the device to another configured connection.</para>
 <para>The &nm; daemon manages network connections. You can interact with it 
-using graphical front-ends like <command>nm-applet</command>  (if a desktop environment is available on your system) or command-line interfaces like <command>nmcli</command> or 
+using a command-line interfaces: <command>nmcli</command> or ncurses interface:
 <command>nmtui</command>.</para>
-<section><title>Configuring an Ethernet connection</title>
+
+<note>
+<title></title>
+<para>
+
+</para>
+</note>
+
+<!--
+JH: I think it is better to have this section as creating a connection profile then
+configuring. Configuring may be also modifying an existing profile and then the section Modifying
+connections would be obsolete. IMHO separating creation and later changes would make it easier to
+read these sections. If so, we need the adjust the procedures below. If the connection does not
+exist it will not show in the output of nmcli connection show. So you need to get the device name
+first (nmcli device status), then the list of connections to avoid duplications.
+-->
+<section><title>Creating an Ethernet connection</title>
   <para>Configure the Ethernet connection using the <command>nmcli</command> 
   command and proceed as follows:</para>
   <procedure xml:id="networkmanager-ethernet">
   <step>
-      <para>View the list of connections:</para>
+  <para>
+  List available devices to get the exact device name:
+  </para>
+  <screen>&prompt.user;nmcli device</screen>
+  </step>
+  <step>
+      <para>View the list of connections to check if the profile name, you want to use, does not exist:</para>
     <screen>nmcli connection show</screen>
       <para>The &nm; creates a profile for each Network Interface Controller (NIC). To connect the NIC to networks with different settings, you must create separate profiles for each network.</para>
   </step>
   <step>
-      <para>To create a new connection profile:</para>
-      <screen>nmcli connection add con-name <replaceable>CONNECTION-NAME</replaceable> ifname <replaceable>DEVICE-NAME</replaceable> type ethernet</screen>
-  </step>
-  <step>
-    <para>To rename an existing profile:</para>
-    <screen>nmcli connection modify "<replaceable>EXISTINGCONNECTION</replaceable>" connection.id "<replaceable>NEWCONNECTION</replaceable>"</screen>
-  </step>
+      <para>Create a new connection profile:</para>
+      <screen>&prompt.sudo;nmcli connection add con-name <replaceable>CONNECTION_NAME</replaceable> ifname <replaceable>DEVICE_NAME</replaceable> type ethernet</screen>
+  </step>  
   <step>
     <para>View the existing network settings of the new connection profile:</para>
-    <screen>nmcli connection show NEWCONNECTION</screen>
+    <screen>&prompt.user;nmcli connection show <replaceable>CONNECTION_NAME</replaceable></screen>    
   </step>
   <step>
-    <para>To configure an IPv4 connection to use DHCP:</para>
-    <screen>nmcli connection modify <replaceable>NEWCONNECTION</replaceable> ipv4.method auto</screen>
-    <para>To configure a static IPv4 address, network mask, default gateway, DNS servers and search domain:</para>
-    <screen>nmcli connection modify <replaceable>NEWCONNECTION</replaceable> ipv4.method manual ipv4.addresses 192.0.2.1/24 ipv4.gateway 192.0.2.254 ipv4.dns 192.0.2.200 ipv4.dns-search example.com</screen>
-  </step>
-<step>
-  <para>To configure the IPv6 settings to use stateless address autoconfiguration (SLAAC):</para>
-  <screen>nmcli connection modify <replaceable>NEWCONNECTION</replaceable> ipv6.method auto</screen>
-<para>To configure a static IPv6 address, network mask, default gateway, DNS servers and search domain:</para>
-      <screen>nmcli connection modify <replaceable>INTERNAL-LAN</replaceable> ipv6.method manual ipv6.addresses 2001:db8:1::fffe/64 ipv6.gateway 2001:db8:1::fffe ipv6.dns 2001:db8:1::ffbb ipv6.dns-search example.com</screen>
-</step>
-<step><para>Configure other settings in the profile:</para>
-  <screen>nmcli connection modify <replaceable>NAMEOFCONNECTION</replaceable> <replaceable>SETTING</replaceable> <replaceable>VALUE</replaceable></screen>
-  </step>
+  <para>Configure the connection profile. The generic command syntax is the following:</para>
+  <screen>&prompt.sudo;nmcli connection modify <replaceable>CONNECTION_NAME</replaceable>
+  <replaceable>SETTING</replaceable> <replaceable>VALUE</replaceable></screen>
+  <para>
+  For example, automatic IP addresses assingment (DHCP or SLAAC) is enabled by default, you may want
+ to configure a static IP address:
+  </para>
+  <itemizedlist>
+  <listitem>
+  <para>for IPv4</para>
+  <screen>&prompt.sudo;nmcli connection modify <replaceable>CONNECTION_NAME</replaceable> ipv4.method manual ipv4.addresses 192.0.2.1/24 ipv4.gateway 192.0.2.254 ipv4.dns 192.0.2.200 ipv4.dns-search example.com</screen>
+  </listitem>
+  <listitem>
+  <para>
+  for IPv6
+  </para>
+  <screen>&prompt.sudo;nmcli connection modify <replaceable>INTERNAL-LAN</replaceable> ipv6.method manual ipv6.addresses 2001:db8:1::fffe/64 ipv6.gateway 2001:db8:1::fffe ipv6.dns 2001:db8:1::ffbb ipv6.dns-search example.com</screen>
+  </listitem>
+  </itemizedlist>
+  </step> 
+
   <step><para>Activate the profile:</para>
-  <screen>nmcli connection up <replaceable>NEWCONNECTION</replaceable></screen>
+  <screen>&prompt.sudo;nmcli connection up <replaceable>CONNECTION_NAME</replaceable></screen>
   </step>
   <step><para>Verify the configurations:</para>
   <substeps>
     <step><para>Verify the IP settings of the NIC:</para>
-        <screen>ip address show <replaceable>HOSTNAME</replaceable></screen>
+        <screen>&prompt.user;ip address show <replaceable>HOSTNAME</replaceable></screen>
     </step>
     <step><para>Verify the default IPv4 gateway:</para>
-      <screen>ip route show default</screen>
+      <screen>&prompt.user;ip route show default</screen>
         </step>
     <step><para>Verify the default IPv6 gateway:</para>
-          <screen>ip -6 route show default</screen>
+          <screen>&prompt.user;ip -6 route show default</screen>
     </step>
     <step><para>View the DNS settings:</para>
-              <screen>cat /etc/resolv.conf</screen>
+              <screen>&prompt.user;cat /etc/resolv.conf</screen>
     </step>
   </substeps>
   </step>
 </procedure>
 </section>
-<section xml:id="configure-wifi"><title>Configuring a Wi-Fi connection</title>
-<para>You can connect to a Wi-Fi using the <command>nmcli</command> command. The &nm; creates a new connection profile when you connect to a Wi-Fi. You can configure the profile after connecting to the Wi-Fi.</para>
+<section xml:id="configure-wifi"><title>Creating a Wi-Fi connection profile</title>
+<para>You can connect to a Wi-Fi using the <command>nmcli</command> command. The &nm; creates a new
+connection profile when you connect to a Wi-Fi for the first time. You can configure the profile after connecting to
+the Wi-Fi.</para>
 <procedure>
   <step>
     <para>Enable the Wi-Fi radio:</para>
-      <screen>nmcli radio wifi on</screen>
+      <screen>&prompt.sudo;nmcli radio wifi on</screen>
     
   </step>
-  <step><para>To view the list of available devices, run the 
-  <command>nmcli device show</command> command.</para>
+  <step><para>View the list of available devices: </para>
+  <screen>&prompt.sudo;nmcli device</screen> 
 </step>
   <step><para>Connect to Wi-Fi:
      </para>
-     <screen>nmcli device wifi connect <replaceable>WI-FI-CONNECTION-NAME</replaceable> <replaceable>PASSWORD</replaceable> </screen></step>
- <step> <para>Configure iPV4 settings:</para>
-<screen>nmcli connection modify <replaceable>WI-FI-CONNECTION-NAME</replaceable> ipv4.method manual ipv4.addresses <replaceable>IP-ADDRESS/SUBNET-MASK</replaceable></screen>
-<para>Configure iPV6 settings:</para>
-  <screen>nmcli connection modify <replaceable>WI-FI-CONNECTION-NAME</replaceable> ipv6.method manual ipv6.addresses <replaceable>IP-ADDRESS/SUBNET-MASK</replaceable></screen>
-</step>
+     <screen>&prompt.sudo;nmcli device wifi connect <replaceable>WI-FI_CONNECTION_NAME</replaceable>
+     <replaceable>PASSWORD</replaceable> </screen></step>
+     <step>
+    <para>View the existing network settings of the new connection profile:</para>
+    <screen>&prompt.sudo;nmcli connection show <replaceable>CONNECTION_NAME</replaceable></screen>    
+  </step>
+     <step>
+     <para>
+     Configure the connection profile as needed, using the command:
+     </para>
+     <screen>&prompt.sudo;nmcli connection modify <replaceable>CONNECTION_NAME</replaceable>
+  <replaceable>SETTING</replaceable> <replaceable>VALUE</replaceable></screen>
+  <para>
+  For example, to configure a static IPv4 resp. IPv6 address:
+  </para>
+  <screen>&prompt.sudo;nmcli connection modify <replaceable>WI-FI_CONNECTION_NAME</replaceable> ipv4.method
+  manual ipv4.addresses <replaceable>IP_ADDRESS/SUBNET_MASK</replaceable></screen>
+  <para>
+  resp.
+  </para>
+  <screen>&prompt.sudo;nmcli connection modify <replaceable>WI-FI_CONNECTION_NAME</replaceable> ipv6.method manual ipv6.addresses <replaceable>IP_ADDRESS/SUBNET_MASK</replaceable></screen>
+     </step>
+ 
 <step><para>Restart the connection:</para>
-<screen>nmcli connection up <replaceable>WI-FI-CONNECTION-NAME</replaceable></screen>
+<screen>&prompt.sudo;nmcli connection up <replaceable>WI-FI_CONNECTION_NAME</replaceable></screen>
 </step>
-<step><para>Verify the connection using the command <command>nmcli connection show --active</command>.</para>
+<step><para>Verify the connection using the command: .</para>
+<screen><command>&prompt.user;nmcli connection show --active</command></screen>
 <para>The list of available active connections appears.</para>
 </step>
 </procedure>
 </section>
 <section xml:id="configure-network-bond">
-  <title>Configuring a network bond</title>
+  <title>Creating a network bond</title>
 <para>A network bond combines physical and virtual network interfaces and provides a logical interface. You can create network bonds on Ethernet devices, Virtual LANs, and so on.</para>
 <para>You must have two or more physical or virtual networks installed on the server.
 </para>
