@@ -325,6 +325,9 @@ but you have not created any bond0 in this section. -->
 </section>
 <section xml:id="configure-network-bridge">
   <title>Configuring a network bridge</title>
+  <para>
+  A network bridge is a device that facilitates communication between two or more network segments, creating a single network from multiple segments
+  </para>
 <para>To configure a network bridge, ensure the following:</para>
 <itemizedlist>
 <listitem>
@@ -346,79 +349,83 @@ but you have not created any bond0 in this section. -->
 <procedure xml:id="network-bridge-configuration">
   <title>Creating a network bridge</title>
   <step><para>Create a bridge interface:</para>
-  <screen>&prompt.sudo;nmcli connection add type bridge con-name bridge0 ifname bridge0</screen>
+  <screen>&prompt.sudo;nmcli connection add type bridge con-name <replaceable>CONNECTION_NAME</replaceable> ifname <replaceable>BRIDGE_NAME</replaceable></screen>
   <para>
-   A network bridge, <literal>bridge0</literal>, is created.
-  </para></step>
+   For example, we created a bridge: <literal>bridge0</literal> by running the command:
+  </para>
+  <screen>&prompt.sudo;nmcli connection add type bridge con-name bridge0 ifname bridge0</screen>
+  </step>
   <step><para>View the list of network interfaces to verify that
    <literal>bridge0</literal> is created:</para>
   <screen>&prompt.user;nmcli device status
   </screen>
-  <screen>DEVICE         TYPE      STATE                   CONNECTION    
-    wlan0          wifi      connected               Vision 
-    virbr0         bridge    connected (externally)  virbr0        
-    p2p-dev-wlan0  wifi-p2p  disconnected            --            
-    eth0           ethernet  unavailable             --            
-    lo             loopback  unmanaged               --      </screen>
-<para>The list of available network interfaces appears. You can add the 
-interfaces to the bridge. In the given list, <literal>p2p-dev-wlan0</literal> 
-is not configured, while <literal>virbr0</literal> is configured and has a
-connection profile.
+  <screen>DEVICE         TYPE      STATE                                    CONNECTION    
+    wlan0                wifi      connected                                Vision 
+    virbr0               bridge    connected (externally)                   virbr0        
+    p2p-dev-wlan0        wifi-p2p  disconnected                             --            
+    eth0                 ethernet  unavailable                              --            
+    lo                   loopback  unmanaged                                --      
+    bridge0              bridge    connecting (getting IP configuration)    brdige0    
+    </screen>
+<para>The bridge is in the state <emphasis>gettin IP configuration</emphasis>, because you have not
+assigned interfaces to it yet. Later you will assign the interfaces: <literal>p2p-dev-wlan0</literal> 
+(not configured) and <literal>virbr0</literal> (configured with a
+connection profile).
   </para>
 </step>
 <step><para>Add interfaces to the bridge:</para>
-<screen>nmcli connection add type wifi-p2p slave-type bridge con-name bridge0-port1 ifname p2p-dev-wlan0 master bridge0</screen>
-<para>A new profile is created for  p2p-dev-wlan0 and added to the bridge0 connection.</para></step>
+<screen>&prompt.sudo;nmcli connection add type wifi-p2p slave-type bridge con-name bridge0-port1 ifname p2p-dev-wlan0 master bridge0</screen>
+<para>A new profile is created for p2p-dev-wlan0 and added to the <literal>bridge0</literal> connection.</para></step>
 <step><para>To assign an existing connection to the bridge:</para>
-<screen>nmcli connection modify bond0 master bridge0</screen>
-<para>The  connection profile for <literal>bond0</literal>
+<screen>&prompt.sudo;nmcli connection modify bond0 master bridge0</screen>
+<para>The connection profile for <literal>bond0</literal>
   is added to the <literal>bridge0</literal> connection.</para>
 </step>
 <step><para>Restart the connection:</para>
-<screen>nmcli connection up bond0</screen></step>
+<screen>&prompt.sudo;nmcli connection up bond0</screen></step>
 <step><para>Configure the IPv4 settings:</para>
 <para>To use the bridge device as a port of other devices:</para>
-<screen>nmcli connection modify bridge0 ipv4.method disabled</screen>
+<screen>&prompt.sudo;nmcli connection modify bridge0 ipv4.method disabled</screen>
 <para>To use DHCP, no configuration is required.
 </para>
 <para>To configure a static IPv4 address, network mask, 
 default gateway and DNS server to the <literal>bridge0</literal>
 connection:</para>
-<screen>nmcli connection modify bridge0 ipv4.addresses '192.0.2.1/24' ipv4.gateway '192.0.2.254' ipv4.dns '192.0.2.253' ipv4.dns-search 'example.com' ipv4.method manual</screen>
+<screen>&prompt.sudo;nmcli connection modify bridge0 ipv4.addresses '192.0.2.1/24' ipv4.gateway '192.0.2.254' ipv4.dns '192.0.2.253' ipv4.dns-search 'example.com' ipv4.method manual</screen>
 </step>
 <step><para>Configure the IPv6 settings:</para>
 <para>To use this bridge device as a port of other devices:</para>
-<screen>nmcli connection modify bridge0 ipv6.method disabled</screen>
+<screen>&prompt.sudo;nmcli connection modify bridge0 ipv6.method disabled</screen>
 <para>To use stateless address autoconfiguration (SLAAC), no action is required.</para>
 <para>To set a static IPv6 address, network mask, default gateway and DNS server to the <literal>bridge0</literal> connection:</para>
-<screen>nmcli connection modify bridge0 ipv6.addresses '2001:db8:1::1/64' ipv6.gateway '2001:db8:1::fffe' ipv6.dns '2001:db8:1::fffd' ipv6.dns-search 'example.com' ipv6.method manual</screen>
+<screen>&prompt.sudo;nmcli connection modify bridge0 ipv6.addresses '2001:db8:1::1/64' ipv6.gateway '2001:db8:1::fffe' ipv6.dns '2001:db8:1::fffd' ipv6.dns-search 'example.com' ipv6.method manual</screen>
 </step>
 <step><para>Activate the connection:</para>
-<screen>nmcli connection up bridge0</screen>
+<screen>&prompt.sudo;nmcli connection up bridge0</screen>
 </step>
 <step><para>Verify the connection:</para>
-<screen>nmcli device</screen>
+<screen>&prompt.user;nmcli device</screen>
 <para>When you activate any port of the connection, &nm; also activates the bridge, but not the other ports of it.</para>
 <para>Enable all ports automatically when the bridge is enabled:</para>
-<screen>nmcli connection modify bridge0 connection.autoconnect-slaves 1</screen>
-</step>
-<step><para>Activate the connection.</para>
-  <screen>nmcli connection up bridge0</screen>
+<screen>&prompt.sudo;nmcli connection modify bridge0 connection.autoconnect-slaves 1</screen>
 </step>
 <step>
   <para>View the link status of Ethernet devices that are ports of a specific bridge.</para>
-  <screen>ip link show master bridge0</screen>
+  <screen>&prompt.sudo;ip link show master bridge0</screen>
 </step>
 <step>
   <para>
     View the status of Ethernet devices that are ports of any bridge device. 
   </para>
-  <screen>bridge link show</screen>
+  <screen>&prompt.sudo;bridge link show</screen>
 </step>
 </procedure>
 </section>
 <section xml:id="configure-vpn-connection">
   <title>Configuring a VPN connection</title>
+  <para>
+  A VPN (Virtual Private Network) connection is a secure, encrypted tunnel between your device and another network over the Internet.
+  </para>
 <para>You can configure a VPN connection using the <command>nmcli</command> command.</para>
 <procedure xml:id="configure-vpn-connections">
   <title>Installing and configuring a VPN connection</title>
@@ -428,23 +435,23 @@ connection:</para>
   </step>
   <step>
     <para>Create a VPN connection:</para>
-  <screen>nmcli connection add type vpn con-name MyOpenVPN ifname -- vpn-type openvpn
+  <screen>&prompt.sudo;nmcli connection add type vpn con-name MyOpenVPN ifname -- vpn-type openvpn
   </screen>
   </step>
   <step>
     <para>Configure the settings:</para>
-  <screen>nmcli connection modify MyOpenVPN vpn.data "remote=<replaceable>VPN-SERVER-ADDRESS</replaceable>,username=<replaceable>YOUR-USERNAME</replaceable>"</screen>
-  <screen>nmcli connection modify MyOpenVPN vpn.secrets "password=<replaceable>YOUR-PASSWORD</replaceable>"</screen>
+  <screen>&prompt.sudo;nmcli connection modify MyOpenVPN vpn.data "remote=<replaceable>VPN-SERVER-ADDRESS</replaceable>,username=<replaceable>YOUR-USERNAME</replaceable>"</screen>
+  <screen>&prompt.sudo;nmcli connection modify MyOpenVPN vpn.secrets "password=<replaceable>YOUR-PASSWORD</replaceable>"</screen>
   </step>
 <step><para>Configure DNS settings:</para>
-<screen>nmcli connection modify MyOpenVPN ipv4.dns "8.8.8.8 8.8.4.4"</screen></step>
+<screen>&prompt.sudo;nmcli connection modify MyOpenVPN ipv4.dns "8.8.8.8 8.8.4.4"</screen></step>
 <step><para>Add routes:</para>
-<screen>nmcli connection modify MyOpenVPN ipv4.routes "192.168.1.0/24 192.168.1.1"</screen>
+<screen>&prompt.sudo;nmcli connection modify MyOpenVPN ipv4.routes "192.168.1.0/24 192.168.1.1"</screen>
 </step>
 <step><para>Activate the VPN connections:</para>
-<screen>nmcli connection up MyOpenVPN</screen></step>
+<screen>&prompt.sudo;nmcli connection up MyOpenVPN</screen></step>
 <step><para>Verify if the configured connection is active:</para>
-<screen>nmcli connection show --active</screen>
+<screen>&prompt.user;nmcli connection show --active</screen>
 </step>
 </procedure>
 </section>
