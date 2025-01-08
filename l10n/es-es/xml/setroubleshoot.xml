@@ -1,0 +1,974 @@
+<?xml version="1.0"?>
+<article xmlns="http://docbook.org/ns/docbook" version="5.2" xml:id="setroubleshoot" xml:lang="es">
+  <info>
+    <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Resolución de problemas de SELinux</title>
+    <revhistory xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" xml:id="rh-setroubleshoot">
+      <revision>
+        <date>2024-11-19</date>
+        <revdescription>
+          <para>
+               Initial version
+             </para>
+        </revdescription>
+      </revision>
+    </revhistory>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="architecture" its:translate="no">
+      <phrase>AMD64/Intel&#xA0;64</phrase>
+      <phrase>POWER</phrase>
+      <phrase>IBM</phrase>
+      <phrase>AArch64</phrase>
+    </meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="productname" its:translate="no">
+      <productname version="6.1">SUSE Linux Micro</productname>
+    </meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="title" its:translate="yes">Resolución de problemas de SELinux</meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="description" its:translate="yes">Uso de setroubleshooting y audit2allow para solucionar problemas de SELinux.</meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="social-descr" its:translate="yes">Denegaciones de AVC, setroubleshooting y audit2allow.</meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="task" its:translate="no">
+      <phrase>Security</phrase>
+      <phrase>Configuration</phrase>
+      <phrase>Troubleshooting</phrase>
+    </meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="series" its:translate="no">Products &amp; Solutions</meta>
+    <dm:docmanager xmlns:dm="urn:x-suse:ns:docmanager" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+      <dm:bugtracker>
+        <dm:url>https://bugzilla.suse.com/enter_bug.cgi</dm:url>
+        <dm:component>Documentation</dm:component>
+        <dm:product os="slmicro">SUSE Linux Micro 6.1</dm:product>
+        <dm:assignee>jsindelarova@suse.com</dm:assignee>
+      </dm:bugtracker>
+      <dm:translation>yes</dm:translation>
+    </dm:docmanager>
+    <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+      <variablelist>
+        <varlistentry>
+          <term>DESCRIPCIÓN</term>
+          <listitem>
+            <para>
+                Un sistema con SELinux en el modo <literal>enforcing</literal> puede provocar denegaciones de acceso que pueden impedir que las aplicaciones se ejecuten correctamente. Puede utilizar <command>audit2allow</command> o <literal>setroubleshoot</literal> para analizar los mensajes de denegación de forma sencilla.
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>INTENCIÓN</term>
+          <listitem>
+            <para>
+                Este artículo proporciona instrucciones sobre cómo resolver las denegaciones de acceso causadas por SELinux sin disminuir la seguridad del sistema.
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>ESFUERZO</term>
+          <listitem>
+            <para>
+                Se tardan aproximadamente 30 minutos en leer el artículo.
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>OBJETIVO</term>
+          <listitem>
+            <para>
+                Podrá utilizar una de las herramientas descritas a continuación para depurar las denegaciones de SELinux.
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>REQUISITOS</term>
+          <listitem>
+            <itemizedlist>
+              <listitem>
+                <para>
+                    Un sistema en ejecución con SELinux habilitado.
+                  </para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </abstract>
+  </info>
+  <section role="concept" xml:lang="es" version="5.2" xml:id="selinux-audit-log">
+    <info>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">El archivo <filename>/var/log/audit/audit.log</filename></title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+        Por defecto, si SELinux es la razón por la que algo no funcione, se envía un mensaje de registro al archivo <filename>/var/log/audit/audit.log</filename>.        
+      </para>
+      </abstract>
+    </info>
+    <note>
+      <title><filename>/var/log/audit/audit.log</filename> vacío</title>
+      <para>
+  Si ve un registro <filename>/var/log/audit/audit.log</filename> vacío, normalmente significa que el servicio <literal>auditd</literal> no se está ejecutando. En tal caso, haga lo siguiente:  
+</para>
+      <procedure>
+        <step>
+          <para>
+      Inicie el servicio <literal>auditd</literal>:
+    </para>
+          <screen>
+            <prompt>&gt; </prompt>
+            <command>sudo</command>
+            <command>systemctl start auditd</command>
+          </screen>
+        </step>
+        <step>
+          <para>
+      Habilite el servicio en los destinos del sistema mediante:
+    </para>
+          <screen>
+            <prompt>&gt; </prompt>
+            <command>sudo</command>
+            <command>systemctl enable auditd</command>
+          </screen>
+        </step>
+      </procedure>
+    </note>
+    <para>
+    En el archivo <filename>/var/log/audit/audit.log</filename> se almacenan los mensajes de denegación de acceso, eventos de servicio, etc.
+  </para>
+    <para>
+    En el <xref linkend="ex-selnx-li-auditlog" xrefstyle="select:label quotedtitle nopage" role="internalbook"/>, puede ver un ejemplo parcial del contenido de <filename>/var/log/audit/audit.log</filename>.
+  </para>
+    <example xml:id="ex-selnx-li-auditlog">
+      <title>Líneas de ejemplo de <filename>/etc/audit/audit.log</filename></title>
+      <screen>type=DAEMON_START msg=audit(1348173810.874:6248): auditd start, ver=1.7.7 format=raw kernel=3.0.13-0.27-default auid=0 pid=4235 subj=system_u:system_r:auditd_t res=success
+type=AVC msg=audit(1348173901.081:292): avc:  denied  { write } for  pid=3426 comm="smartd" name="smartmontools" dev=sda6 ino=581743 scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:var_lib_t tclass=dir
+type=AVC msg=audit(1348173901.081:293): avc:  denied  { remove_name } for  pid=3426 comm="smartd" name="smartd.WDC_WD2500BEKT_75PVMT0-WD_WXC1A21E0454.ata.state~" dev=sda6 ino=582390 scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:var_lib_t tclass=dir
+type=AVC msg=audit(1348173901.081:294): avc:  denied  { unlink } for  pid=3426 comm="smartd" name="smartd.WDC_WD2500BEKT_75PVMT0-WD_WXC1A21E0454.ata.state~" dev=sda6 ino=582390 scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:var_lib_t tclass=file
+type=AVC msg=audit(1348173901.081:295): avc:  denied  { rename } for  pid=3426 comm="smartd" name="smartd.WDC_WD2500BEKT_75PVMT0-WD_WXC1A21E0454.ata.state" dev=sda6 ino=582373 scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:var_lib_t tclass=file
+type=AVC msg=audit(1348173901.081:296): avc:  denied  { add_name } for  pid=3426 comm="smartd" name="smartd.WDC_WD2500BEKT_75PVMT0-WD_WXC1A21E0454.ata.state~" scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:var_lib_t tclass=dir
+type=AVC msg=audit(1348173901.081:297): avc:  denied  { create } for  pid=3426 comm="smartd" name="smartd.WDC_WD2500BEKT_75PVMT0-WD_WXC1A21E0454.ata.state" scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:var_lib_t tclass=file
+type=AVC msg=audit(1348173901.081:298): avc:  denied  { write open } for  pid=3426 comm="smartd" name="smartd.WDC_WD2500BEKT_75PVMT0-WD_WXC1A21E0454.ata.state" dev=sda6 ino=582390 scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:var_lib_t tclass=file
+type=AVC msg=audit(1348173901.081:299): avc:  denied  { getattr } for  pid=3426 comm="smartd" path="/var/lib/smartmontools/smartd.WDC_WD2500BEKT_75PVMT0-WD_WXC1A21E0454.ata.state" dev=sda6 ino=582390 scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:var_lib_t tclass=file
+type=AVC msg=audit(1348173901.309:300): avc:  denied  { append } for  pid=1316</screen>
+    </example>
+    <para>
+    Un solo mensaje tiene el aspecto siguiente:
+  </para>
+    <screen>
+  type=AVC msg=audit(1348173901.081:299): avc:  denied  { getattr } for  pid=3426 comm="smartd" path="/var/lib/smartmontools/smartd.WDC_WD2500BEKT_75PVMT0-WD_WXC1A21E0454.ata.state" dev=sda6 ino=582390 scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:var_lib_t tclass=file    
+</screen>
+    <para>
+    Cada línea del mensaje se puede dividir en secciones. Por ejemplo, las secciones de la última línea son:
+  </para>
+    <variablelist>
+      <varlistentry>
+        <term><literal>type=AVC</literal>:</term>
+        <listitem>
+          <para>
+          Cada línea de registro de auditoría relacionada con SELinux comienza con la identificación del tipo, por ejemplo, <literal>type=AVC</literal>. Tenga en cuenta que un mensaje con el tipo <literal>type=SYSCALL</literal> que sigue a otro con un tipo diferente y tiene el mismo valor de <literal>msg</literal> puede proporcionar más información sobre el evento.
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>msg=audit(1348173901.309:300)</literal>:</term>
+        <listitem>
+          <para>
+          Esta es la marca horaria, que se escribe en tiempo de época, el número de segundos que han transcurrido desde el 1 de enero de 1970. Puede utilizar <command>date -d</command> en la parte situada delante del punto de la notación de tiempo de época para averiguar cuándo se produjo el evento:
+        </para>
+          <screen><prompt>&gt; </prompt><command>date -d @1348173901</command>
+Thu Sep 20 16:45:01 EDT 2012</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>avc: denied { append }</literal>:</term>
+        <listitem>
+          <para>
+          La acción específica que se ha denegado. En este caso, el sistema ha denegado la adición de datos a un archivo. Mientras examina el archivo de registro de auditoría, puede ver otras acciones del sistema, como write open, getattr y más.
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>for pid=1316</literal>:</term>
+        <listitem>
+          <para>
+          El ID de proceso del comando o proceso que inició la acción.
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>comm="rsyslogd"</literal>:</term>
+        <listitem>
+          <para>
+          El comando específico que estaba asociado con ese PID.
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>name="smartmontools"</literal>:</term>
+        <listitem>
+          <para>
+          El nombre del sujeto de la acción.
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>dev=sda6 ino=582296</literal>:</term>
+        <listitem>
+          <para>
+          El dispositivo de bloque y el número de inodo del archivo implicado.
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>scontext=system_u:system_r:syslogd_t</literal>:</term>
+        <listitem>
+          <para>
+          El contexto de origen, que es el contexto del iniciador de la acción.
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>tclass=file</literal>:</term>
+        <listitem>
+          <para>
+          Una identificación de clase del sujeto.
+        </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section role="task" xml:lang="es" version="5.2" xml:id="selinux-troubleshoot-audit2allow">
+    <info>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">Análisis de <filename>/var/log/audit/audit.log</filename> con <command>audit2allow</command></title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+        En lugar de interpretar los eventos de <filename>/var/log/audit/audit.log</filename> por sí mismo, puede utilizar el comando <command>audit2allow</command>. 
+      </para>
+      </abstract>
+    </info>
+    <para>
+    El comando ayuda a analizar los mensajes de registro crípticos de <filename>/var/log/audit/audit.log</filename>. Una sesión de resolución de problemas de <command>audit2allow</command> siempre consta de tres comandos diferentes. En primer lugar, utilizaría <command>audit2allow -w
+    -a</command> para presentar la información de auditoría de una forma más fácil de leer. Por defecto, <command>audit2allow -w -a</command> funciona en el archivo <filename>audit.log</filename>. Si desea analizar un mensaje específico del archivo <filename>audit.log</filename>, cópielo en un archivo temporal y analice el archivo con:
+  </para>
+    <screen>
+      <prompt>&gt; </prompt>
+      <command>sudo</command>
+      <command>audit2allow -w -i <replaceable>FILENAME</replaceable></command>
+    </screen>
+    <example>
+      <title>Análisis de mensajes de auditoría</title>
+      <screen><prompt>&gt; </prompt><command>sudo</command><command>audit2allow -w -i testfile</command>
+type=AVC msg=audit(1348173901.309:300): avc:  denied  { append } for  pid=1316
+comm="rsyslogd" name="acpid" dev=sda6 ino=582296
+scontext=system_u:system_r:syslogd_t tcontext=system_u:object_r:apmd_log_t tclass=file</screen>
+    </example>
+    <variablelist>
+      <varlistentry>
+        <term>Esto ha sido causado por:</term>
+        <listitem>
+          <para>
+          Falta una regla de acceso de aplicación de tipo (TE).
+        </para>
+          <para>
+          Para generar un módulo cargable que permita este acceso, ejecute:
+        </para>
+          <screen>
+            <prompt>&gt; </prompt>
+            <command>sudo</command>
+            <command>audit2allow</command>
+          </screen>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <para>
+    Para averiguar qué regla específica ha denegado el acceso, puede utilizar <command>audit2allow -a</command> para mostrar las reglas de aplicación de todos los eventos que se registraron en el archivo <filename>audit.log </filename>, o <command>audit2allow -i <replaceable>FILENAME</replaceable></command> para mostrarlo para los mensajes que ha almacenado en un archivo específico:
+  </para>
+    <example>
+      <title>Ver qué líneas deniegan el acceso</title>
+      <screen><prompt>&gt; </prompt><command>sudo</command><command>audit2allow -i testfile</command>
+#============= syslogd_t ==============
+allow syslogd_t apmd_log_t:file append;</screen>
+    </example>
+    <para>
+    Para crear un módulo SELinux con el nombre <literal>mymodule</literal> que pueda cargar para permitir el acceso que se ha denegado anteriormente, ejecute:
+  </para>
+    <screen>
+      <prompt>&gt; </prompt>
+      <command>sudo</command>
+      <command>audit2allow -a -R -M mymodule</command>
+    </screen>
+    <para>
+    Si desea hacer esto para todos los eventos que se han registrado en el archivo <filename>audit.log</filename>, utilice los argumentos del comando <option>-a -M</option>. Para hacerlo solo para mensajes específicos que se encuentren en un archivo específico, utilice <option>-i -M</option> como en el ejemplo siguiente:
+  </para>
+    <example>
+      <title>Creación de un módulo de directivas que permita una acción previamente denegada</title>
+      <screen><prompt>&gt; </prompt><command>sudo</command><command>audit2allow -i testfile -M example</command>
+******************** IMPORTANT ***********************
+To make this policy package active, execute:
+
+semodule -i example.pp</screen>
+    </example>
+    <para>
+    Como indica el comando <command>audit2allow</command>, ahora puede ejecutar este módulo mediante el comando <command>semodule -i</command>, seguido del nombre del módulo que <command>audit2allow</command> ha creado para usted (<filename>example.pp</filename> en el ejemplo anterior).
+  </para>
+  </section>
+  <section>
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Análisis de mensajes de AVC mediante <command>setroubleshoot</command></title>
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <para>
+            Para analizar los mensajes de denegación de AVC de forma sencilla, puede utilizar la herramienta <literal>setroubleshoot</literal>.
+          </para>
+      </abstract>
+    </info>
+    <section role="concept" xml:lang="es" version="5.2" xml:id="setroubleshoot-about">
+      <info>
+        <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+          <para/>
+        </abstract>
+        <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">Descripción general de <literal>setroubleshoot</literal></title>
+        <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+      </info>
+      <section xml:id="setroubleshoot-about-what">
+        <title>¿Qué es <command>setroubleshoot</command>?</title>
+        <para><command>setroubleshoot</command> es una herramienta que recopila eventos de auditoría de SELinux desde el kernel y analiza estos eventos. Si se produce un evento de este tipo, <command>setroubleshoot</command> informa al administrador.
+    </para>
+      </section>
+      <section xml:id="setroubleshoot-about-components">
+        <title>Componentes de <command>setroubleshoot</command></title>
+        <para>
+      El proceso de resolución de problemas de SELinux incluye los siguientes componentes, todos ellos instalados en <phrase><phrase os="slmicro">SUSE Linux Micro</phrase></phrase> por defecto.
+    </para>
+        <itemizedlist>
+          <listitem>
+            <para><literal>setroubleshoot-server</literal> proporciona las siguientes herramientas:
+        </para>
+            <itemizedlist>
+              <listitem>
+                <para><literal>setroubleshootd</literal>: el daemon principal que gestiona las peticiones entrantes y las definiciones de complementos. El daemon se activa a pedido y no es necesario ejecutarlo a través del servicio <systemitem class="daemon">systemd</systemitem>. Solo puede gestionarlo un usuario con privilegios y un usuario <literal>setroubleshoot</literal> dedicado.
+            </para>
+              </listitem>
+              <listitem>
+                <para>
+              Una base de datos de alertas en el archivo <filename>/var/lib/setroubleshoot/setroubleshoot_database.xml</filename>.
+            </para>
+              </listitem>
+              <listitem>
+                <para><command>sealert</command>: una interfaz de usuario de línea de comandos para analizar <filename>/var/log/audit.log</filename>.
+            </para>
+              </listitem>
+              <listitem>
+                <para><command>sedispatch</command>: un asignador de auditoría que explora los mensajes de AVC de SELinux y los transforma en un mensaje DBus, que luego pasa al daemon.
+            </para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+          <listitem>
+            <para><literal>setroubleshoot-plugins</literal>: los complementos se utilizan para el análisis de mensajes de AVC y proporcionan sugerencias sobre cómo solucionar problemas.
+        </para>
+          </listitem>
+        </itemizedlist>
+      </section>
+      <section xml:id="setroubleshoot-about-how">
+        <title>¿Cómo funciona <command>setroubleshoot</command>?</title>
+        <para><command>setroubleshoot</command> incluye un daemon y complementos de análisis. Cuando un complemento detecta un problema, se informa al daemon, que comprueba si se trata de un problema conocido. Si no es así, el nuevo problema se añade a la base de datos junto con una solución sugerida.
+    </para>
+      </section>
+      <section xml:id="setroubleshoot-about-benefits">
+        <title>Ventajas de <command>setroubleshoot</command></title>
+        <para><command>setroubleshoot</command> proporciona las siguientes funciones para ayudarle a resolver problemas en sus sistemas SELinux protegidos:
+    </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+          Envío de alertas al administrador cuando se produce una denegación de AVC.
+        </para>
+          </listitem>
+          <listitem>
+            <para>
+          Análisis automático de las denegaciones de AVC.
+        </para>
+          </listitem>
+          <listitem>
+            <para>
+          Sugerencia de posibles soluciones, como ajustar la configuración del sistema o instalar actualizaciones, etc.
+        </para>
+          </listitem>
+          <listitem>
+            <para>
+          Navegación de alertas anteriores.
+        </para>
+          </listitem>
+        </itemizedlist>
+      </section>
+    </section>
+    <section role="task" xml:lang="es" version="5.2" xml:id="setroubleshoot-configuration">
+      <info>
+        <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">Configuración de <literal>setroubleshoot</literal></title>
+        <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+        <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+          <para>
+        Aunque la configuración de <literal>setroubleshoot</literal> no requiere ajustes, es posible que tenga que cambiar los valores por defecto. En las siguientes secciones se proporcionan los casos de uso habituales.
+      </para>
+        </abstract>
+      </info>
+      <para>
+    El archivo de configuración de <literal>setroubleshoot</literal> es <filename>/etc/setroubleshoot</filename>. Normalmente, no es necesario modificar la configuración además de definir las notificaciones por correo electrónico. Sin embargo, si necesita cambiar la configuración, puede editar el archivo o utilizar el comando <command>setroubleshootd</command> para configurar un elemento concreto. La sintaxis del comando es la siguiente:
+  </para>
+      <screen>
+        <prompt role="root"># </prompt>
+        <command>setroubleshootd -c
+<replaceable>SECTION.OPTION=VALUE</replaceable></command>
+      </screen>
+      <para>
+    Por ejemplo, para definir la opción <literal>from_address</literal>, ejecute el comando de la siguiente manera:
+  </para>
+      <screen>
+        <prompt role="root"># </prompt>
+        <command>setroubleshootd -c
+email.from_address="example@mail.com"</command>
+      </screen>
+      <section xml:id="setroubleshoot-configuration-logging">
+        <title>Configuración del nivel de registro de <command>setroubleshoot</command></title>
+        <para>
+      El nivel de registro por defecto (el valor de <literal>sealert_log</literal> y <literal>setroubleshootd_log</literal>) se establece en <literal>warning</literal>. Sin embargo, puede definir uno de los siguientes valores:
+    </para>
+        <variablelist>
+          <varlistentry>
+            <term>critical</term>
+            <listitem>
+              <para>
+            Solo se registran los errores graves que impiden el funcionamiento del sistema.
+          </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>error</term>
+            <listitem>
+              <para>
+            Se informa de errores graves que pueden afectar al sistema.
+          </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>warning</term>
+            <listitem>
+              <para>
+            Indicación de que ha ocurrido algo inesperado o de que podría producirse un problema en un futuro próximo. Sin embargo, el sistema funciona como se espera.
+          </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>info</term>
+            <listitem>
+              <para>
+            Se registra una confirmación de que el sistema se está ejecutando correctamente.
+          </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>debug</term>
+            <listitem>
+              <para>
+            Se registra información detallada para fines de depuración.
+          </para>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+      </section>
+      <section xml:id="setroubleshoot-configuration-notifications">
+        <title>Configuración de <literal>setroubleshoot</literal> para enviar notificaciones por correo electrónico</title>
+        <para><literal>setroubleshoot</literal> puede enviarle notificaciones por correo electrónico si hay una denegación de AVC en el sistema.
+    </para>
+        <para>
+      Para recibir estas notificaciones, haga lo siguiente:
+    </para>
+        <procedure>
+          <step>
+            <para>
+          Abra la carpeta <filename>/etc/setroubleshoot/setroubleshoot.conf</filename>.
+        </para>
+          </step>
+          <step>
+            <para>
+          En el archivo, ajuste los siguientes elementos de configuración según sus necesidades:
+        </para>
+            <variablelist>
+              <varlistentry>
+                <term>smtp_host</term>
+                <listitem>
+                  <para>
+                Si el servidor SMTP no se ejecuta en el host local, introduzca la dirección del servidor.
+              </para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>smtp_port</term>
+                <listitem>
+                  <para>
+                El valor por defecto es 25. Normalmente, este valor no requiere ningún ajuste.
+              </para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>from_address</term>
+                <listitem>
+                  <para>
+                Añada la dirección del remitente.
+              </para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>subject</term>
+                <listitem>
+                  <para>
+                Configure un tema genérico para todos los mensajes.
+              </para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>recipients_filepath</term>
+                <listitem>
+                  <para>
+                Especifique la ubicación de la lista de destinatarios de la notificación.
+              </para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>use_sendmail</term>
+                <listitem>
+                  <para>
+                Defina el valor <literal>true</literal> si utiliza SendMail.
+              </para>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+          </step>
+          <step>
+            <para>
+          Cree el archivo de destinatarios de correo en la vía definida por la opción <literal>recipients_filepath</literal> (por defecto, <filename>/var/lib/setroubleshoot/email_alerts-recipients</filename>). 
+        </para>
+            <para>
+          Cada dirección de correo electrónico debe estar en una línea distinta. Los comentarios se indican con el símbolo #.
+        </para>
+          </step>
+        </procedure>
+      </section>
+      <section xml:id="setroubleshoot-configuration-database">
+        <title>Configuración de la base de datos de <literal>setroubleshoot</literal></title>
+        <para>
+      Puede cambiar la cantidad de registros de la base de datos de <literal>setroubleshootd</literal>, su ubicación o el prefijo del nombre de archivo.
+    </para>
+        <variablelist>
+          <varlistentry>
+            <term>
+              <literal>database_dir</literal>
+            </term>
+            <listitem>
+              <para>
+            Especifique una vía absoluta al directorio donde debe residir el archivo XML de la base de datos.
+          </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>
+              <literal>filename</literal>
+            </term>
+            <listitem>
+              <para>
+            Configure un prefijo personalizado para el nombre del archivo de la base de datos. El nombre del archivo tendrá el siguiente aspecto: <literal><replaceable>FILENAME_PREFIX</replaceable>_database.xml</literal>.
+          </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>
+              <literal>max_alerts</literal>
+            </term>
+            <listitem>
+              <para>
+            Defina el número máximo de registros de la base de datos. Especifique <literal>0</literal> para tener un número ilimitado de registros.
+          </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>
+              <literal>max_alert_age</literal>
+            </term>
+            <listitem>
+              <para>
+            Las alertas anteriores al límite establecido se suprimen de la base de datos. Puede utilizar las unidades: <emphasis>year, month, day, hour, minute y second</emphasis> incluso en plural y puede utilizar más de una unidad, por ejemplo, <literal>3 weeks 2 days</literal>, que equivale a 23 días. Si se deja vacío, no hay límite.
+          </para>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+      </section>
+      <section xml:id="setroubleshoot-configuration-remote-analysis">
+        <title>Configuración de <literal>setroubleshoot</literal> para recopilar información de servidores remotos</title>
+        <para>
+      Puede configurar <literal>setroubleshoot</literal> para recopilar datos de auditoría de SELinux desde servidores remotos. Para ello, configure la lista de direcciones.
+    </para>
+        <variablelist>
+          <varlistentry>
+            <term>[listen_for_client] lista_de_direcciones</term>
+            <listitem>
+              <para>
+            En el lado del servidor.
+          </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>[client_connect_to] lista_de_direcciones</term>
+            <listitem>
+              <para>
+            En el lado del cliente.
+          </para>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+        <para>
+      Las direcciones de la lista tienen este formato:
+    </para>
+        <screen>
+          <replaceable>[{FAMILY}]ADDRESS[:PORT_NUMBER]</replaceable>
+        </screen>
+        <para>
+      donde <replaceable>{FAMILY}</replaceable> es <literal>{inet}</literal> o <literal>{unix}%{path}s</literal>. Si la familia de direcciones es <literal>inet</literal>, puede especificar opcionalmente un número de puerto; de lo contrario, el número de puerto se establece en el valor por defecto especificado por la opción de configuración <literal>default_port</literal>. El valor por defecto <literal>{unix}%{path}s hostname</literal> significa que se escucha en el socket del dominio Unix local.
+    </para>
+      </section>
+    </section>
+    <section role="task" xml:lang="es" version="5.2" xml:id="setroubleshoot-running-analysis">
+      <info>
+        <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+          <para/>
+        </abstract>
+        <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">Ejecución del análisis de <filename>/var/log/audit/audit.log</filename></title>
+        <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+      </info>
+      <para>
+    Para permitir que la herramienta <command>setroubleshoot</command> analice el archivo de registro de auditoría, ejecute el comando:
+  </para>
+      <screen>
+        <prompt>&gt; </prompt>
+        <command>sudo</command>
+        <command>sealert -a /var/log/audit/audit.log</command>
+      </screen>
+      <para>
+    En el siguiente resultado de ejemplo, hay dos valores de puerto asignados al servicio SSHD:
+  </para>
+      <screen>
+100% done
+found 1 alerts in /var/log/audit/audit.log
+--------------------------------------------------------------------------------
+
+SELinux is preventing sshd from name_bind access on the tcp_socket port 2222.
+
+*****  Plugin bind_ports (92.2 confidence) suggests   ************************ 
+
+If you want to allow sshd to bind to network port 2222
+Then you need to modify the port type.
+Do
+# semanage port -a -t PORT_TYPE -p tcp 2222  <co xml:id="setroubleshoot-bind-ports"/>
+    where PORT_TYPE is one of the following: ssh_port_t, vnc_port_t, xserver_port_t.
+
+*****  Plugin catchall_boolean (7.83 confidence) suggests   ******************
+
+If you want to allow nis to enabled
+Then you must tell SELinux about this by enabling the 'nis_enabled' boolean.
+
+Do
+setsebool -P nis_enabled 1
+
+*****  Plugin catchall (1.41 confidence) suggests   **************************
+
+If you believe that sshd should be allowed name_bind access on the port 2222 tcp_socket by default.
+Then you should report this as a bug.
+You can generate a local policy module to allow this access.
+Do
+allow this access for now by executing:
+# ausearch -c 'sshd' --raw | audit2allow -M my-sshd
+# semodule -X 300 -i my-sshd.pp
+
+Additional Information:
+...
+
+First Seen                    2024-02-07 14:26:27 UTC
+Last Seen                     2024-02-08 03:30:12 UTC
+Local ID                      b5cbdd75-3f8d-425d-af75-f6cbf1540ffd 
+
+Raw Audit Messages
+type=AVC msg=audit(1707363012.797:25): avc:  denied  { name_bind } for  pid=841 comm="sshd" src=2222 scontext=system_u:system_r:sshd_t:s0-s0:c0.c1023 tcontext=system_u:object_r:unreserved_port_t:s0 tclass=tcp_socket permissive=0
+
+
+Hash: sshd,sshd_t,unreserved_port_t,tcp_socket,name_bind
+
+  </screen>
+      <calloutlist>
+        <callout arearefs="setroubleshoot-bind-ports">
+          <para>
+        El complemento <literal>bind_ports</literal> proporciona la solución más adecuada para el problema.
+      </para>
+        </callout>
+      </calloutlist>
+      <para/>
+    </section>
+  </section>
+  <section version="5.2" xml:id="legal-disclaimer">
+    <info>
+      <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">Información legal</title>
+    </info>
+    <para> Copyright © 2006 –<?dbtimestamp format="Y"?>
+ SUSE LLC y colaboradores. Reservados todos los derechos. </para>
+    <para>
+    Está permitido copiar, distribuir y modificar este documento según los términos de la licencia de documentación gratuita GNU, versión 1.2 o (según su criterio) versión 1.3. Esta información de copyright y licencia deberán permanecer inalterados. En la sección titulada <quote>GNU Free Documentation License</quote> (Licencia de documentación gratuita GNU) se incluye una copia de la versión 1.2 de la licencia.
+  </para>
+    <para>
+    Para obtener información sobre las marcas comerciales de SUSE, consulte <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.suse.com/company/legal/"/>. Todas las marcas comerciales de otros fabricantes son propiedad de sus respectivas empresas. Los símbolos de marcas comerciales (®, ™, etc.) indican marcas comerciales de SUSE y sus filiales. Los asteriscos (*) indican marcas comerciales de otros fabricantes.
+  </para>
+    <para>
+    Toda la información recogida en esta publicación se ha compilado prestando toda la atención posible al más mínimo detalle. Sin embargo, esto no garantiza una precisión total. Ni SUSE LLC, ni sus filiales, ni los autores o traductores serán responsables de los posibles errores o las consecuencias que de ellos pudieran derivarse.
+  </para>
+  </section>
+  <appendix xmlns:its="http://www.w3.org/2005/11/its" version="5.2" role="legal" its:translate="no" xml:id="doc-gfdl-license">
+    <info>
+      <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">Licencia de documentación gratuita de GNU</title>
+    </info>
+    <para>
+  Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc. 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, EE. UU. Se permite la copia literal y la distribución de este documento de licencia, pero sin realizar cambios en él.
+ </para>
+    <bridgehead renderas="sect4">
+    0. PREÁMBULO
+  </bridgehead>
+    <para>
+  El propósito de esta Licencia es crear un manual, libro de instrucciones u otro documento funcional y útil libre, para garantizar que todo el mundo disfrute de la libertad real de copiarlo y distribuirlo, tras modificarlo o no hacerlo, ya sea con objetivos comerciales o no comerciales. En segundo término, esta Licencia proporciona al autor y al editor una manera de obtener reconocimiento por su trabajo, sin que se le considere responsable de las modificaciones realizadas por otros.
+ </para>
+    <para>
+  Esta Licencia es de tipo &quot;copyleft&quot;, lo que significa que los trabajos derivados del documento deben, a su vez, ser libres en el mismo sentido. Esta Licencia complementa a la Licencia pública general de GNU, que es una licencia tipo copyleft diseñada para el software libre.
+ </para>
+    <para>
+  Hemos diseñado esta Licencia para utilizarla en manuales de software libre, ya que el software libre necesita documentación libre: un programa libre debe incluir manuales que proporcionen las mismas libertades que el software. Pero esta licencia no se limita a manuales de software; puede usarse para cualquier texto, sin tener en cuenta su temática o si se publica como libro impreso o no. Recomendamos esta licencia principalmente para trabajos cuyo fin sea instructivo o de referencia.
+ </para>
+    <bridgehead renderas="sect4">
+    1. APLICACIÓN Y DEFINICIONES
+  </bridgehead>
+    <para>
+  Esta Licencia se aplica a todos los manuales u otros trabajos (en cualquier medio) que contengan un aviso del titular del copyright indicando que el producto puede distribuirse según las condiciones de esta Licencia. Tal aviso garantiza en cualquier lugar del mundo, sin pago de derechos de autor y sin límite de tiempo, el uso de dicho trabajo según las condiciones aquí estipuladas. En adelante, la palabra &quot;Documento&quot; se referirá a cualquiera de dichos manuales o trabajos. Cualquier persona es un licenciatario y se hará referencia a él como &quot;Usted&quot;. Usted acepta la licencia si copia, modifica o distribuye el trabajo de cualquier modo que requiera permiso según las leyes de copyright.
+ </para>
+    <para>
+  Una &quot;Versión modificada&quot; del Documento hace referencia a cualquier trabajo que contenga el Documento o una porción del mismo, ya sea una copia literal o con modificaciones o traducciones a otro idioma.
+ </para>
+    <para>
+  Una &quot;Sección secundaria&quot; es un apéndice determinado o una sección preliminar del Documento que trata exclusivamente de la relación entre los autores o editores y el tema general del Documento (o temas relacionados) pero que no contiene nada que entre directamente en dicho tema general. Por ejemplo, si el Documento es en parte un texto de matemáticas, una Sección Secundaria puede no explicar nada de matemáticas. La relación puede ser una conexión histórica con el tema o temas relacionados, o una opinión legal, comercial, filosófica, ética o política acerca de ellos.
+ </para>
+    <para>
+  Las &quot;Secciones fijas&quot; son ciertas Secciones Secundarias cuyos títulos son designados como Secciones fijas en el aviso que indica que el documento está sujeto a esta Licencia. Si una sección no entra en la definición de Secundaria, no puede designarse como Fija. El documento puede no tener Secciones fijas. Si el Documento no identifica las Secciones fijas, es que no las tiene.
+ </para>
+    <para>
+  Los &quot;Textos de cubierta&quot; son ciertos pasajes cortos de texto que se incluyen como Textos de cubierta delantera o Textos de cubierta trasera en el aviso que indica que el documento está sujeto a esta Licencia. Un Texto de cubierta delantera puede tener como máximo 5 palabras, y uno de Cubierta trasera puede tener hasta 25 palabras.
+ </para>
+    <para>
+  Una copia &quot;Transparente&quot; del Documento es una copia para lectura en máquina, representada en un formato cuya especificación está disponible para el público en general, apto para que los contenidos puedan ser vistos y editados directamente con editores de texto genéricos; o, en el caso de las imágenes compuestas por píxeles, con programas genéricos de manipulación de imágenes; o en el caso de los dibujos, con algún editor de dibujos ampliamente disponible; y que sea adecuado como entrada para formateadores de texto o para su traducción automática a formatos adecuados para formateadores de texto. Una copia hecha en un formato definido como Transparente, pero cuyo marcado, o ausencia de él, haya sido diseñado para impedir o dificultar modificaciones posteriores por parte de los lectores no se puede considerar como Transparente. Un formato de imagen no es Transparente si se usa para una cantidad de texto sustancial. Una copia que no sea Transparente se denomina &quot;Opaca&quot;.
+ </para>
+    <para>
+  Ejemplos de formatos adecuados para copias Transparentes son: ASCII puro sin marcas, formato de entrada de Texinfo, formato de entrada de LaTeX, SGML o XML usando DTD disponibles públicamente, y HTML, PostScript o PDF simples, que sigan los estándares y diseñados para ser modificados por personas. Ejemplos de formatos de imagen transparentes son PNG, XCF y JPG. Los formatos Opacos incluyen formatos de propiedad que pueden ser leídos y editados únicamente en procesadores de textos propietarios, SGML o XML para los cuales las DTD o herramientas de procesamiento no estén ampliamente disponibles, y HTML, PostScript o PDF generados por algunos procesadores de textos solo como salida.
+ </para>
+    <para>
+  La &quot;Portada&quot; es, en un libro impreso, la página de título, más las páginas siguientes que sean necesarias para mantener legiblemente el material que esta Licencia requiere en la portada. Para trabajos en formatos que no tengan página de portada como tal, la &quot;Portada&quot; hace referencia al texto cercano a la aparición más destacada del título del trabajo que precede el comienzo del cuerpo del texto.
+ </para>
+    <para>
+  Una sección &quot;Titulada XYZ&quot; hace referencia a una parte del Documento cuyo título es precisamente XYZ o contiene XYZ entre paréntesis, y a continuación, el texto que traduce XYZ a otro idioma (aquí XYZ se refiere a nombres de sección específicos mencionados más abajo como, por ejemplo, &quot;Agradecimientos&quot;, &quot;Dedicatorias&quot;, &quot;Aprobaciones&quot; o &quot;Historia&quot;). &quot;Conservar el título&quot; de tal sección cuando se modifica el Documento significa que permanece una sección &quot;Titulada XYZ&quot; según esta definición.
+ </para>
+    <para>
+  El Documento puede incluir limitaciones de garantía junto al aviso donde se declara que al Documento se le aplica esta Licencia. Se considera que estas Limitaciones de garantía se incluyen como referencia en esta Licencia, pero solo en concepto de renuncia de garantía: cualquier otra implicación que estas Limitaciones de garantía pudiera tener se considera nula y no tiene efecto alguno en el significado de esta Licencia.
+ </para>
+    <bridgehead renderas="sect4">
+    2. COPIA LITERAL
+  </bridgehead>
+    <para>
+  Usted puede copiar y distribuir el Documento en cualquier medio, ya sea con propósito comercial o no comercial, siempre y cuando esta Licencia, la información de copyright y la nota que indica que esta Licencia se aplica al Documento se reproduzcan en todas las copias y que usted no añada ninguna otra condición a las expuestas en esta Licencia. Usted no puede usar medidas técnicas para obstruir o controlar la lectura o copia posterior de las copias que usted haga o distribuya. Sin embargo, usted puede aceptar compensación a cambio de las copias. Si distribuye un número suficientemente grande de copias, también deberá seguir las condiciones de la sección 3.
+ </para>
+    <para>
+  También puede prestar copias, bajo las mismas condiciones establecidas anteriormente, y puede exhibir copias públicamente.
+ </para>
+    <bridgehead renderas="sect4">
+    3. GRANDES CANTIDADES DE COPIAS
+  </bridgehead>
+    <para>
+  Si publica copias impresas del Documento (o copias en medios que tengan normalmente cubiertas impresas) que sobrepasen las 100 unidades, y el aviso de licencia del Documento exige Textos de cubierta, las copias deben llevar cubiertas que especifiquen de forma clara y legible todos esos Textos de cubierta: Textos de cubierta delantera o Textos de cubierta trasera. Ambas cubiertas deben identificarlo a usted clara y legiblemente como editor de tales copias. La cubierta debe mostrar el título completo con todas las palabras igualmente destacadas y visibles. Además puede añadir otro material en las cubiertas. Las copias con cambios limitados a las cubiertas, siempre que conserven el título del Documento y satisfagan estas condiciones, pueden considerarse como copias literales en otros aspectos.
+ </para>
+    <para>
+  Si los textos requeridos para la cubierta son muy numerosos para que encajen legiblemente, debe colocar los primeros (tantos como sea razonable colocar) en la verdadera cubierta y situar el resto en páginas posteriores.
+ </para>
+    <para>
+  Si publica o distribuye copias Opacas del Documento cuya cantidad exceda las 100 unidades, debe incluir una copia Transparente, que pueda ser leída por una máquina, con cada copia Opaca, o bien mostrar, en cada copia Opaca, una dirección de red donde cualquier usuario de la misma tenga acceso por medio de protocolos públicos y estandarizados a una copia Transparente del Documento completa, sin material adicional. Si hace uso de la última opción, deberá tomar las medidas necesarias, cuando comience la distribución de las copias Opacas en cantidad, para garantizar que esta copia Transparente permanezca accesible en el sitio establecido por lo menos un año después de la última vez que distribuyó una copia Opaca de esa edición al público (ya sea directamente o a través de sus agentes o distribuidores).
+ </para>
+    <para>
+  Se solicita, aunque no es obligatorio, que se ponga en contacto con los autores del Documento antes de redistribuir un número grande de copias, para darles la oportunidad de que le proporcionen una versión actualizada del Documento.
+ </para>
+    <bridgehead renderas="sect4">
+    4. MODIFICACIONES
+  </bridgehead>
+    <para>
+  Puede copiar y distribuir una Versión modificada del documento bajo las condiciones de las secciones 2 y 3 anteriores (siempre que la Versión modificada esté sujeta a esta misma Licencia), con la Versión modificada actuando como Documento, lo que otorga licencia de distribución y modificación de la Versión modificada a todos los que posean una copia de ella. Además, debe hacer lo siguiente en la Versión modificada:
+ </para>
+    <orderedlist numeration="upperalpha" spacing="normal">
+      <listitem>
+        <para>
+    Usar en la Portada (y en las cubiertas, si hay alguna) un título distinto al del Documento y al de las versiones anteriores (que deberían, si hay alguna, estar listadas en la sección de Historia del Documento). Puede usar el mismo título de versiones anteriores siempre y cuando quien las publicó originalmente le otorgue permiso.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Debe enumerar en la Portada, como autores, a la persona o personas o entidades responsables de la autoría de las modificaciones de la Versión modificada, junto con, al menos, cinco de los autores principales del Documento (todos sus autores principales, si hay menos de cinco), a menos que le eximan de tal requisito.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Mostrar en la Portada como editor el nombre del editor de la Versión modificada.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Conservar todos la información de copyright del Documento.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Añadir información de copyright apropiada a sus modificaciones junto a otra información de copyright.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Incluir, inmediatamente después de la información de copyright, aviso de licencia dando el permiso público para usar la Versión modificada bajo los términos de esta Licencia, como se muestra en el anexo al final de este documento.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Conservar en ese aviso de licencia el listado completo de las Secciones fijas y de los Textos de cubierta que sean requeridos en el aviso de Licencia del Documento.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Incluir una copia sin modificación de esta Licencia.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Conservar la sección titulada &quot;Historia&quot;, conservar su Título y añadirle un elemento que declare al menos el título, el año, los nuevos autores y el editor de la Versión modificada, tal como figuran en la Portada. Si no hay una sección titulada &quot;Historia&quot; en el Documento, deberá crear una estableciendo el título, el año, los autores y el editor del Documento, tal como figuran en su Portada, añadiendo además un elemento que describa la Versión modificada, como se estableció anteriormente.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Conservar la dirección en red, si la hay, indicada en el Documento para el acceso público a una copia Transparente del mismo, así como las otras direcciones de red incluidas en el Documento para versiones anteriores en las que estuviese basado. Pueden ubicarse en la sección &quot;Historia&quot;. Se puede omitir la ubicación en red de un trabajo que haya sido publicado por lo menos cuatro años antes que el Documento mismo, o si el editor original de dicha versión da permiso.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    En cualquier sección titulada &quot;Agradecimientos&quot; o &quot;Dedicatorias&quot;, deberá conservar el título de la sección y conservar en ella toda la esencia y el tono de los agradecimientos o dedicatorias incluidos por cada contribuyente.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Conservar todas las Secciones fijas del Documento, sin alterar su texto ni sus títulos. Los números de sección o el equivalente no se consideran parte de los títulos de la sección.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Borre cualquier sección titulada &quot;Aprobaciones&quot;. Tales secciones no pueden estar incluidas en las Versiones modificadas.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    No cambie el título de ninguna sección existente a &quot;Aprobaciones&quot; ni a otro título que entre en conflicto con el de alguna Sección fija.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Conserve todas las Limitaciones de garantía.
+   </para>
+      </listitem>
+    </orderedlist>
+    <para>
+  Si la Versión modificada incluye secciones o apéndices nuevos que se puedan considerar como Secciones secundarias y no contiene material copiado del Documento, puede, opcionalmente, designar algunas o todas esas secciones como fijas. Para hacerlo, añada sus títulos a la lista de Secciones fijas en el aviso de licencia de la Versión modificada. Tales títulos deben ser distintos de cualquier otro título de sección.
+ </para>
+    <para>
+  Puede añadir una sección titulada &quot;Aprobaciones&quot;, siempre que contenga únicamente aprobaciones de su Versión modificada otorgadas por otras fuentes (por ejemplo, observaciones de peritos o que el texto haya sido aprobado por una organización como la definición oficial de un estándar).
+ </para>
+    <para>
+  Puede añadir un pasaje de hasta cinco palabras como Texto de cubierta delantera y un pasaje de hasta 25 palabras como Texto de cubierta trasera al final de la lista de textos de cubierta en la Versión modificada. Una entidad solo puede añadir (o hacer que se añada) un pasaje al Texto de cubierta delantera y uno al de Cubierta trasera Si el Documento ya incluye textos de cubiertas añadidos previamente por usted o por la misma entidad a la que usted representa, usted no puede añadir otro; pero puede reemplazar el anterior, con permiso explícito del editor que añadió el anterior.
+ </para>
+    <para>
+  Con esta Licencia, ni los autores ni los editores del Documento dan permiso para usar sus nombres para publicidad ni para asegurar o implicar aprobación de cualquier Versión modificada.
+ </para>
+    <bridgehead renderas="sect4">
+    5. COMBINACIÓN DE DOCUMENTOS
+  </bridgehead>
+    <para>
+  Usted puede combinar el Documento con otros documentos sujetos a esta Licencia, bajo los términos definidos en la sección 4 anterior para versiones modificadas, siempre que incluya en la combinación todas las Secciones fijas de todos los documentos originales, sin modificar, especificadas todas como Secciones fijas del trabajo combinado en su aviso de licencia. Así mismo debe incluir la Limitación de garantía.
+ </para>
+    <para>
+  El trabajo combinado necesita contener solamente una copia de esta Licencia, y puede reemplazar varias Secciones fijas idénticas por una sola copia. Si hay varias Secciones fijas con el mismo nombre pero con contenidos diferentes, haga que el título de cada una de estas secciones sea único añadiéndole al final del mismo, entre paréntesis, el nombre del autor o editor original de esa sección, si es conocido, o de lo contrario, un número único. Haga el mismo ajuste a los títulos de sección en la lista de Secciones fijas del aviso de licencia del trabajo combinado.
+ </para>
+    <para>
+  En la combinación, debe incluir cualquier sección titulada &quot;Historia&quot; de los documentos originales, formando una única sección con el mismo título; de la misma forma combine cualquier sección titulada &quot;Agradecimientos&quot; o &quot;Dedicatorias&quot;. Debe borrar todas las secciones tituladas &quot;Aprobaciones&quot;.
+ </para>
+    <bridgehead renderas="sect4">
+    6. COLECCIONES DE DOCUMENTOS
+  </bridgehead>
+    <para>
+  Puede hacer una colección que conste del Documento y de otros documentos sujetos a esta Licencia, y reemplazar las copias individuales de esta Licencia de cada uno de los documentos por una sola copia que esté incluida en la colección, siempre que siga las indicaciones de esta Licencia para la copia literal de los documentos en cualquiera de los demás aspectos.
+ </para>
+    <para>
+  Puede extraer un solo documento de una colección de este tipo y distribuirlo individualmente con esta Licencia, siempre que inserte una copia de esta Licencia en el documento extraído, y siga las estipulaciones de esta Licencia en todos los demás aspectos relativos a la copia literal del documento.
+ </para>
+    <bridgehead renderas="sect4">
+    7. AGREGACIÓN CON TRABAJOS INDEPENDIENTES
+  </bridgehead>
+    <para>
+  Una recopilación que conste del Documento o sus derivados y de otros documentos o trabajos separados e independientes, en cualquier medio de almacenamiento o distribución, se denomina un &quot;agregado&quot; si el copyright resultante de la compilación no se usa para limitar los derechos legales de los usuarios de la compilación más allá de lo que permiten los trabajos individuales. Cuando el Documento se incluye en un agregado, esta Licencia no se aplica a otros trabajos del agregado que no sean en sí mismos derivados del Documento.
+ </para>
+    <para>
+  Si el requisito de la sección 3 sobre el Texto de cubierta es aplicable a estas copias del Documento y el Documento es menor que la mitad del agregado entero, los Textos de cubierta del Documento pueden colocarse en cubiertas que enmarquen solamente el Documento dentro del agregado, o el equivalente electrónico de las cubiertas, si el documento está en formato electrónico. En caso contrario deben aparecer en cubiertas impresas enmarcando todo el agregado.
+ </para>
+    <bridgehead renderas="sect4">
+    8. TRADUCCIÓN
+  </bridgehead>
+    <para>
+  La traducción se considera un tipo de modificación, por lo que puede distribuir las traducciones del Documento según los términos de la sección 4. La sustitución de las secciones invariables por traducciones requiere un permiso especial de los titulares de los derechos de autor, pero puede incluir traducciones de algunas o todas las secciones invariables además de las versiones originales de estas secciones. Puede incluir una traducción de esta Licencia, de todas las notas de licencia del documento, así como de las Limitaciones de garantía, siempre que incluya también su versión en inglés y las versiones originales de los avisos de licencia y Limitaciones de garantía. En caso de que haya discrepancias entre la traducción y la versión original en inglés de esta Licencia, el aviso de licencia o la limitación de garantía, prevalecerá la versión original en inglés.
+ </para>
+    <para>
+  Si una sección del Documento está titulada &quot;Agradecimientos&quot;, &quot;Dedicatorias&quot; o &quot;Historia&quot;, el requisito (sección 4) de conservar su título (sección 1) requerirá, normalmente, que se cambie su título.
+ </para>
+    <bridgehead renderas="sect4">
+    9. CONCLUSIÓN
+  </bridgehead>
+    <para>
+  El Documento no se debe copiar, modificar, sublicenciar ni distribuir bajo otras circunstancias que no sean las previstas en esta Licencia. Cualquier intento de copiar, modificar, sublicenciar y distribuir el Documento por otros medios se considerará nulo y pondrá fin automáticamente a los derechos concedidos mediante esta Licencia. Sin embargo, las partes a las que haya proporcionado copias o derechos según los términos de esta Licencia seguirán conservando sus licencias siempre que se sigan ajustando totalmente a las condiciones aquí expuestas.
+ </para>
+    <bridgehead renderas="sect4">
+    10. REVISIONES FUTURAS DE ESTA LICENCIA
+  </bridgehead>
+    <para>
+  La Free Software Foundation puede publicar versiones nuevas o revisadas de la Licencia de documentación gratuita de GNU de forma periódica. Estas nuevas versiones serán similares en espíritu a esta versión, pero pueden incluir detalles distintos para tratar problemas o preocupaciones nuevos. Consulte <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.gnu.org/copyleft/"/>.
+ </para>
+    <para>
+  A cada versión de la Licencia se le asigna un número de versión distintivo. Si el Documento especifica que está sujeto a un número de versión concreto de Licencia y añade &quot;o cualquier versión posterior&quot;, tendrá la opción de seguir las cláusulas de dicha versión o de cualquier versión posterior que haya publicado la Free Software Foundation (que no sea un borrador). Si el Documento no indica ningún número de versión de licencia, puede elegir cualquier versión que haya publicado la Free Software Foundation (que no sea un borrador).
+ </para>
+    <bridgehead renderas="sect4">
+    ANEXO: Cómo usar esta Licencia en sus documentos
+  </bridgehead>
+    <screen>Copyright (c) YEAR YOUR NAME.
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2
+or any later version published by the Free Software Foundation;
+with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+A copy of the license is included in the section entitled &#x201C;GNU
+Free Documentation License&#x201D;.</screen>
+    <para>
+  Si tiene Secciones fijas, Textos de cubierta delantera y Textos de cubierta trasera, reemplace la frase &quot;con Textos [...]&quot; por esto:
+ </para>
+    <screen>with the Invariant Sections being LIST THEIR TITLES, with the
+Front-Cover Texts being LIST, and with the Back-Cover Texts being LIST.</screen>
+    <para>
+  Si tiene Secciones fijas sin textos de cubierta, o alguna otra combinación de los tres, combine las alternativas para adaptarse a la situación.
+ </para>
+    <para>
+  Si su documento contiene ejemplos de código de programa no triviales, se recomienda que estos ejemplos estén sujetos a la licencia de software libre que usted elija, como la Licencia pública general de GNU para permitir su uso en software libre.
+</para>
+  </appendix>
+</article>
