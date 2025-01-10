@@ -16,104 +16,155 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Configuring network connections</title><!-- can be changed via merge
+    <title>Creating network connections</title><!-- can be changed via merge
 in the assembly -->
     <!-- add author's e-mail -->
     <meta name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
     <abstract>
-        <para>You can configure the network using the <command>nmcli</command> command.</para></abstract>
+        <para>You can create a network connction profile using the <command>nmcli</command> command.</para></abstract>
    </info>
-<para>&nm; stores all network configurations as a connection, which is a collection of data that describes how to create or connect to a network. These connections are stored as files in the <filename>/etc/NetworkManager/system-connections/</filename> directory by default. Each network connection (Wi-Fi, Ethernet, VPN) is represented by a separate file in this directory.</para>
-<para>A connection is active when a particular device uses the connection. The device may have more than one connection configured, but only one can be active at a given time. The other connections can be used to fast switch from one connection to another. For example, if the active connection is not available, &nm; tries to connect the device to another configured connection.</para>
+<para>&nm; stores all network configurations as a connection profile, which is a collection of data
+that describes how to create or connect to a network. These connection profiles are stored as files in the
+<filename>/etc/NetworkManager/system-connections/</filename> directory by default. Each network
+connection profile (Wi-Fi, Ethernet, VPN) is represented by a separate file in this directory.</para>
+<para>A connection is an instance of a particular connection profile that is active when a
+particular device uses the connection. The device may have more than one connection profile
+configured. The other connections can be used to fast
+switch from one connection to another. For example, if the active connection is not available, &nm;
+tries to connect the device to another configured connection.</para>
 <para>The &nm; daemon manages network connections. You can interact with it 
-using graphical front-ends like <command>nm-applet</command>  (if a desktop environment is available on your system) or command-line interfaces like <command>nmcli</command> or 
+using a command-line interfaces: <command>nmcli</command> or ncurses interface:
 <command>nmtui</command>.</para>
-<section><title>Configuring an Ethernet connection</title>
+
+<note>
+<title></title>
+<para>
+
+</para>
+</note>
+
+<!--
+JH: I think it is better to have this section as creating a connection profile then
+configuring. Configuring may be also modifying an existing profile and then the section Modifying
+connections would be obsolete. IMHO separating creation and later changes would make it easier to
+read these sections. If so, we need the adjust the procedures below. If the connection does not
+exist it will not show in the output of nmcli connection show. So you need to get the device name
+first (nmcli device status), then the list of connections to avoid duplications.
+-->
+<section><title>Creating an Ethernet connection</title>
   <para>Configure the Ethernet connection using the <command>nmcli</command> 
   command and proceed as follows:</para>
   <procedure xml:id="networkmanager-ethernet">
   <step>
-      <para>View the list of connections:</para>
+  <para>
+  List available devices to get the exact device name:
+  </para>
+  <screen>&prompt.user;nmcli device</screen>
+  </step>
+  <step>
+      <para>View the list of connections to check if the profile name, you want to use, does not exist:</para>
     <screen>nmcli connection show</screen>
       <para>The &nm; creates a profile for each Network Interface Controller (NIC). To connect the NIC to networks with different settings, you must create separate profiles for each network.</para>
   </step>
   <step>
-      <para>To create a new connection profile:</para>
-      <screen>nmcli connection add con-name <replaceable>CONNECTION-NAME</replaceable> ifname <replaceable>DEVICE-NAME</replaceable> type ethernet</screen>
-  </step>
-  <step>
-    <para>To rename an existing profile:</para>
-    <screen>nmcli connection modify "<replaceable>EXISTINGCONNECTION</replaceable>" connection.id "<replaceable>NEWCONNECTION</replaceable>"</screen>
-  </step>
+      <para>Create a new connection profile:</para>
+      <screen>&prompt.sudo;nmcli connection add con-name <replaceable>CONNECTION_NAME</replaceable> ifname <replaceable>DEVICE_NAME</replaceable> type ethernet</screen>
+  </step>  
   <step>
     <para>View the existing network settings of the new connection profile:</para>
-    <screen>nmcli connection show NEWCONNECTION</screen>
+    <screen>&prompt.user;nmcli connection show <replaceable>CONNECTION_NAME</replaceable></screen>    
   </step>
   <step>
-    <para>To configure an IPv4 connection to use DHCP:</para>
-    <screen>nmcli connection modify <replaceable>NEWCONNECTION</replaceable> ipv4.method auto</screen>
-    <para>To configure a static IPv4 address, network mask, default gateway, DNS servers and search domain:</para>
-    <screen>nmcli connection modify <replaceable>NEWCONNECTION</replaceable> ipv4.method manual ipv4.addresses 192.0.2.1/24 ipv4.gateway 192.0.2.254 ipv4.dns 192.0.2.200 ipv4.dns-search example.com</screen>
-  </step>
-<step>
-  <para>To configure the IPv6 settings to use stateless address autoconfiguration (SLAAC):</para>
-  <screen>nmcli connection modify <replaceable>NEWCONNECTION</replaceable> ipv6.method auto</screen>
-<para>To configure a static IPv6 address, network mask, default gateway, DNS servers and search domain:</para>
-      <screen>nmcli connection modify <replaceable>INTERNAL-LAN</replaceable> ipv6.method manual ipv6.addresses 2001:db8:1::fffe/64 ipv6.gateway 2001:db8:1::fffe ipv6.dns 2001:db8:1::ffbb ipv6.dns-search example.com</screen>
-</step>
-<step><para>Configure other settings in the profile:</para>
-  <screen>nmcli connection modify <replaceable>NAMEOFCONNECTION</replaceable> <replaceable>SETTING</replaceable> <replaceable>VALUE</replaceable></screen>
-  </step>
+  <para>Configure the connection profile. The generic command syntax is the following:</para>
+  <screen>&prompt.sudo;nmcli connection modify <replaceable>CONNECTION_NAME</replaceable>
+  <replaceable>SETTING</replaceable> <replaceable>VALUE</replaceable></screen>
+  <para>
+  For example, automatic IP addresses assingment (DHCP or SLAAC) is enabled by default, you may want
+ to configure a static IP address:
+  </para>
+  <itemizedlist>
+  <listitem>
+  <para>for IPv4</para>
+  <screen>&prompt.sudo;nmcli connection modify <replaceable>CONNECTION_NAME</replaceable> ipv4.method manual ipv4.addresses 192.0.2.1/24 ipv4.gateway 192.0.2.254 ipv4.dns 192.0.2.200 ipv4.dns-search example.com</screen>
+  </listitem>
+  <listitem>
+  <para>
+  for IPv6
+  </para>
+  <screen>&prompt.sudo;nmcli connection modify <replaceable>INTERNAL-LAN</replaceable> ipv6.method manual ipv6.addresses 2001:db8:1::fffe/64 ipv6.gateway 2001:db8:1::fffe ipv6.dns 2001:db8:1::ffbb ipv6.dns-search example.com</screen>
+  </listitem>
+  </itemizedlist>
+  </step> 
+
   <step><para>Activate the profile:</para>
-  <screen>nmcli connection up <replaceable>NEWCONNECTION</replaceable></screen>
+  <screen>&prompt.sudo;nmcli connection up <replaceable>CONNECTION_NAME</replaceable></screen>
   </step>
   <step><para>Verify the configurations:</para>
   <substeps>
     <step><para>Verify the IP settings of the NIC:</para>
-        <screen>ip address show <replaceable>HOSTNAME</replaceable></screen>
+        <screen>&prompt.user;ip address show <replaceable>HOSTNAME</replaceable></screen>
     </step>
     <step><para>Verify the default IPv4 gateway:</para>
-      <screen>ip route show default</screen>
+      <screen>&prompt.user;ip route show default</screen>
         </step>
     <step><para>Verify the default IPv6 gateway:</para>
-          <screen>ip -6 route show default</screen>
+          <screen>&prompt.user;ip -6 route show default</screen>
     </step>
     <step><para>View the DNS settings:</para>
-              <screen>cat /etc/resolv.conf</screen>
+              <screen>&prompt.user;cat /etc/resolv.conf</screen>
     </step>
   </substeps>
   </step>
 </procedure>
 </section>
-<section xml:id="configure-wifi"><title>Configuring a Wi-Fi connection</title>
-<para>You can connect to a Wi-Fi using the <command>nmcli</command> command. The &nm; creates a new connection profile when you connect to a Wi-Fi. You can configure the profile after connecting to the Wi-Fi.</para>
+<section xml:id="configure-wifi"><title>Creating a Wi-Fi connection profile</title>
+<para>You can connect to a Wi-Fi using the <command>nmcli</command> command. The &nm; creates a new
+connection profile when you connect to a Wi-Fi for the first time. You can configure the profile after connecting to
+the Wi-Fi.</para>
 <procedure>
   <step>
     <para>Enable the Wi-Fi radio:</para>
-      <screen>nmcli radio wifi on</screen>
+      <screen>&prompt.sudo;nmcli radio wifi on</screen>
     
   </step>
-  <step><para>To view the list of available devices, run the 
-  <command>nmcli device show</command> command.</para>
+  <step><para>View the list of available devices: </para>
+  <screen>&prompt.sudo;nmcli device</screen> 
 </step>
   <step><para>Connect to Wi-Fi:
      </para>
-     <screen>nmcli device wifi connect <replaceable>WI-FI-CONNECTION-NAME</replaceable> <replaceable>PASSWORD</replaceable> </screen></step>
- <step> <para>Configure iPV4 settings:</para>
-<screen>nmcli connection modify <replaceable>WI-FI-CONNECTION-NAME</replaceable> ipv4.method manual ipv4.addresses <replaceable>IP-ADDRESS/SUBNET-MASK</replaceable></screen>
-<para>Configure iPV6 settings:</para>
-  <screen>nmcli connection modify <replaceable>WI-FI-CONNECTION-NAME</replaceable> ipv6.method manual ipv6.addresses <replaceable>IP-ADDRESS/SUBNET-MASK</replaceable></screen>
-</step>
+     <screen>&prompt.sudo;nmcli device wifi connect <replaceable>WI-FI_CONNECTION_NAME</replaceable>
+     <replaceable>PASSWORD</replaceable> </screen></step>
+     <step>
+    <para>View the existing network settings of the new connection profile:</para>
+    <screen>&prompt.sudo;nmcli connection show <replaceable>CONNECTION_NAME</replaceable></screen>    
+  </step>
+     <step>
+     <para>
+     Configure the connection profile as needed, using the command:
+     </para>
+     <screen>&prompt.sudo;nmcli connection modify <replaceable>CONNECTION_NAME</replaceable>
+  <replaceable>SETTING</replaceable> <replaceable>VALUE</replaceable></screen>
+  <para>
+  For example, to configure a static IPv4:
+  </para>
+  <screen>&prompt.sudo;nmcli connection modify <replaceable>WI-FI_CONNECTION_NAME</replaceable> ipv4.method manual ipv4.addresses <replaceable>IP_ADDRESS/SUBNET_MASK</replaceable></screen>
+  <para>
+  To configure a static IPv6 address
+  </para>
+  <screen>&prompt.sudo;nmcli connection modify <replaceable>WI-FI_CONNECTION_NAME</replaceable> ipv6.method manual ipv6.addresses <replaceable>IP_ADDRESS/SUBNET_MASK</replaceable></screen>
+     </step>
+ 
 <step><para>Restart the connection:</para>
-<screen>nmcli connection up <replaceable>WI-FI-CONNECTION-NAME</replaceable></screen>
+<screen>&prompt.sudo;nmcli connection up <replaceable>WI-FI_CONNECTION_NAME</replaceable></screen>
 </step>
-<step><para>Verify the connection using the command <command>nmcli connection show --active</command>.</para>
+<step><para>Verify the connection using the command: .</para>
+<screen>&prompt.user;<command>nmcli connection show --active</command></screen>
 <para>The list of available active connections appears.</para>
 </step>
 </procedure>
 </section>
 <section xml:id="configure-network-bond">
-  <title>Configuring a network bond</title>
+  <title>Creating a network bond</title>
 <para>A network bond combines physical and virtual network interfaces and provides a logical interface. You can create network bonds on Ethernet devices, Virtual LANs, and so on.</para>
 <para>You must have two or more physical or virtual networks installed on the server.
 </para>
@@ -127,55 +178,76 @@ creation process or beforehand.</para></listitem>
 <procedure xml:id="network-bond-configuration">
   <title>Creating a network bond</title>
   <step><para>Create a bond interface:</para>
-  <screen>nmcli connection add type bond con-name <replaceable>NWBOND</replaceable> ifname <replaceable>NWBOND</replaceable> bond.options "mode=active-backup"</screen>
+  <screen>&prompt.sudo;nmcli connection add type bond con-name <replaceable>NWBOND</replaceable> ifname <replaceable>NWBOND</replaceable> bond.options "mode=active-backup"</screen>
+  <!-- JH: Please consider adding description of bond.options here -->
   <para>
    A network bond, <replaceable>NWBOND</replaceable> that uses <varname>active-backup</varname> mode is created.
   </para>
+  <!-- JH: the replaceable is for placeholders only. Either elaborte a little bit and use the same
+  placeholder further, or explain that the bond name is bond0 to clarify further steps and keep
+  them consistent -->
   </step>
   <step><para>View the list of network interfaces:</para>
-  <screen>nmcli device status
-  </screen>
-  <screen>DEVICE         TYPE      STATE                   CONNECTION    
+  <screen>&prompt.user;nmcli device status
+
+    DEVICE         TYPE      STATE                   CONNECTION    
     wlan0          wifi      connected               Vision 
     virbr0         bridge    connected (externally)  virbr0        
     p2p-dev-wlan0  wifi-p2p  disconnected            --            
     eth0           ethernet  unavailable             --            
     lo             loopback  unmanaged               --   </screen>
-<para>The list of available network interfaces appears. You can configure the devices that are not configured.
+<para>The list of available network interfaces appears. You can add to the bond also the devices that are not configured.
   In the given list, <literal>p2p-dev-wlan0</literal> is not configured,
   while <literal>virbr0</literal> is configured and has a connection profile.</para>
 </step>
 <step><para>To configure <literal>p2p-dev-wlan0</literal> as a port, 
 create a connection profile:</para>
-<screen>nmcli connection add type wifi-p2p slave-type bond con-name bond0-port1 ifname p2p-dev-wlan0 master bond0</screen>
+<screen>&prompt.sudo;nmcli connection add type wifi-p2p slave-type bond con-name bond0-port1 ifname p2p-dev-wlan0 master bond0</screen>
 <para>A new profile is created for <literal>p2p-dev-wlan0</literal> and added to the <literal>bond0</literal> connection.</para></step>
-<step><para>To assign an existing connection to a bond:</para>
-<screen>nmcli connection modify virbr0 master bond0</screen>
+<step><para>To assign <literal>virbr0</literal> to a bond:</para>
+<screen>&prompt.sudo;nmcli connection modify virbr0 master bond0</screen>
 <para>The  connection profile for <literal>virbr0</literal> is added to the <literal>bond0</literal> connection.</para>
 </step>
 <step><para>Activate the connection:</para>
-<screen>nmcli connection up virbr0</screen></step>
+<screen>&prompt.sudo;nmcli connection up virbr0</screen></step>
 <step><para>Configure the IPv4 settings:</para>
-  <para>To use <literal>bond0</literal> as a port for other devices:</para>
-    <screen>nmcli connection modify bond0 ipv4.method disabled</screen>
-  <para>To use DHCP, no configuration is required.</para>
-  <para>To configure a static IPv4 address, network mask, default gateway and DNS server to the <literal>bond0</literal> connection:</para>
-<screen>nmcli connection modify bond0 ipv4.addresses '192.0.2.1/24' ipv4.gateway '192.0.2.254' ipv4.dns '192.0.2.253' ipv4.dns-search 'example.com' ipv4.method manual</screen>
+<!-- JH: I changed it to itemizedlist here. -->
+<itemizedlist>
+<listitem>
+<para>To use <literal>bond0</literal> as a port for other devices:</para>
+    <screen>&prompt.sudo;nmcli connection modify bond0 ipv4.method disabled</screen>
+</listitem>
+<listitem>
+ <para>To use DHCP, no configuration is required.</para>
+</listitem>
+<listitem>
+<para>To configure a static IPv4 address, network mask, default gateway and DNS server to the <literal>bond0</literal> connection:</para>
+<screen>&prompt.sudo;nmcli connection modify bond0 ipv4.addresses '192.0.2.1/24' ipv4.gateway '192.0.2.254' ipv4.dns '192.0.2.253' ipv4.dns-search 'example.com' ipv4.method manual</screen>
+</listitem>
+</itemizedlist>  
 </step>
 <step><para>Configure the IPv6 settings:</para>
-    <para>To use this bond device as a port of other devices:</para>
-      <screen>nmcli connection modify bond0 ipv6.method disabled</screen>
-    <para>To use stateless address autoconfiguration (SLAAC), no action is required. </para>
-    <para>To set a static IPv6 address, network mask, default gateway and DNS server to the <literal>bond0</literal> connection:</para>
-      <screen>nmcli connection modify bond0 ipv6.addresses '2001:db8:1::1/64' ipv6.gateway '2001:db8:1::fffe' ipv6.dns '2001:db8:1::fffd' ipv6.dns-search 'example.com' ipv6.method manual</screen>
+<itemizedlist>
+<listitem>
+<para>To use this bond device as a port of other devices:</para>
+      <screen>&prompt.sudo;nmcli connection modify bond0 ipv6.method disabled</screen>
+</listitem>
+<listitem>
+<para>To use stateless address autoconfiguration (SLAAC), no action is required. </para>
+</listitem>
+<listitem>
+<para>To set a static IPv6 address, network mask, default gateway and DNS server to the <literal>bond0</literal> connection:</para>
+      <screen>&prompt.sudo;nmcli connection modify bond0 ipv6.addresses '2001:db8:1::1/64' ipv6.gateway '2001:db8:1::fffe' ipv6.dns '2001:db8:1::fffd' ipv6.dns-search 'example.com' ipv6.method manual</screen>
+</listitem>
+</itemizedlist>    
 </step>
 <step>
     <para>Activate the connection:</para>
-      <screen>nmcli connection up bond0</screen>
+      <screen>&prompt.sudo;nmcli connection up bond0</screen>
 </step>
 <step>
   <para>View and verify the connections:</para>
-      <screen>nmcli device</screen>
+      <screen>&prompt.user;nmcli device</screen>
   <para>The list of connections appears.</para>
 </step>
 </procedure>
@@ -193,8 +265,6 @@ create a connection profile:</para>
 <listitem>
   <para>Install two or more physical or virtual devices on the server:</para>
 </listitem>
-</itemizedlist>
-<itemizedlist>
 <listitem>
   <para>
     To use Ethernet devices as ports of the team, the physical or virtual Ethernet devices must be installed on the server and connected to a switch.
@@ -207,14 +277,16 @@ create a connection profile:</para>
 <procedure>
   <title>Creating a network team</title>
   <step><para>Create a team interface:</para>
-  <screen>nmcli connection add type team con-name team0 ifname team0 team.runner activebackup</screen>
+  <screen>&prompt.sudo;nmcli connection add type team con-name <replaceable>CONNECTION_NAME</replaceable> ifname <replaceable>TEAM_NAME</replaceable> team.runner <replaceable>RUNNER-TYPE</replaceable></screen>
   <para>
-   A network team, <literal>team0</literal>, that uses the <literal>activebackup</literal> runner, is created.
+  For example, to create a network team <literal>team0</literal> with the
+  <literal>activebackup</literal> runner, run:
   </para>
+  <screen>&prompt.sudo;nmcli connection add type team con-name team0 ifname team0 team.runner active.backup</screen>
   </step>
   <step>
   <para>View the list of network interfaces:</para>
-  <screen>nmcli device status
+  <screen>&prompt.user;nmcli device status
   </screen>
   <screen>DEVICE         TYPE      STATE                   CONNECTION    
     wlan0          wifi      connected               Vision 
@@ -223,43 +295,67 @@ create a connection profile:</para>
     eth0         ethernet  unavailable             --            
     lo             loopback  unmanaged               --     
     </screen>
-<para>The list of available network interfaces appears. You can add the interfaces to the team. In the given list, <literal>p2p-dev-wlan0</literal> is not configured, while <literal>virbr0</literal> is configured and has a connection profile.
+<para>You can add the listed devices to the team. In further <literal>p2p-dev-wlan0</literal> is
+not configured, while <literal>virbr0</literal> is configured and has a connection profile. Both
+the devices are used in further examples.
   </para>
 </step>
 <step><para>Configure port interfaces to the team:</para>
-<screen>nmcli connection add type wifi-p2p slave-type team con-name team0-port1 ifname p2p-dev-wlan0 master team0</screen>
-<para>A new profile is created for  <literal>p2p-dev-wlan0</literal> and added to the <literal>bond0</literal> connection.</para></step>
+<!-- JH: Not sure the following commands are correct. I think this should be similar to the bond
+creation. which means to run the nmcli command twice. In the second command you operate with bond0,
+but you have not created any bond0 in this section. -->
+<screen>&prompt.sudo;nmcli connection add type wifi-p2p slave-type team con-name team0-port1 ifname p2p-dev-wlan0 master team0</screen>
+<para>A new profile is created for  <literal>p2p-dev-wlan0</literal> and added to the <literal>team0</literal> connection.</para></step>
 <step><para>Assign the existing connection to the team:</para>
-<screen>nmcli connection modify bond0 master team0</screen>
+<screen>&prompt.sudo;nmcli connection modify bond0 master team0</screen>
 <para>The  connection profile for <literal>bond0</literal>  is added to the <literal>team0</literal> connection.</para>
 </step>
 <step><para>Activate the connection:</para>
-<screen>nmcli connection up bond0</screen></step>
+<screen>&prompt.sudo;nmcli connection up bond0</screen></step>
 <step><para>Configure the IPv4 settings:</para>
+<itemizedlist>
+<listitem>
 <para>To use the team device as a port of other devices:</para>
-<screen>nmcli connection modify team0 ipv4.method disabled</screen>
+<screen>&prompt.sudo;nmcli connection modify team0 ipv4.method disabled</screen>
+</listitem>
+<listitem>
 <para>To use DHCP, no configuration is required.
 </para>
+</listitem>
+<listitem>
 <para>To configure a static IPv4 address, network mask, default gateway and DNS server to the <literal>bond0</literal> connection, run the command:</para>
-<screen>nmcli connection modify team0 ipv4.addresses '192.0.2.1/24' ipv4.gateway '192.0.2.254' ipv4.dns '192.0.2.253' ipv4.dns-search 'example.com' ipv4.method manual</screen>
+<screen>&prompt.sudo;nmcli connection modify team0 ipv4.addresses '192.0.2.1/24' ipv4.gateway '192.0.2.254' ipv4.dns '192.0.2.253' ipv4.dns-search 'example.com' ipv4.method manual</screen>
+</listitem>
+</itemizedlist>
 </step>
 <step><para>Configure the IPv6 settings:</para>
+<itemizedlist>
+<listitem>
 <para>To use this team device as a port of other devices:</para>
-<screen>nmcli connection modify team0 ipv6.method disabled</screen>
+<screen>&prompt.sudo;nmcli connection modify team0 ipv6.method disabled</screen>
+</listitem>
+<listitem>
 <para>To use stateless address autoconfiguration (SLAAC), no action is required.</para>
+</listitem>
+<listitem>
 <para>To set a static IPv6 address, network mask, default gateway and DNS server to the <literal>team0</literal> connection:</para>
-<screen>nmcli connection modify team0 ipv6.addresses '2001:db8:1::1/64' ipv6.gateway '2001:db8:1::fffe' ipv6.dns '2001:db8:1::fffd' ipv6.dns-search 'example.com' ipv6.method manual
+<screen>&prompt.sudo;nmcli connection modify team0 ipv6.addresses '2001:db8:1::1/64' ipv6.gateway '2001:db8:1::fffe' ipv6.dns '2001:db8:1::fffd' ipv6.dns-search 'example.com' ipv6.method manual
 </screen>
+</listitem>
+</itemizedlist>
 </step>
 <step><para>Activate the connection:</para>
-<screen>nmcli connection up team0</screen>
+<screen>&prompt.sudo;nmcli connection up team0</screen>
 </step>
 <step><para>To view the status of the team:</para>
-<screen>teamdctl team0 state</screen></step>
+<screen>&prompt.sudo;teamdctl team0 state</screen></step>
 </procedure>
 </section>
 <section xml:id="configure-network-bridge">
   <title>Configuring a network bridge</title>
+  <para>
+  A network bridge is a device that facilitates communication between two or more network segments, creating a single network from multiple segments
+  </para>
 <para>To configure a network bridge, ensure the following:</para>
 <itemizedlist>
 <listitem>
@@ -281,79 +377,99 @@ create a connection profile:</para>
 <procedure xml:id="network-bridge-configuration">
   <title>Creating a network bridge</title>
   <step><para>Create a bridge interface:</para>
-  <screen>nmcli connection add type bridge con-name bridge0 ifname bridge0</screen>
+  <screen>&prompt.sudo;nmcli connection add type bridge con-name <replaceable>CONNECTION_NAME</replaceable> ifname <replaceable>BRIDGE_NAME</replaceable></screen>
   <para>
-   A network bridge, <literal>bridge0</literal>, is created.
-  </para></step>
+   For example, we created a bridge: <literal>bridge0</literal> by running the command:
+  </para>
+  <screen>&prompt.sudo;nmcli connection add type bridge con-name bridge0 ifname bridge0</screen>
+  </step>
   <step><para>View the list of network interfaces to verify that
    <literal>bridge0</literal> is created:</para>
-  <screen>nmcli device status
-  </screen>
-  <screen>DEVICE         TYPE      STATE                   CONNECTION    
-    wlan0          wifi      connected               Vision 
-    virbr0         bridge    connected (externally)  virbr0        
-    p2p-dev-wlan0  wifi-p2p  disconnected            --            
-    eth0           ethernet  unavailable             --            
-    lo             loopback  unmanaged               --      </screen>
-<para>The list of available network interfaces appears. You can add the 
-interfaces to the bridge. In the given list, <literal>p2p-dev-wlan0</literal> 
-is not configured, while <literal>virbr0</literal> is configured and has a
-connection profile.
+  <screen>&prompt.user;nmcli device status
+  
+    DEVICE         TYPE      STATE                                    CONNECTION    
+    wlan0                wifi      connected                                Vision 
+    virbr0               bridge    connected (externally)                   virbr0        
+    p2p-dev-wlan0        wifi-p2p  disconnected                             --            
+    eth0                 ethernet  unavailable                              --            
+    lo                   loopback  unmanaged                                --      
+    bridge0              bridge    connecting (getting IP configuration)    brdige0    
+    </screen>
+<para>The bridge is in the state <emphasis>getting IP configuration</emphasis>, because you have not
+assigned interfaces to it yet. Later you will assign the interfaces: <literal>p2p-dev-wlan0</literal> 
+(not configured) and <literal>virbr0</literal> (configured with a
+connection profile).
   </para>
 </step>
 <step><para>Add interfaces to the bridge:</para>
-<screen>nmcli connection add type wifi-p2p slave-type bridge con-name bridge0-port1 ifname p2p-dev-wlan0 master bridge0</screen>
-<para>A new profile is created for  p2p-dev-wlan0 and added to the bridge0 connection.</para></step>
+<screen>&prompt.sudo;nmcli connection add type wifi-p2p slave-type bridge con-name bridge0-port1 ifname p2p-dev-wlan0 master bridge0</screen>
+<para>A new profile is created for p2p-dev-wlan0 and added to the <literal>bridge0</literal> connection.</para></step>
 <step><para>To assign an existing connection to the bridge:</para>
-<screen>nmcli connection modify bond0 master bridge0</screen>
-<para>The  connection profile for <literal>bond0</literal>
+<screen>&prompt.sudo;nmcli connection modify bond0 master bridge0</screen>
+<para>The connection profile for <literal>bond0</literal>
   is added to the <literal>bridge0</literal> connection.</para>
 </step>
 <step><para>Restart the connection:</para>
-<screen>nmcli connection up bond0</screen></step>
+<screen>&prompt.sudo;nmcli connection up bond0</screen></step>
 <step><para>Configure the IPv4 settings:</para>
+<itemizedlist>
+<listitem>
 <para>To use the bridge device as a port of other devices:</para>
-<screen>nmcli connection modify bridge0 ipv4.method disabled</screen>
+<screen>&prompt.sudo;nmcli connection modify bridge0 ipv4.method disabled</screen>
+</listitem>
+<listitem>
 <para>To use DHCP, no configuration is required.
 </para>
+</listitem>
+<listitem>
 <para>To configure a static IPv4 address, network mask, 
 default gateway and DNS server to the <literal>bridge0</literal>
 connection:</para>
-<screen>nmcli connection modify bridge0 ipv4.addresses '192.0.2.1/24' ipv4.gateway '192.0.2.254' ipv4.dns '192.0.2.253' ipv4.dns-search 'example.com' ipv4.method manual</screen>
+<screen>&prompt.sudo;nmcli connection modify bridge0 ipv4.addresses '192.0.2.1/24' ipv4.gateway '192.0.2.254' ipv4.dns '192.0.2.253' ipv4.dns-search 'example.com' ipv4.method manual</screen>
+</listitem>
+</itemizedlist>
 </step>
 <step><para>Configure the IPv6 settings:</para>
+<itemizedlist>
+<listitem>
 <para>To use this bridge device as a port of other devices:</para>
-<screen>nmcli connection modify bridge0 ipv6.method disabled</screen>
+<screen>&prompt.sudo;nmcli connection modify bridge0 ipv6.method disabled</screen>
+</listitem>
+<listitem>
 <para>To use stateless address autoconfiguration (SLAAC), no action is required.</para>
+</listitem>
+<listitem>
 <para>To set a static IPv6 address, network mask, default gateway and DNS server to the <literal>bridge0</literal> connection:</para>
-<screen>nmcli connection modify bridge0 ipv6.addresses '2001:db8:1::1/64' ipv6.gateway '2001:db8:1::fffe' ipv6.dns '2001:db8:1::fffd' ipv6.dns-search 'example.com' ipv6.method manual</screen>
+<screen>&prompt.sudo;nmcli connection modify bridge0 ipv6.addresses '2001:db8:1::1/64' ipv6.gateway '2001:db8:1::fffe' ipv6.dns '2001:db8:1::fffd' ipv6.dns-search 'example.com' ipv6.method manual</screen>
+</listitem>
+</itemizedlist>
 </step>
 <step><para>Activate the connection:</para>
-<screen>nmcli connection up bridge0</screen>
+<screen>&prompt.sudo;nmcli connection up bridge0</screen>
 </step>
 <step><para>Verify the connection:</para>
-<screen>nmcli device</screen>
+<screen>&prompt.user;nmcli device</screen>
 <para>When you activate any port of the connection, &nm; also activates the bridge, but not the other ports of it.</para>
 <para>Enable all ports automatically when the bridge is enabled:</para>
-<screen>nmcli connection modify bridge0 connection.autoconnect-slaves 1</screen>
-</step>
-<step><para>Activate the connection.</para>
-  <screen>nmcli connection up bridge0</screen>
+<screen>&prompt.sudo;nmcli connection modify bridge0 connection.autoconnect-slaves 1</screen>
 </step>
 <step>
   <para>View the link status of Ethernet devices that are ports of a specific bridge.</para>
-  <screen>ip link show master bridge0</screen>
+  <screen>&prompt.sudo;ip link show master bridge0</screen>
 </step>
 <step>
   <para>
     View the status of Ethernet devices that are ports of any bridge device. 
   </para>
-  <screen>bridge link show</screen>
+  <screen>&prompt.sudo;bridge link show</screen>
 </step>
 </procedure>
 </section>
 <section xml:id="configure-vpn-connection">
   <title>Configuring a VPN connection</title>
+  <para>
+  A VPN (Virtual Private Network) connection is a secure, encrypted tunnel between your device and another network over the Internet.
+  </para>
 <para>You can configure a VPN connection using the <command>nmcli</command> command.</para>
 <procedure xml:id="configure-vpn-connections">
   <title>Installing and configuring a VPN connection</title>
@@ -363,23 +479,23 @@ connection:</para>
   </step>
   <step>
     <para>Create a VPN connection:</para>
-  <screen>nmcli connection add type vpn con-name MyOpenVPN ifname -- vpn-type openvpn
+  <screen>&prompt.sudo;nmcli connection add type vpn con-name MyOpenVPN ifname -- vpn-type openvpn
   </screen>
   </step>
   <step>
     <para>Configure the settings:</para>
-  <screen>nmcli connection modify MyOpenVPN vpn.data "remote=<replaceable>VPN-SERVER-ADDRESS</replaceable>,username=<replaceable>YOUR-USERNAME</replaceable>"</screen>
-  <screen>nmcli connection modify MyOpenVPN vpn.secrets "password=<replaceable>YOUR-PASSWORD</replaceable>"</screen>
+  <screen>&prompt.sudo;nmcli connection modify MyOpenVPN vpn.data "remote=<replaceable>VPN-SERVER-ADDRESS</replaceable>,username=<replaceable>YOUR-USERNAME</replaceable>"</screen>
+  <screen>&prompt.sudo;nmcli connection modify MyOpenVPN vpn.secrets "password=<replaceable>YOUR-PASSWORD</replaceable>"</screen>
   </step>
 <step><para>Configure DNS settings:</para>
-<screen>nmcli connection modify MyOpenVPN ipv4.dns "8.8.8.8 8.8.4.4"</screen></step>
+<screen>&prompt.sudo;nmcli connection modify MyOpenVPN ipv4.dns "8.8.8.8 8.8.4.4"</screen></step>
 <step><para>Add routes:</para>
-<screen>nmcli connection modify MyOpenVPN ipv4.routes "192.168.1.0/24 192.168.1.1"</screen>
+<screen>&prompt.sudo;nmcli connection modify MyOpenVPN ipv4.routes "192.168.1.0/24 192.168.1.1"</screen>
 </step>
 <step><para>Activate the VPN connections:</para>
-<screen>nmcli connection up MyOpenVPN</screen></step>
+<screen>&prompt.sudo;nmcli connection up MyOpenVPN</screen></step>
 <step><para>Verify if the configured connection is active:</para>
-<screen>nmcli connection show --active</screen>
+<screen>&prompt.user;nmcli connection show --active</screen>
 </step>
 </procedure>
 </section>
