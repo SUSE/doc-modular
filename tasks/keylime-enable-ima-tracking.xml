@@ -4,10 +4,6 @@
   <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
     %entities;
 ]>
-<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
-<!-- point back to this document with a similar comment added to your legacy doc piece -->
-<!-- refer to README.md for file and id naming conventions -->
-<!-- metadata is dealt with on the assembly level -->
 <topic xml:id="keylime-enable-ima-tracking"
  role="task" xml:lang="en"
  xmlns="http://docbook.org/ns/docbook" version="5.2"
@@ -20,39 +16,33 @@
     <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        &keylime; is a remote attestation solution that enables you to monitor
-        the health of remote nodes. <emphasis>Integrity management
-        architecture</emphasis> (IMA) is a kernel integrity subsystem that
-        provides a means of detecting malicious changes to files.
+        The Integrity Management Architecture (IMA) detects unauthorized file
+        changes in your system. &keylime; uses IMA to monitor the health status
+        of remote nodes.
       </para>
     </abstract>
   </info>
   <para>
-    When using IMA, the kernel calculates a hash of accessed files. The hash is
-    then used to extend the PCR 10 in the TPM and also log a list of accessed
-    files. The verifier can request a signed quote to the agent for PCR 10 to
-    get the logs of all accessed files including the file hashes. Verifiers
-    then compare the accessed files with a local allowlist of approved files.
-    If any of the hashes are not recognized, the system is considered unsafe,
-    and a revocation event is triggered.
+    IMA creates cryptographic hashes of files in the kernel. These hashes extend
+    to Platform Configuration Register (PCR) 10 in the Trusted Platform Module
+    (TPM). The verifier component requests PCR 10 quotes from the TPM. These
+    quotes provide detailed logs of file access activities.
   </para>
   <para>
-    Before &keylime; can collect information, IMA/EVM needs to be enabled. To
-    enable the process, boot a kernel of the agent with the
-    <literal>ima_appraise=log</literal> and <literal>ima_policy=tcb</literal>
-    parameters:
+    To use &keylime;, you must first enable IMA/EVM support. Configure the agent
+    kernel to boot with these parameters:
   </para>
   <procedure>
     <step>
       <para>
-        Update the <option>GRUB_CMDLINE_LINUX_DEFAULT</option> option with the
-        parameters in <filename>/etc/default/grub</filename>:
+        Add parameters to <option>GRUB_CMDLINE_LINUX_DEFAULT</option> in
+        <filename>/etc/default/grub</filename>:
       </para>
 <screen>GRUB_CMDLINE_LINUX_DEFAULT="ima_appraise=log ima_policy=tcb"</screen>
     </step>
     <step>
       <para>
-        Regenerate <filename>grub.cfg</filename> by running:
+        Generate a new <filename>grub.cfg</filename>:
       </para>
 <screen>&prompt.root;transactional-update grub.cfg</screen>
     </step>
@@ -63,21 +53,27 @@
     </step>
   </procedure>
   <para>
-    The procedure above uses the default kernel IMA policy. To avoid monitoring
-    too many files and therefore creating long logs, create a new custom
-    policy. Find more details in the
+    This procedure implements the default IMA policy. We recommend creating a
+    custom policy to reduce the size of generated logs. For detailed
+    information, see the
     <link xlink:href="https://keylime-docs.readthedocs.io/en/latest/user_guide/runtime_ima.html">&keylime;
     documentation</link>.
   </para>
   <para>
-    To indicate the expected hashes, use the <option>--allowlist</option>option
-    of the <command>keylime_tenant</command> command when registering the
-    agent. To view the excluded or ignored files, use the
-    <option>--exclude</option> option of the <command>keylime_tenant</command>
-    command:
+    The <command>keylime_tenant</command> command supports these monitoring
+    options:
   </para>
-<screen>&prompt.root;keylime_tenant --allowlist
-    -v 127.0.0.1 \
-    -u <replaceable>UUID</replaceable> 
-  </screen>
+  <itemizedlist>
+    <listitem>
+      <para>
+        <option>--allowlist</option> to set expected file hashes
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <option>--exclude</option> to view ignored files
+      </para>
+    </listitem>
+  </itemizedlist>
+<screen>&prompt.root;keylime_tenant --allowlist -v 127.0.0.1 -u <replaceable>UUID</replaceable></screen>
 </topic>
