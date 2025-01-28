@@ -1,0 +1,957 @@
+<?xml version="1.0"?>
+<article xmlns="http://docbook.org/ns/docbook" version="5.2" xml:id="pam-description" xml:lang="ja">
+  <info>
+    <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">PAMを使用した認証</title>
+    <revhistory xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" xml:id="rh-pam-description">
+      <revision>
+        <date>2024-11-15</date>
+        <revdescription>
+          <para>
+              Initial version
+            </para>
+        </revdescription>
+      </revision>
+    </revhistory>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="architecture" its:translate="no">
+      <phrase>AMD64/Intel&#xA0;64</phrase>
+      <phrase>POWER</phrase>
+      <phrase>IBM</phrase>
+      <phrase>AArch64</phrase>
+    </meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="productname" its:translate="no">
+      <productname version="15 SP6">SUSE Linux Enterprise Server</productname>
+      <productname version="6.1">SUSE Linux Micro</productname>
+    </meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="title" its:translate="yes">PAM、その使用法、および設定の説明。</meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="description" its:translate="yes">PAMは、ユーザとアプリケーション間のアクセスを仲介するレイヤとして認証プロセスで使用されます。</meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="social-descr" its:translate="yes">PAM認証メカニズムの仕組みについて説明します。</meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="task" its:translate="no">
+      <phrase>Authentication</phrase>
+      <phrase>Configuration</phrase>
+    </meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="series" its:translate="no">Products &amp; Solutions</meta>
+    <dm:docmanager xmlns:dm="urn:x-suse:ns:docmanager" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+      <dm:bugtracker>
+        <dm:url>https://bugzilla.suse.com/enter_bug.cgi</dm:url>
+        <dm:component>Documentation</dm:component>
+        <dm:product os="slmicro">SUSE Linux Micro 6.1</dm:product>
+        <dm:assignee>amrita.sakthivel@suse.com</dm:assignee>
+      </dm:bugtracker>
+      <dm:translation>yes</dm:translation>
+    </dm:docmanager>
+    <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+      <variablelist>
+        <varlistentry>
+          <term>概要</term>
+          <listitem>
+            <para>
+              Linuxは、ユーザとアプリケーションを仲介するレイヤとしての認証プロセスでPAM (Pluggable Authentication Modules)を使用します。この記事では、PAMのコンセプト、PAM設定の構造、およびPAMを設定するツールの使用法について説明します。
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>目的</term>
+          <listitem>
+            <para>
+              PAMモジュールを設定し、U2Fキーを使用するようにシステムを設定する方法を理解する必要があります。
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>所要時間</term>
+          <listitem>
+            <para>
+                この記事の理解には20分ほどを要します。
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>要件</term>
+          <listitem>
+            <itemizedlist>
+              <listitem>
+                <para>
+                    U2Fキーを使用して認証を設定するには、YubiKeyまたはセキュリティキーのいずれかが必要です。
+                  </para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </abstract>
+  </info>
+  <section role="concept" xml:lang="ja" version="5.2" xml:id="pam-about">
+    <info>
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <para/>
+      </abstract>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">PAMの概要</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    </info>
+    <para>
+    通常、システム管理者とプログラマは、システムの一定部分へのアクセスを制限することや、アプリケーションの一定の機能の使用を制限することを望みます。PAMを使用しなければ、新規の認証メカニズム(LDAPやSamba、Kerberosなど)が導入されるたびにアプリケーションを調整する必要があります。ただし、このプロセスは時間がかかり、エラーが発生しやすくなります。このような難点を回避する方法の1つは、アプリケーションを認証メカニズムから分離し、認証は集中管理されるモジュールに任せることです。新しい認証方式が必要になった場合は、問題のプログラムで使用できるように適切な<emphasis>PAMモジュール</emphasis>を調整または記述するだけで済みます。
+  </para>
+    <para>
+    PAMのコンセプトは以下で構成されます。
+  </para>
+    <itemizedlist mark="bullet" spacing="normal">
+      <listitem>
+        <para><emphasis>「PAMモジュール」</emphasis>。特定の認証メカニズム用の共有ライブラリのセットです。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        <emphasis>「モジュールスタック」</emphasis>。1つ以上のPAMモジュールで構成されます。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        PAM対応<emphasis>「サービス」</emphasis>。モジュールスタックまたはPAMモジュールを使用して認証する必要があります。通常、サービスは、<command>login</command>や<command>su</command>のように、対応するアプリケーションのよく知られた名前になっています。サービス名<literal>other</literal>は、デフォルトルール用の予約語です。
+      </para>
+      </listitem>
+      <listitem>
+        <para><emphasis>「モジュール引数」</emphasis>。これを使用して、1つのPAMモジュールの実行に影響を与えることができます。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        1つのPAMモジュールの実行<emphasis>「結果」</emphasis>それぞれを評価するメカニズム。正の値は、次のPAMモジュールを実行します。負の値を処理する方法は、設定に応じて異なります。<quote>no influence, proceed (影響なし、続行)</quote>から<quote>terminate immediately (直ちに終了)</quote>までの任意のオプションが有効です。
+      </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section role="reference" xml:lang="ja" version="5.2" xml:id="pam-configuration-files">
+    <info>
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <para/>
+      </abstract>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">PAM設定の構造</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    </info>
+    <para>
+    <phrase><phrase os="slmicro">SUSE Linux Micro</phrase></phrase>のPAMには、いわゆるディレクトリベースの設定が付属しています。設定ファイルのセットは<filename>/etc/pam.d</filename>に保存されます。PAMのメカニズムに依存するすべてのサービス(またはプログラム)には、専用の設定ファイルがこのディレクトリにあります。たとえば、<systemitem class="daemon">sshd</systemitem>用のサービスは<filename>/etc/pam.d/sshd</filename>ファイルにあります。
+  </para>
+    <note>
+      <title><phrase><phrase os="slmicro">SUSE Linux Micro</phrase></phrase>ではファイルベースの設定(<filename>/etc/pam.conf</filename>)は使用されない</title>
+      <para>
+      各サービスの設定を<filename>/etc/pam.conf</filename>に保存することもできます。ただし、保守と使いやすさの理由から、この設定スキームは<phrase><phrase os="slmicro">SUSE Linux Micro</phrase></phrase>では使用されません。
+    </para>
+    </note>
+    <para>
+    <filename>/etc/pam.d/</filename>の下層にあるファイルでは、認証に使用するPAMモジュールが定義されます。各ファイルはサービスを定義する行で構成され、各行は最大で4つの要素で構成されます。
+  </para>
+    <screen>
+      <replaceable>TYPE</replaceable>
+      <replaceable>CONTROL</replaceable>
+      <replaceable>MODULE_PATH</replaceable>
+      <replaceable>MODULE_ARGS</replaceable>
+    </screen>
+    <para>
+    各要素には次のような意味があります。
+  </para>
+    <variablelist>
+      <varlistentry>
+        <term>
+          <replaceable>TYPE</replaceable>
+        </term>
+        <listitem>
+          <para>
+          サービスのタイプを宣言します。PAMモジュールはスタックとして処理されます。モジュールのタイプによって目的が異なります。たとえば、あるモジュールはパスワードをチェックし、他のモジュールはシステムがアクセスされた場所を検証し、また別のモジュールはユーザ固有の設定を読み込みます。PAMは、次の4タイプのモジュールを認識します。
+        </para>
+          <variablelist>
+            <varlistentry>
+              <term>
+                <literal>auth</literal>
+              </term>
+              <listitem>
+                <para>
+                パスワードを問い合わせる従来の方法で、ユーザの真正性を確認します。ただし、これはチップカードや生体認証(たとえば指紋や虹彩スキャン)によっても実行できます。
+              </para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>
+                <literal>account</literal>
+              </term>
+              <listitem>
+                <para>
+                このタイプのモジュールは、ユーザがリクエストしたサービスを使用するための一般許可を付与されているかどうかをチェックします。たとえば、失効したアカウントのユーザ名では誰もログインできないようにするには、この種のチェックを実行する必要があります。
+              </para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>
+                <literal>password</literal>
+              </term>
+              <listitem>
+                <para>
+                このタイプのモジュールの目的は、認証トークンを変更可能にすることです。通常、これはパスワードです。
+              </para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>
+                <literal>session</literal>
+              </term>
+              <listitem>
+                <para>
+                このタイプのモジュールは、ユーザセッションの管理と設定を受け持ちます。認証の前後に起動し、ログイン試行をログに記録して、ユーザ固有の環境を設定します。
+              </para>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <replaceable>CONTROL</replaceable>
+        </term>
+        <listitem>
+          <para>
+          PAMモジュールの動作を指定します。各モジュールには次の制御フラグを設定できます。
+        </para>
+          <variablelist>
+            <varlistentry>
+              <term>
+                <literal>required</literal>
+              </term>
+              <listitem>
+                <para>
+                このフラグが付いているモジュールは、認証を進める前に正常に処理される必要があります。<literal>required</literal>フラグが付いたモジュールが失敗すると、同じフラグが付いた他のモジュールがすべて処理されてから、認証の失敗に関するメッセージがユーザに返されます。
+              </para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>
+                <literal>requisite</literal>
+              </term>
+              <listitem>
+                <para>
+                このフラグが付いているモジュールも、<literal>required</literal>フラグが付いている場合とほぼ同様に、正常に処理される必要があります。ただし、このフラグが付いたモジュールが失敗した場合は、ユーザに即座にフィードバックが送られ、他のモジュールは処理されません。成功すると、<literal>required</literal>フラグが付いているモジュールの場合と同様に、続いて他のモジュールが処理されます。<literal>requisite</literal>フラグは、正しい認証に不可欠な一定条件の有無を確認するための基本フィルタとして使用できます。
+              </para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>
+                <literal>sufficient</literal>
+              </term>
+              <listitem>
+                <para>
+                このフラグが付いたモジュールが正常に処理されると、呼び出し元アプリケーションは即時に成功メッセージを受け取り、前に<literal>required</literal>フラグが付いたモジュールが失敗していなければ、他のモジュールは処理されません。<literal>sufficient</literal>フラグが付いたモジュールが失敗しても、直接的な結果は発生せず、以降のモジュールはそれぞれの順序で処理されます。
+              </para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>
+                <literal>optional</literal>
+              </term>
+              <listitem>
+                <para>
+                このフラグが付いたモジュールが成功しても失敗しても、直接的な影響はありません。このフラグは、それ以上はアクションを実行しない、メッセージ表示(ユーザへのメール着信通知など)専用のモジュールに便利です。
+              </para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>
+                <literal>include</literal>
+              </term>
+              <listitem>
+                <para>
+                このフラグが設定された場合、引数として指定されたファイルがこの場所に挿入されます。
+              </para>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <replaceable>MODULE_PATH</replaceable>
+        </term>
+        <listitem>
+          <para>
+          PAMモジュールの完全なファイル名が含まれます。モジュールがデフォルトのディレクトリ<filename>/lib/security</filename>にある場合は、明示的に指定する必要はありません(<phrase><phrase os="slmicro">SUSE Linux Micro</phrase></phrase>がサポートするすべての64ビットプラットフォームでは、このディレクトリは<filename>/lib64/security</filename>です)。
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <replaceable>MODULE_ARGS</replaceable>
+        </term>
+        <listitem>
+          <para>
+          <option>debug</option> (デバッグの有効化)や<option>nullok</option> (空のパスワードの使用を許可)など、PAMモジュールの動作に影響を与えるオプションのスペース区切りリストが含まれます。
+        </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <para>
+    さらに、<filename>/etc/security</filename>の下にPAMモジュールのグローバル設定ファイルがあり、これらのモジュールの正確な動作を定義しています(たとえば、<filename>pam_env.conf</filename>や<filename>time.conf</filename>です)。PAMモジュールを使用する各アプリケーションは、一連のPAM関数を呼び出し、各PAM関数は設定ファイルの情報を処理して、その結果を呼び出し元のアプリケーションに戻します。
+  </para>
+    <para>
+    PAMモジュールの作成と保守を簡素化するために、<literal>auth</literal>、<literal>account</literal>、<literal>password</literal>、および<literal>session</literal>のタイプのモジュールに共通のデフォルト設定ファイルが導入されました。これらのファイルは、すべてのアプリケーションのPAM設定から取得されます。<filename>common-*</filename>でグローバルPAM設定モジュールを更新すると、すべてのPAM設定ファイルに更新が伝播されるため、管理者はすべてのPAM設定ファイルをひとつひとつ更新せずに済みます。
+  </para>
+    <para>
+    グローバルPAM設定ファイルは、<command>pam-config</command>ツールを使用して管理されます。このツールは、新しいモジュールを設定に自動的に追加したり、既存のモジュールの設定を変更したり、設定からモジュール(またはオプション)を削除したりします。PAM設定を管理する際に手動で介入する必要は、最小限しかないか、まったくありません。
+  </para>
+    <section role="task" xml:lang="ja" version="5.2" xml:id="pam-sshd-configuration">
+      <info>
+        <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+          <para/>
+        </abstract>
+        <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">PAM設定の例</title>
+        <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+      </info>
+      <para>
+    PAM設定の実際のユースケースを示すために、このセクションではsshdの設定を使用します。
+  </para>
+      <example xml:id="dat-pam-sshd">
+        <title>sshdのPAM設定(<filename>/etc/pam.d/sshd</filename>)</title>
+        <screen>#%PAM-1.0 <co xml:id="co-security-pam-sshd-pam-line"/>
+auth     requisite      pam_nologin.so                              <co xml:id="co-security-pam-sshd-pam-nologin"/>
+auth     include        common-auth                                 <co xml:id="co-security-pam-sshd-common-auth"/>
+account  requisite      pam_nologin.so                              <xref xrefstyle="select:nopage" linkend="co-security-pam-sshd-pam-nologin" role="internalbook"/>
+account  include        common-account                              <xref xrefstyle="select:nopage" linkend="co-security-pam-sshd-common-auth" role="internalbook"/>
+password include        common-password                             <xref linkend="co-security-pam-sshd-common-auth" xrefstyle="select:nopage" role="internalbook"/>
+session  required       pam_loginuid.so                             <co xml:id="co-security-pam-sshd-pam-loginuid"/>
+session  include        common-session                              <xref linkend="co-security-pam-sshd-common-auth" xrefstyle="select:nopage" role="internalbook"/>
+session  optional       pam_lastlog.so   silent noupdate showfailed <co xml:id="co-security-pam-sshd-lastlog"/></screen>
+        <calloutlist>
+          <callout arearefs="co-security-pam-sshd-pam-line">
+            <para>
+          PAM 1.0用のこの設定ファイルのバージョンを宣言します。これは単に慣習ですが、今後バージョンを確認するために使用できます。
+        </para>
+          </callout>
+          <callout arearefs="co-security-pam-sshd-pam-nologin">
+            <para>
+          <filename>/etc/nologin</filename>が存在するかどうかを確認します。存在しない場合、<systemitem class="username">root</systemitem>以外のユーザはログインできません。
+        </para>
+          </callout>
+          <callout arearefs="co-security-pam-sshd-common-auth">
+            <para>
+          <filename>common-auth</filename>、<filename>common-account</filename>、<filename>common-password</filename>、<filename>common-session</filename>の4つのモジュールタイプの設定ファイルを参照します。これら4つのファイルにはそれぞれのモジュールタイプ用のデフォルト設定があります。
+        </para>
+          </callout>
+          <callout arearefs="co-security-pam-sshd-pam-loginuid">
+            <para>
+          認証されたプロセスのログインUIDプロセス属性を設定します。
+        </para>
+          </callout>
+          <callout arearefs="co-security-pam-sshd-lastlog">
+            <para>
+          ユーザの最終ログインに関する情報を表示します。
+        </para>
+          </callout>
+        </calloutlist>
+      </example>
+      <para>
+    各モジュールをそれぞれのPAM設定に個別に追加するのではなく設定ファイルを含めることにより、管理者がデフォルト値を変更した場合に、更新されたPAM設定が自動的に取得されます。
+  </para>
+      <para>
+    最初のインクルードファイル(<filename>common-auth</filename>)は、<literal>auth</literal>タイプのモジュールである<systemitem class="library">pam_env.so</systemitem>、<systemitem class="library">pam_gnome_keyring.so</systemitem>、および<systemitem class="library">pam_unix.so</systemitem>を呼び出します。<xref linkend="dat-pam-common-auth" role="internalbook"/>を参照してください。モジュールはインストールによって異なる場合があることに注意してください。
+  </para>
+      <example xml:id="dat-pam-common-auth">
+        <title><literal>auth</literal>セクションのデフォルト設定(<filename>common-auth</filename>)</title>
+        <screen>auth  required  pam_env.so                   <co xml:id="co-security-pam-sshd-pam-env"/>
+auth  optional  pam_gnome_keyring.so         <co xml:id="co-security-pam-sshd-gnome"/>
+auth  required  pam_unix.so  try_first_pass <co xml:id="co-security-pam-sshd-pam-unix"/></screen>
+      </example>
+      <calloutlist>
+        <callout arearefs="co-security-pam-sshd-pam-env">
+          <para><systemitem class="library">pam_env.so</systemitem>は、<filename>/etc/security/pam_env.conf</filename>をロードして、このファイルで指定されているとおりに環境変数を設定します。<systemitem class="library">pam_env</systemitem>モジュールはログイン元を認識するため、このファイルを使用すると<envar>DISPLAY</envar>変数を適切な値に設定できます。
+      </para>
+        </callout>
+        <callout arearefs="co-security-pam-sshd-gnome">
+          <para><systemitem class="library">pam_gnome_keyring.so</systemitem>は、ユーザのログインとパスワードをGNOMEキーリングと照合します。
+      </para>
+        </callout>
+        <callout arearefs="co-security-pam-sshd-pam-unix">
+          <para><systemitem class="library">pam_unix</systemitem>は、ユーザのログイン名とパスワードを<filename>/etc/passwd</filename>および<filename>/etc/shadow</filename>と照合します。
+      </para>
+        </callout>
+      </calloutlist>
+      <para>
+    <systemitem class="daemon">sshd</systemitem>がログインの成否に関するフィードバックを受け取る前に、<literal>auth</literal>モジュールのスタック全体が処理されます。<systemitem class="daemon">sshd</systemitem>が成功のメッセージを受け取る前に、制御フラグ<literal>required</literal>が設定されたスタックのすべてのモジュールが正常に処理される必要があります。モジュールの1つが失敗した場合もモジュールスタック全体が同様に処理され、その後にのみ<systemitem class="daemon">sshd</systemitem>に失敗が通知されます。
+  </para>
+      <para>
+    <literal>auth</literal>タイプのすべてのモジュールが正常に処理された時点で、別のinclude文が処理されます。この例では<xref linkend="dat-pam-common-account" role="internalbook"/>になります。<filename>common-account</filename>には、1つのモジュール、<literal>pam_unix</literal>のみが含まれます。<literal>pam_unix</literal>からユーザが存在するという結果が戻されると、sshdは成功したことを通知するメッセージを受信し、モジュールの次のスタック(<literal>password</literal>)が処理されます。
+  </para>
+      <example xml:id="dat-pam-common-account">
+        <title><literal>account</literal>セクションのデフォルト設定(<filename>common-account</filename>)</title>
+        <screen>account  required  pam_unix.so  try_first_pass</screen>
+      </example>
+      <para>
+    繰り返しになりますが、<systemitem class="daemon">sshd</systemitem>のPAM設定は<filename>common-password</filename>にある<literal>password</literal>モジュールのデフォルト設定を参照する1つのinclude文にのみ関係します。アプリケーションが認証トークンの変更をリクエストするたびに、これらのモジュールを正常に完了する必要があります(制御フラグ<literal>requisite</literal>および<literal>required</literal>)。
+  </para>
+      <para>
+    パスワード変更や別の認証トークンについてはセキュリティチェックが必要です。これは、<filename>pam_cracklib</filename>モジュールで実行されます。その後に使用される<filename>pam_unix</filename>モジュールは、<filename>pam_cracklib</filename>から新旧のパスワードを引き継ぐため、ユーザはパスワードの変更後に再度認証する必要はありません。この手順により、<filename>pam_cracklib</filename>によるチェックを回避することはできなくなります。<literal>account</literal>または<literal>auth</literal>のタイプが失効したパスワードについて通知するように設定されている場合は、<literal>password</literal>モジュールも使用する必要があります。
+  </para>
+      <para>
+    最終ステップとして、(<filename>common-session</filename>ファイルに組み込まれた) <literal>session</literal>タイプのモジュールが呼び出され、問題のユーザ用の設定に従ってセッションが設定されます。<filename>pam_limits</filename>モジュールは、特定のシステムリソースの使用に対する制限を定義するファイル<filename>/etc/security/limits.conf</filename>をロードします。<filename>pam_unix</filename>モジュールが再度処理されます。<filename>pam_umask</filename>モジュールを使用して、ファイルモード作成マスクを設定できます。このモジュールには<literal>optional</literal>フラグが付いているため、このモジュールが失敗しても、セッションモジュールスタック全体の正常な完了には影響しません。<literal>session</literal>モジュールはユーザのログアウト時に再び呼び出されます。
+  </para>
+    </section>
+  </section>
+  <section role="reference" xml:lang="ja" version="5.2" xml:id="pam-configuring-modules">
+    <info>
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <para/>
+      </abstract>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">PAMモジュールの設定</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    </info>
+    <para>
+    設定可能なPAMモジュールもあります。設定ファイルは<filename>/etc/security</filename>にあります。このセクションでは、sshdの例に関連する設定ファイル<filename>pam_env.conf</filename>と<filename>limits.conf</filename>について簡単に説明します。
+  </para>
+    <section xml:id="pam-struc-conf-pamenv">
+      <title>pam_env.conf</title>
+      <para><filename>pam_env.conf</filename>を使用すると、<systemitem>pam_env</systemitem>モジュールが呼び出されるたびに設定される、ユーザ用に標準化された環境を定義できます。それにより、次の構文を使用して環境変数を事前設定できます。
+    </para>
+      <screen><replaceable>VARIABLE</replaceable>  [DEFAULT=<replaceable>VALUE</replaceable>]  [OVERRIDE=<replaceable>VALUE</replaceable>]</screen>
+      <variablelist>
+        <varlistentry>
+          <term>
+            <replaceable>VARIABLE</replaceable>
+          </term>
+          <listitem>
+            <para>
+            設定する環境変数の名前です。
+          </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>
+            <systemitem>[DEFAULT=&lt;value&gt;]</systemitem>
+          </term>
+          <listitem>
+            <para>
+            管理者が設定するデフォルト<replaceable>VALUE</replaceable>。
+          </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>
+            <systemitem>[OVERRIDE=&lt;value&gt;]</systemitem>
+          </term>
+          <listitem>
+            <para>
+            問い合わせ可能で<systemitem>pam_env</systemitem>によって設定される値です。この値でデフォルト値が上書きされます。
+          </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+      <para>
+      <systemitem>pam_env</systemitem>の典型的な使用例は、<envar>DISPLAY</envar>変数の取得です。これは、リモートログインが行われるたびに変更されます。これを<xref linkend="dat-pam-pamenv" role="internalbook"/>に示します。
+    </para>
+      <example xml:id="dat-pam-pamenv">
+        <title>pam_env.conf</title>
+        <screen>
+REMOTEHOST  DEFAULT=localhost          OVERRIDE=@{PAM_RHOST}
+DISPLAY     DEFAULT=${REMOTEHOST}:0.0  OVERRIDE=${DISPLAY}
+</screen>
+      </example>
+      <para>
+      1行目では、<envar>REMOTEHOST</envar>変数の値が<literal>localhost</literal>に設定されており、<filename>pam_env</filename>が他の値を判別できない場合にこの値が使用されます。<envar>DISPLAY</envar>変数には、<envar>REMOTEHOST</envar>の値が含まれています。詳細については、<filename>/etc/security/pam_env.conf</filename>のコメントを参照してください。
+    </para>
+    </section>
+    <section xml:id="sec-pam-struc-pamlimits">
+      <title>limits.conf</title>
+      <para>
+      <filename>limits.conf</filename>では、ユーザ別またはグループ別のシステム制限を設定できます。このファイルは、<systemitem>pam_limits</systemitem>モジュールに読み込まれます。このファイルを使用すると、超過できない厳密な制限と、一時的な超過が許される緩やかな制限を設定できます。構文およびオプションの詳細については、<filename>/etc/security/limits.conf</filename>のコメントを参照してください。
+    </para>
+    </section>
+  </section>
+  <section role="task" xml:lang="ja" version="5.2" xml:id="pam-config-tool">
+    <info>
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <para/>
+      </abstract>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion"><command>pam-config</command>を使用したPAMの設定</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    </info>
+    <para>
+    <command>pam-config</command>ツールは、グローバルなPAM設定ファイル(<filename>/etc/pam.d/common-*</filename>)と、選択されたいくつかのアプリケーション設定を構成するのに役立ちます。サポートされているモジュールのリストについては、<command>pam-config --list-modules</command>コマンドを使用してください。<command>pam-config</command>コマンドを使用して、PAM設定ファイルを管理します。新しいモジュールをPAM設定に追加したり、他のモジュールを削除したり、これらのモジュールのオプションを変更したりします。グローバルなPAM設定ファイルを変更する場合、個々のアプリケーションのPAMセットアップを手動で調整する必要はありません。
+  </para>
+    <para>
+    <command>pam-config</command>のシンプルなユースケースには次のようなものがあります。
+  </para>
+    <procedure>
+      <step>
+        <formalpara>
+          <title>Unixスタイルの新しいPAM設定を自動生成します。</title>
+          <para>
+          <command>pam-config</command>で可能な限り単純なセットアップを作成し、後で拡張できるようにします。<command>pam-config
+          --create</command>コマンドは、単純なUnix認証設定を作成します。<command>pam-config</command>で管理されていない既存の設定ファイルは上書きされますが、バックアップコピーは<literal>*.pam-config-backup</literal>として保持されます。
+        </para>
+        </formalpara>
+      </step>
+      <step>
+        <formalpara>
+          <title>新しい認証方法を追加します。</title>
+          <para>
+          新しい認証方法(たとえば、LDAP)をPAMモジュールのスタックに追加するには、単純な<command>pam-config --add
+          --ldap</command>コマンドを実行します。LDAPは、すべての<filename>common-*-pc</filename> PAM設定ファイルの該当する箇所に追加されます。
+        </para>
+        </formalpara>
+      </step>
+      <step>
+        <formalpara>
+          <title>テストのためにデバッグを追加します。</title>
+          <para>
+          新しい認証手順が計画どおりに動作することを確認するために、すべてのPAM関連操作のデバッグをオンにします。<command>pam-config
+          --add --ldap-debug</command>で、LDAP関連のPAM操作のデバッグをオンにします。
+        </para>
+        </formalpara>
+      </step>
+      <step>
+        <formalpara>
+          <title>セットアップを問い合わせます。</title>
+          <para>
+          最終的に新しいPAMセットアップを適用する前に、追加したいすべてのオプションが含まれているかどうかを確認します。<command>pam-config --query
+          --</command><replaceable>MODULE</replaceable>コマンドで、問い合わせたPAMモジュールのタイプとオプションの両方を一覧にします。
+        </para>
+        </formalpara>
+      </step>
+      <step>
+        <formalpara>
+          <title>デバッグオプションを削除します。</title>
+          <para>
+          最後に、セットアップのパフォーマンスにまったく問題がない場合は、デバッグオプションをセットアップから削除します。<command>pam-config --delete --ldap-debug</command>コマンドで、LDAP認証のデバッグをオフにします。他のモジュールにデバッグオプションを追加していた場合は、同様のコマンドを使用してオフにします。
+        </para>
+        </formalpara>
+      </step>
+    </procedure>
+    <para>
+    <command>pam-config</command>コマンドと利用可能なオプションの詳細については、<command>pam-config(8)</command>のマニュアルページを参照してください。
+  </para>
+  </section>
+  <section role="task" xml:lang="ja" version="5.2" xml:id="pam-manual-config">
+    <info>
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <para/>
+      </abstract>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">PAMの手動設定</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    </info>
+    <para>
+    PAM設定ファイルを手動で作成または管理したい場合は、これらのファイルの<command>pam-config</command>を無効にしてください。
+  </para>
+    <para>
+    <command>pam-config --create</command>コマンドを使用して最初からPAM設定ファイルを作成すると、<filename>common-<replaceable>*</replaceable></filename>から<filename>common-<replaceable>*</replaceable>-pc</filename>ファイルへのシンボリックリンクが作成されます。<command>pam-config</command>は、<filename>common-<replaceable>*</replaceable>-pc</filename>の設定ファイルのみを変更します。これらのシンボリックリンクを削除すると、<command>pam-config</command>は事実上無効になります。これは、<command>pam-config</command>は<filename>common-<replaceable>*</replaceable>-pc</filename>ファイルのみを処理し、これらのファイルはシンボリックリンクなしでは有効にならないためです。
+  </para>
+    <warning>
+      <title><filename>pam_systemd.so</filename>を設定に含める</title>
+      <para>
+      独自のPAM設定を作成する場合は、<literal>session
+      optional</literal>として設定した<literal>pam_systemd.so</literal>を含めるようにしてください。<literal>pam_systemd.so</literal>を含めないと、<systemitem class="daemon">systemd</systemitem>のタスク制限に問題が発生する可能性があります。詳細については、<literal>pam_systemd.so</literal>のマニュアルページを参照してください。
+    </para>
+    </warning>
+  </section>
+  <section role="task" xml:lang="ja" version="5.2" xml:id="pam-cofigure-using-u2f-keys">
+    <info>
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <para/>
+      </abstract>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">ローカルログイン用のU2Fキーを要求するための<phrase><phrase os="slmicro">SUSE Linux Micro</phrase></phrase>の設定</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    </info>
+    <para>
+    <phrase><phrase os="slmicro">SUSE Linux Micro</phrase></phrase>へのローカルログイン時のセキュリティを強化するために、<literal>pam-u2f</literal>フレームワーク、およびYubiKeyとセキュリティキーのU2F機能を使用して2要素認証を設定できます。
+  </para>
+    <para>
+    <phrase><phrase os="slmicro">SUSE Linux Micro</phrase></phrase>システムでU2Fを設定するには、キーを<phrase><phrase os="slmicro">SUSE Linux Micro</phrase></phrase>のアカウントに関連付ける必要があります。その後、このキーを使用するようにシステムを設定します。この手順については、次のセクションで説明します。
+  </para>
+    <section role="task" xml:lang="ja" version="5.2" xml:id="pam-account-association">
+      <info>
+        <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+          <para/>
+        </abstract>
+        <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">アカウントへのU2Fキーの関連付け</title>
+        <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+      </info>
+      <para>
+    U2Fキーをアカウントに関連付けるには、次の手順に従います。
+  </para>
+      <procedure>
+        <step>
+          <para>
+        マシンにログインします。
+      </para>
+        </step>
+        <step>
+          <para>
+        U2Fキーを挿入します。
+      </para>
+        </step>
+        <step>
+          <para>
+        U2Fキーの設定用のディレクトリを作成します。
+      </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> mkdir -p ~/.config/Yubico</screen>
+        </step>
+        <step>
+          <para>
+        設定行を出力する<command>pamu2fcfg</command>コマンドを実行します。
+      </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> pamu2fcfg &gt; ~/.config/Yubico/u2f_keys</screen>
+        </step>
+        <step>
+          <para>
+        デバイスが点滅し始めたら、金属製の接点に触れて関連付けを確認します。
+      </para>
+        </step>
+      </procedure>
+      <para>
+    バックアップ用のU2Fデバイスを使用することをお勧めします。これは、次のコマンドを実行して設定できます。
+  </para>
+      <procedure>
+        <step>
+          <para>
+        次のスクリプトを実行します。
+      </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> pamu2fcfg -n &gt;&gt; ~/.config/Yubico/u2f_keys</screen>
+        </step>
+        <step>
+          <para>
+        デバイスが点滅し始めたら、金属製の接点に触れて関連付けを確認します。
+      </para>
+        </step>
+      </procedure>
+      <para>
+    セキュリティを強化するために、出力ファイルをデフォルトの場所から、ファイルを変更するために<literal>sudo</literal>許可が必要なディレクトリに移動できます。たとえば、<filename>/etc</filename>ディレクトリに移動します。これを行うには、次の手順に従います。
+  </para>
+      <procedure>
+        <step>
+          <para>
+        <filename>/etc</filename>にディレクトリを作成します。
+      </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> mkdir /etc/Yubico</screen>
+        </step>
+        <step>
+          <para>
+        作成したファイルを移動します。
+      </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> mv ~/.config/Yubico/u2f_keys /etc/Yubico/u2f_keys</screen>
+        </step>
+      </procedure>
+      <note>
+        <title><filename>u2f_keys</filename>をデフォルト以外の場所に配置する</title>
+        <para>
+      出力ファイルをデフォルト(<filename>$HOME/.config/Yubico/u2f_keys</filename>)とは異なるディレクトリに移動する場合は、<xref linkend="pam-update-configs" role="internalbook"/>の説明に従って、<filename>/etc/pam.d/login</filename>ファイルにパスを追加する必要があります。
+    </para>
+      </note>
+    </section>
+    <section role="task" xml:lang="ja" version="5.2" xml:id="pam-update-configs">
+      <info>
+        <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+          <para/>
+        </abstract>
+        <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">PAM設定の更新</title>
+        <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+      </info>
+      <para>
+    U2Fキー設定を作成した後で、システムのPAM設定を調整する必要があります。
+  </para>
+      <procedure>
+        <step>
+          <para>
+        ファイル<filename>/etc/pam.d/login</filename>を開きます。
+      </para>
+        </step>
+        <step>
+          <para>
+        このファイルに、次のように<literal>auth required pam_u2f.so</literal>という行を追加します。
+      </para>
+          <screen>
+#%PAM-1.0
+auth      include    common-auth
+<emphasis role="bold">auth      required   pam_u2f.so</emphasis>
+account   include    common-account
+password  include    common-password
+session   optional   pam_keyinit.so revoke
+session   include    common-session
+#session  optional   pam_xauth.so
+        </screen>
+        </step>
+        <step>
+          <para>
+        <filename>u2f_keys</filename>ファイルを<filename>$HOME/.config/Yubico/u2f_keys</filename>とは異なる場所に配置した場合は、次のように、<filename>/etc/pam.d/login</filename>のPAMファイルで<literal>authfile</literal>オプションを使用する必要があります。
+      </para>
+          <screen>
+#%PAM-1.0 
+auth     requisite pam_nologin.so 
+auth     include   common-auth
+<emphasis role="bold">auth  required pam_u2f.so authfile=<replaceable>&lt;PATH_TO_u2f_keys&gt;</replaceable></emphasis>
+...
+        </screen>
+          <para>
+        ここで、<replaceable>&lt;PATH_TO_u2f_keys&gt;</replaceable>は<filename>u2f_keys</filename>ファイルの絶対パスです。
+      </para>
+        </step>
+      </procedure>
+    </section>
+  </section>
+  <section version="5.2" xml:id="legal-disclaimer">
+    <info>
+      <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">法的事項</title>
+    </info>
+    <para> Copyright © 2006–<?dbtimestamp format="Y"?>
+ SUSE LLC and contributors. All rights reserved. </para>
+    <para>
+    この文書は、GNUフリー文書ライセンスのバージョン1.2または(オプションとして)バージョン1.3の条項に従って、複製、頒布、および/または改変が許可されています。ただし、この著作権表示およびライセンスは変更せずに記載すること。ライセンスバージョン1.2のコピーは、<quote>GNUフリー文書ライセンス</quote>セクションに含まれています。
+  </para>
+    <para>
+    SUSEの商標については、<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.suse.com/company/legal/"/>を参照してください。その他の第三者のすべての商標は、各社の所有に帰属します。商標記号(®、™など)は、SUSEおよび関連会社の商標を示します。アスタリスク(*)は、第三者の商標を示します。
+  </para>
+    <para>
+    本書のすべての情報は、細心の注意を払って編集されています。しかし、このことは正確性を完全に保証するものではありません。SUSE LLC、その関係者、著者、翻訳者のいずれも誤りまたはその結果に対して一切責任を負いかねます。
+  </para>
+  </section>
+  <appendix xmlns:its="http://www.w3.org/2005/11/its" version="5.2" role="legal" its:translate="no" xml:id="doc-gfdl-license">
+    <info>
+      <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">GNUフリー文書利用許諾契約書(GFDL)</title>
+    </info>
+    <para>
+  Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc. 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.この使用許諾書を一字一句そのままの複製および頒布することは許可されますが、変更は許可されません。
+ </para>
+    <bridgehead renderas="sect4">
+    0. 序文
+  </bridgehead>
+    <para>
+  この利用許諾契約書の目的は、マニュアル、テキストブック、またはその他の機能的で有用な文書を、自由という意味で「フリー」にすることです。つまり、そのような文書を、変更の有無や商用非商用に関わらず、コピーまたは再配布する実効的な自由をすべての人々に保証することです。第二に、本利用許諾契約書は、作者または発行者が他者によって行われた変更について責任を負わないとともに、その著作物の功績が確保されるように意図されています。
+ </para>
+    <para>
+  本利用許諾契約書は、「コピーレフト」(著作物を自由に複製および改変できるようにすること)の一種であり、文書の派生著作物は、それ自体が同じ意味においてフリーでなければなりません。フリーソフトウェア向けに考慮されたコピーレフト利用許諾であるGNU一般公衆利用許諾契約書(GPL)を補足するものです。
+ </para>
+    <para>
+  弊社は、この利用許諾契約書をフリーソフトウェアのマニュアルに使用するために設計しました。それは、フリーソフトウェアにはフリーマニュアルが必要であるためです。つまり、フリープログラムには、そのソフトウェアと同じ自由を提供するマニュアルが付属しなければなりません。ただし、本利用許諾契約書は、ソフトウェアマニュアルに制限されるものではありません。主題であるか否か、または印刷された本として発行されるか否かに関わらず、任意のテキスト著作物に使用することができます。本利用許諾契約書は、その目的が指示または参照に置かれている著作物に主に使用することを推奨します。
+ </para>
+    <bridgehead renderas="sect4">
+    1. 適用範囲と定義
+  </bridgehead>
+    <para>
+  本利用許諾契約書は、この利用許諾の条項に従って頒布できることを定めた著作権者の通告が記載されている任意のメディアにおけるマニュアルまたは他の著作物に適用されます。そのような通告は、その著作物をここに記載されている条件に従って使用するための世界的な無償の利用許諾を無期限で付与します。次に示す「文書」は、そのような任意のマニュアルまたは著作物を指します。その公衆ユーザはいずれも被許諾者であり、「利用者」と呼ばれます。利用者は、著作権法に従った許可が必要になるような方法で著作物を複製、変更または頒布する場合に、利用許諾を受け入れます。
+ </para>
+    <para>
+  文書の「変更された版」とは、そのまま複製されるか、変更または別の言語に翻訳された(またはその両方)文書あるいはその一部を含んだ著作物のことです。
+ </para>
+    <para>
+  「二次セクション」は、文書の発行者または作者と文書の全体的な主題(または関連事項)との関係のみを示す文書の名前付き付録または前付け部分です。総体的な主題に直接関わる内容は含まれていません。(したがって、文書が部分的に数学のテキストブックになっている場合、二次セクションでは数学について説明されない場合があります)。関係には、主題または関連事項との歴史的なつながり、あるいはそれらに関する法的、商的、哲学的、倫理的、政治的位置付けが含まれる場合があります。
+ </para>
+    <para>
+  「不変セクション」は、文書が本利用許諾契約書の条件の下でリリースされる旨を述べている通告において、そのタイトルが不変セクションのものとして指定されている、ある特定の二次セクションです。セクションが、すでに説明した二次セクションの定義に一致しない場合は、不変として指定することはできません。文書には、不変セクションが含まれない場合があります。文書で不変セクションを特定しない場合、不変セクションは含まれません。
+ </para>
+    <para>
+  「カバーテキスト」とは、文書が本利用許諾契約書の条件の下でリリースされる旨を述べている通告において、表カバーテキストまたは裏カバーテキストとして列挙されている、ある一定の短い文章のことです。表カバーテキストは、最大で5語、裏カバーテキストは、最大で25語によって構成できます。
+ </para>
+    <para>
+  文書の「透過的な複製」とは、その仕様が一般の利用者にとって入手可能で、一般的なテキストエディタまたは一般的な描画プログラム(画素で構成される画像用)、あるいは広く使用されている図面エディタ(図面用)で文書を直接改訂するのに適した形式で表される機械可読の複製のことです。テキストフォーマッタへの入力またはテキストフォーマッタへの入力に適したさまざまな形式への変換に適していることも前提になります。読者による以後の変更を阻止または妨げるようにマークアップまたはマークアップのない状態が調整されている、他の点では透過的なファイル形式で行われた複製は、透過的な複製ではありません。イメージ形式は、相当量のテキストに使用されている場合、透過的ではありません。「透過的」ではない複製は、「不透明」と呼ばれます。
+ </para>
+    <para>
+  透過的な複製に適した形式として、マークアップのないプレーンなASCII、Texinfo入力形式、LaTeX入力形式、一般に取得可能なDTDを使用するSGMLまたはXML、標準に準拠したHTML、人為的変更用のPostScriptまたはPDFがあります。透過的なイメージ形式には、PNG、XCF、JPGが含まれます。不透明な形式には、独自のワードプロセッサのみで読み取りおよび編集を行える独自の形式、DTDまたは処理(またはその両方)ツールを一般に取得できないSGMLまたはXML、機械生成HTML、出力のみを目的として一部のワードプロセッサによって作成されるPostScriptまたはPDFが含まれます。
+ </para>
+    <para>
+  「タイトルページ」とは、印刷された本の場合、タイトルページ自体、および本利用許諾契約書でタイトルページに表示することが要求されるマテリアルを読みやすいように保持するために必要な以降のページのことを指します。そのようなタイトルページがない形式の著作物の場合、「タイトルページ」は、本文の開始部分に先行する、著作物のタイトルを最も顕著に表している部分の近くにあるテキストのことを指します。
+ </para>
+    <para>
+  「XYZという表題の付いた」セクションとは、そのタイトルが正確にXYZになっているか、またはXYZを別の言語に翻訳しているテキストに続いてカッコ付きのXYZが含まれている文書の名前付きサブユニットのことです。(ここで、XYZは、次に示すように、「謝辞」、「献辞」、「推薦」、「履歴」などの特定のセクション名を表します)。文書を変更するときに、そのようなセクションの「タイトルを保存する」とは、この定義に従って「XYZという表題の付いた」セクションが残されることを表します。
+ </para>
+    <para>
+  文書では、本利用許諾契約書が文書に適用される旨を述べている通告の付近に保証の放棄を含めることができます。保証の放棄条項は、本利用許諾契約書内の参照によって、保証の放棄に関してのみ組み込まれると見なされます。つまり、これらの保証の放棄条項がもつ可能性のある他のいかなる含意も無効であり、本利用許諾契約書の意味にまったく影響を与えません。
+ </para>
+    <bridgehead renderas="sect4">
+    2. そのままの複製
+  </bridgehead>
+    <para>
+  利用者は、商用か否かを問わず、任意のメディアにおいて文書を複製または頒布することができます。その際に、本利用許諾契約書、著作権表示、および本利用許諾契約書が文書に適用される旨を述べる利用許諾通告をすべての複製で再生し、本利用許諾契約書の条件に他のいかなる条件も追加しないことが前提条件になります。利用者は、技術的手段によって、作成または頒布する複製の読み込みまたはさらなる複製を妨げたり、制御したりすることはできません。ただし、複製と引き換えに対価を受け取ることができます。十分に大量の複製を頒布する場合は、セクション3の条件に従う必要もあります。
+ </para>
+    <para>
+  すでに述べた同じ条件に従って複製を貸与したり、複製を公開したりすることもできます。
+ </para>
+    <bridgehead renderas="sect4">
+    3. 大量の複製
+  </bridgehead>
+    <para>
+  発行する文書の印刷した複製(または、通常、印刷したカバーをもつメディアに含まれた複製)が100部を超え、文書の利用許諾通告でカバーテキストを必要とする場合は、すべてのカバーテキスト(表カバーの表カバーテキスト、裏カバーの裏カバーテキスト)を明瞭かつ読みやすく記載したカバーに文書の複製を同封する必要があります。また、両方のカバーでは、これらの複製の発行者として、利用者を読みやすい状態で明確に識別しなければなりません。表カバーには、フルタイトルを記述し、タイトルのすべての語が同等に目立つようにする必要があります。カバーには他のマテリアルを追加することもできます。カバーに限って変更を行った場合の複製は、文書のタイトルが保持されていて、これらの条件を満たしている限り、他の点に関してそのままの複製と見なすことができます。
+ </para>
+    <para>
+  いずれかのカバーで、必要なテキストが多すぎて、読みやすい状態に収まらない場合は、列挙されている最初の部分(問題なく収まる分)を実際のカバーに記載し、残りの部分を隣接ページに入れます。
+ </para>
+    <para>
+  文書の不透明な複製を100部以上公開または頒布する場合は、それぞれの不透明な複製とともに機械可読の透過的な複製を含めるか、それぞれの不透明な複製内あるいはその複製とともに、ネットワークの一般利用者が標準的な一般ネットワークプロトコルを使用して、追加マテリアルのない文書の完全な透過的複製をダウンロードするときにアクセスできるコンピュータネットワークの場所を明記する必要があります。後者のオプションを使用する場合は、不透明な複製の大量頒布を開始するときに十分慎重な手順を取り、この透過的な複製が、その版の不透明な複製を最後に一般頒布した後(直接またはエージェントや小売業者を通じて)少なくとも1年間、指定した場所で継続的にアクセス可能となるように配慮する必要があります。
+ </para>
+    <para>
+  大量の複製を再頒布する時点よりもかなり前に、文書の作者に連絡して、文書の更新版を提供する機会を与えることが要求されますが、必須ではありません。
+ </para>
+    <bridgehead renderas="sect4">
+    4. 変更
+  </bridgehead>
+    <para>
+  文書の変更された版を、すでに述べた第2項および第3項の条件に従って複製および頒布することができます。その際は、本利用許諾契約書に確実に従って、変更された版をリリースし、変更された版が文書の役割を担うようにして、その複製を所要する任意の利用者に変更された版の頒布および変更の利用許諾を与えることが前提になります。また、変更された版で次のことを行う必要があります。
+ </para>
+    <orderedlist numeration="upperalpha" spacing="normal">
+      <listitem>
+        <para>
+    タイトルページ(カバーがある場合はカバー上も含める)で、文書、および以前の版の文書(以前の版がある場合は、その旨、文書の履歴セクションに列挙する)と識別されるタイトルを使用します。前の版と同じタイトルは、その版の元の発行者が許可を与えた場合に、使用することができます。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    タイトルページ上に、この要件から解放されない限り、変更された版において変更の著者としての責任を担う1人以上の人またはエンティティとともに、文書の筆頭著者を少なくとも5人、作者として列挙します(5人に満たない場合は、その筆頭著者のすべて)。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    タイトルページ上に、変更された版の発行者の名前を、発行者として記載します。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    文書のすべての著作権表示を保持します。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    変更に関する適切な著作権表示を、他の著作権表示の隣に追加します。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    著作権表示の直後に、本利用許諾契約書の条項に従って変更された版を利用するための許可を一般利用者に与える利用許諾通告を、次の補遺に示す形式で含めます。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    その利用許諾通告に、不変セクションの全リスト、および文書の利用許諾通告で指定されている必須カバーテキストを保持します。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    本利用許諾契約書の変更されていない複製を含めます。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    「履歴」という表題のセクションを保持して、そのタイトルを保持し、タイトルページに記載されているとおりに、変更された版のタイトル、年度、新しい作者、発行者を少なくとも示す項目を追加します。文書に履歴というセクションがない場合は、そのタイトルページに記載されているとおりに文書のタイトル、年度、作者、発行者を示すセクションを作成し、前の文章に記載されているとおりに変更された版を示す項目を追加します。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    文書の透過的な複製に一般利用者がアクセスできるように文書で指定されている場合は、そのネットワークの場所、およびその文書の基盤となった前の版に対応して文書で指定されているネットワークの場所を保持します。これらは、「履歴」セクションに配置することができます。文書自体よりも4年以上前に発行された著作物の場合、または参照されているその版の元の発行者が許可を与えている場合は、そのネットワークの場所を省略することができます。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    「謝辞」または「献辞」という表題のセクションの場合は、そのセクションのタイトルを保持し、セクション内に、それぞれの貢献者謝辞またはその中の献辞(またはその両方)のすべての内容と意味合いを保持します。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    文書のすべての不変セクションを保持し、そのテキストおよびタイトルを未変更のままにします。セクション番号またはそれと同等の要素は、セクションタイトルの一部と見なされません。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    「推薦」という表題の任意のセクションを削除します。そのようなセクションは、変更された版に含めることはできません。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    既存のセクションのタイトルを変更して、「推薦」という表題にしたり、タイトルが不変セクションと矛盾したりしないようにします。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    保証の放棄を保持します。
+   </para>
+      </listitem>
+    </orderedlist>
+    <para>
+  変更された版に、二次セクションと見なされ、文書から複製されたマテリアルを含まない新しい前付けセクションまたは付録が含まれる場合は、これらの一部またはすべてを任意に「不変」として指定することができます。これを行うには、変更された版の利用許諾表示内で列挙されている不変セクションにそのタイトルを追加します。これらのタイトルは、他のすべてのセクションタイトルと異なっている必要があります。
+ </para>
+    <para>
+  「推薦」という表題のセクションを追加することができますが、その際は、変更された版のさまざまな当事者による推薦以外の要素が含まれていないことが前提になります。たとえば、校正者によるコメント、または文が標準的な信頼できる定義として組織によって承認されていることを示すという宣言文などが相当します。
+ </para>
+    <para>
+  表カバーテキストとしての最大5語の短い文、および裏カバーテキストとしての最大25語の短い文を、変更された版のカバーテキストのリストの終わりに追加できます。表カバーテキストの短い1文および裏カバーテキストの短い1文のみを、1つのエンティティが追加できます(またはエンティティによって行われた調整を通じて)。文書に、利用者または利用者が関わる同じエンティティによって行われた調整を通じて前に追加された同じカバーのカバーテキストがすでに含まれている場合は、別のものを追加することはできませんが、古いものを置き換えることができます。ただし、その古いものを追加した前の発行者から明示的な許可を得る必要があります。
+ </para>
+    <para>
+  文書の作者および発行者は、本利用許諾契約書により、その名前を得るために使用したり、変更された版の推薦を主張または暗示したりする許可を与えるものではありません。
+ </para>
+    <bridgehead renderas="sect4">
+    5. 文書の結合
+  </bridgehead>
+    <para>
+  文書は、すでに述べた変更された版に関するセクション4の条件に従って、本利用許諾契約書の下でリリースされた他の文書と結合することができます。その際は、その組み合わせの中に、元の全文書のすべての不変セクションを未変更のまま含めて、そのすべてを結合された著作物の不変セクションとしてその利用許諾表示に列挙し、そのすべての保証の放棄を保持することが前提となります。
+ </para>
+    <para>
+  結合された著作物には、本利用許諾契約書の複製を1つのみ含める必要があります。複数の同一の不変セクションは、単一の複製で置き換えることができます。同じ名前だが内容の異なる複数の不変セクションがある場合は、そのような各セクションのタイトルを固有なものにします。その際は、その終わりに、カッコ付きで、そのセクションの元の作者または発行者の名前(既知の場合)、あるいは固有の番号を追加します。不変セクションのリスト内のセクションタイトルには、結合された著作物の利用許諾表示の場合と同じ調整を加えます。
+ </para>
+    <para>
+  組み合わせでは、さまざまな元の文書の「履歴」という表題のセクションを結合して、1つの「履歴」というセクションを構築する必要があります。同じように、「謝辞」という表題のセクション、および「献辞」という表題のセクションも結合します。「推薦」という表題のすべてのセクションを削除する必要があります。
+ </para>
+    <bridgehead renderas="sect4">
+    6. 文書のコレクション
+  </bridgehead>
+    <para>
+  文書および本利用許諾契約書の下でリリースされた他の文書から成るコレクションを作成して、さまざまな文書に含まれる本利用許諾契約書の個々の複製を、コレクションに含まれる単一の複製で置き換えることができますが、他のすべての点での各文書のそのままの複製に関する本利用許諾契約書の規則に従うことが前提になります。
+ </para>
+    <para>
+  そのようなコレクションから単一の文書を抽出して、その文書を本利用許諾契約書に従って個々に頒布することができますが、その際は、本利用許諾契約書の複製を抽出した文書に挿入して、その文書のそのままの複製に関するその他のすべての点で、本利用許諾契約書に従う必要があります。
+ </para>
+    <bridgehead renderas="sect4">
+    7. 独立した著作物の集積
+  </bridgehead>
+    <para>
+  文書またはその派生物を他の個別および独立した文書または著作物とともに、ストレージまたは頒布メディア内またはそのボリューム上に蓄積することを「集積」と呼びます。その場合は、個々の著作物の許可を超えてその蓄積の利用者の法的権限を制限することに、蓄積による著作権を使用しないことが前提になります。文書が集積に含まれる場合、本利用許諾契約書は、それ自体が文書の派生著作物ではない集積内の他の著作物に適用されません。
+ </para>
+    <para>
+  セクション3のカバーテキスト要件が文書のこれらの複製に適用可能であり、文書が集積全体の半分に満たない場合は、文書のカバーテキストを、集積内の文書のカバー、または文書が電子形式の場合は、電子的な同等のカバーに配置することができます。それ以外の場合は、集積全体の印刷されたカバー上に表示する必要があります。
+ </para>
+    <bridgehead renderas="sect4">
+    8. 翻訳
+  </bridgehead>
+    <para>
+  翻訳は一種の変更と見なされるため、セクション4の条件に従って文書の翻訳を配布することができます。不変セクションを翻訳で置き換えるには、著作権者からの特別な許可が必要ですが、これらの不変セクションの元のバージョンのほかに、一部またはすべての不変セクションの翻訳を含めることができます。本利用許諾契約書、文書内のすべての利用許諾表示、および保証の放棄の翻訳を含めることができますが、その際は、本利用許諾契約書の元の英語版、およびそれらの利用許諾表示と保証の放棄の元の版も含めることが前提になります。本利用許諾契約書、利用許諾表示、または保証の放棄の翻訳と元の版との間に不一致がある場合は、元の版が優先されます。
+ </para>
+    <para>
+  文書内のセクションに、「謝辞」、「献辞」、または「履歴」という表題が付いている場合は、そのタイトルを保持する(セクション1)ための要件(セクション4)により、通常は実際のタイトルを変更する必要があります。
+ </para>
+    <bridgehead renderas="sect4">
+    9. 終了
+  </bridgehead>
+    <para>
+  利用者は、本利用許諾契約書に明示的に記載されている形態を除き、文書を複製、改変、二次利用許諾、および頒布してはなりません。別の方法で文書を複製、改変、二次利用許諾、または頒布しようとするのは無効であり、本利用許諾契約書の下で利用者の権利は自動的に消滅します。ただし、本使用許諾の下で利用者から複製物または権利を受領した関係者は、条項を遵守している限り、権利が消滅することはありません。
+ </para>
+    <bridgehead renderas="sect4">
+    10. 本利用許諾契約書の将来の改訂
+  </bridgehead>
+    <para>
+  フリーソフトウェア財団は、GNUフリー文書利用許諾契約書(GFDL)の新版または改訂版を随時公表することがあります。そのような新版は、性格的には現行版と似たものになりますが、新たな問題や懸案事項に対応するために細部が異なる可能性があります。<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.gnu.org/copyleft/"/>を参照してください。
+ </para>
+    <para>
+  本利用許諾契約書の各版には、区別するための版番号が設定されます。文書に、それに適用される本利用許諾契約書の特定の版番号と「後継版」が指定されている場合、利用者は、選択によって、その指定された版の条項またはフリーソフトウェア財団から公開される後継版の条項(ドラフトではない)に従うことになります。文書に、本利用許諾契約書の版番号が指定されていない場合、利用者は、フリーソフトウェア財団からこれまでに公開された任意の版(ドラフトではない)を選択することができます。
+ </para>
+    <bridgehead renderas="sect4">
+    補遺: 本利用許諾書をご使用の文書に使用する方法
+  </bridgehead>
+    <screen>Copyright (c) YEAR YOUR NAME.
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2
+or any later version published by the Free Software Foundation;
+with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+A copy of the license is included in the section entitled &#x201C;GNU
+Free Documentation License&#x201D;.</screen>
+    <para>
+  不変セクション、表カバーテキスト、および裏カバーテキストがある場合は、「with...Texts」の行を次のように置き換えます。
+ </para>
+    <screen>with the Invariant Sections being LIST THEIR TITLES, with the
+Front-Cover Texts being LIST, and with the Back-Cover Texts being LIST.</screen>
+    <para>
+  カバーテキストのない不変セクションが含まれている場合、またはこの3つの他の組み合わせの場合は、その2つの代替要素をマージして状況に合わせます。
+ </para>
+    <para>
+  文書にプログラムコードの重要な例が含まれている場合は、GNU一般公衆利用許諾契約書(GPL)などの選択したフリーソフトウェアの利用許諾に従って、これらの例を平行してリリースし、フリーソフトウェアでのその利用を許可することを推奨します。
+</para>
+  </appendix>
+</article>

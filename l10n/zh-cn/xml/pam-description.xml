@@ -1,0 +1,957 @@
+<?xml version="1.0"?>
+<article xmlns="http://docbook.org/ns/docbook" version="5.2" xml:id="pam-description" xml:lang="zh-cn">
+  <info>
+    <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">通过 PAM 进行身份验证</title>
+    <revhistory xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" xml:id="rh-pam-description">
+      <revision>
+        <date>2024-11-15</date>
+        <revdescription>
+          <para>
+              Initial version
+            </para>
+        </revdescription>
+      </revision>
+    </revhistory>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="architecture" its:translate="no">
+      <phrase>AMD64/Intel&#xA0;64</phrase>
+      <phrase>POWER</phrase>
+      <phrase>IBM</phrase>
+      <phrase>AArch64</phrase>
+    </meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="productname" its:translate="no">
+      <productname version="15 SP6">SUSE Linux Enterprise Server</productname>
+      <productname version="6.1">SUSE Linux Micro</productname>
+    </meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="title" its:translate="yes">PAM 及其用法和配置的说明。</meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="description" its:translate="yes">PAM 在身份验证过程中用作调解用户与应用程序之间的访问的层。</meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="social-descr" its:translate="yes">了解 PAM 身份验证机制的工作原理。</meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="task" its:translate="no">
+      <phrase>Authentication</phrase>
+      <phrase>Configuration</phrase>
+    </meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="series" its:translate="no">Products &amp; Solutions</meta>
+    <dm:docmanager xmlns:dm="urn:x-suse:ns:docmanager" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+      <dm:bugtracker>
+        <dm:url>https://bugzilla.suse.com/enter_bug.cgi</dm:url>
+        <dm:component>Documentation</dm:component>
+        <dm:product os="slmicro">SUSE Linux Micro 6.1</dm:product>
+        <dm:assignee>amrita.sakthivel@suse.com</dm:assignee>
+      </dm:bugtracker>
+      <dm:translation>yes</dm:translation>
+    </dm:docmanager>
+    <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+      <variablelist>
+        <varlistentry>
+          <term>内容</term>
+          <listitem>
+            <para>
+              Linux 在身份验证进程中使用 PAM（可插拔身份验证模块）作为用户和应用程序之间的中间层。本文介绍了 PAM 概念、PAM 配置结构以及 PAM 配置工具的用法。
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>原因</term>
+          <listitem>
+            <para>
+              您需要知道如何设置 PAM 模块并将系统配置为使用 U2F 密钥。
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>工作量</term>
+          <listitem>
+            <para>
+                读完本文大约需要 20 分钟。
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>要求</term>
+          <listitem>
+            <itemizedlist>
+              <listitem>
+                <para>
+                    要使用 U2F 密钥设置身份验证，您需要具有 YubiKey 或安全密钥。
+                  </para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </abstract>
+  </info>
+  <section role="concept" xml:lang="zh-cn" version="5.2" xml:id="pam-about">
+    <info>
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <para/>
+      </abstract>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">PAM 简介</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    </info>
+    <para>
+    系统管理员和编程人员经常要将访问限制在系统的某些部分或限制对应用程序某些功能的使用。没有 PAM，每次引入新的身份验证机制（例如 LDAP、Samba 或 Kerberos）时都必须对应用程序进行调整，而此过程非常耗时且容易出错。避免这些缺点的一种方法是将应用程序从身份验证机制中分开并将身份验证委托给集中管理的模块。每当需要使用新的必要身份验证模式时，只要调整或编写合适的 <emphasis>PAM 模块</emphasis>供相关程序使用即可。
+  </para>
+    <para>
+    PAM 的概念包括：
+  </para>
+    <itemizedlist mark="bullet" spacing="normal">
+      <listitem>
+        <para><emphasis>PAM 模块</emphasis>，用于特定身份验证机制的一组共享库。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        一个<emphasis>模块堆栈</emphasis>，其中包含一个或多个 PAM 模块。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        PAM 感知<emphasis>服务</emphasis>，需要使用模块堆栈或 PAM 模块进行身份验证。通常，服务是用户所熟悉的相应应用程序名称，例如 <command>login</command> 或 <command>su</command>。服务名称 <literal>other</literal> 是默认规则的保留字。
+      </para>
+      </listitem>
+      <listitem>
+        <para><emphasis>模块参数</emphasis>，可用于影响单个 PAM 模块的执行。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        用于评估执行单个 PAM 模块所产生的每种<emphasis>结果</emphasis>的机制。如果为正值，则执行下一个 PAM 模块。对负值的处理方式取决于配置：<quote>无影响，继续</quote>到<quote>立即终止</quote>之间的所有选项都有效。
+      </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section role="reference" xml:lang="zh-cn" version="5.2" xml:id="pam-configuration-files">
+    <info>
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <para/>
+      </abstract>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">PAM 配置的结构</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    </info>
+    <para>
+    <phrase><phrase os="slmicro">SUSE Linux Micro</phrase></phrase> 上的 PAM 附带所谓的基于目录的配置。配置文件集存储在 <filename>/etc/pam.d</filename> 中。依赖于 PAM 机制的每个服务（或程序）在此目录中都有各自的配置文件。例如，可以在 <filename>/etc/pam.d/sshd</filename> 文件中找到 <systemitem class="daemon">sshd</systemitem> 的服务。
+  </para>
+    <note>
+      <title><phrase><phrase os="slmicro">SUSE Linux Micro</phrase></phrase> 上不使用基于文件的配置 (<filename>/etc/pam.conf</filename>)。</title>
+      <para>
+      每项服务的配置也可以存储在 <filename>/etc/pam.conf</filename> 中。但是，出于维护和可用性考虑，<phrase><phrase os="slmicro">SUSE Linux Micro</phrase></phrase> 中不使用此配置方案。
+    </para>
+    </note>
+    <para>
+    <filename>/etc/pam.d/</filename> 下的文件定义用于身份验证的 PAM 模块。每个文件都包含用于定义某项服务的行，而每行最多包含四个组成部分：
+  </para>
+    <screen>
+      <replaceable>TYPE</replaceable>
+      <replaceable>CONTROL</replaceable>
+      <replaceable>MODULE_PATH</replaceable>
+      <replaceable>MODULE_ARGS</replaceable>
+    </screen>
+    <para>
+    组成部分的含义如下：
+  </para>
+    <variablelist>
+      <varlistentry>
+        <term>
+          <replaceable>TYPE</replaceable>
+        </term>
+        <listitem>
+          <para>
+          声明服务的类型。PAM 模块是成批处理的。不同类型的模块具有不同的用途。例如，一个模块检查口令，一个模块校验访问系统的位置，还有一个模块读取用户特定的设置。PAM 可以识别四种不同类型的模块：
+        </para>
+          <variablelist>
+            <varlistentry>
+              <term>
+                <literal>auth</literal>
+              </term>
+              <listitem>
+                <para>
+                检查用户的真实性，传统方法是通过查询口令进行检查，但也可以通过芯片卡或生物特征（例如指纹或虹膜扫描）来实现此目的。
+              </para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>
+                <literal>account</literal>
+              </term>
+              <listitem>
+                <para>
+                这种类型的模块会检查用户是否具有使用所请求服务的一般权限。例如，应执行这种检查以确保任何人都不能使用失效帐户的用户名登录。
+              </para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>
+                <literal>password</literal>
+              </term>
+              <listitem>
+                <para>
+                这种类型的模块的用途是启用身份验证令牌的更改。这通常是一个口令。
+              </para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>
+                <literal>session</literal>
+              </term>
+              <listitem>
+                <para>
+                这种类型的模块负责管理和配置用户会话。这些模块在身份验证前后启动，以记录登录尝试并配置用户的特定环境。
+              </para>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <replaceable>CONTROL</replaceable>
+        </term>
+        <listitem>
+          <para>
+          指示 PAM 模块的行为。每个模块都可以具有以下控制标志：
+        </para>
+          <variablelist>
+            <varlistentry>
+              <term>
+                <literal>required</literal>
+              </term>
+              <listitem>
+                <para>
+                在进行身份验证之前，必须先成功处理带有此标志的模块。在处理带有 <literal>required</literal> 标志的模块失败后，将继续处理带有相同标志的所有其他模块，之后用户才会收到有关身份验证尝试失败的消息。
+              </para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>
+                <literal>requisite</literal>
+              </term>
+              <listitem>
+                <para>
+                也必须成功处理带有此标志的模块，处理方式在很大程度上与带有 <literal>required</literal> 标志的模块类似。但是，如果某个带有此标志的模块失败，将立即向用户提供反馈并且不再继续处理其他模块。如果成功，则接着处理其他模块，就像带有 <literal>required</literal> 标志的任何模块一样。<literal>requisite</literal> 标志可用作基本过滤器，检查进行正确身份验证所必需的某些条件是否存在。
+              </para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>
+                <literal>sufficient</literal>
+              </term>
+              <listitem>
+                <para>
+                在成功处理带有此标志的模块后，请求方应用程序会立即收到处理成功的消息并且不再处理其他模块，但前提是之前所有带有 <literal>required</literal> 标志的模块均未失败。带有 <literal>sufficient</literal> 标志的模块失败没有任何直接后果，所有随后的模块都将按其各自的顺序进行处理。
+              </para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>
+                <literal>optional</literal>
+              </term>
+              <listitem>
+                <para>
+                带有此标志的模块成功或失败不会产生任何直接后果。此标志可用于只用来显示消息（例如，通知用户收到了邮件）而不采取任何进一步操作的模块。
+              </para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term>
+                <literal>include</literal>
+              </term>
+              <listitem>
+                <para>
+                如果给出此标志，则在此处插入指定为参数的文件。
+              </para>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <replaceable>MODULE_PATH</replaceable>
+        </term>
+        <listitem>
+          <para>
+          包含 PAM 模块的完整文件名。如果模块位于默认目录 <filename>/lib/security</filename>（对于 <phrase><phrase os="slmicro">SUSE Linux Micro</phrase></phrase> 支持的所有 64 位平台，默认目录均为 <filename>/lib64/security</filename>）中，则无需明确指定此文件名。
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <replaceable>MODULE_ARGS</replaceable>
+        </term>
+        <listitem>
+          <para>
+          包含用于影响 PAM 模块行为的选项的空格分隔列表，例如 <option>debug</option>（启用调试）或 <option>nullok</option>（允许使用空口令）。
+        </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <para>
+    另外，<filename>/etc/security</filename> 下提供了用于 PAM 模块的全局配置文件，它们定义这些模块的确切行为（其中包括 <filename>pam_env.conf</filename> 和 <filename>time.conf</filename>）。使用 PAM 模块的每个应用程序都会调用一组 PAM 函数，这些函数随后将处理配置文件中的信息，并将结果返回给请求方应用程序。
+  </para>
+    <para>
+    为了简化 PAM 模块的创建和维护，现已引入 <literal>auth</literal>、<literal>account</literal>、<literal>password</literal> 和 <literal>session</literal> 模块类型的通用默认配置文件。这些配置取自每个应用程序的 PAM 配置。因此，对 <filename>common-*</filename> 中全局 PAM 配置模块进行的更新将在所有 PAM 配置文件中传播，而无需管理员更新每个 PAM 配置文件。
+  </para>
+    <para>
+    您可以使用 <command>pam-config</command> 工具维护全局 PAM 配置文件。此工具可自动将新模块添加到配置、更改现有模块的配置，或者从配置中删除模块（或选项）。它最大限度地减少甚至完全消除了维护 PAM 配置时所需的人工干预。
+  </para>
+    <section role="task" xml:lang="zh-cn" version="5.2" xml:id="pam-sshd-configuration">
+      <info>
+        <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+          <para/>
+        </abstract>
+        <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">PAM 配置示例</title>
+        <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+      </info>
+      <para>
+    为了演示 PAM 配置的真实应用场景示例，本节中使用了 sshd 的配置：
+  </para>
+      <example xml:id="dat-pam-sshd">
+        <title>sshd 的 PAM 配置 (<filename>/etc/pam.d/sshd</filename>)</title>
+        <screen>#%PAM-1.0 <co xml:id="co-security-pam-sshd-pam-line"/>
+auth     requisite      pam_nologin.so                              <co xml:id="co-security-pam-sshd-pam-nologin"/>
+auth     include        common-auth                                 <co xml:id="co-security-pam-sshd-common-auth"/>
+account  requisite      pam_nologin.so                              <xref xrefstyle="select:nopage" linkend="co-security-pam-sshd-pam-nologin" role="internalbook"/>
+account  include        common-account                              <xref xrefstyle="select:nopage" linkend="co-security-pam-sshd-common-auth" role="internalbook"/>
+password include        common-password                             <xref linkend="co-security-pam-sshd-common-auth" xrefstyle="select:nopage" role="internalbook"/>
+session  required       pam_loginuid.so                             <co xml:id="co-security-pam-sshd-pam-loginuid"/>
+session  include        common-session                              <xref linkend="co-security-pam-sshd-common-auth" xrefstyle="select:nopage" role="internalbook"/>
+session  optional       pam_lastlog.so   silent noupdate showfailed <co xml:id="co-security-pam-sshd-lastlog"/></screen>
+        <calloutlist>
+          <callout arearefs="co-security-pam-sshd-pam-line">
+            <para>
+          为 PAM 1.0 声明此配置文件的版本。这只是一项惯例，但将来可以使用它来检查版本。
+        </para>
+          </callout>
+          <callout arearefs="co-security-pam-sshd-pam-nologin">
+            <para>
+          检查 <filename>/etc/nologin</filename> 是否存在。如果不存在，则除 <systemitem class="username">root</systemitem> 以外的任何用户都无法登录。
+        </para>
+          </callout>
+          <callout arearefs="co-security-pam-sshd-common-auth">
+            <para>
+          引用四种模块类型的配置文件：<filename>common-auth</filename>、<filename>common-account</filename>、<filename>common-password</filename> 和 <filename>common-session</filename>。这 4 个文件包含每种模块类型的默认配置。
+        </para>
+          </callout>
+          <callout arearefs="co-security-pam-sshd-pam-loginuid">
+            <para>
+          设置已经过身份验证的进程的登录 UID 进程属性。
+        </para>
+          </callout>
+          <callout arearefs="co-security-pam-sshd-lastlog">
+            <para>
+          显示有关用户上次登录的信息。
+        </para>
+          </callout>
+        </calloutlist>
+      </example>
+      <para>
+    通过包含配置文件而不是将每个模块单独添加到相应的 PAM 配置，您可以在管理员更改默认设置后自动获取更新的 PAM 配置。
+  </para>
+      <para>
+    第一个 include 文件 (<filename>common-auth</filename>) 会调用 <literal>auth</literal> 类型的模块：<systemitem class="library">pam_env.so</systemitem>、<systemitem class="library">pam_gnome_keyring.so</systemitem> 和 <systemitem class="library">pam_unix.so</systemitem>。请参见<xref linkend="dat-pam-common-auth" role="internalbook"/>。请记住，模块可能因您的安装而异。
+  </para>
+      <example xml:id="dat-pam-common-auth">
+        <title><literal>auth</literal> 部分的默认配置 (<filename>common-auth</filename>)</title>
+        <screen>auth  required  pam_env.so                   <co xml:id="co-security-pam-sshd-pam-env"/>
+auth  optional  pam_gnome_keyring.so         <co xml:id="co-security-pam-sshd-gnome"/>
+auth  required  pam_unix.so  try_first_pass <co xml:id="co-security-pam-sshd-pam-unix"/></screen>
+      </example>
+      <calloutlist>
+        <callout arearefs="co-security-pam-sshd-pam-env">
+          <para><systemitem class="library">pam_env.so</systemitem> 加载 <filename>/etc/security/pam_env.conf</filename> 以设置此文件中指定的环境变量。它可用于将 <envar>DISPLAY</envar> 变量设置为正确的值，因为 <systemitem class="library">pam_env</systemitem> 模块知道登录发生的位置。
+      </para>
+        </callout>
+        <callout arearefs="co-security-pam-sshd-gnome">
+          <para><systemitem class="library">pam_gnome_keyring.so</systemitem> 根据 GNOME 密钥环检查用户的登录名和口令。
+      </para>
+        </callout>
+        <callout arearefs="co-security-pam-sshd-pam-unix">
+          <para><systemitem class="library">pam_unix</systemitem> 根据 <filename>/etc/passwd</filename> 和 <filename>/etc/shadow</filename> 检查用户的登录名和口令。
+      </para>
+        </callout>
+      </calloutlist>
+      <para>
+    整个 <literal>auth</literal> 模块堆栈处理完后，<systemitem class="daemon">sshd</systemitem> 才会获得有关登录是否成功的反馈。堆栈中带有 <literal>required</literal> 控制标志的所有模块都必须成功处理，<systemitem class="daemon">sshd</systemitem> 才能收到有关正面结果的消息。如果其中的某个模块不成功，则仍将继续处理整批模块，在此之后 <systemitem class="daemon">sshd</systemitem> 才会收到处理失败的通知。
+  </para>
+      <para>
+    成功处理所有 <literal>auth</literal> 类型的模块后，将处理另一条 include 语句，在本例中为<xref linkend="dat-pam-common-account" role="internalbook"/>中的语句。<filename>common-account</filename> 仅包含一个模块：<literal>pam_unix</literal>。如果 <literal>pam_unix</literal> 返回的结果证明用户存在，则 sshd 会收到一条处理成功的消息，然后处理下一批模块 (<literal>password</literal>)。
+  </para>
+      <example xml:id="dat-pam-common-account">
+        <title><literal>account</literal> 部分的默认配置 (<filename>common-account</filename>)</title>
+        <screen>account  required  pam_unix.so  try_first_pass</screen>
+      </example>
+      <para>
+    同样，<systemitem class="daemon">sshd</systemitem> 的 PAM 配置仅涉及一条 include 语句，该语句引用了 <literal>password</literal> 模块的默认配置（位于 <filename>common-password</filename> 中）。每当应用程序请求获取身份验证令牌的更改信息时，都必须成功完成这些模块（控制标志为 <literal>requisite</literal> 和 <literal>required</literal>）。
+  </para>
+      <para>
+    更改口令或另一个身份验证令牌需要进行安全检查。这项检查是通过 <filename>pam_cracklib</filename> 模块实现的。随后使用的 <filename>pam_unix</filename> 模块带有来自 <filename>pam_cracklib</filename> 的任何旧口令和新口令，因此用户在更改口令后无需再次进行身份验证。此过程可确保不能绕过 <filename>pam_cracklib</filename> 所执行的检查。每当配置了 <literal>account</literal> 或 <literal>auth</literal> 类型来指出口令失效时，还应使用 <literal>password</literal> 模块。
+  </para>
+      <para>
+    最后，调用 <literal>session</literal> 类型的模块（捆绑在 <filename>common-session</filename> 文件中）以根据相关用户的设置来配置会话。<filename>pam_limits</filename> 模块加载文件 <filename>/etc/security/limits.conf</filename>，该文件可以定义某些系统资源的使用限制。再次处理 <filename>pam_unix</filename> 模块。<filename>pam_umask</filename> 模块可用于设置文件模式创建掩码。由于此模块带有 <literal>optional</literal> 标志，因此此模块的失败将不会影响整个会话模块堆栈的成功完成。当用户注销时，将再次调用 <literal>session</literal> 模块。
+  </para>
+    </section>
+  </section>
+  <section role="reference" xml:lang="zh-cn" version="5.2" xml:id="pam-configuring-modules">
+    <info>
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <para/>
+      </abstract>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">PAM 模块的配置</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    </info>
+    <para>
+    某些 PAM 模块是可配置的。配置文件位于 <filename>/etc/security</filename> 中。本节简要介绍与 sshd 示例相关的配置文件 - <filename>pam_env.conf</filename> 和 <filename>limits.conf</filename>。
+  </para>
+    <section xml:id="pam-struc-conf-pamenv">
+      <title>pam_env.conf</title>
+      <para><filename>pam_env.conf</filename> 可用于定义每次调用 <systemitem>pam_env</systemitem> 模块时为用户设置的标准化环境。它允许您使用以下语法预设环境变量：
+    </para>
+      <screen><replaceable>VARIABLE</replaceable>  [DEFAULT=<replaceable>VALUE</replaceable>]  [OVERRIDE=<replaceable>VALUE</replaceable>]</screen>
+      <variablelist>
+        <varlistentry>
+          <term>
+            <replaceable>VARIABLE</replaceable>
+          </term>
+          <listitem>
+            <para>
+            要设置的环境变量的名称。
+          </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>
+            <systemitem>[DEFAULT=&lt;value&gt;]</systemitem>
+          </term>
+          <listitem>
+            <para>
+            管理员要设置的默认 <replaceable>VALUE</replaceable>。
+          </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>
+            <systemitem>[OVERRIDE=&lt;value&gt;]</systemitem>
+          </term>
+          <listitem>
+            <para>
+            可能由 <systemitem>pam_env</systemitem> 查询并设置的值，会覆盖默认值。
+          </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+      <para>
+      有关如何使用 <systemitem>pam_env</systemitem> 的典型示例是 <envar>DISPLAY</envar> 变量的调整，每当发生远程登录时，该变量就会改变。<xref linkend="dat-pam-pamenv" role="internalbook"/>中显示了这一点。
+    </para>
+      <example xml:id="dat-pam-pamenv">
+        <title>pam_env.conf</title>
+        <screen>
+REMOTEHOST  DEFAULT=localhost          OVERRIDE=@{PAM_RHOST}
+DISPLAY     DEFAULT=${REMOTEHOST}:0.0  OVERRIDE=${DISPLAY}
+</screen>
+      </example>
+      <para>
+      第一行将 <envar>REMOTEHOST</envar> 变量的值设置为 <literal>localhost</literal>，每当 <filename>pam_env</filename> 不能确定任何其他值时就会使用该值。<envar>DISPLAY</envar> 变量又包含 <envar>REMOTEHOST</envar> 的值。在 <filename>/etc/security/pam_env.conf</filename> 的注释中可以找到详细信息。
+    </para>
+    </section>
+    <section xml:id="sec-pam-struc-pamlimits">
+      <title>limits.conf</title>
+      <para>
+      可以在 <systemitem>pam_limits</systemitem> 模块将会读取的 <filename>limits.conf</filename> 中基于用户或组设置系统限制。该文件可用于设置硬限制（即不能超出的限制）和软限制（即可以暂时超出的限制）。有关语法和选项的详细信息，请参见 <filename>/etc/security/limits.conf</filename> 中的注释。
+    </para>
+    </section>
+  </section>
+  <section role="task" xml:lang="zh-cn" version="5.2" xml:id="pam-config-tool">
+    <info>
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <para/>
+      </abstract>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">使用 <command>pam-config</command> 配置 PAM</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    </info>
+    <para>
+    <command>pam-config</command> 工具可帮助您配置全局 PAM 配置文件 (<filename>/etc/pam.d/common-*</filename>) 和多个选定的应用程序配置。如需受支持模块的列表，请使用 <command>pam-config --list-modules</command> 命令。使用 <command>pam-config</command> 命令可以维护 PAM 配置文件。可将新模块添加到 PAM 配置，删除其他模块，或修改这些模块的选项。更改全局 PAM 配置文件时，无需手动调整单个应用程序的 PAM 设置。
+  </para>
+    <para>
+    <command>pam-config</command> 的简单用例包括：
+  </para>
+    <procedure>
+      <step>
+        <formalpara>
+          <title>自动生成全新的 Unix 样式 PAM 配置。</title>
+          <para>
+          让 <command>pam-config</command> 创建最简单的可行设置，您可以稍后再扩展。<command>pam-config
+          --create</command> 命令创建简单的 Unix 身份验证配置。<command>pam-config</command> 不负责维护的现有配置文件将被重写，但会以 <literal>*.pam-config-backup</literal> 的形式保留备份副本。
+        </para>
+        </formalpara>
+      </step>
+      <step>
+        <formalpara>
+          <title>添加新的身份验证方法。</title>
+          <para>
+          可通过简单的 <command>pam-config --add
+          --ldap</command> 命令将新的身份验证方法（例如 LDAP）添加到 PAM 模块堆栈。在适用的情况下，LDAP 将添加到所有 <filename>common-*-pc</filename> PAM 配置文件中。
+        </para>
+        </formalpara>
+      </step>
+      <step>
+        <formalpara>
+          <title>添加调试以进行测试。</title>
+          <para>
+          为确保新的身份验证过程按预期工作，请对所有 PAM 相关操作开启调试。<command>pam-config
+          --add --ldap-debug</command> 为 LDAP 相关的 PAM 操作启用调试。
+        </para>
+        </formalpara>
+      </step>
+      <step>
+        <formalpara>
+          <title>查询您的设置。</title>
+          <para>
+          在最终应用您的新 PAM 设置之前，请检查该设置是否包含您要添加的所有选项。<command>pam-config --query
+          --</command><replaceable>MODULE</replaceable> 命令会列出所要查询的 PAM 模块的类型和选项。
+        </para>
+        </formalpara>
+      </step>
+      <step>
+        <formalpara>
+          <title>去除调试选项。</title>
+          <para>
+          最后，当您对设置性能完全满意时，请从设置中去除调试选项。<command>pam-config --delete --ldap-debug</command> 命令为 LDAP 身份验证禁用调试。如果您为其他模块添加了调试选项，请使用类似的命令关闭这些选项。
+        </para>
+        </formalpara>
+      </step>
+    </procedure>
+    <para>
+    有关 <command>pam-config</command> 命令和可用选项的详细信息，请参见 <command>pam-config(8)</command> 的手册页。
+  </para>
+  </section>
+  <section role="task" xml:lang="zh-cn" version="5.2" xml:id="pam-manual-config">
+    <info>
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <para/>
+      </abstract>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">手动配置 PAM</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    </info>
+    <para>
+    如果您偏向于手动创建或维护 PAM 配置文件，请确保对这些文件禁用 <command>pam-config</command>。
+  </para>
+    <para>
+    当您使用 <command>pam-config --create</command> 命令从头开始创建 PAM 配置文件时，此命令会创建从 <filename>common-<replaceable>*</replaceable></filename> 到 <filename>common-<replaceable>*</replaceable>-pc</filename> 文件的符号链接。<command>pam-config</command> 仅修改 <filename>common-<replaceable>*</replaceable>-pc</filename> 配置文件。去除这些符号链接会有效禁用 <command>pam-config</command>，因为 <command>pam-config</command> 仅对 <filename>common-<replaceable>*</replaceable>-pc</filename> 文件运行，而在没有符号链接的情况下，这些文件不起作用。
+  </para>
+    <warning>
+      <title>在配置中包含 <filename>pam_systemd.so</filename></title>
+      <para>
+      如果您要创建自己的 PAM 配置，请务必包含配置为 <literal>session
+      optional</literal> 的 <literal>pam_systemd.so</literal>。不包含 <literal>pam_systemd.so</literal> 可能会导致 <systemitem class="daemon">systemd</systemitem> 任务限制出现问题。有关细节，请参见 <literal>pam_systemd.so</literal> 的手册页。
+    </para>
+    </warning>
+  </section>
+  <section role="task" xml:lang="zh-cn" version="5.2" xml:id="pam-cofigure-using-u2f-keys">
+    <info>
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <para/>
+      </abstract>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">将 <phrase><phrase os="slmicro">SUSE Linux Micro</phrase></phrase> 配置为需要 U2F 密钥才能进行本地登录</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    </info>
+    <para>
+    为了在本地登录 <phrase><phrase os="slmicro">SUSE Linux Micro</phrase></phrase> 期间提供更高的安全性，您可以使用 <literal>pam-u2f</literal> 框架以及 YubiKey 和安全密钥上的 U2F 功能配置双重身份验证。
+  </para>
+    <para>
+    要在 <phrase><phrase os="slmicro">SUSE Linux Micro</phrase></phrase> 系统上设置 U2F，您需要将密钥与您在 <phrase><phrase os="slmicro">SUSE Linux Micro</phrase></phrase> 上的帐户相关联。之后，将系统配置为使用该密钥。以下部分说明了此过程。
+  </para>
+    <section role="task" xml:lang="zh-cn" version="5.2" xml:id="pam-account-association">
+      <info>
+        <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+          <para/>
+        </abstract>
+        <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">将 U2F 密钥与您的帐户关联</title>
+        <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+      </info>
+      <para>
+    要将 U2F 密钥与您的帐户关联，请按以下步骤操作：
+  </para>
+      <procedure>
+        <step>
+          <para>
+        登录计算机。
+      </para>
+        </step>
+        <step>
+          <para>
+        插入 U2F 密钥。
+      </para>
+        </step>
+        <step>
+          <para>
+        创建用于存储 U2F 密钥配置的目录：
+      </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> mkdir -p ~/.config/Yubico</screen>
+        </step>
+        <step>
+          <para>
+        运行可输出配置行的 <command>pamu2fcfg</command> 命令：
+      </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> pamu2fcfg &gt; ~/.config/Yubico/u2f_keys</screen>
+        </step>
+        <step>
+          <para>
+        当设备开始闪烁时，触摸金属触点以确认关联。
+      </para>
+        </step>
+      </procedure>
+      <para>
+    建议使用备份 U2F 设备，可以通过运行以下命令来设置：
+  </para>
+      <procedure>
+        <step>
+          <para>
+        运行以下命令：
+      </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> pamu2fcfg -n &gt;&gt; ~/.config/Yubico/u2f_keys</screen>
+        </step>
+        <step>
+          <para>
+        当设备开始闪烁时，触摸金属触点以确认关联。
+      </para>
+        </step>
+      </procedure>
+      <para>
+    为了提高安全性，可以将输出文件从默认位置移到需要 <literal>sudo</literal> 权限才能修改文件的目录。例如，将其移到 <filename>/etc</filename> 目录中。为此，请执行以下步骤：
+  </para>
+      <procedure>
+        <step>
+          <para>
+        在 <filename>/etc</filename> 中创建一个目录：
+      </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> mkdir /etc/Yubico</screen>
+        </step>
+        <step>
+          <para>
+        移动创建的文件：
+      </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> mv ~/.config/Yubico/u2f_keys /etc/Yubico/u2f_keys</screen>
+        </step>
+      </procedure>
+      <note>
+        <title>将 <filename>u2f_keys</filename> 放到非默认位置</title>
+        <para>
+      如果将输出文件移到默认目录 (<filename>$HOME/.config/Yubico/u2f_keys</filename>) 以外的目录，则需要在 <filename>/etc/pam.d/login</filename> 文件中添加相应路径（如<xref linkend="pam-update-configs" role="internalbook"/>所述）。
+    </para>
+      </note>
+    </section>
+    <section role="task" xml:lang="zh-cn" version="5.2" xml:id="pam-update-configs">
+      <info>
+        <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+          <para/>
+        </abstract>
+        <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">更新 PAM 配置</title>
+        <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+      </info>
+      <para>
+    创建 U2F 密钥配置后，需要调整系统上的 PAM 配置。
+  </para>
+      <procedure>
+        <step>
+          <para>
+        打开 <filename>/etc/pam.d/login</filename> 文件。
+      </para>
+        </step>
+        <step>
+          <para>
+        将 <literal>auth required pam_u2f.so</literal> 一行添加到文件中，如下所示：
+      </para>
+          <screen>
+#%PAM-1.0
+auth      include    common-auth
+<emphasis role="bold">auth      required   pam_u2f.so</emphasis>
+account   include    common-account
+password  include    common-password
+session   optional   pam_keyinit.so revoke
+session   include    common-session
+#session  optional   pam_xauth.so
+        </screen>
+        </step>
+        <step>
+          <para>
+        如果将 <filename>u2f_keys</filename> 文件放到 <filename>$HOME/.config/Yubico/u2f_keys</filename> 以外的其他位置，则需要在 <filename>/etc/pam.d/login</filename> PAM 文件中使用 <literal>authfile</literal> 选项，如下所示：
+      </para>
+          <screen>
+#%PAM-1.0 
+auth     requisite pam_nologin.so 
+auth     include   common-auth
+<emphasis role="bold">auth  required pam_u2f.so authfile=<replaceable>&lt;PATH_TO_u2f_keys&gt;</replaceable></emphasis>
+...
+        </screen>
+          <para>
+        其中 <replaceable>&lt;PATH_TO_u2f_keys&gt;</replaceable> 是 <filename>u2f_keys</filename> 文件的绝对路径。
+      </para>
+        </step>
+      </procedure>
+    </section>
+  </section>
+  <section version="5.2" xml:id="legal-disclaimer">
+    <info>
+      <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">法律声明</title>
+    </info>
+    <para> 版权所有 © 2006–<?dbtimestamp format="Y"?>
+ SUSE LLC 和贡献者。保留所有权利。 </para>
+    <para>
+    根据 GNU 自由文档许可证 (GNU Free Documentation License) 版本 1.2 或（根据您的选择）版本 1.3 中的条款，在此授予您复制、分发和/或修改本文档的权限；本版权声明和许可证附带不可变部分。许可版本 1.2 的副本包含在题为<quote>GNU Free Documentation License</quote>的部分。
+  </para>
+    <para>
+    有关 SUSE 商标，请参见 <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.suse.com/company/legal/"/>。所有其他第三方商标分别为相应所有者的财产。商标符号（®、™ 等）代表 SUSE 及其关联公司的商标。星号 (*) 代表第三方商标。
+  </para>
+    <para>
+    本指南力求涵盖所有细节，但这不能确保本指南准确无误。SUSE LLC 及其关联公司、作者和译者对于可能出现的错误或由此造成的后果皆不承担责任。
+  </para>
+  </section>
+  <appendix xmlns:its="http://www.w3.org/2005/11/its" version="5.2" role="legal" its:translate="no" xml:id="doc-gfdl-license">
+    <info>
+      <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">GNU 自由文档许可证</title>
+    </info>
+    <para>
+  Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc. 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.允许任何人复制和分发此许可证文档的逐字副本，但禁止对其进行更改。
+ </para>
+    <bridgehead renderas="sect4">
+    0. 导言
+  </bridgehead>
+    <para>
+  此许可证的目的是赋予手册、教科书或其他功能性的和有用的文档以“自由”：即保证每个人都有复制和再分发此类文档的有效自由，无论是否进行修改，也无论将其用于商业或非商业用途。其次，此许可证为作者和出版者保留了因工作获得声誉但不视为对他人所做修改负责的方式。
+ </para>
+    <para>
+  本许可证是一种“非盈利版权”，这意味着从该文档衍生的作品也必须是以同一方式自由的。它补充了 GNU 通用公共许可证（为自由软件设计的非盈利版权许可证）。
+ </para>
+    <para>
+  我们设计此许可证旨在将其用于免费软件的手册，因为免费软件需要自由文档：免费程序所附手册应具有与软件本身同样的自由。但是此许可证不限于软件手册；它可以用于任何文本作品，无论主题如何或它是否作为印刷书籍出版。建议本许可证主要用于目的是指导或参考的作品。
+ </para>
+    <bridgehead renderas="sect4">
+    1. 适用性和定义
+  </bridgehead>
+    <para>
+  此许可证适用的对象：由版权所有者在其中明确声明可按照此许可证条款以任何媒体分发的任何手册和其他作品。此类声明授予在此处所述的条款和条件下使用该作品的全球无限期无版权许可证。下述“文档”指任何此类手册或作品。任何公众成员都是一个被许可人，以下称为“您”。如果您以需要版权法许可的任何方式复制、修改或分发该作品，则表示您接受该许可证。
+ </para>
+    <para>
+  该文档的“修改版本”表示包含该文档或其一部分（或者逐字复制或者有修改和/或翻译为另一语言）的任何作品。
+ </para>
+    <para>
+  “次要章节”是该文档的命名附录或扉页章节，专门讲述该文档的出版者或作者与该文档整个主题（或相关问题）的关系，不包含与整个主题相关的内容。（因此，如果该文档是数学课本的一部分，则辅助部分可能不说明任何数学问题。）这种关系可以是与主题或相关问题的历史联系，或与它们相关的法律、商业、哲学、伦理或政治地位。
+ </para>
+    <para>
+  在该文档基于此许可证项发布的声明中，“固定章节”是将其标题指定为固定章节标题的一些辅助章节。如果一个章节不适用上述辅助章节的定义，则不允许将其指定为固定章节。该文档可能不包含固定章节。如果该文档不标识任何固定章节，则表示没有固定章节。
+ </para>
+    <para>
+  在该文档基于此许可证项发布的声明中，“封页文本”是作为封面文本或封底文本列出的简短文本段落。封面文本最多 5 个单词，封底文本最多 25 个单词。
+ </para>
+    <para>
+  文档的“透明”副本是一个机器可读的副本，使用公众可以得到其规范的格式表达，这样的副本适合于使用通用文本编辑器、（对于像素构成的图像）通用绘图程序、（对于绘制的图形）广泛使用的绘画编辑器直接修改文档，也适用于输入到文本格式处理程序或自动翻译成各种适于适用于输入到文本格式处理程序的格式。一个用其他透明文件格式表示的副本，如果该格式的标记（或缺少标记）已经构成了对读者的后续修改的障碍，那么就是不透明的。表示实质性数量的文本的图像格式都是不透明的。不“透明”的副本称为“不透明”。
+ </para>
+    <para>
+  适于作为透明副本的格式的示例有：没有标记的纯 ASCII 文本、Texinfo 输入格式、LaTeX 输入格式、使用公共可用 DTD 的 SGML 或 XML，符合标准的简单 HTML、可以人为修改的 PostScript 或 PDF。透明图像格式的示例有 PNG、XCF 和 JPG。不透明的格式包括：仅可以被私有版权的字处理软件使用的私有版权格式、所用的 DTD 和/或处理工具不是广泛可用的的 SGML 或 XML、机器生成的 HTML、一些字处理器生成的只用于输出目的的 PostScript 或 PDF。
+ </para>
+    <para>
+  对于印刷书籍，“扉页”就是扉页本身以及随后的一些用于补充的页，显然本许可资料需要出现在扉页上。对于那些没有扉页的作品形式，“扉页”代表接近作品最突出标题的、在文本正文之前的文本。
+ </para>
+    <para>
+  “命名为 XYZ”的章节表示文档的一个特定的子单元，其标题就是 XYZ 或在括号中包含 XYZ 且后跟 XYZ 的其他语言翻译文本。（这里 XYZ 代表下面提及的特定章节名称，比如“致谢”、“题献”、“签名”或“历史”。）要在修改文档时对这类章节“保留标题”就是依据此定义保持这样一个“命名为 XYZ”的章节。
+ </para>
+    <para>
+  文档可能在文档遵照此许可证的声明后面包含免责声明。这些免责声明应作为参考信息包含在此许可证中，但是只能将其视作免责声明：这些免责声明暗指的任何其他含义均无效，且对此许可证的含义不产生任何影响。
+ </para>
+    <bridgehead renderas="sect4">
+    2. 逐字复制
+  </bridgehead>
+    <para>
+  您可以用任何媒体复制并分发文档，无论是出于商业还是非商业目的，只要保证此许可证、版权声明和声称此许可证应用于文档的声明都完整地、无任何附加条件地存在于所有副本中。不能使用任何技术手段阻碍或控制您制作或发布的副本的阅读或再次复制。不过您可以在副本交易中得到报酬。如果发布足够多的副本，则您必须遵循下面第三节中的条件。
+ </para>
+    <para>
+  您也可以在如上的条件下出租副本和向公众放映副本。
+ </para>
+    <bridgehead renderas="sect4">
+    3. 大量复制
+  </bridgehead>
+    <para>
+  如果您出版的文档印刷版副本（或是有印制封页的其他媒体副本）多于 100 份，而文档的许可证声明中要求有封页文本，则您必须将它清晰地置于封页之上，封面文本在封面上，封底文本在封底上。封面和封底上还必须标明您是这些副本的出版者。封面必须同等显著地完整展现标题的所有文字。您可以在封页上加入其他资料。改动仅限于封页的复制，只要保持文档的标题不变并满足这些条件，可以在其他方面被视为逐字复制。
+ </para>
+    <para>
+  如果需要加上的文本对于封面或封底过多，无法明显地表示，您应该在封页上列出前面的（在合理的前提下尽量多），把其他的放在邻近的页面上。
+ </para>
+    <para>
+  如果您出版或分发了超过 100 份文档的不透明副本，则必须在每个不透明副本中包含一份计算机可读的透明副本，或是在每个不透明副本中给出一个计算机网络地址，通过这个地址，网络公共用户可以使用标准网络协议下载文档的无任何附加资料的完整透明副本。如果您选择后者，则必须在开始大量分发非透明副本的时候采用相当谨慎的步骤，保证透明副本在其所给出的位置在（直接或通过代理和零售商）分发最后一次该版本的非透明副本的时间之后一年之内始终是有效的。
+ </para>
+    <para>
+  在重新大量发布副本之前，请您（但不是必须）与文档的作者联系，以便他们可以有机会向您提供文档的更新版本。
+ </para>
+    <bridgehead renderas="sect4">
+    4. 修改
+  </bridgehead>
+    <para>
+  在上述第 2、3 节的条件下，您可以复制和分发文档的修改版本，前提是严格按照此许可证发布修改后的文档，将修改版本用作文档，从而允许任何拥有此修改版副本的人执行分发或修改。另外，在修改版中，您需要做到如下几点：
+ </para>
+    <orderedlist numeration="upperalpha" spacing="normal">
+      <listitem>
+        <para>
+    用于与文档以及以前各个版本（如果有，应该列在文档的“历史”章节中）显著不同的扉页（和封页，如果有）。如果那个版本的原始发行者允许的话，您可以使用和以前版本相同的标题。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    与作者一样，在扉页上列出承担修改版本中的修改的作者责任的一个或多个人或实体和至少五个文档的原作者（如果原作者不足五个就全部列出），除非他们免除了您的这个责任。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    与原来的发行者一样，在扉页上列出修改版的发行者的姓名。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    保持该文档的全部版权声明不变。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    在与其他版权声明邻近的位置加入恰当的针对您的修改的版权声明。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    在紧接着版权声明的位置加入许可声明，按照下面附录中给出的形式，以本许可证给公众授于是用修订版本的权利。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    保持原文档的许可声明中的全部不可变章节、封面文字和封底文字的声明不变。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    包含一份未作任何修改的本协议的副本。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    保持命名为“历史”的章节不变，保持它的标题不变，并在其中加入一项，至少声明扉页上的已修改版本的标题、年份、新作者和出版者。如果文档中没有命名为“历史”章节，则请新建它，并加入一项以声明原文档扉页上所列的标题、年份、作者与出版者，再在其后加入如上所说的描述修改版本的项。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    如果文档中有用于公共用户访问的文档透明副本的网址，则保持网址不变，并同样提供它所基于的以前文档版本的网址。这些网址可以放在“历史”章节。您可以不给出那些在原文档发行之前已经发行至少四年的版本给出的网址，或者该版本的发行者授权不列出网址。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    对于任何命名为“致谢”或“题献”的章节，保持其标题不变，并保持其全部内容以及对每位贡献者致谢和/或题献的语气不变。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    保持文档的所有固定章节不变，不改变它们的标题和内容。章节的编号或相当的内容不被认为是章节标题的一部分。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    删除命名为“签名”的章节。这样的章节不可以被包含在修改后的版本中。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    不要把任何现有章节重命名为“签名”或与任何不可变章节相冲突的标题。
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    保持任何免责声明不变。
+   </para>
+      </listitem>
+    </orderedlist>
+    <para>
+  如果修改版本加入了新的符合次要章节定义的引言或附录章节，并且不含有从原文档中复制的内容，您可以选择将其标记为固定。如果需要这样做，则将它们的标题加入修改版本许可声明的不可变章节列表之中。这些标题必须和其他章节的标题相区分。
+ </para>
+    <para>
+  您可以加入一个命名为“签名”的章节，只要它只包含对您的修改版本由不同的各方给出的签名，例如书评或是声明文本已经被一个组织认定为一个标准的权威定义。
+ </para>
+    <para>
+  您可以加入一个最多 5 个字的段落作为封面文本和一个最多 25 个字的段落作为封底文本，将它们加入修改版本的封页文本列表末端。一个实体只可以添加（或编排）一段封面和一段封底文本。如果原文档已经为该封页（封面或封底）包含了封页文本，由您或您所代表的实体先前加入或排列的文本，不能再新加入一个，但您可以在原来的发行者的明确许可下替换掉原来的那个。
+ </para>
+    <para>
+  作者和发行者不能通过本许可证授权公众使用他们的名字推荐或暗示认可任何一个修改版本。
+ </para>
+    <bridgehead renderas="sect4">
+    5. 组合文档
+  </bridgehead>
+    <para>
+  遵照第 4 节所说的修改版本的规定，您以将文档和其他文档合并并以本许可证发布，只要您在合并结果中包含原文档的所有不可变章节，对它们不加以任何改动，并在合并结果的许可声明中将它们全部列为不可变章节，而且维持原作者的免责声明不变。
+ </para>
+    <para>
+  合并作品仅需要包含一份此许可证，多个相同的固定章节可以由一个副本取代。如果有多个名称相同但内容不同的固定章节，通过在章节名称后面的括号中加上原作者或出版者的姓名（如果已知）来加以区别，或者使用唯一编号加以区别。并对合并作品许可声明中的固定章节列表中的章节标题做相同的调整。
+ </para>
+    <para>
+  在合并过程中，必须合并不同原始文档中任何命名为“历史”的章节，从而形成新的命名为“历史”的章节；类似地，还要合并命名为“致谢”和“题献”的章节。必须删除所有命名为“签名”的章节。
+ </para>
+    <bridgehead renderas="sect4">
+    6. 文档的合集
+  </bridgehead>
+    <para>
+  您可以制作一个文档和其他文档的合集，在本许可证下发布，并在合集中将不同文档中的多个本许可证的副本以一个单独的副本来代替，只要您在文档的其他方面遵循本许可证的逐字复制的条款即可。
+ </para>
+    <para>
+  您可以从一个这样的合集中提取一个单独的文档，并将它在本许可证下单独发布，只要您想这个提取出的文档中加入一份本许可证的副本，并在文档的其他方面遵循本许可证的逐字复制的原则。
+ </para>
+    <bridgehead renderas="sect4">
+    7. 独立作品的聚合体
+  </bridgehead>
+    <para>
+  将文档或其派生品以及其他独立和无关文档或作品编撰在一个储存卷中或分发媒体上，这称为文档的“聚合体”，前提是编撰成品的著作权对其使用者的法律权限的限制未超出各个独立作品的许可范围。当基于此许可证发布的文档包含在一个聚合体中时，此许可证不适用于聚合体中的本非该文档派生作品的其他作品。
+ </para>
+    <para>
+  如果第 3 节中的封页文本要求适用于这些文档的副本，则若文档在聚合体中所占的比重小于全作品的一半，文档的封页文本可以放置在聚合体内包含文档部分的封页上，或是电子文档中的等效部分。否则，它必须位于整个聚合体的印刷的封页上。
+ </para>
+    <bridgehead renderas="sect4">
+    8. 翻译
+  </bridgehead>
+    <para>
+  翻译被视为一种修改，因此您可以根据第 4 节的条款分发文档的翻译。将固定章节替换为翻译内容需要经得其版权所有者的特别许可，但除了这些固定章节的原始版本之外，您还可以包含一部分或所有固定章节的翻译。您可以包含一个此许可证以及所有许可证声明和免责声明的翻译版本，前提是同时包含它们的原始英文版本。当翻译版本和英文版发生冲突的时候，原始版本有效。
+ </para>
+    <para>
+  如果在文档中有命名为“致谢”、“题献”或“历史”的章节，保持标题（第 1 节）的要求（第 4 节）恰恰需要更换实际的标题。
+ </para>
+    <bridgehead renderas="sect4">
+    9. 终止
+  </bridgehead>
+    <para>
+  除非此许可证中有明确规定，否则您不能对该文档进行复制、修改、分授许可或分发。在此许可证规定外对该文档所进行的任何复制、修改、分授许可或分发都是无效的，并且将自动终止您在此许可证下所拥有的权利。但是，对于在此许可证的规定下从您这里获得副本或权利的各方，只要其完全遵守此许可证的规定，其许可证将不会被终止。
+ </para>
+    <bridgehead renderas="sect4">
+    10. 本许可的未来修订版本
+  </bridgehead>
+    <para>
+  自由软件基金会有时会发布 GNU 自由文档许可证的新的修订版版本。这些新版本的主旨和精神与当前版本是一致的，但在解决新问题的具体细节方面可能有所不同。请参见 <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.gnu.org/copyleft/"/>。
+ </para>
+    <para>
+  许可证的每个版本都有一个不同的版本号。如果文档指定了适用于它的此许可证“或任何后续版本”的特定带编号版本，则您可以选择遵从指定版本或自由软件基金会发布的任何随后版本（非草稿）的条款和条件。如果文档没有指定此许可证的版本号，您可以选择自由软件基金会发布的任何许可证版本（非草稿）。
+ </para>
+    <bridgehead renderas="sect4">
+    附录：如何针对您的文档使用此许可证
+  </bridgehead>
+    <screen>Copyright (c) YEAR YOUR NAME.
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2
+or any later version published by the Free Software Foundation;
+with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+A copy of the license is included in the section entitled &#x201C;GNU
+Free Documentation License&#x201D;.</screen>
+    <para>
+  如果您有固定章节、封面文本和封底文本，请将“附带...文本”行替换为：
+ </para>
+    <screen>with the Invariant Sections being LIST THEIR TITLES, with the
+Front-Cover Texts being LIST, and with the Back-Cover Texts being LIST.</screen>
+    <para>
+  如果有不可变章节而没有封页文本，或这三种内容（不可变章节、封面文本、封底文本）的任何其他组合，请合并这两个备选项以适应您的情况。
+ </para>
+    <para>
+  如果您的文档包含不一般的程序代码示例，建议同时选择自由软件许可证（如 GNU 通用公共许可证）发布这些示例，以允许它们可以用于自由软件。
+</para>
+  </appendix>
+</article>
