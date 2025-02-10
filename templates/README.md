@@ -64,7 +64,22 @@ directories for each topic type, for common files and articles.
 
 ### DC file naming conventions
 
-The DC file name must match the assembly file's root ID.
+The DC file name must have the following format:
+```
+DC-<product abbreviation>-<assembly file name>
+```
+
+Where the particular parts have the following meaning:
+
+`<product abbreviation>` can be *one* of the following values:
+
+* `SLES` - for SUSE Linux Enterprise Server
+* `SAP` - for SUSE Linux Enterprise for SAP
+* `HA`- for SUSE Linux Enterprise High Availability
+* `AI` - for SUSE AI
+* `Micro` - for SUSE Linux Micro
+
+`<assembly file name>` is the assembly file name without the asm.xml part. 
 
 ### File naming conventions
 
