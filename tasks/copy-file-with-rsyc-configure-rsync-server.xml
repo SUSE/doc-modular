@@ -22,61 +22,96 @@ in the assembly -->
     <meta name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
     <abstract><!-- can be changed via merge in the assembly -->
       <para>
-        You can run rsync as a daemon <filename>rsyncd</filename> listening on default port 873 for incoming connections. This daemon can receive <literal>copying targets</literal>.</para>
+        rsync server enables file synchronization, automated backups, and centralized storage. You can run rsync as a daemon <filename>rsyncd</filename> listening on default port 873 for incoming connections. This daemon can receive <literal>copying targets</literal>.</para>
     </abstract>
   </info>
-  <procedure xml:id="use-rsync"><title>Using rsync</title>
-   <para>The following description explains how to create an rsync server on  with a backup target. This target can be used to store your backups. To create an Rsync server, do the following:</para>
-<step>
+  <procedure xml:id="use-rsync"><title>Setting up an rsync server</title>
+   <para>The following description explains how to create an rsync server with a backup target. This target can be used to store your backups. To create an rsync server, do the following:</para>
+   <para>The configuration file for the rsync daemon is separated into a main file and certain modules which hold your backup target. This makes it easier to add additional targets later. You can store global values <filename>/etc/rsyncd.d/*.inc</filename> files, whereas your modules are placed in <filename>/etc/rsyncd.d/*.conf</filename>.</para>
+   <step>
   <orderedlist>
-    <listitem><para>On <literal>jupiter</literal>, create a directory <filename>/var/backup</filename> to store all your backup files.</para>
+    <listitem><para>On your local machine, create a directory <filename>/var/backup</filename> to store all your backup files.</para>
     <screen>mkdir /var/backup</screen></listitem>
     <listitem><para>Specify ownership:</para>
       <para>In this example, the user <literal>tux</literal> in group users owns the directory.</para>
     <screen>chown tux.users /var/backup</screen>
     </listitem>
     <listitem><para>Configure the <literal>rsyncd</literal> daemon.</para>
-      <para>The configuration file is separated into a main file and certain <literal>modules</literal> which hold your backup target. This makes it easier to add additional targets later. You can store global values <filename>/etc/rsyncd.d/*.inc</filename> files, whereas your modules are placed in <filename>/etc/rsyncd.d/*.conf</filename> files:</para>
    <itemizedlist><listitem><para>Create a directory <filename>/etc/rsyncd.d/</filename></para>
   <screen>mkdir /etc/rsyncd.d/</screen>
   </listitem>
-<listitem><para>In the main configuration file <filename>/etc/rsyncd.conf</filename>, add the following lines:</para>
-<screen>rsyncd.conf main configuration file
-  log file = /var/log/rsync.log
-  pid file = /var/lock/rsync.lock
-  merge /etc/rsyncd.d
-  include /etc/rsyncd.d</screen>
-<para><filename>merge /etc/rsyncd.d</filename> merges global values from <filename>/etc/rsyncd.d/*.inc</filename> files into the main configuration file.</para>
-<para><filename>include /etc/rsyncd.d</filename> loads any modules (or targets) from <filename>/etc/rsyncd.d/*.conf</filename> files. These files must not contain any references to global values.</para>
+  <listitem><para>Create the main configuration file <filename>/etc/rsyncd.conf</filename> and add the following lines:</para>
+<screen>
+  log file = /var/log/rsync.log<co xml:id="rsyn-configuration-1"/>
+  pid file = /var/lock/rsync.lock<co xml:id="rsyn-configuration-2"/>
+  merge /etc/rsyncd.d<co xml:id="rsyn-configuration-3"/>
+  include /etc/rsyncd.d<co xml:id="rsyn-configuration-4"/></screen>
+   <calloutlist>
+            <callout arearefs="rsyn-configuration-1">
+              <para>
+               The <filename>/var/log/rsync.log</filename> is the location where rsync writes the logs.
+              </para>
+            </callout>
+            <callout arearefs="rsyn-configuration-2">
+              <para>
+               The <filename>/var/lock/rsync.lock</filename> is the file that contains the PID of the running rsync daemon instance
+              </para>
+            </callout>
+            <callout arearefs="rsyn-configuration-3">
+              <para>
+              Merges global values from <filename>/etc/rsyncd.d/*.inc</filename> files into the main configuration le.
+              </para>
+            </callout>
+            <callout arearefs="rsyn-configuration-4">
+              <para>
+                loads any modules (or targets) from <filename>/etc/rsyncd.d/*.conf</filename> files. These files must not contain any references to global
+values.
+              </para>
+            </callout>
+            </calloutlist>
 </listitem>
 <listitem><para>Create your module or your backup target in the file <filename>/etc/rsyncd.d/backup.conf</filename> with the following lines:</para>
 <screen>ackup.conf: backup module
-  [backup] 
+  [backup] <co xml:id="rsyn-backup-1"/>
   
   
-     uid = tux 
+     uid = tux <co xml:id="rsyn-configuration-2"/>
   
   
-     gid = users 
+     gid = users <co xml:id="rsyn-configuration-3"/>
   
   
-     path = /var/backup 
+     path = /var/backup <co xml:id="rsyn-configuration-4"/>
   
   
-     auth users = tux  
+     auth users = tux <co xml:id="rsyn-configuration-5"/>
   
   
-     secrets file = /etc/rsyncd.secrets 
+     secrets file = /etc/rsyncd.secrets <co xml:id="rsyn-configuration-6"/>
   
   
-     comment = Our backup target</screen>
+     comment = Our backup target <co xml:id="rsyn-configuration-7"/></screen>
      <para> In the given example:</para>
-    <para><filename>[backup]</filename> is the backup target. You can use any name for the backup target. You may use a name according to its purpose and use the same name in your <filename>*.conf</filename> file.</para>
-   <para><filename>uid = tux</filename> specifies the user name or group name that is used when the file transfer takes place.</para>
-   <para><filename>gid = users</filename> defines the path to store your backups (from Step 1).</para>
-   <para><filename>path = /var/backup</filename> defines the path to store your backups (from Step 1).</para>
-   <para><filename>auth users = tux</filename> specifies a comma-separated list of allowed users. In its simplest form, it contains the user names that are allowed to connect to this module. In our case, only user tux is allowed.</para>
-   <para><filename>secrets file = /etc/rsyncd.secrets</filename> specifies the path of a file that contains lines with user names and plain passwords.</para>
+       <calloutlist>
+            <callout arearefs="rsyn-configuration-1">
+              <para><filename>[backup]</filename> is the backup target. You can use any name for the backup target. You may use a name according to its purpose and use the same name in your <filename>*.conf</filename> file.</para>
+               </callout>
+            <callout arearefs="rsyn-configuration-2">
+             <para><filename>uid = tux</filename> specifies the user name or group name that is used when the file transfer takes place.</para>
+            </callout>
+            <callout arearefs="rsyn-configuration-3">
+            <para><filename>gid = users</filename> defines the path to store your backups (from Step 1).</para>
+            </callout>
+            <callout arearefs="rsyn-configuration-4">
+             <para><filename>path = /var/backup</filename> defines the path to store your backups (from Step 1).</para>
+            </callout>
+            <callout arearefs="rsyn-configuration-5">
+              <para><filename>auth users = tux</filename> specifies a comma-separated list of allowed users. In its simplest form, it contains the user names that are allowed to connect to this module. In our case, only user tux is allowed.</para>          
+             </callout>
+            <callout arearefs="rsyn-configuration-6">
+             <para><filename>secrets file = /etc/rsyncd.secrets</filename> specifies the path of a file that contains lines with user names and plain passwords.</para>   
+            </callout>
+        </calloutlist>  
    </listitem>
    </itemizedlist>
     </listitem>
@@ -94,17 +129,19 @@ in the assembly -->
 
 systemctl start rsyncd</screen>
 </step>
-<step><para>Test the access to your <literal>rsync</literal> server: </para>
+<step><para>On the remote machine, test the access to your <literal>rsync</literal> server: </para>
 <screen>rsync jupiter::</screen>
 <para>A response similar to the following appears:</para>
 <screen>backup Our backup target</screen>
-<para>If the above response does not appear, verify your configuration file, firewall, and network settings. </para>
+<para>If the above response does not appear, verify your configuration file, firewall and network settings. </para>
 </step>
    </procedure>
    <para>The above steps create an <literal>rsync</literal> server that you can use to store backups. The example also creates a log file listing all connections. This file is stored in <filename>/var/log/rsyncd</filename>.log. This is useful to debug your transfers.</para>
-   <para>To list the content of your backup target, use the following command:</para>
+   <para>To list the content of your backup target, use the following command on your local machine:</para>
    <screen>rsync -avz jupiter::backup</screen>
-   <para>This command lists all files present in the directory <filename>/var/backup</filename> on the server. This request is also logged in the log file <literal>/var/log/rsyncd.log</literal>. To start an actual transfer, provide a source directory. Use . for the current directory. For example, the following command copies the current directory to your <literal>rsync</literal> backup server:</para>
+   <para>This command lists all files present in the directory <filename>/var/backup</filename> on the server. This request is also logged in the log file <literal>/var/log/rsyncd.log</literal>. </para>
+   <para>To start an actual transfer, provide a source directory. Use . for the current directory. For example, the following command copies the current directory to your <literal>rsync</literal> backup server:</para>
    <screen>rsync -avz . jupiter::backup</screen>
-   <para>By default, <literal>rsync</literal> does not delete files and directories when it runs. To enable deletion, the additional option <option>--delete</option> must be stated. To ensure that no newer files are deleted, the option <option>--update</option> can be used instead. Any conflicts that arise must be resolved manually.</para>
+   <para>By default, <literal>rsync</literal> does not delete files and directories when it runs. To enable deletion, the additional option <option>--delete</option> must be stated. To ensure that no newer files are deleted, the option <option>--update</option> can be used instead. Any conflicts that arise must be resolved manually.</para> 
+   </para>
    </topic>
