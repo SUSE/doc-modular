@@ -1,0 +1,972 @@
+<?xml version="1.0"?>
+<article xmlns="http://docbook.org/ns/docbook" version="5.2" xml:id="copy-files-directories-with-rsync" xml:lang="en">
+  <info>
+    <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Copying Files and Directories with rsync</title>
+    <revhistory xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" xml:id="rh-copy-file-with-rsync">
+      <revision>
+        <date>2025-02-18</date>
+        <revdescription>
+          <para>
+              Initial version
+            </para>
+        </revdescription>
+      </revision>
+    </revhistory>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="Shalaka Harne" content="shalaka.harne@suse.com" its:translate="no"/>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="architecture" content="x86;power" its:translate="no"/>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="productname" its:translate="no">
+      <productname version="16.0">SUSE Linux Enterprise Server</productname>
+      <productname version="16.0">SUSE Linux Enterprise Server for SAP applications</productname>
+      <productname version="16.0">SUSE Linux Enterprise High Availability</productname>
+    </meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="title" its:translate="yes">Copying Files and Directories with rsync</meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="description" its:translate="yes">How to copy files and directories locally and remotely using rsync</meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="social-descr" its:translate="yes">Copy files and directories with rsync</meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="task" its:translate="no">
+      <phrase>Administration</phrase>
+    </meta>
+    <dm:docmanager xmlns:dm="urn:x-suse:ns:docmanager" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+      <dm:bugtracker>
+        <dm:url>https://bugzilla.suse.com/enter_bug.cgi</dm:url>
+        <dm:component>Smart Docs</dm:component>
+        <dm:product os="sles4sap">SUSE Linux Enterprise Server 16.0</dm:product>
+        <dm:assignee>shalaka.harne@suse.com</dm:assignee>
+      </dm:bugtracker>
+      <dm:translation>yes</dm:translation>
+    </dm:docmanager>
+    <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+      <variablelist>
+        <varlistentry>
+          <term>WHAT?</term>
+          <listitem>
+            <para>
+              You can use the rsync tool to copy files locally or remotely. rsync is unidirectional and can copy files only in one direction. 
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>WHY?</term>
+          <listitem>
+            <para>
+              This article provides an overview of the rsync tool and its basic usage for copying files locally and remotely.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>EFFORT</term>
+          <listitem>
+            <para>
+               It takes up to 20 minutes to understand the basic usage of the rsync tool.
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>GOAL</term>
+          <listitem>
+            <para>
+                Gain a foundational understanding of rsync and how to use it for file transfers.
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>REQUIREMENTS</term>
+          <listitem>
+            <para>
+                Access permissions to the source and destination locations for copying files.
+              </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </abstract>
+  </info>
+  <section role="concept" xml:lang="en" version="5.2" xml:id="copy-file-with-rsync-concept">
+    <info>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">The rsync concept</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+        You can use the <literal>rsync</literal> tool for transferring or copying files locally and remotely. <literal>rsync</literal> is unidirectional. It copies files in a single direction and does not synchronize data. 
+Instead of transmitting all the contents in the file, <literal>rsync</literal> minimizes the amount of data copied by moving only the changes within the file. Hence, this supports the transfer of data over a slow network connection.</para>
+      </abstract>
+    </info>
+    <para>For copying large files using <literal>rsync</literal>, detecting changes requires certain computing power. So ensure that machines on both source and destination have enough resources, including RAM. </para>
+    <para>Use rsync when a large amount of data containing only minor changes needs to be transmitted regularly. This is useful when working with backups. <literal>rsync</literal> can also be useful for mirroring staging servers that store complete directory trees of Web servers to a Web server in a DMZ.</para>
+    <para>This article includes examples that show the usage of <literal>rsync</literal> to copy files locally and remotely. This document also explains how to configure and use an <literal>rsync</literal> server.</para>
+  </section>
+  <section role="concept" xml:lang="en" version="5.2" xml:id="copy-file-using-rsync-usage">
+    <info>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">Basic rsync usage</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>You can use <literal>rsync</literal> on any machine where you have access and write permissions.</para>
+      </abstract>
+    </info>
+    <para>Copy files from the source location to the destination location as shown in the following example:</para>
+    <screen>
+      <prompt>&gt; </prompt>
+      <command>rsync [OPTION] SOURCE [SOURCE]... DESTINATION</command>
+    </screen>
+    <para>You can have multiple <filename>SOURCE</filename> entries and the <filename>SOURCE</filename> and <filename>DESTINATION</filename> placeholders can be paths, URLs or both.</para>
+    <para>Listed below are a few use cases of copying files:</para>
+    <itemizedlist>
+      <listitem>
+        <screen>
+          <prompt>&gt; </prompt>
+          <command>rsync -av /directory1/ /destination/</command>
+        </screen>
+        <para>In the above example, the trailing slash after the directory denotes the content of the directory and not the directory itself. In this, only the contents of <filename>/directory1</filename> are copied to <filename>/destination</filename>.</para>
+      </listitem>
+      <listitem>
+        <screen>
+          <prompt>&gt; </prompt>
+          <command>rsync -av /directory1 /destination/</command>
+        </screen>
+        <para>In the above example, the directory <filename>/directory1</filename> is copied to <filename>/destination</filename> resulting in <filename>/destination/directory1/</filename>.</para>
+      </listitem>
+      <listitem>
+        <screen>
+          <prompt>&gt; </prompt>
+          <command>rsync -av example1.txt example2.txt /destination/directory/</command>
+        </screen>
+        <para>The above example shows copying the files <filename>example1.txt</filename> and <filename>example2.txt</filename> to the destination directory.</para>
+      </listitem>
+    </itemizedlist>
+    <para>The commonly used <filename>OPTIONS</filename> are listed below: </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <literal>-V</literal>
+        </para>
+        <para>shows verbose output text</para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>-a</literal>
+        </para>
+        <para>archive mode; copies files recursively and preserves time stamps, user/group ownership, file permissions and symbolic links</para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>-z</literal>
+        </para>
+        <para>compresses the transmitted data</para>
+      </listitem>
+      <listitem>
+        <para><literal>-n</literal> or <literal>--dry-run</literal></para>
+        <para>performs a trial run with no changes made</para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>-r</literal>
+        </para>
+        <para>recurse into directories</para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>--progress</literal>
+        </para>
+        <para>shows progress during transfer</para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>-b</literal>
+        </para>
+        <para>takes a backup during data synchronization</para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>-h</literal>
+        </para>
+        <para>shows the numbers in the output in a human-readable format</para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>-e</literal>
+        </para>
+        <para>for remote transfers, instructs rsync to use the SSH protocol</para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>-q or --quiet</literal>
+        </para>
+        <para>silences the rsync command and option output</para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>--version</literal>
+        </para>
+        <para>prints the rsync version number and exit</para>
+      </listitem>
+    </itemizedlist>
+    <variablelist>
+      <varlistentry>
+        <term>Copy files locally with compression</term>
+        <listitem>
+          <screen>
+            <prompt>&gt; </prompt>
+            <command>rsync -avz example1.txt example2.txt /destination/</command>
+          </screen>
+          <para><literal>-a</literal> archive mode</para>
+          <para><literal>-v</literal> verbose</para>
+          <para><literal>-z</literal> compress data during transfer</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Copy a directory with compression</term>
+        <listitem>
+          <screen>
+            <prompt>&gt; </prompt>
+            <command>rsync -avz /sourcedirectory/ /destinationdirectory/</command>
+          </screen>
+          <para>Transfers <filename>/sourcedirectory/</filename> contents with compression.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Remote file transfer with compression</term>
+        <listitem>
+          <screen>
+            <prompt>&gt; </prompt>
+            <command>rsync -avz example1.txt user@remote_host:/remote/destination/</command>
+          </screen>
+          <para>Transfers <filename>example1.txt</filename> to a remote machine over SSH while compressing the data.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Remote directory transfer with compression</term>
+        <listitem>
+          <screen>
+            <prompt>&gt; </prompt>
+            <command>rsync -avz /sourcedirectory/ user@remote_host:/remote/destination/</command>
+          </screen>
+          <para>Transfers <filename>/sourcedirectory/</filename> to a remote machine over SSH while compressing the data.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section role="concept" xml:lang="en" version="5.2" xml:id="copy-file-using-rsync-locally">
+    <info>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">Copying files and directories with rsync locally</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>You can copy files within the same machine using rsync if you have write permission for the destination location.</para>
+      </abstract>
+    </info>
+    <para>To copy the file <filename>backup.tar.xz</filename> to the location <filename>/var/backup/</filename>, use the command
+  <command>rsync -avz backup.tar.xz /var/backup/</command>.</para>
+    <para>The file <filename>backup.tar.xz</filename> is copied to <filename>/var/backup/</filename>, and the absolute path is<filename>/var/backup/backup.tar.xz</filename>.</para>
+  </section>
+  <section role="concept" xml:lang="en" version="5.2" xml:id="copy-file-using-rsync-remotely">
+    <info>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">Copying files and directories with rsync remotely</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>You can copy files from one machine to a remote machine using rsync. Ensure that you have rsync in both source and destination machines and that you are connected to the remote machine over SSH.</para>
+      </abstract>
+    </info>
+    <para>To copy a single file from one directory on your machine to the <filename>/var/backup</filename> directory on a remote machine, use the following command:</para>
+    <screen>
+      <prompt>&gt; </prompt>
+      <command>rsync -avz example1.txt user@remote_host:/var/backup/</command>
+    </screen>
+    <note>
+      <title>Trailing slash</title>
+      <para>Ensure that you add the trailing slash after the<filename>/var/backup/</filename> directory. If you do not insert the slash, the file <filename>example1.txt</filename> is copied to <filename>/var/backup</filename> file and not inside the directory <filename>/var/backup/</filename>.</para>
+    </note>
+    <para>Verify the copied file in the absolute path <filename>/var/backup/example1.txt</filename>.</para>
+    <para>To copy the directory <filename>source/</filename> and its contents into the directory <filename>/var/backup/</filename>:
+</para>
+    <screen>
+      <prompt>&gt; </prompt>
+      <command>rsync -avz /source/ user@remote_host:/var/backup/</command>
+    </screen>
+    <para>Verify the copied directory in the absolute path <filename>/var/backup/source/</filename>.</para>
+  </section>
+  <section role="task" xml:lang="en" version="5.2" xml:id="copy-file-with-rsync-configure-rsync-server">
+    <info>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">Configuring and using an rsync server</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+        An rsync server enables file synchronization, automated backups and centralized storage. You can run rsync as a daemon <filename>rsyncd</filename> listening on default port 873 for incoming connections. This daemon can receive <literal>copying targets</literal>.</para>
+      </abstract>
+    </info>
+    <procedure xml:id="use-rsync">
+      <title>Setting up an rsync server</title>
+      <para>The configuration file for the rsync daemon is separated into a main file and certain modules which hold your backup target. This makes it easier to add additional targets later. You can store global values in <filename>/etc/rsyncd.d/*.inc</filename> files, whereas your modules are placed in <filename>/etc/rsyncd.d/*.conf</filename>.
+  </para>
+      <para>The following description explains how to create an rsync server with a backup target. This target can be used to store your backups. To create an rsync server, do the following:
+  </para>
+      <step>
+        <para>On your local machine, create a directory <filename>/var/backup</filename> to store all your backup files.</para>
+        <screen>
+          <prompt>&gt; </prompt>
+          <command>mkdir /var/backup</command>
+        </screen>
+      </step>
+      <step>
+        <para>Specify ownership:</para>
+        <para>In this example, the user <literal>tux</literal> in the group <literal>users</literal> owns the directory:</para>
+        <screen>
+          <prompt>&gt; </prompt>
+          <command>chown tux.users /var/backup</command>
+        </screen>
+      </step>
+      <step>
+        <para>Configure the <literal>rsyncd</literal> daemon:</para>
+        <substeps>
+          <step>
+            <para>Create a directory <filename>/etc/rsyncd.d/</filename></para>
+            <screen>
+              <prompt>&gt; </prompt>
+              <command>mkdir /etc/rsyncd.d/</command>
+            </screen>
+          </step>
+          <step>
+            <para>Create the main configuration file
+              <filename>/etc/rsyncd.conf</filename> and add the following
+            lines:</para>
+            <screen>log file = /var/log/rsync.log<co xml:id="rsync-configuration-1"/>
+pid file = /var/lock/rsync.lock<co xml:id="rsync-configuration-2"/>
+merge /etc/rsyncd.d<co xml:id="rsync-configuration-3"/>
+include /etc/rsyncd.d<co xml:id="rsync-configuration-4"/></screen>
+            <calloutlist>
+              <callout arearefs="rsync-configuration-1">
+                <para><filename>/var/log/rsync.log</filename> is the location where
+                rsync writes the logs. </para>
+              </callout>
+              <callout arearefs="rsync-configuration-2">
+                <para><filename>/var/lock/rsync.lock</filename> is the file that
+                contains the PID of the running rsync daemon instance. </para>
+              </callout>
+              <callout arearefs="rsync-configuration-3">
+                <para> Merges global values from
+                  <filename>/etc/rsyncd.d/*.inc</filename> files into the main
+                configuration file. </para>
+              </callout>
+              <callout arearefs="rsync-configuration-4">
+                <para> Loads any modules (or targets) from
+                  <filename>/etc/rsyncd.d/*.conf</filename> files. These files
+                must not contain any references to global values. </para>
+              </callout>
+            </calloutlist>
+          </step>
+        </substeps>
+      </step>
+      <step>
+        <para>Create your module or your backup target in the file <filename>/etc/rsyncd.d/backup.conf</filename> with the following lines:</para>
+        <screen>backup.conf: backup module
+  [backup] <co xml:id="rsync-backup-1"/>
+     uid = tux <co xml:id="rsync-backup-2"/>
+     gid = users <co xml:id="rsync-backup-3"/>
+     path = /var/backup <co xml:id="rsync-backup-4"/>
+     auth users = tux <co xml:id="rsync-backup-5"/>
+     secrets file = /etc/rsyncd.secrets <co xml:id="rsync-backup-6"/>
+     comment = Our backup target <co xml:id="rsync-backup-7"/></screen>
+        <para> In the given example:</para>
+        <calloutlist>
+          <callout arearefs="rsync-backup-1">
+            <para><filename>[backup]</filename> is the backup target. You can use any name for the backup target. You may use a name according to its purpose and use the same name in your <filename>*.conf</filename> file.</para>
+          </callout>
+          <callout arearefs="rsync-backup-2">
+            <para><filename>uid = tux</filename> specifies the user name or group name that is used when the file transfer takes place.</para>
+          </callout>
+          <callout arearefs="rsync-backup-3">
+            <para><filename>gid = users</filename> defines the path to store your backups (from Step 1).</para>
+          </callout>
+          <callout arearefs="rsync-backup-4">
+            <para><filename>path = /var/backup</filename> defines the path to store your backups (from Step 1).</para>
+          </callout>
+          <callout arearefs="rsync-backup-5">
+            <para><filename>auth users = tux</filename> specifies a comma-separated list of allowed users. In its simplest form, it contains the user names that are allowed to connect to this module. In our case, only user tux is allowed.</para>
+          </callout>
+          <callout arearefs="rsync-backup-6">
+            <para><filename>secrets file = /etc/rsyncd.secrets</filename> specifies the path of a file that contains lines with user names and plain passwords.</para>
+          </callout>
+        </calloutlist>
+      </step>
+      <step>
+        <para>Create the <filename>/etc/rsyncd.secrets</filename> file with the following content and replace <literal>PASSPHRASE</literal>:</para>
+        <screen># user:passwd
+tux:PASSPHRASE</screen>
+      </step>
+      <step>
+        <para>Make sure the file is only readable by root: </para>
+        <screen>chmod 0600 /etc/rsyncd.secrets</screen>
+      </step>
+      <step>
+        <para>Start and enable the <literal>rsyncd</literal> daemon with:</para>
+        <screen><prompt>&gt; </prompt> systemctl enable rsyncd
+<prompt>&gt; </prompt> systemctl start rsyncd</screen>
+      </step>
+      <step>
+        <para>On the remote machine, test the access to your <literal>rsync</literal> server: </para>
+        <screen><prompt>&gt; </prompt> rsync jupiter::</screen>
+        <para>A response similar to the following appears:</para>
+        <screen>backup Our backup target</screen>
+        <para>If the above response does not appear, verify your configuration file, firewall and network settings.</para>
+        <para>The above steps create an <literal>rsync</literal> server that you can use to store backups. The example also creates a log file listing all connections. This file is stored in <filename>/var/log/rsyncd</filename>.log. This is useful for debugging your transfers.</para>
+      </step>
+      <step>
+        <para>To list the content of your backup target, use the following command on your local machine:</para>
+        <screen><prompt>&gt; </prompt> rsync -avz jupiter::backup</screen>
+        <para>This command lists all files present in the directory <filename>/var/backup</filename> on the server. This request is also logged in the log file <literal>/var/log/rsyncd.log</literal>. </para>
+      </step>
+      <step>
+        <para>To copy the current directory to your <literal>rsync</literal> backup server, provide the source directory. If the source directory is your current directory, use <literal>.</literal></para>
+        <screen><prompt>&gt; </prompt> rsync -avz . jupiter::backup</screen>
+        <para>By default, <literal>rsync</literal> does not delete files and directories when it runs. To enable deletion, the additional option <option>--delete</option> must be stated. To ensure that no newer files are deleted, the option <option>--update</option> can be used instead. Any conflicts that arise must be resolved manually.</para>
+      </step>
+    </procedure>
+  </section>
+  <section role="concept" xml:lang="en" version="5.2" xml:id="copy-file-with-rsync-delete-update">
+    <info>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">Deleting and updating files and directories with rsync</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>You can copy and synchronize files within the same machine using rsync if you have write permission for the destination location. You can also delete files or directories after copying.</para>
+      </abstract>
+    </info>
+    <para>To copy files <filename>example1.txt</filename> and <filename>example2.txt</filename> from <filename>/source/directory/</filename> to <filename>/destination/directory/</filename>:</para>
+    <screen>
+      <prompt>&gt; </prompt>
+      <command>rsync -av --update /source/directory/ /destination/directory/</command>
+    </screen>
+    <para>The rsync command updates the files <filename>example1.txt</filename> and <filename>example2.txt</filename> in the <filename>/destination/directory/</filename> if it is older than the source file. If the version in the destination is newer, then the files will not be overwritten. Also, all other new files or directories  from <filename>/source/directory/</filename> will be copied to <filename>/destination/</filename>.</para>
+    <para>To copy an existing file and delete a file that does not exist in the destination directory:</para>
+    <screen>
+      <prompt>&gt; </prompt>
+      <command>rsync -av --delete /source/directory/ /destination/directory/</command>
+    </screen>
+    <para>In this scenario, both the source and destination directories contain <filename>example1.txt</filename> and <filename>example2.txt</filename>. The <filename>/destination/directory</filename> contains an extra file, <filename>example3.txt</filename>.</para>
+    <para>The rsync command copies or updates the files <filename>example1.txt</filename> and <filename>example2.txt</filename> from <filename>/source/directory/</filename> to <filename>/destination/directory/</filename>. The command also deletes the file <filename>example3.txt</filename> from <filename>/destination/directory/</filename> as it does not exist in the <filename>/source/directory/</filename>. Also, the directory structure in <filename>/destination/directory/</filename> is cleaned up to match the <filename>/source/directory/</filename>.</para>
+  </section>
+  <section role="concept" xml:lang="en" version="5.2" xml:id="copy-file-using-rsync-troubleshooting">
+    <info>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">Troubleshooting rsync</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+      File or folder copying may fail due to several reasons. Ensure that you have the required permissions and resources to perform the file copy.</para>
+      </abstract>
+    </info>
+    <para>Possible troubleshooting methods are mentioned below:</para>
+    <itemizedlist>
+      <listitem>
+        <para>
+        Ensure that you have the latest version of rsync. To transfer files or directories remotely, ensure that rsync is installed on both the source and destination machines.
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        Ensure that you have the required rsync access permission.
+      </para>
+      </listitem>
+      <listitem>
+        <para>Ensure that you provide the correct host name to copy files remotely.</para>
+      </listitem>
+      <listitem>
+        <para>Ensure that the rsync service is running if you are using rsync in daemon mode.</para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section version="5.2" xml:id="legal-disclaimer">
+    <info>
+      <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">Legal Notice</title>
+    </info>
+    <para> Copyright&#xA9; 2006&#x2013;<?dbtimestamp format="Y"?>
+ SUSE LLC and contributors.
+  All rights reserved. </para>
+    <para>
+    Permission is granted to copy, distribute and/or modify this document under the terms of the
+    GNU Free Documentation License, Version 1.2 or (at your option) version 1.3; with the Invariant
+    Section being this copyright notice and license. A copy of the license version 1.2 is included
+    in the section entitled <quote>GNU Free Documentation License</quote>.
+  </para>
+    <para>
+    For SUSE trademarks, see <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.suse.com/company/legal/"/>. All other
+    third-party trademarks are the property of their respective owners. Trademark symbols (&#xAE;, &#x2122;
+    etc.) denote trademarks of SUSE and its affiliates. Asterisks (*) denote third-party
+    trademarks.
+  </para>
+    <para>
+    All information found in this book has been compiled with utmost attention to detail. However,
+    this does not guarantee complete accuracy.  Neither SUSE LLC, its affiliates, the authors, nor
+    the translators shall be held liable for possible errors or the consequences thereof.
+  </para>
+  </section>
+  <appendix xmlns:its="http://www.w3.org/2005/11/its" version="5.2" role="legal" its:translate="no" xml:id="doc-gfdl-license">
+    <info>
+      <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">GNU Free Documentation License</title>
+    </info>
+    <para>
+  Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc. 51 Franklin St,
+  Fifth Floor, Boston, MA 02110-1301 USA. Everyone is permitted to copy and
+  distribute verbatim copies of this license document, but changing it is not
+  allowed.
+ </para>
+    <bridgehead renderas="sect4">
+    0. PREAMBLE
+  </bridgehead>
+    <para>
+  The purpose of this License is to make a manual, textbook, or other
+  functional and useful document "free" in the sense of freedom: to assure
+  everyone the effective freedom to copy and redistribute it, with or without
+  modifying it, either commercially or non-commercially. Secondarily, this
+  License preserves for the author and publisher a way to get credit for their
+  work, while not being considered responsible for modifications made by
+  others.
+ </para>
+    <para>
+  This License is a kind of "copyleft", which means that derivative works of
+  the document must themselves be free in the same sense. It complements the
+  GNU General Public License, which is a copyleft license designed for free
+  software.
+ </para>
+    <para>
+  We have designed this License to use it for manuals for free software,
+  because free software needs free documentation: a free program should come
+  with manuals providing the same freedoms that the software does. But this
+  License is not limited to software manuals; it can be used for any textual
+  work, regardless of subject matter or whether it is published as a printed
+  book. We recommend this License principally for works whose purpose is
+  instruction or reference.
+ </para>
+    <bridgehead renderas="sect4">
+    1. APPLICABILITY AND DEFINITIONS
+  </bridgehead>
+    <para>
+  This License applies to any manual or other work, in any medium, that
+  contains a notice placed by the copyright holder saying it can be distributed
+  under the terms of this License. Such a notice grants a world-wide,
+  royalty-free license, unlimited in duration, to use that work under the
+  conditions stated herein. The "Document", below, refers to any such manual or
+  work. Any member of the public is a licensee, and is addressed as "you". You
+  accept the license if you copy, modify or distribute the work in a way
+  requiring permission under copyright law.
+ </para>
+    <para>
+  A "Modified Version" of the Document means any work containing the Document
+  or a portion of it, either copied verbatim, or with modifications and/or
+  translated into another language.
+ </para>
+    <para>
+  A "Secondary Section" is a named appendix or a front-matter section of the
+  Document that deals exclusively with the relationship of the publishers or
+  authors of the Document to the Document's overall subject (or to related
+  matters) and contains nothing that could fall directly within that overall
+  subject. (Thus, if the Document is in part a textbook of mathematics, a
+  Secondary Section may not explain any mathematics.) The relationship could be
+  a matter of historical connection with the subject or with related matters,
+  or of legal, commercial, philosophical, ethical or political position
+  regarding them.
+ </para>
+    <para>
+  The "Invariant Sections" are certain Secondary Sections whose titles are
+  designated, as being those of Invariant Sections, in the notice that says
+  that the Document is released under this License. If a section does not fit
+  the above definition of Secondary then it is not allowed to be designated as
+  Invariant. The Document may contain zero Invariant Sections. If the Document
+  does not identify any Invariant Sections then there are none.
+ </para>
+    <para>
+  The "Cover Texts" are certain short passages of text that are listed, as
+  Front-Cover Texts or Back-Cover Texts, in the notice that says that the
+  Document is released under this License. A Front-Cover Text may be at most 5
+  words, and a Back-Cover Text may be at most 25 words.
+ </para>
+    <para>
+  A "Transparent" copy of the Document means a machine-readable copy,
+  represented in a format whose specification is available to the general
+  public, that is suitable for revising the document straightforwardly with
+  generic text editors or (for images composed of pixels) generic paint
+  programs or (for drawings) some widely available drawing editor, and that is
+  suitable for input to text formatters or for automatic translation to a
+  variety of formats suitable for input to text formatters. A copy made in an
+  otherwise Transparent file format whose markup, or absence of markup, has
+  been arranged to thwart or discourage subsequent modification by readers is
+  not Transparent. An image format is not Transparent if used for any
+  substantial amount of text. A copy that is not "Transparent" is called
+  "Opaque".
+ </para>
+    <para>
+  Examples of suitable formats for Transparent copies include plain ASCII
+  without markup, Texinfo input format, LaTeX input format, SGML or XML using a
+  publicly available DTD, and standard-conforming simple HTML, PostScript or
+  PDF designed for human modification. Examples of transparent image formats
+  include PNG, XCF and JPG. Opaque formats include proprietary formats that can
+  be read and edited only by proprietary word processors, SGML or XML for which
+  the DTD and/or processing tools are not generally available, and the
+  machine-generated HTML, PostScript or PDF produced by some word processors
+  for output purposes only.
+ </para>
+    <para>
+  The "Title Page" means, for a printed book, the title page itself, plus such
+  following pages as are needed to hold, legibly, the material this License
+  requires to appear in the title page. For works in formats which do not have
+  any title page as such, "Title Page" means the text near the most prominent
+  appearance of the work's title, preceding the beginning of the body of the
+  text.
+ </para>
+    <para>
+  A section "Entitled XYZ" means a named subunit of the Document whose title
+  either is precisely XYZ or contains XYZ in parentheses following text that
+  translates XYZ in another language. (Here XYZ stands for a specific section
+  name mentioned below, such as "Acknowledgements", "Dedications",
+  "Endorsements", or "History".) To "Preserve the Title" of such a section when
+  you modify the Document means that it remains a section "Entitled XYZ"
+  according to this definition.
+ </para>
+    <para>
+  The Document may include Warranty Disclaimers next to the notice which states
+  that this License applies to the Document. These Warranty Disclaimers are
+  considered to be included by reference in this License, but only as regards
+  disclaiming warranties: any other implication that these Warranty Disclaimers
+  may have is void and has no effect on the meaning of this License.
+ </para>
+    <bridgehead renderas="sect4">
+    2. VERBATIM COPYING
+  </bridgehead>
+    <para>
+  You may copy and distribute the Document in any medium, either commercially
+  or non-commercially, provided that this License, the copyright notices, and
+  the license notice saying this License applies to the Document are reproduced
+  in all copies, and that you add no other conditions whatsoever to those of
+  this License. You may not use technical measures to obstruct or control the
+  reading or further copying of the copies you make or distribute. However, you
+  may accept compensation in exchange for copies. If you distribute a large
+  enough number of copies you must also follow the conditions in section 3.
+ </para>
+    <para>
+  You may also lend copies, under the same conditions stated above, and you may
+  publicly display copies.
+ </para>
+    <bridgehead renderas="sect4">
+    3. COPYING IN QUANTITY
+  </bridgehead>
+    <para>
+  If you publish printed copies (or copies in media that commonly have printed
+  covers) of the Document, numbering more than 100, and the Document's license
+  notice requires Cover Texts, you must enclose the copies in covers that
+  carry, clearly and legibly, all these Cover Texts: Front-Cover Texts on the
+  front cover, and Back-Cover Texts on the back cover. Both covers must also
+  clearly and legibly identify you as the publisher of these copies. The front
+  cover must present the full title with all words of the title equally
+  prominent and visible. You may add other material on the covers in addition.
+  Copying with changes limited to the covers, as long as they preserve the
+  title of the Document and satisfy these conditions, can be treated as
+  verbatim copying in other respects.
+ </para>
+    <para>
+  If the required texts for either cover are too voluminous to fit legibly, you
+  should put the first ones listed (as many as fit reasonably) on the actual
+  cover, and continue the rest onto adjacent pages.
+ </para>
+    <para>
+  If you publish or distribute Opaque copies of the Document numbering more
+  than 100, you must either include a machine-readable Transparent copy along
+  with each Opaque copy, or state in or with each Opaque copy a
+  computer-network location from which the general network-using public has
+  access to download using public-standard network protocols a complete
+  Transparent copy of the Document, free of added material. If you use the
+  latter option, you must take reasonably prudent steps, when you begin
+  distribution of Opaque copies in quantity, to ensure that this Transparent
+  copy will remain thus accessible at the stated location until at least one
+  year after the last time you distribute an Opaque copy (directly or through
+  your agents or retailers) of that edition to the public.
+ </para>
+    <para>
+  It is requested, but not required, that you contact the authors of the
+  Document well before redistributing any large number of copies, to give them
+  a chance to provide you with an updated version of the Document.
+ </para>
+    <bridgehead renderas="sect4">
+    4. MODIFICATIONS
+  </bridgehead>
+    <para>
+  You may copy and distribute a Modified Version of the Document under the
+  conditions of sections 2 and 3 above, provided that you release the Modified
+  Version under precisely this License, with the Modified Version filling the
+  role of the Document, thus licensing distribution and modification of the
+  Modified Version to whoever possesses a copy of it. In addition, you must do
+  these things in the Modified Version:
+ </para>
+    <orderedlist numeration="upperalpha" spacing="normal">
+      <listitem>
+        <para>
+    Use in the Title Page (and on the covers, if any) a title distinct from
+    that of the Document, and from those of previous versions (which should, if
+    there were any, be listed in the History section of the Document). You may
+    use the same title as a previous version if the original publisher of that
+    version gives permission.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    List on the Title Page, as authors, one or more persons or entities
+    responsible for authorship of the modifications in the Modified Version,
+    together with at least five of the principal authors of the Document (all
+    of its principal authors, if it has fewer than five), unless they release
+    you from this requirement.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    State on the Title page the name of the publisher of the Modified Version,
+    as the publisher.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve all the copyright notices of the Document.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Add an appropriate copyright notice for your modifications adjacent to the
+    other copyright notices.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Include, immediately after the copyright notices, a license notice giving
+    the public permission to use the Modified Version under the terms of this
+    License, in the form shown in the Addendum below.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve in that license notice the full lists of Invariant Sections and
+    required Cover Texts given in the Document's license notice.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Include an unaltered copy of this License.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve the section Entitled "History", Preserve its Title, and add to it
+    an item stating at least the title, year, new authors, and publisher of the
+    Modified Version as given on the Title Page. If there is no section
+    Entitled "History" in the Document, create one stating the title, year,
+    authors, and publisher of the Document as given on its Title Page, then add
+    an item describing the Modified Version as stated in the previous sentence.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve the network location, if any, given in the Document for public
+    access to a Transparent copy of the Document, and likewise the network
+    locations given in the Document for previous versions it was based on.
+    These may be placed in the "History" section. You may omit a network
+    location for a work that was published at least four years before the
+    Document itself, or if the original publisher of the version it refers to
+    gives permission.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    For any section Entitled "Acknowledgements" or "Dedications", Preserve the
+    Title of the section, and preserve in the section all the substance and
+    tone of each of the contributor acknowledgements and/or dedications given
+    therein.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve all the Invariant Sections of the Document, unaltered in their
+    text and in their titles. Section numbers or the equivalent are not
+    considered part of the section titles.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Delete any section Entitled "Endorsements". Such a section may not be
+    included in the Modified Version.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Do not retitle any existing section to be Entitled "Endorsements" or to
+    conflict in title with any Invariant Section.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve any Warranty Disclaimers.
+   </para>
+      </listitem>
+    </orderedlist>
+    <para>
+  If the Modified Version includes new front-matter sections or appendices that
+  qualify as Secondary Sections and contain no material copied from the
+  Document, you may at your option designate some or all of these sections as
+  invariant. To do this, add their titles to the list of Invariant Sections in
+  the Modified Version's license notice. These titles must be distinct from any
+  other section titles.
+ </para>
+    <para>
+  You may add a section Entitled "Endorsements", provided it contains nothing
+  but endorsements of your Modified Version by various parties--for example,
+  statements of peer review or that the text has been approved by an
+  organization as the authoritative definition of a standard.
+ </para>
+    <para>
+  You may add a passage of up to five words as a Front-Cover Text, and a
+  passage of up to 25 words as a Back-Cover Text, to the end of the list of
+  Cover Texts in the Modified Version. Only one passage of Front-Cover Text and
+  one of Back-Cover Text may be added by (or through arrangements made by) any
+  one entity. If the Document already includes a cover text for the same cover,
+  previously added by you or by arrangement made by the same entity you are
+  acting on behalf of, you may not add another; but you may replace the old
+  one, on explicit permission from the previous publisher that added the old
+  one.
+ </para>
+    <para>
+  The author(s) and publisher(s) of the Document do not by this License give
+  permission to use their names for publicity for or to assert or imply
+  endorsement of any Modified Version.
+ </para>
+    <bridgehead renderas="sect4">
+    5. COMBINING DOCUMENTS
+  </bridgehead>
+    <para>
+  You may combine the Document with other documents released under this
+  License, under the terms defined in section 4 above for modified versions,
+  provided that you include in the combination all of the Invariant Sections of
+  all of the original documents, unmodified, and list them all as Invariant
+  Sections of your combined work in its license notice, and that you preserve
+  all their Warranty Disclaimers.
+ </para>
+    <para>
+  The combined work need only contain one copy of this License, and multiple
+  identical Invariant Sections may be replaced with a single copy. If there are
+  multiple Invariant Sections with the same name but different contents, make
+  the title of each such section unique by adding at the end of it, in
+  parentheses, the name of the original author or publisher of that section if
+  known, or else a unique number. Make the same adjustment to the section
+  titles in the list of Invariant Sections in the license notice of the
+  combined work.
+ </para>
+    <para>
+  In the combination, you must combine any sections Entitled "History" in the
+  various original documents, forming one section Entitled "History"; likewise
+  combine any sections Entitled "Acknowledgements", and any sections Entitled
+  "Dedications". You must delete all sections Entitled "Endorsements".
+ </para>
+    <bridgehead renderas="sect4">
+    6. COLLECTIONS OF DOCUMENTS
+  </bridgehead>
+    <para>
+  You may make a collection consisting of the Document and other documents
+  released under this License, and replace the individual copies of this
+  License in the various documents with a single copy that is included in the
+  collection, provided that you follow the rules of this License for verbatim
+  copying of each of the documents in all other respects.
+ </para>
+    <para>
+  You may extract a single document from such a collection, and distribute it
+  individually under this License, provided you insert a copy of this License
+  into the extracted document, and follow this License in all other respects
+  regarding verbatim copying of that document.
+ </para>
+    <bridgehead renderas="sect4">
+    7. AGGREGATION WITH INDEPENDENT WORKS
+  </bridgehead>
+    <para>
+  A compilation of the Document or its derivatives with other separate and
+  independent documents or works, in or on a volume of a storage or
+  distribution medium, is called an "aggregate" if the copyright resulting from
+  the compilation is not used to limit the legal rights of the compilation's
+  users beyond what the individual works permit. When the Document is included
+  in an aggregate, this License does not apply to the other works in the
+  aggregate which are not themselves derivative works of the Document.
+ </para>
+    <para>
+  If the Cover Text requirement of section 3 is applicable to these copies of
+  the Document, then if the Document is less than one half of the entire
+  aggregate, the Document's Cover Texts may be placed on covers that bracket
+  the Document within the aggregate, or the electronic equivalent of covers if
+  the Document is in electronic form. Otherwise they must appear on printed
+  covers that bracket the whole aggregate.
+ </para>
+    <bridgehead renderas="sect4">
+    8. TRANSLATION
+  </bridgehead>
+    <para>
+  Translation is considered a kind of modification, so you may distribute
+  translations of the Document under the terms of section 4. Replacing
+  Invariant Sections with translations requires special permission from their
+  copyright holders, but you may include translations of some or all Invariant
+  Sections in addition to the original versions of these Invariant Sections.
+  You may include a translation of this License, and all the license notices in
+  the Document, and any Warranty Disclaimers, provided that you also include
+  the original English version of this License and the original versions of
+  those notices and disclaimers. In case of a disagreement between the
+  translation and the original version of this License or a notice or
+  disclaimer, the original version will prevail.
+ </para>
+    <para>
+  If a section in the Document is Entitled "Acknowledgements", "Dedications",
+  or "History", the requirement (section 4) to Preserve its Title (section 1)
+  will typically require changing the actual title.
+ </para>
+    <bridgehead renderas="sect4">
+    9. TERMINATION
+  </bridgehead>
+    <para>
+  You may not copy, modify, sublicense, or distribute the Document except as
+  expressly provided for under this License. Any other attempt to copy, modify,
+  sublicense or distribute the Document is void, and will automatically
+  terminate your rights under this License. However, parties who have received
+  copies, or rights, from you under this License will not have their licenses
+  terminated so long as such parties remain in full compliance.
+ </para>
+    <bridgehead renderas="sect4">
+    10. FUTURE REVISIONS OF THIS LICENSE
+  </bridgehead>
+    <para>
+  The Free Software Foundation may publish new, revised versions of the GNU
+  Free Documentation License from time to time. Such new versions will be
+  similar in spirit to the present version, but may differ in detail to address
+  new problems or concerns. See
+  <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.gnu.org/copyleft/"/>.
+ </para>
+    <para>
+  Each version of the License is given a distinguishing version number. If the
+  Document specifies that a particular numbered version of this License "or any
+  later version" applies to it, you have the option of following the terms and
+  conditions either of that specified version or of any later version that has
+  been published (not as a draft) by the Free Software Foundation. If the
+  Document does not specify a version number of this License, you may choose
+  any version ever published (not as a draft) by the Free Software Foundation.
+ </para>
+    <bridgehead renderas="sect4">
+    ADDENDUM: How to use this License for your documents
+  </bridgehead>
+    <screen>Copyright (c) YEAR YOUR NAME.
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2
+or any later version published by the Free Software Foundation;
+with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+A copy of the license is included in the section entitled &#x201C;GNU
+Free Documentation License&#x201D;.</screen>
+    <para>
+  If you have Invariant Sections, Front-Cover Texts and Back-Cover Texts,
+  replace the &#x201C;with...Texts.&#x201D; line with this:
+ </para>
+    <screen>with the Invariant Sections being LIST THEIR TITLES, with the
+Front-Cover Texts being LIST, and with the Back-Cover Texts being LIST.</screen>
+    <para>
+  If you have Invariant Sections without Cover Texts, or some other combination
+  of the three, merge those two alternatives to suit the situation.
+ </para>
+    <para>
+  If your document contains nontrivial examples of program code, we recommend
+  releasing these examples in parallel under your choice of free software
+  license, such as the GNU General Public License, to permit their use in free
+  software.
+</para>
+  </appendix>
+</article>
