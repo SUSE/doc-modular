@@ -191,6 +191,64 @@ kafka:
   --version 4.2.2 -f <replaceable>milvus_custom_overrides.yaml</replaceable></command></screen>
       </step>
     </procedure>
+    <section xml:id="milvus-kafka-limitation">
+      <title>Using &akafka; with &sstorage;</title>
+      <para>
+        When &milvus; is deployed in cluster mode, it uses &akafka; as a message
+        queue. If &akafka; uses &sstorage; as a storage back-end, you need to
+        create an XFS storage class and make it available for the &akafka;
+        deployment. Otherwise deploying &akafka; with a storage class of an Ext4
+        file system fails with the following error:
+      </para>
+<screen>"Found directory /mnt/kafka/logs/lost+found, 'lost+found' is not
+  in the form of topic-partition or topic-partition.uniqueId-delete
+  (if marked for deletion)"</screen>
+      <para>
+        To introduce the XFS storage class, follow these steps:
+      </para>
+      <procedure>
+        <step>
+          <para>
+            Create a file named <filename>longhorn-xfs.yaml</filename> with the
+            following content:
+          </para>
+<screen>apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-xfs
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "30"
+  fromBackup: ""
+  fsType: "xfs"
+  dataLocality: "disabled"
+  unmapMarkSnapChainRemoved: "ignored"</screen>
+        </step>
+        <step>
+          <para>
+            Create the new storage class using the <command>kubectl</command>
+            command.
+          </para>
+<screen>&prompt.user;<command>kubectl apply -f longhorn-xfs.yaml</command></screen>
+        </step>
+        <step>
+          <para>
+            Update the &milvus; overrides YAML file to refer to the &akafka;
+            storage class as in the following example:
+          </para>
+<screen>
+  [...]
+    kafka:
+    enabled: true
+    persistence:
+      storageClassName: longhorn-xfs</screen>
+        </step>
+      </procedure>
+    </section>
   </section>
   <section xml:id="milvus-upgrading">
     <title>Upgrading &milvus;</title>
