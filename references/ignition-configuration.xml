@@ -43,20 +43,11 @@
         partitions, use the <literal>disks</literal> attribute. The
         <literal>filesystems</literal> attribute is used to format partitions. The
         <literal>files</literal> attribute can be used to create files in the
-        file system. Each of the mentioned attributes is described in the
-        following sections.
+        file system. 
       </para>
-      <section xml:id="sec-storage-disks">
-        <title>The <literal>disks</literal> attribute</title>
-        <para>
-          The <literal>disks</literal> attribute is a list of devices that
-          enables you to define partitions on these devices. The
-          <literal>disks</literal> attribute must contain at least one
-          <literal>device</literal>, other attributes are optional. The
-          following example uses a single virtual device and divides the
-          disk into four partitions:
+       <para>
+        The example below configures four partitions, including a dedicated swap partition, and creates a file system on each partition.
         </para>
-        
 <screen>
 {
   "ignition": {
@@ -70,30 +61,125 @@
           {
             "label": "root",
             "number": 1,
-            "typeGuid": "4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709"
+            "sizeMiB": 30720
           },
           {
             "label": "boot",
             "number": 2,
-            "typeGuid": "BC13C2FF-59E6-4262-A352-B275FD6F7172"
+            "sizeMiB": 8720
           },
           {
             "label": "swap",
             "number": 3,
-            "typeGuid": "0657FD6D-A4AB-43C4-84E5-0933C84B4F4F"
+            "sizeMiB": 4096
           },
           {
             "label": "home",
             "number": 4,
-            "typeGuid": "933AC7E1-2EB4-4F13-B844-0E14E2AEF915"
+            "sizeMiB": 30720
           }
         ],
-        "wipeTable": true
+        "wipeTable": true        
+      }
+    ]
+    "filesystems": [
+      {
+        "device": "/dev/disk/by-partlabel/root",  
+        "format": "btrfs",  
+        "label": "root"
+      },
+      {
+        "device": "/dev/disk/by-partlabel/swap",  
+        "format": "swap",  
+        "label": "swap"
+      }
+      {
+        "device": "/dev/disk/by-partlabel/boot",  
+        "format": "btrfs",  
+        "label": "boot"
+      }
+      {
+        "device": "/dev/disk/by-partlabel/home",  
+        "format": "ext4",  
+        "label": "home"
       }
     ]
   }
 }
 </screen>
+      <para>
+      Each of the mentioned attributes is described in the
+        following sections.
+      </para>
+      <section xml:id="sec-storage-disks">
+        <title>The <literal>disks</literal> attribute</title>
+        <para>
+          The <literal>disks</literal> attribute is a list of devices that
+          enables you to define partitions on these devices. The
+          <literal>disks</literal> attribute must contain at least one
+          <literal>device</literal>, other attributes are optional. Keep in mind that at least the
+          <literal>root</literal> and <literal>boot</literal> partitions (<literal>swap</literal> if configured) need to be formatted to bear a file
+          system.
+          </para>
+          <para>
+         The
+          following example uses a single virtual device and divides the
+          disk into four partitions:
+        </para>
+                
+
+<screen>
+...
+  "storage": {
+    "disks": [
+      {
+        "device": "/dev/vda",
+        "partitions": [
+          {
+            "label": "root", <co xml:id="label"/>
+            "number": 1, <co xml:id="number"/>
+            "sizeMiB": 30720 <co xml:id="size"/>
+          },
+          {
+            "label": "boot",
+            "number": 2,
+            "startMiB": 30720, <co xml:id="start"/>
+            "sizeMiB": 8720
+          },
+          {
+            "label": "swap",
+            "number": 3,
+            "sizeMiB": 4096
+          },
+          {
+            "label": "home",
+            "number": 4,
+            "sizeMiB": 30720
+          }
+        ],
+        "wipeTable": true        
+      }
+    ]
+   ...
+</screen>
+<calloutlist>
+  <callout arearefs="label">
+    <para>The partition identification. Depending on the partition file system, it can have up to 16
+    characters for EXT-type file systems and 256 characters in the case of Btrfs.</para>
+  </callout>
+  <callout arearefs="number">
+    <para>The position of the partition in the partition table. If set to 0, the next free position
+    is used.</para>
+  </callout>
+  <callout arearefs="size">
+    <para>The size of the partition in MiB.</para>
+  </callout>
+  <callout arearefs="start">
+    <para>Identifies the starting point of the particular partition.</para>
+  </callout>
+</calloutlist>
+
+
        
       </section>
       <section xml:id="sec-storage-raid">
@@ -187,7 +273,7 @@
             <term>format</term>
             <listitem>
               <para>
-                the file system format (Btrfs, Ext4, xfs, vfat or swap)
+                the file system format (btrfs, ext4, ext3, xfs, vfat or swap)
               </para>
               <note>
                 <para>
