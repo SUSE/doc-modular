@@ -79,7 +79,7 @@ Where the particular parts have the following meaning:
 * `AI` - for SUSE AI
 * `Micro` - for SUSE Linux Micro
 
-`<architecture>` can be *one* of the following values:
+`<architecture>` can be omitted if the article is the same for all architectures. Otherwise, use *one* of the following values:
 * `x86` - for x86-64
 * `ppc` - for IBM Power PC
 * `s390`- for IBM Z
