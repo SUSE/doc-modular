@@ -151,7 +151,7 @@
           <emphasis role="bold">Enable OpenTelemetry StackPack.</emphasis> In
           the &sobservability; Web UI, access the page
           <guimenu>StackPacks</guimenu> from the left menu. Select the
-          &otelemetry; SlackPack and configure it.
+          &otelemetry; SlackPack and install it.
         </para>
         <figure xml:id="ai-observability-otelemetry-slackpak-figure">
           <title>Enabling &otelemetry; SlackPack</title>
@@ -167,6 +167,329 @@
           </mediaobject>
         </figure>
       </step>
+      <step>
+        <para>
+          <emphasis role="bold">Install &productname; &sobservability;
+          extension.</emphasis> Create a new &helm; chart file named
+          <filename>genai_values.yaml</filename>. The following values are
+          mandatory:
+        </para>
+<screen>
+serverUrl: <replaceable>SUSE_OBSERVABILITY_API_URL</replaceable>
+apiKey: <replaceable>SUSE_OBSERVABILITY_API_KEY</replaceable><co xml:id="co-obs-apikey2"/>
+apiToken: <replaceable>SUSE_OBSERVABILITY_API_CLI_TOKEN</replaceable><co xml:id="co-obs-clitoken2"/>
+clusterName: <replaceable>OBSERVED_SERVER_NAME</replaceable><co xml:id="co-obs-observed-name2"/>
+</screen>
+        <calloutlist>
+          <callout arearefs="co-obs-apikey2">
+            <para>
+              The API key is included in the
+              <filename>baseConfig_values.yaml</filename> file that is used
+              during the installation of &sobservability;.
+            </para>
+          </callout>
+          <callout arearefs="co-obs-clitoken2">
+            <para>
+              You can retrieve the API token in the &sobservability; Web UI by
+              navigating the side menu to the CLI page.
+            </para>
+          </callout>
+          <callout arearefs="co-obs-observed-name2">
+            <para>
+              Use the same cluster name that you used during the &kube;
+              StackPack configuration.
+            </para>
+          </callout>
+        </calloutlist>
+        <para>
+          Run the install command.
+        </para>
+<screen>&prompt.user;<command>helm upgrade --install ai-obs \
+  oci://dp.apps.rancher.io/charts/suse-ai-observability-extension \
+  -f genai_values.yaml --namespace so-extensions --create-namespace</command></screen>
+        <para>
+          After the installation is complete, a new menu called
+          <guimenu>GenAI</guimenu> is added to the Web interface and also a
+          &kube; cron job is created that synchronizes the topology view with
+          the components found in the &productname; cluster.
+        </para>
+      </step>
     </procedure>
+  </section>
+  <section xml:id="ai-observability-ai-cluster">
+    <title>Set up the &productname; cluster</title>
+    <procedure>
+      <step>
+        <para>
+          <emphasis role="bold">Install &nvoperator;.</emphasis> Follow the
+          instructions in
+          <link xlink:href="https://documentation.suse.com/suse-ai/1.0/html/NVIDIA-Operator-installation/index.html"/>.
+        </para>
+      </step>
+      <step>
+        <para>
+          <emphasis role="bold">Install &otelemetry; collector.</emphasis>
+          Create a secret with your &sobservability; API key in the namespace
+          where you want to install the collector. Retrieve the API key using
+          the Web UI or from the <filename>baseConfig_values.yaml</filename>
+          file that you used during the &sobservability; installation. If the
+          namespace does not exist yet, create it.
+        </para>
+<screen>kubectl create namespace observability
+kubectl create secret generic open-telemetry-collector \
+  --namespace observability \
+  --from-literal=API_KEY='<replaceable>SUSE_OBSERVABILITY_API_KEY</replaceable>'</screen>
+        <para>
+          Create a new file named <filename>otel-values.yaml</filename> with the
+          following content.
+        </para>
+<screen>extraEnvsFrom:
+  - secretRef:
+      name: open-telemetry-collector
+mode: deployment
+image:
+  repository: "otel/opentelemetry-collector-k8s"
+ports:
+  metrics:
+    enabled: true
+presets:
+  kubernetesAttributes:
+    enabled: true
+    extractAllPodLabels: true
+config:
+  receivers:
+    prometheus:
+      config:
+        scrape_configs:
+        - job_name: 'gpu-metrics'
+          scrape_interval: 10s
+          scheme: http
+          kubernetes_sd_configs:
+            - role: endpoints
+              namespaces:
+                names:
+                - gpu-operator
+  exporters:
+    otlp:
+endpoint: http://suse-observability-otel-collector.suse-observability.svc.cluster.local:4317 <co xml:id="co-obs-otel-collector3"/>
+      headers:
+        Authorization: "SUSEObservability ${env:API_KEY}"
+      tls:
+        insecure: true
+  processors:
+    tail_sampling:
+      decision_wait: 10s
+      policies:
+      - name: rate-limited-composite
+        type: composite
+        composite:
+          max_total_spans_per_second: 500
+          policy_order: [errors, slow-traces, rest]
+          composite_sub_policy:
+          - name: errors
+            type: status_code
+            status_code:
+              status_codes: [ ERROR ]
+          - name: slow-traces
+            type: latency
+            latency:
+              threshold_ms: 1000
+          - name: rest
+            type: always_sample
+          rate_allocation:
+          - policy: errors
+            percent: 33
+          - policy: slow-traces
+            percent: 33
+          - policy: rest
+            percent: 34
+    resource:
+      attributes:
+      - key: k8s.cluster.name
+        action: upsert
+        value: <replaceable>CLUSTER_NAME</replaceable> <co xml:id="co-obs-clustername3"/>
+      - key: service.instance.id
+        from_attribute: k8s.pod.uid
+        action: insert
+    filter/dropMissingK8sAttributes:
+      error_mode: ignore
+      traces:
+        span:
+          - resource.attributes["k8s.node.name"] == nil
+          - resource.attributes["k8s.pod.uid"] == nil
+          - resource.attributes["k8s.namespace.name"] == nil
+          - resource.attributes["k8s.pod.name"] == nil
+  connectors:
+    spanmetrics:
+      metrics_expiration: 5m
+      namespace: otel_span
+    routing/traces:
+      error_mode: ignore
+      table:
+      - statement: route()
+        pipelines: [traces/sampling, traces/spanmetrics]
+  service:
+    extensions:
+      - health_check
+    pipelines:
+      traces:
+        receivers: [otlp, jaeger]
+        processors: [filter/dropMissingK8sAttributes, memory_limiter, resource]
+        exporters: [routing/traces]
+      traces/spanmetrics:
+        receivers: [routing/traces]
+        processors: []
+        exporters: [spanmetrics]
+      traces/sampling:
+        receivers: [routing/traces]
+        processors: [tail_sampling, batch]
+        exporters: [debug, otlp]
+      metrics:
+        receivers: [otlp, spanmetrics, prometheus]
+        processors: [memory_limiter, resource, batch]
+        exporters: [debug, otlp]</screen>
+        <calloutlist>
+          <callout arearefs="co-obs-otel-collector3">
+            <para>
+              Set the exporter to your exposed &sobservability; collector. For
+              production usage, we recommend using TLS communication.
+            </para>
+          </callout>
+          <callout arearefs="co-obs-clustername3">
+            <para>
+              Replace <replaceable>CLUSTER_NAME</replaceable> with the cluster's
+              name.
+            </para>
+          </callout>
+        </calloutlist>
+        <para>
+          Finally, run the installation command.
+        </para>
+<screen>&prompt.user;<command>helm upgrade \
+  --install opentelemetry-collector open-telemetry/opentelemetry-collector \
+  -f otel-values.yaml -n observability</command></screen>
+        <para>
+          Verify the installation by checking the existence of a new deployment
+          and service in the observability namespace.
+        </para>
+      </step>
+      <step>
+        <para>
+          <emphasis role="bold">Install the &sobservability; Agent.</emphasis>
+        </para>
+<screen>&prompt.user;helm upgrade --install \
+  --namespace suse-observability --create-namespace \
+  --set-string 'stackstate.apiKey'='<replaceable>YOUR_API_KEY</replaceable>'<co xml:id="co-obs-apikey1"/> \
+  --set-string 'stackstate.cluster.name'='<replaceable>CLUSTER_NAME</replaceable><co xml:id="co-obs-clustername1"/>' \
+  --set-string 'stackstate.url'='http://suse-observability-router.suse-observability.svc.cluster.local:8080/receiver/stsAgent'<co xml:id="co-obs-stackstate"/> \
+  --set 'nodeAgent.skipKubeletTLSVerify'=true suse-observability-agent \
+  suse-observability/suse-observability-agent</screen>
+        <calloutlist>
+          <callout arearefs="co-obs-apikey1">
+            <para>
+              Retrieve the API key using the Web UI or from the
+              <filename>baseConfig_values.yaml</filename> file that you used
+              during the &sobservability; installation.
+            </para>
+          </callout>
+          <callout arearefs="co-obs-clustername1">
+            <para>
+              Replace <replaceable>CLUSTER_NAME</replaceable> with the cluster's
+              name.
+            </para>
+          </callout>
+          <callout arearefs="co-obs-stackstate">
+            <para>
+              Replace with your &sobservability; server URL.
+            </para>
+          </callout>
+        </calloutlist>
+      </step>
+      <step>
+        <para>
+          <emphasis role="bold">Install &productname;.</emphasis> Refer to
+          <xref linkend="ai-library-installing"/> for the complete procedure.
+        </para>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="ai-observability-openlit">
+    <title>Instrument applications with &openlit;</title>
+    <para>
+      &openlit; offers a Python and a TypeScript SDK available. Below are two
+      examples of using these kits, one for each language. Notice that it is
+      possible to configure the &otelemetry; endpoint with an environment
+      variable. For full configuration options for &openlit; SDK, check the
+      <link xlink:href="https://docs.openlit.io/latest/sdk-configuration">upstream
+      documentation</link>.
+    </para>
+    <section xml:id="ai-observability-openlit-python">
+      <title>Python &openlit; SDK</title>
+      <procedure>
+        <step>
+          <para>
+            Add dependency:
+          </para>
+<screen>&prompt.user;<command>pip install openlit</command></screen>
+        </step>
+        <step>
+          <para>
+            Import &openlit; and initialize it in your code&mdash;usually in the
+            main entrypoint. Remember to adjust the &otelemetry; endpoint to
+            point to your &otelemetry; collector instance that was installed
+            earlier.
+          </para>
+<screen>import openlit
+
+openlit.init(otlp_endpoint="http://otel-collector.observability.svc.cluster.local:4318")</screen>
+        </step>
+        <step>
+          <para>
+            After including the code above, you will start receiving telemetry
+            data from the libraries currently supported by &openlit;. You can
+            test it with &ollama;, for example:
+          </para>
+<screen>import ollama
+  import openlit
+    
+  openlit.init()
+    
+  response = ollama.chat(model='gemma:2b', messages=[
+    {
+      'role': 'user',
+      'content': 'Why is the sky blue?',
+    },
+  ])</screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="ai-observability-openlit-node">
+      <title>Node &openlit; SDK</title>
+      <procedure>
+        <step>
+          <para>
+            Add dependency:
+          </para>
+<screen>&prompt.user;<command>npm install openlit</command></screen>
+        </step>
+        <step>
+          <para>
+            Import &openlit; and initialize it in your code&mdash;usually in the
+            main entrypoint. Remember to adjust the &otelemetry; endpoint to
+            point to your &otelemetry; collector instance that was installed
+            earlier.
+          </para>
+<screen>import Openlit from "openlit"
+ 
+Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318/v1/traces" })</screen>
+        </step>
+        <step>
+          <para>
+            After including the code above, you will start receiving telemetry
+            data from the libraries currently supported by &openlit;.
+          </para>
+        </step>
+      </procedure>
+    </section>
   </section>
 </topic>
