@@ -7,10 +7,6 @@
     %entities;
 ]>
 
-
-<!-- Test and update this procedure!! -->
-
-
 <!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_storage_protection.xml -->
 <topic xml:id="ha-sbd-setting-up-watchdog"
  role="task" xml:lang="en"
@@ -34,94 +30,129 @@
     </abstract>
   </info>
   <para>
-    &sleha; ships with kernel modules that provide hardware-specific watchdog drivers. If no
-    watchdog matches your hardware, the software watchdog (<systemitem>softdog</systemitem>) can
-    be used for testing purposes. However, the <systemitem>softdog</systemitem> driver assumes that
-    at least one CPU is still running, so if all CPUs are stuck, <systemitem>softdog</systemitem>
-    cannot reboot the system. In contrast, hardware watchdogs work even if all CPUs are stuck.
-    Therefore, <systemitem>softdog</systemitem> is <emphasis>not</emphasis> recommended for
-    clusters in production environments.
+    &sles; ships with kernel modules that provide hardware-specific watchdog drivers. Sometimes
+    the wrong watchdog kernel module is loaded automatically. Use the following procedure
+    to make sure the correct module is loaded. Perform this procedure on <emphasis>all</emphasis>
+    nodes you intend to add to the cluster:
   </para>
-  <para>
-    The following table lists commonly used watchdog drivers, but is not a complete list.
-    If your hardware is not listed here, ask your hardware or system vendor for details about
-    system-specific watchdog configuration.
-  </para>
-  <table>
-    <title>Commonly used watchdog drivers</title>
-    <tgroup cols="2">
-     <thead>
-      <row><entry>Hardware</entry><entry>Driver</entry></row>
-     </thead>
-     <tbody>
-      <row><entry>HP</entry><entry><systemitem>hpwdt</systemitem></entry></row>
-      <row><entry>Dell, Lenovo (Intel TCO)</entry><entry><systemitem>iTCO_wdt</systemitem></entry></row>
-      <row><entry>Fujitsu</entry><entry><systemitem>ipmi_watchdog</systemitem></entry></row>
-      <row><entry>LPAR on IBM Power</entry><entry><systemitem>pseries-wdt</systemitem></entry></row>
-      <row><entry>VM on IBM z/VM</entry><entry><systemitem>vmwatchdog</systemitem></entry></row>
-      <row><entry>Xen VM (DomU)</entry><entry><systemitem>xen_xdt</systemitem></entry></row>
-      <row><entry>VM on VMware vSphere</entry><entry><systemitem>wdat_wdt</systemitem></entry></row>
-      <row><entry>Generic</entry><entry><systemitem>softdog</systemitem></entry></row>
-     </tbody>
-    </tgroup>
-   </table>
-   <para>
-    Finding the right watchdog kernel module for a given system is not
-    trivial. Automatic probing fails often. As a result, many modules
-    are already loaded before the right one gets a chance.
-    Perform this procedure on <emphasis>all</emphasis> nodes you intend to add to the cluster:
-   </para>
   <procedure>
     <title>Loading the correct watchdog module</title>
-     <step>
-      <para>List the drivers that are installed with your kernel version:</para>
-       <screen>&prompt.user;<command>rpm -ql kernel-<replaceable>VERSION</replaceable> | grep watchdog</command></screen>
-      </step>
-      <step xml:id="st-ha-storage-listwatchdog-modules">
-       <para>List any watchdog modules that are currently loaded in the kernel:</para>
-       <screen>&prompt.user;<command>lsmod | egrep "(wd|dog)"</command></screen>
+      <step>
+        <para>
+          List the drivers that are installed with your kernel version:
+        </para>
+<screen>&prompt.user;<command>rpm -ql kernel-<replaceable>VERSION</replaceable> | grep watchdog</command></screen>
+        <para>
+          To help you choose the most appropriate driver for your hardware,the following table
+          lists commonly used watchdog drivers. However, this is not a complete list. If your
+          hardware is not listed here, ask your hardware or system vendor for details about
+          system-specific watchdog configuration.
+        </para>
+        <table>
+          <title>Commonly used watchdog drivers</title>
+          <tgroup cols="2">
+          <thead>
+            <row>
+              <entry>Hardware</entry><entry>Driver</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry>HP</entry><entry><systemitem>hpwdt</systemitem></entry>
+            </row>
+            <row>
+              <entry>Dell, Lenovo (Intel TCO)</entry><entry><systemitem>iTCO_wdt</systemitem></entry>
+            </row>
+            <row>
+              <entry>Fujitsu</entry><entry><systemitem>ipmi_watchdog</systemitem></entry>
+            </row>
+            <row>
+              <entry>LPAR on IBM Power</entry><entry><systemitem>pseries-wdt</systemitem></entry>
+            </row>
+            <row>
+              <entry>VM on IBM z/VM</entry><entry><systemitem>vmwatchdog</systemitem></entry>
+            </row>
+            <row>
+              <entry>VM on VMware vSphere</entry><entry><systemitem>wdat_wdt</systemitem></entry>
+            </row>
+            <row>
+              <entry>Generic</entry><entry><systemitem>softdog</systemitem></entry>
+            </row>
+          </tbody>
+          </tgroup>
+        </table>
+        <important>
+          <title><systemitem>softdog</systemitem> limitations</title>
+          <para>
+            If no watchdog matches your hardware, the software watchdog (<systemitem>softdog</systemitem>)
+            can be used for testing purposes. However, the <systemitem>softdog</systemitem> driver
+            assumes that at least one CPU is still running, so if all CPUs are stuck,
+            <systemitem>softdog</systemitem> cannot reboot the system. By contrast, hardware
+            watchdogs work even if all CPUs are stuck. Therefore, <systemitem>softdog</systemitem>
+            is <emphasis>not</emphasis> recommended for clusters in production environments.
+          </para>
+        </important>
       </step>
       <step>
-       <para>If you get a result, unload the wrong module:</para>
-       <screen>&prompt.user;<command>rmmod <replaceable>WRONG_MODULE</replaceable></command></screen>
+        <para>
+          Check whether any watchdog modules are already loaded in the kernel:
+        </para>
+<screen>&prompt.user;<command>lsmod | egrep "(wd|dog)"</command></screen>
       </step>
       <step>
-     <para> Enable the watchdog module that matches your hardware: </para>
-     <screen>&prompt.user;<command>echo <replaceable>WATCHDOG_MODULE</replaceable> > /etc/modules-load.d/watchdog.conf</command>
-&prompt.user;<command>systemctl restart systemd-modules-load</command></screen>
+        <para>
+          If the result is the wrong watchdog module, you can unload it with the following command:
+        </para>
+<screen>&prompt.user;<command>sudo rmmod <replaceable>WRONG_MODULE</replaceable></command></screen>
+      </step>
+      <step>
+       <para>
+        Enable the watchdog module that matches your hardware:
+      </para>
+<screen>&prompt.user;<command>sudo bash -c "echo <replaceable>WATCHDOG_MODULE</replaceable> &gt; /etc/modules-load.d/watchdog.conf"</command></screen>
     </step>
     <step>
-     <para>Test whether the watchdog module is loaded correctly:</para>
-     <screen>&prompt.user;<command>lsmod | grep dog</command></screen>
+      <para>
+        Reload the kernel modules:
+      </para>
+<screen>&prompt.user;<command>sudo systemctl restart systemd-modules-load</command></screen>
     </step>
     <step>
-     <para>Verify if the watchdog device is available and works:</para>
-     <screen>&prompt.user;<command>ls -l /dev/watchdog*</command>
+      <para>
+        Check whether the watchdog module is loaded correctly:
+      </para>
+<screen>&prompt.user;<command>lsmod | egrep "(wd|dog)"</command></screen>
+    </step>
+    <!--step> trichardson 2025-05-16: Can't use these steps until after the cluster is installed.
+      <para>
+        Verify if the watchdog device is available and works:
+      </para>
+<screen>&prompt.user;<command>ls -l /dev/watchdog*</command>
 &prompt.user;<command>sbd query-watchdog</command></screen>
-     <para> If your watchdog device is not available, check the
-      module name and options. Maybe use another driver. </para>
+      <para>
+        If your watchdog device is not available, check the module name and options.
+        Maybe use another driver.
+      </para>
     </step>
     <step>
-     <para>
-      Verify if the watchdog device works:
-     </para>
-     <screen>&prompt.user;<command>sbd -w <replaceable>WATCHDOG_DEVICE</replaceable> test-watchdog</command></screen>
-    </step>
+      <para>
+        Verify if the watchdog device works:
+      </para>
+<screen>&prompt.user;<command>sbd -w <replaceable>WATCHDOG_DEVICE</replaceable> test-watchdog</command></screen>
+    </step-->
     <step>
-     <para>
-      Reboot your machine to make sure there are no conflicting kernel modules. For example,
-      if you find the message <literal>cannot register ...</literal> in your log, this would indicate
-      such conflicting modules. <!--To ignore such modules, refer to <link
-       xlink:href="https://documentation.suse.com/sles/html/SLES-all/cha-mod.html#sec-mod-modprobe-blacklist"/>.-->
-     </para>
+      <para>
+        Reboot your machine to make sure there are no conflicting kernel modules:
+      </para>
+<screen>&prompt.user;<command>sudo reboot</command></screen>
     </step>
    </procedure>
   <important>
     <title>Accessing the watchdog timer</title>
     <para>
       Some hardware vendors ship systems management software that uses the watchdog for system
-      resets (for example, HP ASR daemon). If the watchdog is used by &sbd;, disable such software.
-      No other software must access the watchdog timer.
+      resets (for example, the HP ASR daemon). If the watchdog is used by &sbd;, disable such
+      software. No other software must access the watchdog timer.
     </para>
   </important>
 </topic>
