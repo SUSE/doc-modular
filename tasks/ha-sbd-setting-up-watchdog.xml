@@ -20,12 +20,12 @@
     <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        &sbd; needs a watchdog on each node to ensure that misbehaving nodes are really stopped.
-        Modern systems support a hardware watchdog that needs to be <quote>fed</quote> by a software
-        component (in this case, the &sbd; daemon). &sbd; <quote>feeds</quote> the watchdog by
-        regularly writing a service pulse to it. If &sbd; stops feeding the watchdog, the hardware
-        enforces a system restart. This protects against failures of the &sbd; process itself,
-        such as becoming stuck on an I/O error.
+        &sbd; (&sbd.long;) needs a watchdog on each node to ensure that misbehaving nodes are really
+        stopped. Modern systems support a hardware watchdog that needs to be <quote>fed</quote> by
+        a software component (in this case, the &sbd; daemon). &sbd; <quote>feeds</quote> the
+        watchdog by regularly writing a service pulse to it. If &sbd; stops feeding the watchdog,
+        the hardware enforces a system restart. This protects against failures of the &sbd; process
+        itself, such as becoming stuck on an I/O error.
       </para>
     </abstract>
   </info>
@@ -43,10 +43,10 @@
         </para>
 <screen>&prompt.user;<command>rpm -ql kernel-<replaceable>VERSION</replaceable> | grep watchdog</command></screen>
         <para>
-          To help you choose the most appropriate driver for your hardware,the following table
-          lists commonly used watchdog drivers. However, this is not a complete list. If your
-          hardware is not listed here, ask your hardware or system vendor for details about
-          system-specific watchdog configuration.
+          To help you find the correct driver for your hardware, the following table lists commonly
+          used watchdog drivers. However, this is not a complete list and might not be accurate for
+          your specific system. Check your system's hardware configuration if possible, or ask your
+          hardware or system vendor for details about system-specific watchdog configuration.
         </para>
         <table>
           <title>Commonly used watchdog drivers</title>
@@ -84,12 +84,17 @@
         <important>
           <title><systemitem>softdog</systemitem> limitations</title>
           <para>
-            If no watchdog matches your hardware, the software watchdog (<systemitem>softdog</systemitem>)
-            can be used for testing purposes. However, the <systemitem>softdog</systemitem> driver
-            assumes that at least one CPU is still running, so if all CPUs are stuck,
-            <systemitem>softdog</systemitem> cannot reboot the system. By contrast, hardware
-            watchdogs work even if all CPUs are stuck. Therefore, <systemitem>softdog</systemitem>
-            is <emphasis>not</emphasis> recommended for clusters in production environments.
+            If no hardware watchdog is available, &crmsh; automatically configures the software
+            watchdog (<systemitem>softdog</systemitem>) when you initialize the cluster.
+            This watchdog can be used for testing purposes, but is <emphasis>not</emphasis>
+            recommended for production environments.
+          </para>
+          <para>
+            The <systemitem>softdog</systemitem> driver assumes that at least one CPU is still
+            running, so if all CPUs are stuck, <systemitem>softdog</systemitem> cannot reboot the
+            system. By contrast, hardware watchdogs work even if all CPUs are stuck. Before using
+            the cluster in a production environment, we highly recommend replacing
+            <systemitem>softdog</systemitem> with a hardware watchdog.
           </para>
         </important>
       </step>
@@ -97,7 +102,7 @@
         <para>
           Check whether any watchdog modules are already loaded in the kernel:
         </para>
-<screen>&prompt.user;<command>lsmod | egrep "(wd|dog)"</command></screen>
+<screen>&prompt.user;<command>lsmod | egrep "(wdt|dog)"</command></screen>
       </step>
       <step>
         <para>
@@ -121,9 +126,11 @@
       <para>
         Check whether the watchdog module is loaded correctly:
       </para>
-<screen>&prompt.user;<command>lsmod | egrep "(wd|dog)"</command></screen>
+<screen>&prompt.user;<command>lsmod | egrep "(wdt|dog)"</command></screen>
     </step>
-    <!--step> trichardson 2025-05-16: Can't use these steps until after the cluster is installed.
+    <!--step> trichardson 2025-05-21: Need to test this further
+              Assess the usefulness of `wdctl /dev/watchdog0`
+              `lspci | grep Watchdog` is only sometimes useful?
       <para>
         Verify if the watchdog device is available and works:
       </para>
@@ -139,20 +146,17 @@
         Verify if the watchdog device works:
       </para>
 <screen>&prompt.user;<command>sbd -w <replaceable>WATCHDOG_DEVICE</replaceable> test-watchdog</command></screen>
-    </step-->
-    <step>
       <para>
-        Reboot your machine to make sure there are no conflicting kernel modules:
+        If the test is successful, the system reboots.
       </para>
-<screen>&prompt.user;<command>sudo reboot</command></screen>
-    </step>
+    </step-->
    </procedure>
   <important>
     <title>Accessing the watchdog timer</title>
     <para>
-      Some hardware vendors ship systems management software that uses the watchdog for system
-      resets (for example, the HP ASR daemon). If the watchdog is used by &sbd;, disable such
-      software. No other software must access the watchdog timer.
+      &sbd; must be the only software that accesses the watchdog timer. Some hardware vendors ship
+      systems management software that uses the watchdog for system resets (for example, the HP ASR
+      daemon). If this is the case, disable the additional software.
     </para>
   </important>
 </topic>
