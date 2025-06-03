@@ -109,7 +109,6 @@ the Wi-Fi.</para>
   <step>
     <para>Enable the Wi-Fi radio:</para>
       <screen>&prompt.sudo;nmcli radio wifi on</screen>
-    
   </step>
   <step><para>View the list of available devices: </para>
   <screen>&prompt.sudo;nmcli device</screen> 
@@ -149,17 +148,130 @@ the Wi-Fi.</para>
 </section>
 <section xml:id="configure-network-bond">
   <title>Creating a network bond</title>
-<para>A network bond combines physical and virtual network interfaces and provides a logical interface. You can create network bonds on Ethernet devices, Virtual LANs, and so on.</para>
-<para>You must have two or more physical or virtual networks installed on the server.
-</para>
-<itemizedlist><listitem><para>To use Ethernet devices for network 
+<para>A network bond combines physical and virtual network interfaces and provides a logical interface. You can create network bonds on Ethernet devices, Virtual LANs, and so on. Network bonding can increase bandwidth and/or provide redundancy.</para>
+    <itemizedlist><title>Requirements</title>
+      <listitem>
+        <para>
+        Network connection: two or more physical or virtual networks installed on the server
+</para></listitem>
+      <listitem>
+        <para>
+          Existing network interfaces to include in the bonded device
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Switch support, depending on the bonding mode
+        </para>
+      </listitem><listitem><para>To use Ethernet devices for network 
 bonding, you must install the physical or virtual Ethernet devices 
 on the server.</para></listitem>
 <listitem><para>When using network teams, bridges or VLAN devices 
 as ports for a bond, you can create them either during the bond 
 creation process or beforehand.</para></listitem>
-</itemizedlist>
-<procedure xml:id="network-bond-configuration">
+    </itemizedlist>
+    <itemizedlist>
+    <title>Restrictions</title>
+         <listitem><para>Do not split bonds over multiple switches.</para>
+          <para>
+            In most hardware setups, all network interfaces in a bonded device must be connected to
+            the same switch. For more information, consult your switch vendor documentation.
+          </para>
+        </listitem>
+        <listitem arch="power"><para>IBM &power;: Bonding modes 5 and 6 (<literal>balance-tlb</literal> and
+        <literal>balance-alb</literal>) unsupported by ibmveth.</para>
+          <para>
+            The bonding drivers in <literal>tlb</literal> or <literal>alb</literal> modes send
+            Ethernet Loopback packets with both the source and destination MAC addresses listed as
+            the Virtual Ethernet MAC address. These packets are not supported by &power; firmware.
+            Therefore, bonding modes 5 and 6 are unsupported by ibmveth.
+          </para>
+        </listitem>
+        <listitem>
+        <para>Bonding and virtualization: Bonded devices are made up of multiple network 
+        interfaces. In most configurations, you should only configure bonding in the host. 
+        Virtual interfaces to guests are then created as a bridge with the bonded devices, 
+        simplifying guest creation and deployment.
+          </para>
+          <para>
+            It is possible, but not recommended, to configure bonding in a guest. When configuring
+            bonding in a guest, you must assign multiple interfaces to the guest and configure the
+            host without bonding. You must also be careful to configure the host and its network
+            bridges so that you do not mix bonding in the host and guests.
+          </para>
+        </listitem>
+      </itemizedlist>
+  <itemizedlist>
+    <title>Bonding modes</title>
+    <para>
+      The following bonding modes are available:
+    </para>
+     <listitem>
+     <para>(<guimenu>0</guimenu>) <guimenu>balance-rr</guimenu></para>
+     <para>
+            Packets are transmitted in round-robin fashion from the first to the last available
+            interface. Provides fault tolerance and load balancing. Requires switch support.
+            Certain switches might fail with this mode.
+          </para>
+        </listitem>
+       <listitem>
+       <para>(<guimenu>1</guimenu>) <guimenu>active-backup</guimenu></para>
+       <para>
+            Only one network interface is active. If it fails, a different interface becomes active.
+            Provides fault tolerance. This is the default mode. No specific switch support is required.
+      </para>
+      </listitem>
+      <listitem>
+      <para>(<guimenu>2</guimenu>) <guimenu>balance-xor</guimenu></para>
+          <para>
+            Traffic is split between all available interfaces based on the number of interfaces
+            included in the bonded device. Provides fault tolerance and load balancing. Requires
+            switch support. Certain switches might fail with this mode.
+          </para>
+        </listitem>
+         <listitem>
+         <para>(<guimenu>3</guimenu>) <guimenu>broadcast</guimenu></para>
+          <para>
+            All traffic is broadcast on all interfaces. Provides fault tolerance.
+            Requires switch support. Certain switches might fail with this mode. If possible,
+            use mode <guimenu>1</guimenu> instead, or use this mode to provide sniffing capability
+            by connecting each member of the bond to a different switch or device.
+          </para>
+        </listitem>
+        <listitem>
+        <para>(<guimenu>4</guimenu>) <guimenu>802.3ad</guimenu></para>
+          <para>
+            Also called <emphasis>LACP</emphasis>. All interfaces in the LACP group must share the
+            same speed and duplex settings, and must be connected to the same switch. Provides
+            fault tolerance and load balancing. Requires <command>ethtool</command> support in the
+            interface drivers, and a switch that supports and is configured for IEEE 802.3ad Dynamic
+            link aggregation. If your switch supports it, this is the preferred mode.
+          </para>
+        </listitem>
+        <listitem><para>(<guimenu>5</guimenu>) <guimenu>balance-tlb</guimenu></para>
+          <para>
+            Adaptive transmit load balancing. Provides fault tolerance and load balancing. Requires
+            <command>ethtool</command> support in the interface drivers. No specific switch support
+            is required, but certain switches might fail with this mode.
+          </para>
+        </listitem>
+       <listitem>
+       <para>(<guimenu>6</guimenu>) <guimenu>balance-alb</guimenu></para>
+          <para>
+            Adaptive load balancing. Provides fault tolerance and load balancing. Requires
+            <command>ethtool</command> support in the interface drivers. No specific switch support
+            is required, but certain switches might fail with this mode.
+          </para>
+        </listitem>
+   
+    </itemizedlist> <para>
+      Consult your hardware manual to check which modes your switch supports.
+    </para>
+    <para>
+      For a more detailed description of the modes, see
+      <link xlink:href="https://www.kernel.org/doc/Documentation/networking/bonding.txt"/>.
+    </para>
+  <procedure xml:id="network-bond-configuration">
   <title>Creating a network bond</title>
   <step><para>Create a bond interface:</para>
   <screen>&prompt.sudo;nmcli connection add type bond con-name <replaceable>NWBOND</replaceable> ifname <replaceable>NWBOND</replaceable> bond.options "mode=active-backup"</screen>
@@ -230,15 +342,36 @@ create a connection profile:</para>
       <screen>&prompt.user;nmcli device</screen>
   <para>The list of connections appears.</para>
 </step>
-</procedure>
-</section>
+</procedure></section>
 <section xml:id="configure-network-team">
   <title>Configuring a network team</title>
-<para>Network teaming combines physical and virtual networks and provides a logical interface with higher efficiency. Configure network teams using <command>nmcli</command>.</para>
-<itemizedlist>
-<title>Requirements</title>
-  <listitem>
-    <para>Install the <literal>teamd</literal> and <literal>NetworkManager-team</literal> packages:</para>
+<para> Network teaming combines two or more network interfaces into a single teamed device to increase bandwidth and/or provide redundancy. The behavior of the teamed device is configured using teaming modes.     Network teaming can increase bandwidth and/or provide redundancy. 
+</para>
+    
+    <itemizedlist>
+    <title>Requirements</title>
+      <listitem>
+        <para>
+          Network connection
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Existing network interfaces to include in the teamed device
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Switch support in kernel, depending on the teaming mode
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          The package <package>libteam-tools</package> is installed
+        </para>
+      </listitem>
+      <listitem>
+<para>Install the <literal>teamd</literal> and <literal>NetworkManager-team</literal> packages:</para>
 <screen>&prompt.sudo; zypper install teamd
 &prompt.sudo; zypper install NetworkManager-team</screen>
   </listitem>
@@ -254,8 +387,81 @@ create a connection profile:</para>
   <para>To use bond, bridge or VLAN devices as ports of the team, create them in advance or
   when you create the team.</para>
 </listitem>
-</itemizedlist>
-<procedure>
+    </itemizedlist>
+    
+    <itemizedlist>
+    <title>Restrictions</title>
+      <listitem>
+        <para>Do not split teams over multiple switches.</para>
+            <para>
+            In most hardware setups, all network interfaces in a teamed device must be connected to
+            the same switch. For more information, consult your switch vendor documentation.
+          </para>
+        </listitem>
+       <listitem>
+        <para>Teaming and virtualization:</para>
+        
+          <para>
+            Teamed devices are made up of multiple network interfaces. In most configurations
+            you should only configure teaming in the host. Virtual interfaces to guests are then
+            created as a bridge with the teamed devices, simplifying guest creation and deployment.
+          </para>
+          <para>
+            It is possible, but not recommended, to configure teaming in a guest. When configuring
+            teaming in a guest, you must assign multiple interfaces to the guest and configure the
+            host without teaming. You must also be careful to configure the host and its network
+            bridges so that you do not mix teaming in the host and guests.
+      </para>
+        </listitem>
+    </itemizedlist>
+    <itemizedlist>
+        <title>Teaming modes</title>
+    <para>
+      The following teaming modes are available:
+    </para>
+    <listitem> <para><guimenu>broadcast</guimenu></para>
+          <para>
+            All traffic is broadcast on all interfaces. Provides fault tolerance.
+            Requires switch support.
+          </para>
+        </listitem>
+        <listitem><para><guimenu>roundrobin</guimenu></para>
+        
+          <para>
+            Packets are transmitted in round-robin fashion from the first to the last available
+            interface. Provides fault tolerance and load balancing. Requires switch support.
+          </para>
+        </listitem>
+         <listitem><para><guimenu>activebackup</guimenu></para>
+        
+          <para>
+            Only one network interface is active. If it fails, a different interface becomes active.
+            Provides fault tolerance.
+          </para>
+        </listitem><listitem><para><guimenu>loadbalance</guimenu></para>
+        
+          <para>
+            The teamed device transmits packets via all its interfaces, performing load balancing
+            (passive or active) with a use of hash functions. For passive load balancing, only
+            the BPF hash function is used. For active load balancing, the runner finds the best
+            balance by moving hashes between available interfaces. Provides fault tolerance and
+            load balancing. No specific switch support is required.
+          </para>
+        </listitem><listitem><para><guimenu>lacp</guimenu></para>
+        
+          <para>
+            All interfaces in the LACP group must share the same speed and duplex settings, and
+            must be connected to the same switch. Provides fault tolerance and load balancing.
+            Requires <command>ethtool</command> support in the interface drivers, and a switch that
+            supports and is configured for IEEE 802.3ad Dynamic link aggregation. If your switch
+            supports it, this is the preferred mode.
+          </para>
+        </listitem>
+        </itemizedlist>
+    <para>
+      Consult your hardware manual to check which modes your switch supports.
+    </para>
+  <procedure>
   <title>Creating a network team</title>
   <step><para>Create a team interface:</para>
   <screen>&prompt.sudo;nmcli connection add type team con-name <replaceable>CONNECTION_NAME</replaceable> ifname <replaceable>TEAM_NAME</replaceable> team.runner <replaceable>RUNNER-TYPE</replaceable></screen>
