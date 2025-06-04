@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refer to README.md for file and id naming conventions -->
+<topic xml:id="sles-pxe-server-tftp"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring TFTP for PXE booting</title>
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        This section explains how to configure the TFTP service to serve &grub; bootloaders and
+        other PXE boot content over the network.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="sles-pxe-server-tftp-intro">
+    <title>Introduction</title>
+    <para>
+      PXE clients using legacy BIOS firmware often rely on TFTP to retrieve the initial bootloader.
+      TFTP is also commonly used by UEFI clients when Secure Boot is not enforced. This section
+      describes how to configure TFTP with a writable root pointing to the PXE content.
+    </para>
+  </section>
+  <section xml:id="sles-pxe-server-tftp-reqs">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          The <literal>tftp</literal> and <literal>tftp-server</literal> packages must be
+          installed.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          The TFTP root directory must be consistent with your PXE layout, such as
+          <filename>/srv/tftpboot</filename>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Administrative privileges are required to edit TFTP service files and restart the daemon.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="sles-pxe-server-tftp-exec">
+    <title>Configuring the TFTP service</title>
+    <para>
+      Use the following procedure to configure and activate the TFTP service.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Create or edit the systemd unit override for the TFTP service.
+        </para>
+<screen>&prompt.sudo;<command>systemctl edit tftp.socket</command></screen>
+        <para>
+          Insert the following content:
+        </para>
+<screen>
+[Socket]
+ListenDatagram=69
+ListenStream=
+BindIPv6Only=ipv6-only
+</screen>
+      </step>
+      <step>
+        <para>
+          Create or edit the TFTP service override file.
+        </para>
+<screen>&prompt.sudo;<command>systemctl edit tftp.service</command></screen>
+        <para>
+          Add or adjust the <literal>ExecStart</literal> line to match your directory layout:
+        </para>
+<screen>
+[Service]
+ExecStart=
+ExecStart=/usr/sbin/in.tftpd -s /srv/tftpboot
+        </screen>
+      </step>
+      <step>
+        <para>
+          Enable and start the TFTP socket.
+        </para>
+<screen>&prompt.sudo;<command>systemctl enable --now tftp.socket</command></screen>
+      </step>
+    </procedure>
+  </section>
+</topic>
