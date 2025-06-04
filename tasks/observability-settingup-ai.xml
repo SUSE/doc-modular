@@ -178,8 +178,8 @@ clusterName: <replaceable>OBSERVED_SERVER_NAME</replaceable><co xml:id="co-obs-o
           <title>Self-signed certificates not supported</title>
           <para>
             Self-signed certificates are not supported. Consider running the
-            extension in the same cluster as &sobservability; and then use
-            the internal &k8s; address."
+            extension in the same cluster as &sobservability; and then use the
+            internal &k8s; address."
           </para>
         </note>
         <para>
@@ -196,7 +196,7 @@ clusterName: <replaceable>OBSERVED_SERVER_NAME</replaceable><co xml:id="co-obs-o
           appears:
         </para>
         <figure>
-          <title>New GenAI Observability menu itiem</title>
+          <title>New GenAI Observability menu item</title>
           <mediaobject>
             <imageobject role="fo">
               <imagedata fileref="ai-observability-genai-menu.png" width="30%"/>
@@ -204,8 +204,7 @@ clusterName: <replaceable>OBSERVED_SERVER_NAME</replaceable><co xml:id="co-obs-o
             <imageobject role="html">
               <imagedata fileref="ai-observability-genai-menu.png" width="30%"/>
             </imageobject>
-            <textobject role="description">
-              <phrase>An image of a new left menu item GenAI Observability</phrase>
+            <textobject role="description"><phrase>An image of a new left menu item GenAI Observability</phrase>
             </textobject>
           </mediaobject>
         </figure>
@@ -239,12 +238,13 @@ kubectl create secret generic open-telemetry-collector \
           Create a new file named <filename>otel-values.yaml</filename> with the
           following content.
         </para>
-<screen>extraEnvsFrom:
+<screen>global:
+  imagePullSecrets:
+  - application-collection
+extraEnvsFrom:
   - secretRef:
-      name: open-telemetry-collector
+      name: {{ otel_secret }}
 mode: deployment
-image:
-  repository: "otel/opentelemetry-collector-k8s"
 ports:
   metrics:
     enabled: true
@@ -257,17 +257,17 @@ config:
     prometheus:
       config:
         scrape_configs:
-        - job_name: 'gpu-metrics'
-          scrape_interval: 10s
-          scheme: http
-          kubernetes_sd_configs:
-            - role: endpoints
-              namespaces:
-                names:
-                - gpu-operator
+          - job_name: 'gpu-metrics'
+            scrape_interval: 10s
+            scheme: http
+            kubernetes_sd_configs:
+              - role: endpoints
+                namespaces:
+                  names:
+                    - gpu-operator
   exporters:
     otlp:
-endpoint: http://suse-observability-otel-collector.suse-observability.svc.cluster.local:4317 <co xml:id="co-obs-otel-collector3"/>
+      endpoint: http://suse-observability-otel-collector.suse-observability.svc.cluster.local:4317 <co xml:id="co-obs-otel-collector3"/>
       headers:
         Authorization: "SUSEObservability ${env:API_KEY}"
       tls:
@@ -361,13 +361,51 @@ endpoint: http://suse-observability-otel-collector.suse-observability.svc.cluste
         <para>
           Finally, run the installation command.
         </para>
-<screen>&prompt.user;<command>helm upgrade \
-  --install opentelemetry-collector open-telemetry/opentelemetry-collector \
-  -f otel-values.yaml -n observability</command></screen>
+<screen>&prompt.user;<command>helm upgrade --install opentelemetry-collector \
+  oci://dp.apps.rancher.io/charts/opentelemetry-collector \
+  -f otel-values.yaml --namespace observability</command></screen>
         <para>
           Verify the installation by checking the existence of a new deployment
           and service in the observability namespace.
         </para>
+      </step>
+      <step>
+        <para>
+          The GPU metrics scraper that we configure in the OTEL Collector
+          requires custom RBAC rules. Create a file named
+          <filename>otel-rbac.yaml</filename> with the following content:
+        </para>
+<screen>apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: suse-observability-otel-scraper
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - endpoints
+    verbs:
+      - list
+      - watch
+ 
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: suse-observability-otel-scraper
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: suse-observability-otel-scraper
+subjects:
+  - kind: ServiceAccount
+    name: opentelemetry-collector
+    namespace: observability</screen>
+        <para>
+          Then apply the configuration by running the following command.
+        </para>
+<screen>&prompt.user;<command>kubectl apply -n gpu-operator -f otel-rbac.yaml</command></screen>
       </step>
       <step>
         <para>
