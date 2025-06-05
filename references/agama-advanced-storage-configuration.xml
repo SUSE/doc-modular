@@ -1,0 +1,891 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="agama-advanced-storage-configuration"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Advanced storage configuration using &agama; profiles</title>
+    <!-- can be changed via merge in the assembly -->
+    <!--add author's email address-->
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <!-- can be changed via merge in the assembly -->
+      <para>
+        Storage configuration in &agama; is one of the most powerful and flexible components of the
+        automated installation process. It allows you to declaratively define everything from
+        simple partition layouts to sophisticated combinations of LUKS encryption, Logical Volume
+        Management (LVM), software RAID, and Btrfs subvolumes — all before the system is booted for
+        the first time.
+      </para>
+
+      <para>
+        This topic primarily describes the &agama; storage schema as described in
+        <link xlink:href="https://github.com/agama-project/agama/blob/master/rust/agama-lib/share/storage.schema.json"></link>.
+        Each section in this topic focuses on a specific capability or concept: basic partitions,
+        encrypted volumes, nested logical volumes, RAID configurations, Btrfs setups, and advanced
+        directives like preservation flags or formatting instructions. Together, they enable
+        reproducible, secure, and scalable disk layout management suitable.
+      </para>
+
+      <para>
+        Although a minimal configuration might only need one disk and one mount point, a more
+        detailed storage model enables production-ready deployment pipelines, disaster recovery
+        consistency, and tight security controls from the first boot.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="schema-basics-agama-storage">
+    <title>Top-level schema elements</title>
+    <para>
+      At the highest level, the <literal>storage</literal> section in the &agama; profile is an
+      array of disk configuration objects. Each object describes a physical or virtual block
+      device, and how partitions or logical volumes should be created on it. These objects live
+      under the top-level <literal>storage</literal> key in the profile schema.
+    </para>
+    <note>
+      <title>Minimal top-level storage</title>
+      <para>
+        The following example illustrates only the bare minimum needed to define a disk object. It
+        does not reflect the full capabilities of the &agama; storage model such as partitioning,
+        encryption, volume management, or reuse behavior. These topics are covered in later
+        sections.
+      </para>
+    </note>
+    <example>
+      <title>Minimal top-level storage entry</title>
+<screen>
+[
+  {
+    "type": "disk",
+    "device": "<replaceable>/dev/sda</replaceable>",
+    "wipe": true,
+    "partitions": []
+  }
+]
+    </screen>
+    </example>
+  </section>
+  <section xml:id="filesystem-partitions-agama-storage">
+    <title>Filesystems partitions</title>
+    <para>
+      Standard partitions are used to create filesystems directly on a disk. These are the most
+      common storage entities and are defined under the <literal>partitions</literal> array inside
+      a disk object. Each partition can specify properties like mount points, filesystems type,
+      format behavior, and reuse preferences.
+    </para>
+    <para>
+      The example below demonstrates a configuration that sets up two partitions: one EFI system
+      partition and one root partition formatted with XFS.
+    </para>
+    <example>
+      <title>Partitioned disk with EFI and root filesystems</title>
+<screen>
+[
+  {
+    "type": "disk",
+    "device": "<replaceable>/dev/sda</replaceable>",
+    "wipe": true,
+    "partitions": [
+      {
+        "type": "efi",
+        "size": 256,
+        "mountPoint": "/boot/efi",
+        "preserve": false,
+        "format": true
+      },
+      {
+        "type": "partition",
+        "mountPoint": "/",
+        "fsType": "xfs",
+        "size": 20480,
+        "preserve": false,
+        "format": true
+      }
+    ]
+  }
+]
+    </screen>
+    </example>
+    <para>
+      This section contains the following elements:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>type</term>
+        <listitem>
+          <para>
+            Either <literal>efi</literal> or <literal>partition</literal>. Determines how the
+            partition is treated.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>size</term>
+        <listitem>
+          <para>
+            Size of the partition in MiB. If omitted, the remaining space is used.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>mountPoint</term>
+        <listitem>
+          <para>
+            Mount point inside the target filesystems. Must be specified unless the partition is
+            unmounted.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>fsType</term>
+        <listitem>
+          <para>
+            Filesystems type, such as <literal>xfs</literal>, <literal>ext4</literal>, or
+            <literal>btrfs</literal>. Required unless <literal>format</literal> is false.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>preserve</term>
+        <listitem>
+          <para>
+            Boolean flag. When true, existing data on this partition is preserved. Defaults to
+            false.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>format</term>
+        <listitem>
+          <para>
+            Boolean flag. When true, the partition will be freshly formatted. Defaults to true
+            unless <literal>preserve</literal> is set.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="luks-encryption-agama-storage">
+    <title>LUKS encryption</title>
+    <para>
+      &agama; supports encrypting block devices using LUKS. Encrypted devices can be used as
+      mountable filesystems or as physical volumes in LVM setups. Each encrypted block must define
+      its own passphrase or refer to a key file.
+    </para>
+    <para>
+      The example below shows a basic LUKS-encrypted root partition, created inside a disk and
+      mounted as the system root.
+    </para>
+    <example>
+      <title>Root filesystem encrypted with LUKS</title>
+<screen>
+[
+  {
+    "type": "disk",
+    "device": "<replaceable>/dev/sda</replaceable>",
+    "wipe": true,
+    "partitions": [
+      {
+        "type": "efi",
+        "size": 256,
+        "mountPoint": "/boot/efi",
+        "format": true,
+        "preserve": false
+      },
+      {
+        "type": "crypt",
+        "name": "cryptroot",
+        "cipher": "aes-xts-plain64",
+        "keySize": 512,
+        "password": "<replaceable>MY-SECRET-PASSWORD</replaceable>",
+        "volume": {
+          "type": "partition",
+          "mountPoint": "/",
+          "fsType": "xfs",
+          "size": 20480,
+          "format": true,
+          "preserve": false
+        }
+      }
+    ]
+  }
+]
+    </screen>
+    </example>
+    <para>
+      This section contains the following elements:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>type</term>
+        <listitem>
+          <para>
+            Must be set to <literal>crypt</literal> to declare a LUKS encrypted volume.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>name</term>
+        <listitem>
+          <para>
+            Name for the mapped LUKS device, used in <filename>/dev/mapper</filename>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>cipher</term>
+        <listitem>
+          <para>
+            Encryption cipher. For example, <literal>aes-xts-plain64</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>keySize</term>
+        <listitem>
+          <para>
+            Key size in bits. Common values are 256 or 512.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>password</term>
+        <listitem>
+          <para>
+            The passphrase used to unlock the encrypted volume. Can be replaced with
+            <literal>keyFile</literal> if using an external key.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>volume</term>
+        <listitem>
+          <para>
+            The block device definition that will reside within the LUKS container. Often a single
+            partition, but can also be a volume group.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="lvm-setup-agama-storage">
+    <title>Logical Volume Management (LVM)</title>
+    <para>
+      Logical Volume Management allows aggregating multiple block devices or partitions into a
+      single logical storage pool. In &agama;, LVM setups are described using a
+      <literal>volumeGroup</literal> type, under which logical volumes are listed.
+    </para>
+    <example>
+      <title>LVM setup with a single logical volume</title>
+<screen>
+[
+  {
+    "type": "disk",
+    "device": "<replaceable>/dev/sda</replaceable>",
+    "wipe": true,
+    "partitions": [
+      {
+        "type": "partition",
+        "size": 30720,
+        "volume": {
+          "type": "volumeGroup",
+          "name": "systemvg",
+          "volumes": [
+            {
+              "name": "home",
+              "mountPoint": "/home",
+              "fsType": "xfs",
+              "size": 20480,
+              "format": true,
+              "preserve": false
+            }
+          ]
+        }
+      }
+    ]
+  }
+]
+    </screen>
+    </example>
+    <para>
+      This section contains the following elements:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>type</term>
+        <listitem>
+          <para>
+            Set to <literal>volumeGroup</literal> to define a new LVM volume group container.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>name</term>
+        <listitem>
+          <para>
+            Name of the volume group. Used for identifying the group in
+            <filename>/dev/&lt;vg-name&gt;/</filename>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>volumes</term>
+        <listitem>
+          <para>
+            List of logical volumes within this volume group. Each volume is defined using fields
+            like <literal>name</literal>, <literal>mountPoint</literal>, <literal>fsType</literal>,
+            and <literal>size</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="raid-setup-agama-storage">
+    <title>RAID configuration</title>
+    <para>
+      &agama; allows defining software RAID arrays directly within the storage configuration using
+      the <literal>mdraid</literal> type. You can specify the RAID level, involved devices, chunk
+      size, and metadata version, among other options. These arrays can be used as mountable
+      volumes or serve as physical volumes in LVM or encryption stacks.
+    </para>
+    <example>
+      <title>Basic RAID 1 setup with /home mounted</title>
+<screen>
+[
+  {
+    "type": "disk",
+    "device": "<replaceable>/dev/sda</replaceable>",
+    "wipe": true
+  },
+  {
+    "type": "disk",
+    "device": "<replaceable>/dev/sdb</replaceable>",
+    "wipe": true
+  },
+  {
+    "type": "mdraid",
+    "level": "1",
+    "devices": ["<replaceable>/dev/sda</replaceable>", "<replaceable>/dev/sdb</replaceable>"],
+    "volume": {
+      "type": "partition",
+      "mountPoint": "/home",
+      "fsType": "xfs",
+      "size": 10240,
+      "format": true,
+      "preserve": false
+    }
+  }
+]
+    </screen>
+    </example>
+    <para>
+      This section includes the following elements:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>type</term>
+        <listitem>
+          <para>
+            Must be set to <literal>mdraid</literal> to define a software RAID device.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>level</term>
+        <listitem>
+          <para>
+            The RAID level to use (e.g., <literal>0</literal>, <literal>1</literal>,
+            <literal>5</literal>, <literal>6</literal>, or <literal>10</literal>).
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>devices</term>
+        <listitem>
+          <para>
+            List of block devices that participate in the array.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>volume</term>
+        <listitem>
+          <para>
+            The volume definition describing what should be created on top of the RAID array. It
+            may be a regular filesystem partition, a LUKS container, or an LVM setup.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="btrfs-layout-agama-storage">
+    <title>Btrfs layout</title>
+    <para>
+      &agama; supports configuring Btrfs subvolumes and mount points, allowing granular control
+      over snapshot-aware filesystems. You can define a top-level Btrfs partition or volume, then
+      define subvolumes under it, each optionally with its own mount point.
+    </para>
+    <example>
+      <title>Btrfs setup with multiple subvolumes</title>
+<screen>
+[
+  {
+    "type": "disk",
+    "device": "<replaceable>/dev/sda</replaceable>",
+    "wipe": true,
+    "partitions": [
+      {
+        "type": "btrfs",
+        "mountPoint": "/",
+        "format": true,
+        "subvolumes": [
+          {
+            "name": "@home",
+            "mountPoint": "/home"
+          },
+          {
+            "name": "@log",
+            "mountPoint": "/var/log"
+          }
+        ]
+      }
+    ]
+  }
+]
+    </screen>
+    </example>
+    <para>
+      This section includes the following elements:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>type</term>
+        <listitem>
+          <para>
+            Must be set to <literal>btrfs</literal> to define a Btrfs partition.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>mountPoint</term>
+        <listitem>
+          <para>
+            The mount point for the root of the Btrfs volume (e.g., <literal>/</literal>).
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>format</term>
+        <listitem>
+          <para>
+            Whether to format the Btrfs partition. Must be set to <literal>true</literal> to create
+            new filesystems.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>subvolumes</term>
+        <listitem>
+          <para>
+            List of Btrfs subvolumes. Each subvolume is an object with at least a
+            <literal>name</literal>, and optionally a <literal>mountPoint</literal>.
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <literal>name</literal>: The name of the Btrfs subvolume (e.g.,
+                <literal>@home</literal>).
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>mountPoint</literal>: Mount point for this subvolume (e.g.,
+                <literal>/home</literal>).
+              </para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="partition-flags-modifiers-agama-storage">
+    <title>Partition flags and modifiers</title>
+    <para>
+      Flags and attributes that influence partition behavior, naming, sizing, and boot
+      compatibility.
+    </para>
+    <example>
+      <title>Example with partition flags and metadata</title>
+<screen>
+[
+  {
+    "type": "disk",
+    "device": "<replaceable>/dev/sda</replaceable>",
+    "wipe": true,
+    "partitions": [
+      {
+        "mount": "/boot",
+        "size": 512,
+        "filesystem": "ext4",
+        "esp": true,
+        "grow": false,
+        "label": "BOOT",
+        "id": "boot-partition"
+      }
+    ]
+  }
+]
+    </screen>
+    </example>
+    <para>
+      This section describes the following partition attributes:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><literal>grow</literal></term>
+        <listitem>
+          <para>
+            If set to <literal>true</literal>, this partition or volume will take up any leftover
+            space after allocating other defined volumes.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>esp</literal></term>
+        <listitem>
+          <para>
+            Marks the partition as an EFI System Partition. This is required for UEFI boot setups
+            when using a separate <filename>/boot</filename> partition.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>label</literal></term>
+        <listitem>
+          <para>
+            Human-readable label to assign to the partition or logical volume. For example,
+            <literal>HOME</literal> or <literal>BOOT</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>id</literal></term>
+        <listitem>
+          <para>
+            Unique identifier used to reference this partition in other sections or mount
+            relationships. Optional, but useful for referencing volumes in complex setups.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="reusing-existing-volumes-agama-storage">
+    <title>Reusing existing volumes</title>
+    <para>
+      To preserve data or reuse partitions from a previous installation, &agama; supports marking
+      individual storage entries with <literal>preserve: true</literal>. This avoids reformatting
+      or wiping the specified device or volume.
+    </para>
+    <example>
+      <title>Reusing an existing <filename>/home</filename> partition</title>
+<screen>
+[
+  {
+    "type": "disk",
+    "device": "<replaceable>/dev/sda</replaceable>",
+    "wipe": false,
+    "partitions": [
+      {
+        "mount": "/home",
+        "preserve": true,
+        "id": "home-partition"
+      }
+    ]
+  }
+]
+    </screen>
+    </example>
+    <para>
+      This section describes the relevant flag:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><literal>preserve</literal></term>
+        <listitem>
+          <para>
+            If <literal>true</literal>, the existing content of the volume will not be deleted or
+            reformatted. This is useful when retaining data directories like
+            <filename>/home</filename> or reuse across installations. The target must already be
+            formatted with a valid filesystem.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="realworld-examples-agama-storage">
+    <title>Real-world example configurations</title>
+    <para>
+      Here are several end-to-end examples illustrating common and practical storage layouts.
+    </para>
+    <example>
+      <title>UEFI layout with root, home, and swap</title>
+<screen>
+[
+  {
+    "type": "disk",
+    "device": "/dev/sda",
+    "wipe": true,
+    "partitions": [
+      {
+        "mount": "/boot/efi",
+        "size": 256,
+        "filesystem": "vfat",
+        "esp": true
+      },
+      {
+        "mount": "/",
+        "size": 20480,
+        "filesystem": "btrfs",
+        "label": "ROOT"
+      },
+      {
+        "mount": "/home",
+        "size": 10240,
+        "filesystem": "xfs",
+        "label": "HOME"
+      },
+      {
+        "filesystem": "swap",
+        "size": 4096
+      }
+    ]
+  }
+]
+    </screen>
+    </example>
+    <example>
+      <title>LVM-backed root and home partitions</title>
+<screen>
+[
+  {
+    "type": "disk",
+    "device": "/dev/sda",
+    "wipe": true,
+    "partitions": [
+      {
+        "type": "lvm",
+        "id": "pv-system"
+      }
+    ]
+  },
+  {
+    "type": "lvm_vg",
+    "id": "vg-system",
+    "devices": ["pv-system"],
+    "volumes": [
+      {
+        "mount": "/",
+        "size": 10240,
+        "filesystem": "btrfs",
+        "label": "ROOT"
+      },
+      {
+        "mount": "/home",
+        "size": 20480,
+        "filesystem": "xfs",
+        "label": "HOME"
+      }
+    ]
+  }
+]
+    </screen>
+    </example>
+    <example>
+      <title>Encrypted LUKS root filesystem</title>
+<screen>
+[
+  {
+    "type": "disk",
+    "device": "/dev/sda",
+    "wipe": true,
+    "partitions": [
+      {
+        "mount": "/boot",
+        "size": 512,
+        "filesystem": "ext4"
+      },
+      {
+        "type": "luks",
+        "id": "crypt-root"
+      }
+    ]
+  },
+  {
+    "type": "luks_open",
+    "id": "decrypted-root",
+    "device": "crypt-root",
+    "name": "cryptroot",
+    "filesystem": "btrfs",
+    "mount": "/",
+    "label": "ROOT"
+  }
+]
+    </screen>
+    </example>
+  </section>
+  <section xml:id="partition-types-reference-agama-storage">
+    <title>Partition type reference</title>
+    <para>
+      The following types are valid values for the <literal>type</literal> field in the &agama;
+      storage schema. Each type describes a different layer or behavior in the storage stack.
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><literal>disk</literal></term>
+        <listitem>
+          <para>
+            Represents a physical or virtual block device. It contains a list of partitions or
+            other volume definitions.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>partition</literal></term>
+        <listitem>
+          <para>
+            Represents a filesystem partition on a disk. Most commonly used for mount points like
+            <filename>/boot</filename>, <filename>/home</filename>, or <filename>/</filename>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>luks</literal></term>
+        <listitem>
+          <para>
+            Marks a partition to be encrypted using LUKS. Must be opened later using
+            <literal>luks_open</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>luks_open</literal></term>
+        <listitem>
+          <para>
+            Refers to an encrypted volume defined via <literal>luks</literal>. It allows specifying
+            filesystem and mount point on the decrypted device.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>lvm</literal></term>
+        <listitem>
+          <para>
+            Initializes a partition as a physical volume (PV) for LVM. Used in combination with
+            <literal>lvm_vg</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>lvm_vg</literal></term>
+        <listitem>
+          <para>
+            Defines a volume group that aggregates one or more PVs. Contains logical volumes with
+            their own mount points and filesystems.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>mdraid</literal></term>
+        <listitem>
+          <para>
+            Used to define software RAID arrays (e.g., RAID1, RAID5) over multiple disks or
+            partitions.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>btrfs_subvolume</literal></term>
+        <listitem>
+          <para>
+            Defines a Btrfs subvolume and mount point within a Btrfs-formatted volume. Requires a
+            parent Btrfs filesystem to exist.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="storage-caveats-pitfalls-agama-storage">
+    <title>Common pitfalls and edge cases</title>
+    <para>
+      This section outlines frequently encountered mistakes and gotchas that can lead to
+      installation failures or misconfigured systems when using &agama;'s storage schema.
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <emphasis>Missing or incorrect <literal>id</literal> fields:</emphasis> Every volume
+          layer (disk, partition, luks, lvm, etc.) should have a unique and predictable
+          <literal>id</literal>. Reusing IDs or leaving them out leads to ambiguous device paths
+          during setup.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <emphasis>Forgetting to <literal>mount</literal> the root volume:</emphasis> If no volume
+          has a <literal>mount</literal> set to <filename>/</filename>, the system will not boot
+          properly.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <emphasis>Not marking a bootable <literal>ESP</literal> for EFI systems:</emphasis>
+          UEFI-based installations must have an EFI System Partition (<literal>esp: true</literal>)
+          mounted at <filename>/boot/efi</filename>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <emphasis>Overlapping device references:</emphasis> Using the same partition or device in
+          more than one storage object (e.g., as both LUKS and plain partition) can result in
+          failed setups.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <emphasis>Incorrect <literal>vg</literal> names in LVM:</emphasis> Ensure that the
+          <literal>vg</literal> names in LVM volumes match exactly with the defined
+          <literal>id</literal> of their respective <literal>lvm_vg</literal> parent objects.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <emphasis>Using <literal>preserve: true</literal> without
+          <literal>id</literal>:</emphasis> &agama; requires the preserved volume to be clearly
+          referenced. Omitting <literal>id</literal> or <literal>device</literal> fields for
+          preserved objects can break the reuse logic.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <emphasis>Inconsistent RAID configurations:</emphasis> All RAID members must define the
+          same <literal>raid</literal> group <literal>id</literal> and match in level and layout.
+          Mismatches can silently fail or create invalid arrays.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+</topic>
