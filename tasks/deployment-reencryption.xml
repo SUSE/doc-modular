@@ -99,12 +99,53 @@ sha256sum current_header | cut -f1 -d" "; rm -f current_header</command></screen
   <xref linkend="setting-new-passhprase"/>. If the output is the same, proceed according to <xref linkend="reencrypting-the-disk"/>.
 </para>
     </step>
+    </substeps>
+    </step>
   </procedure>
   <para>
     The following procedure is specific for cases when the reencryption on the first boot did not succeed.
   </para>
 <procedure xml:id="reencrypting-the-disk">
-  <title>Reencryptiing the disk and setting a new passphrase</title>
+  <title>Reencrypting the disk and setting a new passphrase</title>
+  <step>
+      <para>
+        Create a key file that stores the default passphrase <emphasis>1234</emphasis> 
+        and a key file with the new passphrase. Use a strong passphrase with at least 10 characters.
+      </para>
+    </step>
+    <step>
+      <para>
+        Change the recovery password.
+      </para>
+      <screen>&prompt.root;cryptsetup luksChangeKey --key-file
+      <replaceable>PATH_TO_DEFAULT</replaceable> --pbkdf pbkdf2 "${luks_dev}"
+      <replaceable>PATH_TO_NEW</replaceable></screen>
+   <para>
+    <replaceable>PATH_TO_DEFAULT</replaceable> is a path to the key file with the default
+    passphrase <emphasis>1234</emphasis>. <replaceable>PATH_TO_NEW</replaceable> is a path to the key file with your new passphrase.
+   </para>
+    </step>
+    <step>
+      <para>
+        Reencrypt the LUKS device:
+      </para>
+      <screen>&prompt.root;cryptsetup reencrypt --key-file <replaceable>PATH_TO_NEW</replaceable> ${luks_dev}</screen>
+    </step>
+    <step>
+      <para>
+        Create a new random key and seal it with TPM:
+      </para>
+      <screen>&prompt.sudo;fdectl regenerate-key --passfile <replaceable>PATH_TO_NEW</replaceable></screen>
+    </step>    
+    <step>
+      <para>Update the <filename>grub.cfg</filename> file by running:</para>
+      <screen>&prompt.sudo;transactional-update grub.cfg</screen>
+    </step>    
+    <step>
+      <para>
+        Reboot the system.
+      </para>
+    </step>
 </procedure>
 
 <para>
@@ -112,12 +153,7 @@ sha256sum current_header | cut -f1 -d" "; rm -f current_header</command></screen
 </para>
 <procedure xml:id="setting-new-passhprase">
   <title>Setting a new pasphrase and enrolling a key with TPM</title>
-</procedure>
-
-
-    </substeps>
-    </step>  
-    <step>
+  <step>
       <para>
         Create a key file with a new passphrase. Use a strong passphrase with at least 10 characters.
       </para>
@@ -133,12 +169,6 @@ sha256sum current_header | cut -f1 -d" "; rm -f current_header</command></screen
     <replaceable>PATH_TO_DEFAULT</replaceable> is a path to the <filename>/run/.kiwi_reencrypt.keyfile</filename> key file with the default
     passphrase. <replaceable>PATH_TO_NEW</replaceable> is a path to the key file with your new passphrase.
    </para>
-    </step>
-    <step performance="optional" xml:id="step-reencryption">
-      <para>
-        Reencrypt the LUKS device:
-      </para>
-      <screen>&prompt.root;cryptsetup reencrypt --key-file <replaceable>PATH_TO_NEW</replaceable> ${luks_dev}</screen>
     </step>
     <step>
       <para>
@@ -160,5 +190,5 @@ sha256sum current_header | cut -f1 -d" "; rm -f current_header</command></screen
         Reboot the system.
       </para>
     </step>
-  </procedure>
+</procedure>    
 </topic>
