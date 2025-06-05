@@ -33,20 +33,6 @@
       provisioning machines without physical media or preinstalled operating systems.
     </para>
   </section>
-  <section xml:id="sles-pxe-server-how-it-works">
-    <title>How PXE booting works in &productname; &productnumber;</title>
-    <para>
-      PXE booting in &productname; &productnumber; uses &grub; as the bootloader and the &agama;
-      installer as the installation interface. Bootloaders and installer files are provided over
-      the network using HTTP or TFTP, with &grub; fetching the kernel, initrd and live image. PXE
-      clients can use either BIOS or UEFI firmware and work in both IPv4 and IPv6 networks.
-    </para>
-    <para>
-      The bootloader passes kernel parameters such as <literal>root=live:</literal> to load the
-      squashfs-based root filesystem from a live ISO image, starting the &agama; interface either
-      locally or using a remote web UI.
-    </para>
-  </section>
   <section xml:id="sles-pxe-server-benefits">
     <title>Benefits of PXE booting</title>
     <para>
@@ -75,5 +61,172 @@
         </para>
       </listitem>
     </itemizedlist>
+  </section>
+  <section xml:id="sles-pxe-server-how-it-works">
+    <title>How PXE booting works in &productname; &productnumber;</title>
+    <para>
+      PXE booting in &productname; &productnumber; uses &grub; as the bootloader and the &agama;
+      installer as the installation interface. Bootloaders and installer files are provided over
+      the network using HTTP or TFTP, with &grub; fetching the kernel, initrd and live image. PXE
+      clients can use either BIOS or UEFI firmware and work in both IPv4 and IPv6 networks.
+    </para>
+    <para>
+      The bootloader passes kernel parameters such as <literal>root=live:</literal> to load the
+      squashfs-based root filesystem from a live ISO image, starting the &agama; interface either
+      locally or using a remote web UI.
+    </para>
+  </section>
+  <section xml:id="sles-pxe-server-backward-compatibility-with-sle-15">
+    <title>Backward compatibility with &productnameshort; 15.x</title>
+    <para>
+      The information in this article applies primarily to &productname; 16.0 and later. It focuses
+      on PXE booting workflows that integrate with the &agama; installer and rely on live
+      installation images.
+    </para>
+    <para>
+      Earlier versions, such as &productnameshort; 15 SP7 and below, typically used AutoYaST,
+      static initrd-based deployments, or KIWI-prepared root files. These older methods often
+      depended on <literal>pxelinux</literal> and <literal>syslinux</literal> bootloaders and
+      different file layouts.
+    </para>
+    <para>
+      While some underlying components such as TFTP and DHCP remain relevant across versions, this
+      documentation does not cover legacy workflows and bootloader configurations. For
+      &productnameshort; 15.x compatibility, refer to the corresponding Deployment Guide for that
+      release.
+    </para>
+  </section>
+  <section xml:id="sles-pxe-server-how-to-use-article">
+    <title>How to use the information in this article</title>
+    <para>
+      This article consists of mandatory setup steps and optional or alternative configurations.
+      Follow only the sections relevant to your deployment, and skip any alternatives that do not
+      apply to your deployment.
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>Mandatory</term>
+        <listitem>
+          <para>
+            Tasks like installing components, preparing the installer image, configuring &grub;,
+            and validating the server must be completed in all setups.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Delivery method</term>
+        <listitem>
+          <para>
+            Choose one: HTTP (recommended with &agama;) or TFTP.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>DHCP provider</term>
+        <listitem>
+          <para>
+            Choose one: ISC DHCP, dnsmasq, or Kea.
+          </para>
+          <note>
+            <title>Limitations of your chosen method</title>
+            <itemizedlist>
+              <listitem>
+                <para>
+                  In &productnameshort; &productnumber;, ISC DHCP is discouraged because it has
+                  been declared as <emphasis>end of life</emphasis> in 2022 by ISC. For more
+                  information, refer to <link xlink:href="https://www.isc.org/dhcp/"></link>.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  Use <emphasis role="strong">Kea</emphasis>&mdash;the new DHCP server from
+                  ISC&mdash;for serving everything over HTTP, and supporting UEFI HTTPBoot and
+                  &dhcpipv6;. For more information, refer to
+                  <link xlink:href="https://www.isc.org/kea/"></link>.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  You can use <emphasis role="strong">dnsmasq</emphasis> to serve &grub; over TFTP,
+                  and nginx to serve only the kernel/initrd/squashfs over HTTP. dnsmasq doesn't
+                  support UEFI HTTPBoot natively, and therefore the client firmware cannot fetch
+                  the bootloader directly using HTTP.
+                </para>
+              </listitem>
+            </itemizedlist>
+          </note>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>IPv6 support</term>
+        <listitem>
+          <para>
+            Only needed if you operate in an IPv6 or dual-stack network environment.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <example>
+      <title>Sample PXE server set-up workflow</title>
+<screen>
++------------------------+
+| Start PXE Server Setup|
++----------+-------------+
+           |
+           v
++------------------------------+
+| Install PXE Components       |
+| (TFTP, nginx, GRUB2, etc.)  |
++--------------+---------------+
+               |
+               v
++----------------------------------+
+| Prepare Installer Files          |
+| (kernel, initrd, squashfs)       |
++--------------+-------------------+
+               |
+               v
++-------------------------------+
+| Configure GRUB2 with grub.cfg |
++--------------+----------------+
+               |
+               v
++-------------------------------+
+| Use HTTP for booting?         |
++---------+---------+-----------+
+          |                   |
+         Yes                 No
+          |                   |
+          v                   v
++------------------+   +-----------------+
+| HTTP via nginx   |   | TFTP Delivery   |
++--------+---------+   +--------+--------+
+         \                  /
+          \                /
+           v              v
+     +---------------------------+
+     | Choose DHCP server        |
+     +---+--------+--------+-----+
+         |        |        |
+     dnsmasq     Kea     ISC DHCP
+   (no HTTPBoot) (modern) (legacy only)
+         \        |         /
+          \       |        /
+           v       v       v
+     +-------------------------+
+     | IPv6 Support? (optional)|
+     +------------+------------+
+                  |
+                  v
+      +------------------------+
+      | Validate Configuration |
+      +------------+-----------+
+                   |
+                   v
+       +------------------------+
+       | PXE Server Ready       |
+       +------------------------+
+</screen>
+    </example>
   </section>
 </topic>

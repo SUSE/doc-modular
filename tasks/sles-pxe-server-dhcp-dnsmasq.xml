@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refer to README.md for file and id naming conventions -->
+<topic xml:id="sles-pxe-server-dhcp-dnsmasq"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring dnsmasq for PXE booting</title>
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        This section describes how to configure <literal>dnsmasq</literal> to provide both DHCP and TFTP services for PXE booting, suitable for environments that do not use HTTPBoot.
+      </para>
+      <note>
+        <title>Recommended only for TFTP-based PXE booting</title>
+        <para>
+          <literal>dnsmasq</literal> is suitable for setups where PXE clients retrieve the bootloader and installer payloads entirely via TFTP. It does not support UEFI HTTPBoot, where firmware expects to fetch the bootloader over HTTP.
+        </para>
+        <para>
+          If you choose to use &grub; with kernel/initrd delivery over HTTP, you must pair dnsmasq with an external web server such as <literal>nginx</literal>. For HTTPBoot support, consider using Kea instead.
+        </para>
+      </note>
+    </abstract>
+      <note>
+        <title>Recommended only for TFTP-based PXE booting</title>
+        <para>
+          <literal>dnsmasq</literal> is suitable for setups where PXE clients retrieve the bootloader and installer payloads entirely via TFTP. It does not support UEFI HTTPBoot, where firmware expects to fetch the bootloader over HTTP.
+        </para>
+        <para>
+          If you choose to use &grub; over TFTP with kernel/initrd delivery over HTTP, you must pair dnsmasq
+          with an external web server such as <literal>nginx</literal>. For UEFI HTTPBoot support,
+          consider using Kea instead.
+        </para>
+      </note>
+    </abstract>
+  </info>
+
+  <section xml:id="sles-pxe-server-dhcp-dnsmasq-intro">
+    <title>Introduction</title>
+    <para>
+      <literal>dnsmasq</literal> is a lightweight DHCP and TFTP server often used in embedded and lab environments. It is ideal for traditional PXE boot workflows using TFTP to deliver bootloader, kernel, initrd, and other installer payloads. However, it does not support UEFI HTTPBoot.
+    </para>
+  </section>
+
+  <section xml:id="sles-pxe-server-dhcp-dnsmasq-reqs">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem><para>The <literal>dnsmasq</literal> package must be installed.</para></listitem>
+      <listitem><para>PXE bootloader and installer files must be present under <filename>/srv/tftpboot</filename> or equivalent.</para></listitem>
+      <listitem><para>Administrative privileges are required to modify configuration and control the service.</para></listitem>
+    </itemizedlist>
+  </section>
+
+  <section xml:id="sles-pxe-server-dhcp-dnsmasq-exec">
+    <title>Configuring dnsmasq</title>
+    <para>
+      Use the following procedure to configure <literal>dnsmasq</literal> for PXE boot using TFTP delivery.
+    </para>
+    <procedure>
+      <step>
+        <para>Create or edit the configuration file at <filename>/etc/dnsmasq.d/pxe.conf</filename> and add the following content.</para>
+        <example>
+          <title>Sample dnsmasq PXE configuration</title>
+          <screen>
+port=0
+dhcp-range=192.168.1.100,192.168.1.200,12h
+dhcp-boot=bootx64.efi
+pxe-service=x86PC,"Install &productname; &productnumber;",bootx64.efi
+enable-tftp
+tftp-root=/srv/tftpboot
+log-queries
+log-dhcp
+          </screen>
+        </example>
+      </step>
+      <step>
+        <para>Enable and start the <literal>dnsmasq</literal> service.</para>
+        <screen>&prompt.sudo;<command>systemctl enable --now dnsmasq</command></screen>
+      </step>
+    </procedure>
+  </section>
+</topic>

@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refer to README.md for file and id naming conventions -->
+<topic xml:id="sles-pxe-server-dhcp-isc"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring ISC DHCP for PXE booting</title>
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        This section describes how to configure the ISC DHCP server to provide PXE boot information
+        to clients, including boot filenames, server IP address and architecture detection.
+      </para>
+      <note>
+        <title>Trade-off between ISC DHCP, Kea and dnsmasq in &productnameshort; &productnumber;</title>
+        <para>
+          In &productnameshort; &productnumber;, use of ISC DHCP is discouraged because it has been
+          declared as <emphasis>end of life</emphasis> in 2022 by ISC. For more information, refer to
+          <link xlink:href="https://www.isc.org/dhcp/"></link>.
+        </para>
+        <para>
+          Use either Kea for serving everything over HTTP, or a combination of dnsmasq for serving &grub; over TFTP
+          and nginx for serving the kernel/initrd/squashfs over HTTP.
+        </para>
+
+      </note>
+    </abstract>
+  </info>
+  <section xml:id="sles-pxe-server-dhcp-isc-intro">
+    <title>Introduction</title>
+    <para>
+      ISC DHCP is a widely used dynamic host configuration protocol server. When properly
+      configured, it can serve the correct bootloader filename and path to PXE clients depending on
+      their firmware architecture. This section explains how to define those parameters.
+    </para>
+  </section>
+  <section xml:id="sles-pxe-server-dhcp-isc-reqs">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          The <literal>dhcp-server</literal> package must be installed.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Network interface and static IP must be configured for the server.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Administrative privileges are required to edit configuration and restart the service.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="sles-pxe-server-dhcp-isc-exec">
+    <title>Configuring ISC DHCP server</title>
+    <para>
+      Use the following procedure to define a basic PXE-supporting configuration for ISC DHCP.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Edit <filename>/etc/dhcpd.conf</filename> and insert the following configuration block:
+        </para>
+        <example>
+          <title>Sample basic PXE-supporting configuration for ISC DHCP</title>
+<screen>
+option domain-name "<replaceable>EXAMPLE.COM</replaceable>";
+option domain-name-servers 192.168.1.1;
+default-lease-time 600;
+max-lease-time 7200;
+log-facility local7;
+
+subnet 192.168.1.0 netmask 255.255.255.0 {
+  range 192.168.1.100 192.168.1.200;
+  option routers 192.168.1.1;
+
+  class "pxeclients" {
+    match if substring(option vendor-class-identifier, 0, 9) = "PXEClient";
+
+    if option arch = 00:07 {
+      filename "shim.efi";
+    } else {
+      filename "bootx64.efi";
+    }
+    next-server 192.168.1.10;
+  }
+}
+</screen>
+        </example>
+      </step>
+      <step>
+        <para>
+          Enable and start the DHCP service.
+        </para>
+<screen>&prompt.sudo;<command>systemctl enable --now dhcpd</command></screen>
+      </step>
+    </procedure>
+  </section>
+</topic>
