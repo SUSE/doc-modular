@@ -7,7 +7,6 @@
 <!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/article_installation.xml
      and https://github.com/SUSE/doc-sleha/blob/main/xml/ha_bootstrap_install.xml -->
 
-<!-- REQUIRES FURTHER TESTING -->
 <topic xml:id="ha-initializing-cluster"
  role="task" xml:lang="en"
  xmlns="http://docbook.org/ns/docbook" version="5.2"
@@ -42,34 +41,41 @@
       </para>
 <screen>&prompt.user;<command>sudo crm cluster init</command></screen>
       <para>
-        The script checks for &chrony; configuration and a hardware watchdog service.
-        If required, it generates the public and private SSH keys used for SSH access and
-        &csync; synchronization and starts the respective services.
+        The script checks whether &chrony; is running, opens the required firewall ports, configures
+        &csync;, and checks for SSH keys. If no SSH keys are available, the script generates them.
       </para>
     </step>
     <step>
       <para>
-        Configure the cluster communication layer (&corosync;):
+        Configure &corosync; for cluster communication:
       </para>
       <substeps>
         <step>
           <para>
-            Enter a network address to bind to. By default, the script
-            proposes the network address of <systemitem>eth0</systemitem>.
-            Alternatively, enter a different network address, for example the
-            address of <literal>bond0</literal>.
+            Enter an IP address for the first communication channel (<literal>ring0</literal>).
+            By default, the script proposes the address of the first available network interface.
+            This could be either an individual interface or a bonded device. Accept this address
+            or enter a different one.
           </para>
         </step>
         <step>
           <para>
-            Accept the proposed port (<literal>5405</literal>) or enter a different one.
+            If the script detects multiple network interfaces, it asks whether you want to configure
+            a second communication channel (<literal>ring1</literal>). If you configured the first
+            channel with a bonded device, you can decline with <literal>n</literal>. If you need to
+            configure a second channel, confirm with <literal>y</literal> and enter the IP address
+            of another network interface. The two channels must be on different subnets.
           </para>
         </step>
       </substeps>
+      <para>
+        The script automatically configures the default firewall ports for &corosync; communication.
+      </para>
     </step>
     <step>
       <para>
-        Set up &sbd; as the node fencing mechanism:</para>
+        Set up &sbd; as the node fencing mechanism:
+      </para>
       <substeps>
         <step>
           <para>
@@ -81,6 +87,11 @@
             configure diskless &sbd;.</para>
         </step>
       </substeps>
+      <para>
+        The script configures &sbd; and a watchdog, along with the relevant timeout settings.
+        If no hardware watchdog is available, the script configures the software watchdog
+        <systemitem>softdog</systemitem>.
+      </para>
     </step>
     <step>
       <para>
@@ -89,31 +100,30 @@
       <substeps>
         <step>
           <para>
-            Confirm with <literal>y</literal> that you want to configure a
-            virtual IP address.</para></step>
+            Confirm with <literal>y</literal> that you want to configure a virtual IP address.
+          </para>
+        </step>
         <step>
           <para>
-            Enter an unused IP address that you want to use as the administration IP
-            for &hawk;.
-          </para>
-          <para>
-            Instead of logging in to an individual cluster node with &hawk;,
-            you can connect to the virtual IP address.
+            Enter an unused IP address to use as the administration IP for &hawk;.
           </para>
         </step>
       </substeps>
+      <para>
+        Instead of logging in to an individual cluster node with &hawk;, you can connect to the
+        virtual IP address.
+      </para>
     </step>
     <step>
       <para>
-        Choose whether to configure &qdevice; and &qnet;. For the minimal setup
-        described in this document, decline with <literal>n</literal>.
+        Choose whether to configure &qdevice; and &qnet;. For the minimal setup described in this
+        document, decline with <literal>n</literal>.
       </para>
     </step>
   </procedure>
   <para>
-    The script starts the cluster services to bring the
-    cluster online and enable &hawk;. The URL to use for &hawk; is
-    displayed on the screen. You can also check the status of the cluster with
-    the <command>crm status</command> command.
+    The script starts the cluster services to bring the cluster online and enable &hawk;. The URL to
+    use for &hawk; is displayed on the screen. You can also check the status of the cluster with the
+    <command>crm status</command> command.
   </para>
 </topic>
