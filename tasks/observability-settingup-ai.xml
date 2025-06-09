@@ -53,17 +53,11 @@
   <section xml:id="ai-observability-overview">
     <title>Setup process overview</title>
     <para>
-      The following chart shows the high-level steps in the &sobservability; setup
-      for the &productname; procedure. Execute the steps in each column from 
-      left to right and top to bottom.
+      The following chart shows the high-level steps in the &sobservability;
+      setup for the &productname; procedure. Execute the steps in each column
+      from left to right and top to bottom.
     </para>
     <itemizedlist>
-      <listitem>
-        <para>
-          <emphasis>Yellow steps</emphasis> require your actions in the Web user
-          interface.
-        </para>
-      </listitem>
       <listitem>
         <para>
           <emphasis>Blue steps</emphasis> are related to &helm; chart
@@ -120,57 +114,8 @@
       </step>
       <step>
         <para>
-          <emphasis role="bold">Enable and configure &kube;
-          StackPack.</emphasis> In the &sobservability; Web UI, access the page
-          <guimenu>StackPacks</guimenu> from the left menu. Under
-          <guimenu>Kubernetes</guimenu>, select the <guimenu>Kubernetes</guimenu>
-          StackPack and configure it. It is crucial to set the proper cluster
-          name that matches the name of the observed cluster.
-        </para>
-        <figure xml:id="ai-observability-kube-slackpak-figure">
-          <title>Enabling &kube; StackPack</title>
-          <mediaobject>
-            <imageobject role="fo">
-              <imagedata fileref="ai-observability-kube-slackpak.png" width="95%"/>
-            </imageobject>
-            <imageobject role="html">
-              <imagedata fileref="ai-observability-kube-slackpak.png" width="95%"/>
-            </imageobject>
-            <textobject role="description"><phrase>A setup screen where you enable and configure the Kubernetes StackPack</phrase>
-            </textobject>
-          </mediaobject>
-        </figure>
-        <para>
-          The &kube; StackPack status reads <literal>Waiting for data</literal>
-          until you finish installing the &sobservability; agent in the
-          &productname; cluster.
-        </para>
-      </step>
-      <step>
-        <para>
-          <emphasis role="bold">Enable OpenTelemetry StackPack.</emphasis> In
-          the &sobservability; Web UI, access the page
-          <guimenu>StackPacks</guimenu> from the left menu. Select the
-          &otelemetry; StackPack and install it.
-        </para>
-        <figure xml:id="ai-observability-otelemetry-slackpak-figure">
-          <title>Enabling &otelemetry; StackPack</title>
-          <mediaobject>
-            <imageobject role="fo">
-              <imagedata fileref="ai-observability-otelemetry-slackpak.png" width="75%"/>
-            </imageobject>
-            <imageobject role="html">
-              <imagedata fileref="ai-observability-otelemetry-slackpak.png" width="75%"/>
-            </imageobject>
-            <textobject role="description"><phrase>A view in the &sobservability; Web UI showing the installation of the &otelemetry; StackPack</phrase>
-            </textobject>
-          </mediaobject>
-        </figure>
-      </step>
-      <step>
-        <para>
-          <emphasis role="bold">Install &productname; &sobservability;
-          extension.</emphasis> Create a new &helm; values file named
+          <emphasis role="bold">Install &sobservability; extension.</emphasis>
+          Create a new &helm; values file named
           <filename>genai_values.yaml</filename>. The following values are
           mandatory:
         </para>
@@ -180,7 +125,8 @@ global:
   - application-collection <co xml:id="co-obs-appco"/>
 serverUrl: <replaceable>SUSE_OBSERVABILITY_API_URL</replaceable>
 apiKey: <replaceable>SUSE_OBSERVABILITY_API_KEY</replaceable><co xml:id="co-obs-apikey2"/>
-apiToken: <replaceable>SUSE_OBSERVABILITY_API_CLI_TOKEN</replaceable><co xml:id="co-obs-clitoken2"/>
+tokenType: <replaceable>SUSE_OBSERVABILITY_API_TOKEN_TYPE</replaceable><co xml:id="co-obs-tokentype"/>
+apiToken: <replaceable>SUSE_OBSERVABILITY_TOKEN</replaceable><co xml:id="co-obs-clitoken2"/>
 clusterName: <replaceable>OBSERVED_SERVER_NAME</replaceable><co xml:id="co-obs-observed-name2"/>
 </screen>
         <calloutlist>
@@ -200,10 +146,19 @@ clusterName: <replaceable>OBSERVED_SERVER_NAME</replaceable><co xml:id="co-obs-o
               during the installation of &sobservability;.
             </para>
           </callout>
+          <callout arearefs="co-obs-tokentype">
+            <para>
+              The type of the token used for authentication. It can either be an
+              <emphasis>API Token</emphasis> retrieved from the &sobservability;
+              Web UI by navigating the side menu to the CLI page, or a
+              <emphasis>Service Token</emphasis> created for &sobservability;.
+              For the API token, fill this field with <literal>api</literal>.
+              For the Service Token, use <literal>service</literal>.
+            </para>
+          </callout>
           <callout arearefs="co-obs-clitoken2">
             <para>
-              You can retrieve the API token in the &sobservability; Web UI by
-              navigating the side menu to the CLI page.
+              The Service token or API token itself.
             </para>
           </callout>
           <callout arearefs="co-obs-observed-name2">
@@ -219,12 +174,40 @@ clusterName: <replaceable>OBSERVED_SERVER_NAME</replaceable><co xml:id="co-obs-o
 <screen>&prompt.user;<command>helm upgrade --install ai-obs \
   oci://dp.apps.rancher.io/charts/suse-ai-observability-extension \
   -f genai_values.yaml --namespace so-extensions --create-namespace</command></screen>
+        <note>
+          <title>Self-signed certificates not supported</title>
+          <para>
+            Self-signed certificates are not supported. Consider running the
+            extension in the same cluster as &sobservability; and then use the
+            internal &k8s; address.
+          </para>
+        </note>
         <para>
           After the installation is complete, a new menu called
           <guimenu>GenAI</guimenu> is added to the Web interface and also a
           &kube; cron job is created that synchronizes the topology view with
           the components found in the &productname; cluster.
         </para>
+      </step>
+      <step>
+        <para>
+          <emphasis role="bold">Verify &sobservability; extension.</emphasis>
+          After the installation, you can verify that a new lateral menu
+          appears:
+        </para>
+        <figure>
+          <title>New GenAI Observability menu item</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="ai-observability-genai-menu.png" width="30%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="ai-observability-genai-menu.png" width="30%"/>
+            </imageobject>
+            <textobject role="description"><phrase>An image of a new left menu item GenAI Observability</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
       </step>
     </procedure>
   </section>
@@ -255,12 +238,13 @@ kubectl create secret generic open-telemetry-collector \
           Create a new file named <filename>otel-values.yaml</filename> with the
           following content.
         </para>
-<screen>extraEnvsFrom:
+<screen>global:
+  imagePullSecrets:
+  - application-collection
+extraEnvsFrom:
   - secretRef:
-      name: open-telemetry-collector
+      name: {{ otel_secret }}
 mode: deployment
-image:
-  repository: "otel/opentelemetry-collector-k8s"
 ports:
   metrics:
     enabled: true
@@ -273,17 +257,17 @@ config:
     prometheus:
       config:
         scrape_configs:
-        - job_name: 'gpu-metrics'
-          scrape_interval: 10s
-          scheme: http
-          kubernetes_sd_configs:
-            - role: endpoints
-              namespaces:
-                names:
-                - gpu-operator
+          - job_name: 'gpu-metrics'
+            scrape_interval: 10s
+            scheme: http
+            kubernetes_sd_configs:
+              - role: endpoints
+                namespaces:
+                  names:
+                    - gpu-operator
   exporters:
     otlp:
-endpoint: http://suse-observability-otel-collector.suse-observability.svc.cluster.local:4317 <co xml:id="co-obs-otel-collector3"/>
+      endpoint: http://suse-observability-otel-collector.suse-observability.svc.cluster.local:4317 <co xml:id="co-obs-otel-collector3"/>
       headers:
         Authorization: "SUSEObservability ${env:API_KEY}"
       tls:
@@ -377,13 +361,51 @@ endpoint: http://suse-observability-otel-collector.suse-observability.svc.cluste
         <para>
           Finally, run the installation command.
         </para>
-<screen>&prompt.user;<command>helm upgrade \
-  --install opentelemetry-collector open-telemetry/opentelemetry-collector \
-  -f otel-values.yaml -n observability</command></screen>
+<screen>&prompt.user;<command>helm upgrade --install opentelemetry-collector \
+  oci://dp.apps.rancher.io/charts/opentelemetry-collector \
+  -f otel-values.yaml --namespace observability</command></screen>
         <para>
           Verify the installation by checking the existence of a new deployment
           and service in the observability namespace.
         </para>
+      </step>
+      <step>
+        <para>
+          The GPU metrics scraper that we configure in the OTEL Collector
+          requires custom RBAC rules. Create a file named
+          <filename>otel-rbac.yaml</filename> with the following content:
+        </para>
+<screen>apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: suse-observability-otel-scraper
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - endpoints
+    verbs:
+      - list
+      - watch
+ 
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: suse-observability-otel-scraper
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: suse-observability-otel-scraper
+subjects:
+  - kind: ServiceAccount
+    name: opentelemetry-collector
+    namespace: observability</screen>
+        <para>
+          Then apply the configuration by running the following command.
+        </para>
+<screen>&prompt.user;<command>kubectl apply -n gpu-operator -f otel-rbac.yaml</command></screen>
       </step>
       <step>
         <para>
