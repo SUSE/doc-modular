@@ -6,7 +6,6 @@
 ]>
 <!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/article_installation.xml -->
 
-<!-- STILL NEEDS TESTING -->
 <topic xml:id="ha-testing-resource-failover"
  role="task" xml:lang="en"
  xmlns="http://docbook.org/ns/docbook" version="5.2"
@@ -19,48 +18,81 @@
     <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        This procedure checks if the cluster moves the virtual IP address to another node if
-        the node that currently runs the resource is set to <literal>standby</literal>.
+        Check whether the cluster moves the virtual IP address to another node if the node that
+        currently runs the resource is set to <literal>standby</literal>. This procedure uses
+        example nodes called <systemitem>&node1;</systemitem> and <systemitem>&node2;</systemitem>,
+        and the example IP address <literal>&subnetI;.10</literal>.
       </para>
     </abstract>
   </info>
   <procedure>
     <step>
       <para>
-        Open a terminal and ping your virtual IP address:
+        Open two terminals.
+      </para>
+    </step>
+    <step>
+      <para>
+        In the first terminal, ping the virtual IP address:
       </para>
 <screen>&prompt.user;<command>ping &subnetI;.10</command></screen>
     </step>
     <step>
       <para>
-        Log in to &hawk;.
+        In the second terminal, log into one of the cluster nodes.
       </para>
     </step>
     <step>
       <para>
-        Under <menuchoice><guimenu>Status</guimenu><guimenu>Resources</guimenu></menuchoice>,
-        check which node the virtual IP address (resource <systemitem>admin_addr</systemitem>)
-        is running on. This procedure assumes the resource is running on
-        <systemitem class="server">&node1;</systemitem>.
+        Check which node the virtual IP address is running on:
+      </para>
+<screen>&prompt.user;<command>sudo crm status</command>
+
+[..]
+
+Full List of Resources:
+  * admin-ip  (ocf:heartbeat:IPaddr2):    Started &node1;.&exampledomain;</screen>
+    </step>
+    <step>
+      <para>
+        Put <systemitem>&node1;</systemitem> into standby mode:
+      </para>
+<screen>&prompt.user;<command>sudo crm node standby &node1;.&exampledomain;</command></screen>
+    </step>
+    <step>
+      <para>
+        Check the cluster status again. The resource <literal>admin-ip</literal> should have
+        migrated to another node:
+      </para>
+<screen>&prompt.user;<command>sudo crm status</command>
+
+[...]
+
+Node List:
+  * Node &node1;.&exampledomain;: standby
+  * Online: [ &node2;.&exampledomain; ]
+
+Full List of Resources:
+  * admin-ip  (ocf:heartbeat:IPaddr2):    Started &node2;.&exampledomain;</screen>
+    </step>
+    <step>
+      <para>
+        In the first terminal, you should see an uninterrupted flow of pings to the virtual IP
+        address during the migration. This shows that the cluster setup and the floating IP address
+        work correctly.
       </para>
     </step>
     <step>
       <para>
-        Put <systemitem class="server">&node1;</systemitem> into <guimenu>Standby</guimenu> mode.
+        Cancel the <command>ping</command> command with
+        <keycombo><keycap function="control"/><keycap>C</keycap></keycombo>.
       </para>
-     <!-- Use "crm node standby NODE" instead? -->
     </step>
     <step>
       <para>
-        Click <menuchoice><guimenu>Status</guimenu><guimenu>Resources</guimenu></menuchoice>.
-        The resource <systemitem>admin_addr</systemitem> should have migrated to
-        <systemitem class="server">&node2;</systemitem>.
+        In the second terminal, bring <systemitem>&node1;</systemitem> back online:
       </para>
+<screen>&prompt.user;<command>sudo crm node online &node1;.&exampledomain;</command></screen>
     </step>
   </procedure>
-  <para>
-    During the migration, you should see an uninterrupted flow of pings to the virtual IP
-    address. This shows that the cluster setup and the floating IP work correctly. Cancel the
-    <command>ping</command> command with <keycombo><keycap function="control"/><keycap>C</keycap></keycombo>.
-  </para>
 </topic>
