@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="nvidia-jetson-firmware"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Preparing firmware for &nvidia; &jetson; platforms</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="andreas.faerber@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+       UEFI system firmware allows &suse; Linux media and installations to boot.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="nvidia-jetson-firmware-introduction">
+    <title>Introduction</title>
+    <para>
+      &suse; Linux installation media are formatted as UEFI Removable Media
+      and require &armreg; SystemReady compliant boot firmware on the system.
+    </para>
+  </section>
+  <section xml:id="nvidia-jetson-firmware-requirements">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para condition="jetson">
+          &nvidiareg; &jetsonreg; &xavierreg;, &orinreg; or later System-on-Module
+        </para>
+        <para condition="igx">
+          &nvidia; IGX &orin; based system
+        </para>
+      </listitem>
+      <listitem condition="jetson">
+        <para>
+          For &nvidia; &jetson; &orin; Nano developer kit: 0.01&nbsp;in jumper
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Second system (e.g., notebook) with USB connection to your &nvidia; based system
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="nvidia-jetson-firmware-flash">
+    <title>Flashing the firmware</title>
+    <para>
+      Follow &nvidia; or OEM provided instructions for flashing your system.
+      &suse; Linux installation will be easiest if boot firmware and operating system
+      do not share the same storage device, i.e., SPI flash for firmware.
+    </para>
+    <note condition="igx"><!-- bsc#1226310 -->
+      <title>Fix for PCIe on &nvidia; IGX &orin; in 36.3.0 and 36.3.1</title>
+      <para>
+        If you intend to use the full-size PCIe slots on &nvidia; IGX &orin;,
+        apply the following change to its Device Tree Binary before flashing:
+      </para>
+<screen>&prompt.user;<command>cd Linux_for_Tegra</command>
+&prompt.user;<command>fdtput -t x kernel/dtb/tegra234-p3740-0002+p3701-0008-nv.dtb /bus@0/pcie@141a0000 ranges 81000000 0 3a100000 0 3a100000 0 100000 82000000 0 40000000 2e 30000000 0 8000000 c3000000 28 0 28 0 6 20000000</command></screen>
+    </note>
+    <procedure>
+      <step>
+        <para>
+          Power on the &nvidia; system and enter Force Recovery Mode (RCM)
+          according to its vendor instructions.
+        </para>
+        <tip>
+          <title>Force Recovery Mode on &nvidia; Developer Kits</title>
+          <para>
+            Refer to &nvidia; instructions for specific developer kits:
+          </para>
+          <itemizedlist>
+            <listitem condition="jetson">
+              <para><link xlink:href="https://developer.nvidia.com/embedded/learn/jetson-agx-orin-devkit-user-guide/howto.html#force-recovery-mode"/></para>
+            </listitem>
+            <listitem condition="jetson">
+              <para><link xlink:href="https://developer.nvidia.com/embedded/learn/jetson-orin-nano-devkit-user-guide/howto.html#force-recovery-mode"/></para>
+            </listitem>
+            <listitem condition="igx">
+              <para><link xlink:href="https://docs.nvidia.com/igx-orin/user-guide/latest/base-os.html#put-igx-into-recovery-mode"/></para>
+            </listitem>
+          </itemizedlist>
+        </tip>
+      </step>
+      <step>
+        <para>
+          Flash the boot firmware via USB from the secondary system:
+        </para>
+<screen>&prompt.sudo;<command>./flash.sh <replaceable>target-board-config</replaceable> external</command></screen>
+        <note>
+          <para>
+            The target board parameter depends on your system and your intended usage.
+          </para>
+        </note>
+      </step>
+    </procedure>
+    <tip>
+      <title>Finding the right config for your system</title>
+      <para>
+        Only some board config files have human-recognizable aliases.
+      </para>
+      <para>
+        You can try resolving the aliases to the product codes for module and board and
+        checking for any additional <literal>-qspi</literal> config files:
+      </para>
+<screen condition="igx">&prompt.user;<command>ls -l igx-orin*</command>
+lrwxrwxrwx 1 &exampleuser; &examplegroup; 26 31. Mai 21:39 igx-orin-devkit.conf -> p3740-0002-p3701-0008.conf
+&prompt.user;<command>ls -1 p3740-0002-p3701-0008*</command>
+p3740-0002-p3701-0008.conf
+p3740-0002-p3701-0008<emphasis role="bold">-qspi</emphasis>.conf</screen>
+<screen condition="jetson">&prompt.user;<command>ls -l jetson-orin*</command>
+lrwxrwxrwx 1 &exampleuser; &examplegroup; 29  4. Jun 15:37 jetson-orin-nano-devkit.conf -> p3768-0000-p3767-0000-a0.conf
+lrwxrwxrwx 1 &exampleuser; &examplegroup; 34  4. Jun 15:38 jetson-orin-nano-devkit-nvme.conf -> p3768-0000-p3767-0000-a0-nvme.conf
+&prompt.user;<command>ls -1 p3768-0000-p3767-0000-a0*</command>
+p3768-0000-p3767-0000-a0.conf
+p3768-0000-p3767-0000-a0-maxn.conf
+p3768-0000-p3767-0000-a0-nvme.conf
+p3768-0000-p3767-0000-a0<emphasis role="bold">-qspi</emphasis>.conf</screen>
+<screen condition="jetson">&prompt.user;<command>ls -l jetson-agx-orin*</command>
+lrwxrwxrwx 1 &exampleuser; &examplegroup; 40  4. Jun 15:37 jetson-agx-orin-devkit-as-jao-32gb.conf -> p3737-0000-p3701-0000-as-p3701-0004.conf
+lrwxrwxrwx 1 &exampleuser; &examplegroup; 40  4. Jun 15:38 jetson-agx-orin-devkit-as-nano4gb.conf -> p3737-0000-p3701-0000-as-p3767-0004.conf
+lrwxrwxrwx 1 &exampleuser; &examplegroup; 40  4. Jun 15:38 jetson-agx-orin-devkit-as-nano8gb.conf -> p3737-0000-p3701-0000-as-p3767-0003.conf
+lrwxrwxrwx 1 &exampleuser; &examplegroup; 40  4. Jun 15:37 jetson-agx-orin-devkit-as-nx-16gb.conf -> p3737-0000-p3701-0000-as-p3767-0000.conf
+lrwxrwxrwx 1 &exampleuser; &examplegroup; 40  4. Jun 15:37 jetson-agx-orin-devkit-as-nx-8gb.conf -> p3737-0000-p3701-0000-as-p3767-0001.conf
+lrwxrwxrwx 1 &exampleuser; &examplegroup; 26  4. Jun 15:38 jetson-agx-orin-devkit.conf -> p3737-0000-p3701-0000.conf
+lrwxrwxrwx 1 &exampleuser; &examplegroup; 26  4. Jun 15:37 jetson-agx-orin-devkit-industrial.conf -> p3737-0000-p3701-0008.conf
+lrwxrwxrwx 1 &exampleuser; &examplegroup; 31  4. Jun 15:38 jetson-agx-orin-devkit-industrial-maxn.conf -> p3737-0000-p3701-0008-maxn.conf
+lrwxrwxrwx 1 &exampleuser; &examplegroup; 31  4. Jun 15:37 jetson-agx-orin-devkit-industrial<emphasis role="bold">-qspi</emphasis>.conf -> p3737-0000-p3701-0008<emphasis role="bold">-qspi</emphasis>.conf
+lrwxrwxrwx 1 &exampleuser; &examplegroup; 31  4. Jun 15:37 jetson-agx-orin-devkit-maxn.conf -> p3737-0000-p3701-0000-maxn.conf
+&prompt.user;<command>ls -1 p3737-0000-p3701-0000*</command>
+p3737-0000-p3701-0000-as-p3701-0004.conf
+p3737-0000-p3701-0000-as-p3767-0000.conf
+p3737-0000-p3701-0000-as-p3767-0001.conf
+p3737-0000-p3701-0000-as-p3767-0003.conf
+p3737-0000-p3701-0000-as-p3767-0004.conf
+p3737-0000-p3701-0000.conf
+p3737-0000-p3701-0000.conf.common
+p3737-0000-p3701-0000-maxn.conf
+p3737-0000-p3701-0000<emphasis role="bold">-qspi</emphasis>.conf</screen>
+<!--
+&prompt.user;<command>ls -1 p3737-0000-p3701-0008*</command>
+p3737-0000-p3701-0008.conf
+p3737-0000-p3701-0008-maxn.conf
+p3737-0000-p3701-0008<emphasis role="bold">-qspi</emphasis>.conf
+-->
+    </tip>
+  </section>
+  <section xml:id="nvidia-jetson-firmware-summary">
+    <title>Summary</title>
+    <para>
+      You have updated the boot firmware and possibly changed its storage location.
+      During system boot it should identify on serial console similar to:
+    </para>
+<!--<screen>Jetson System firmware version 36.3.0-gcid-35925539 date 2024-04-04T17:32:50+00:
+  00</screen>-->
+<screen>Jetson UEFI firmware (version 36.3.1-gcid-36302503 built on 2024-05-17T04:47:03+00:00)</screen>
+  </section>
+  <section xml:id="nvidia-jetson-firmware-troubleshooting">
+    <title>Troubleshooting</title>
+    <para>
+      Refer to &nvidia; documentation.
+    </para>
+    <itemizedlist condition="igx">
+      <listitem>
+        <para><link xlink:href="https://docs.nvidia.com/igx-orin/bmc/latest/web-interface.html#update-your-qspi-firmware"/></para>
+      </listitem>
+      <listitem>
+        <para><link xlink:href="https://docs.nvidia.com/igx-orin/bmc/latest/orin-qspi-flash.html"/></para>
+      </listitem>
+    </itemizedlist>
+  </section>
+</topic>

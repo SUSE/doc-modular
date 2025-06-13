@@ -28,62 +28,105 @@
     <para>
       When installing &suseai;, &ollama; is installed by the &owui; installation
       by default. If you decide to install &ollama; separately, disable its
-      installation during the installation of &owui;.
+      installation during the installation of &owui; as outlined in
+      <xref
+      linkend="owui-ollama-deploy-separate"/>.
     </para>
   </tip>
-  <para>
-    The following procedure describes how to install &ollama; as a separate
-    application.
-  </para>
-  <procedure>
-    <step>
-      <para>
-        Visit the &rancherappco;, sign in, and get the access token as described
-        in
-        <link
-        xlink:href="https://docs.apps.rancher.io/get-started/authentication/"/>.
-      </para>
-    </step>
-    <step>
-      <para>
-        Log in to the &rancherappco; using &helm;.
-      </para>
-<screen>&prompt.user;helm registry login dp.apps.rancher.io/charts \
-  -u <replaceable>USER_NAME</replaceable> \
-  -p <replaceable>ACCESS_TOKEN</replaceable> </screen>
-    </step>
-    <step>
-      <para>
-        Visit
-        <link
-              xlink:href="https://apps.rancher.io/applications/ollama"/>
-        with your Web browser.
-      </para>
-    </step>
-    <step>
-      <para>
-        Run the indicated <command>helm pull</command> command.
-      </para>
-    </step>
-    <step>
-      <tip>
+  <section xml:id="ollama-installing-app-details">
+    <title>Details about the &ollama; application</title>
+    <para>
+      Before deploying &ollama;, it is important to know more about the
+      supported configurations and documentation. The following command provides
+      the corresponding details:
+    </para>
+<screen>helm show values oci://dp.apps.rancher.io/charts/ollama</screen>
+    <para>
+      Alternatively, you can also refer to the &ollama; &helm; chart page on the
+      &sappco; site at
+      <link xlink:href="https://apps.rancher.io/applications/ollama"/>. It
+      contains the available versions and a link to pull the &ollama; container
+      image.
+    </para>
+  </section>
+  <section xml:id="ollama-installing-procedure">
+    <title>&ollama; installation procedure</title>
+    <procedure>
+      <xi:include href="../snippets/ai-library-requirement.xml"/>
+      <step>
         <para>
-          To override the default installation values, create a custom
-          <filename>values.yaml</filename> file and specify it during the
-          following <command>helm install</command> command with the <option>-f
-          <replaceable>values.yaml</replaceable></option> option. For a list of
-          all installation options with examples, refer to
-          <xref linkend="ollama-helmchart-values"/>.
+          Create the <filename>ollama_custom_overrides.yaml</filename> file to
+          override the values of the parent &helm; chart. Refer to
+          <xref
+          linkend="ollama-helmchart"/> for more details.
         </para>
-      </tip>
+      </step>
+      <step>
+        <para>
+          Install the &ollama; &helm; chart using the
+          <filename>ollama-custom-overrides.yaml</filename> override file.
+        </para>
+<screen>&prompt.user;<command>helm upgrade --install ollama oci://dp.apps.rancher.io/charts/ollama \
+  -n <replaceable>SUSE_AI_NAMESPACE</replaceable> -f <replaceable>ollama_custom_overrides.yaml</replaceable></command></screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="ollama-uninstalling">
+    <title>Uninstalling &ollama;</title>
+    <para>
+      To uninstall &ollama;, run the following command:
+    </para>
+<screen>&prompt.user;<command>helm uninstall ollama -n <replaceable>SUSE_AI_NAMESPACE</replaceable></command></screen>
+  </section>
+  <section xml:id="ollama-upgrading">
+    <title>Upgrading &ollama;</title>
+    <para>
+      You can upgrade &ollama; to a specific version by running the following
+      command:
+    </para>
+<screen>&prompt.user;<command>helm upgrade ollama oci://dp.apps.rancher.io/charts/ollama \
+  -n <replaceable>SUSE_AI_NAMESPACE</replaceable> \
+  --version <replaceable>OLLAMA_VERSION_NUMBER</replaceable> -f <replaceable>ollama_custom_overrides.yaml</replaceable></command></screen>
+    <para>
+      If you omit the <option>--version</option> option, &ollama; gets upgraded
+      to the latest available version.
+    </para>
+    <section xml:id="ollama-upgrading-0-to-1">
+      <title>Upgrading from version 0.x.x to 1.x.x</title>
       <para>
-        Install the &ollama; chart. Assume that the release name is
-        <literal>ollama</literal>, for example.
+        The version 1.x.x introduces the ability to load models in memory at
+        startup. To reflect this, change <option>ollama.models</option> to
+        <option>ollama.models.pull</option> in the &ollama; &helm; chart to
+        avoid errors before upgrading, for example:
       </para>
-<screen>&prompt.user;<command>helm install <replaceable>ollama</replaceable> \
-  --set 'global.imagePullSecrets[0].name'=my-pull-secrets \
-  oci://dp.apps.rancher.io/charts/ollama
-</command></screen>
-    </step>
-  </procedure>
+      <example>
+        <title>&ollama; &helm; chart version 0.x.x</title>
+<screen>
+[...]
+ollama:
+  models:
+    - "gemma:2b"
+    - "llama3.1"</screen>
+      </example>
+      <example>
+        <title>&ollama; &helm; chart version 1.x.x</title>
+<screen>
+[...]
+ollama:
+  models:
+    pull:
+      - "gemma:2b"
+      - "llama3.1"</screen>
+      </example>
+      <para>
+        Without this change you may experience the following error when trying
+        to upgrade from 0.x.x to 1.x.x.
+      </para>
+<screen>coalesce.go:286: warning: cannot overwrite table with non table for
+ollama.ollama.models (map[pull:[] run:[]])
+Error: UPGRADE FAILED: template: ollama/templates/deployment.yaml:145:27:
+executing "ollama/templates/deployment.yaml" at &lt;.Values.ollama.models.pull&gt;:
+can't evaluate field pull in type interface {}</screen>
+    </section>
+  </section>
 </topic>

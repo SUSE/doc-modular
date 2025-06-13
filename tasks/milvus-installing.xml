@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="milvus-installing"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Installing &milvus;</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        &milvus; is a scalable, high-performance vector database designed for AI
+        applications. It enables efficient organization and searching of massive
+        unstructured datasets, including text, images and multi-modal content.
+        This procedure walks you through the installation of &milvus; and its
+        dependencies.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="milvus-installing-app-details">
+    <title>Details about the &milvus; application</title>
+    <para>
+      Before deploying &milvus;, it is important to know more about the
+      supported configurations and documentation. The following command provides
+      the corresponding details:
+    </para>
+<screen>helm show values oci://dp.apps.rancher.io/charts/milvus</screen>
+    <para>
+      Alternatively, you can also refer to the &milvus; &helm; chart page on the
+      &sappco; site at
+      <link xlink:href="https://apps.rancher.io/applications/milvus"/>. It
+      contains &milvus; dependencies, available versions and the link to pull
+      the &milvus; container image.
+    </para>
+    <figure xml:id="milvus-info-appco">
+      <title>&milvus; page in the &sappco;</title>
+      <mediaobject>
+        <imageobject role="fo">
+          <imagedata fileref="rancher-appco-milvus.png" width="75%"/>
+        </imageobject>
+        <imageobject role="html">
+          <imagedata fileref="rancher-appco-milvus.png" width="75%"/>
+        </imageobject>
+        <textobject role="description"><phrase >&milvus; page in the &sappco;</phrase>
+        </textobject>
+      </mediaobject>
+    </figure>
+  </section>
+  <section xml:id="milvus-installing-procedure">
+    <title>&milvus; installation procedure</title>
+    <procedure>
+      <xi:include href="../snippets/ai-library-requirement.xml"/>
+      <step>
+        <para>
+          When installed as part of &productname;, &milvus; depends on &etcd;,
+          &minio; and Apache Kafka. Because the &milvus; chart uses a
+          non-default configuration, create an override file
+          <filename>milvus_custom_overrides.yaml</filename> with the following
+          content.
+        </para>
+        <tip>
+          <para>
+            As a template, you can download the &milvus; &helm; chart that
+            includes the <filename>values.yaml</filename> file with the default
+            configuration by running the following command:
+          </para>
+<screen>&prompt.user;<command>helm pull oci://dp.apps.rancher.io/charts/milvus --version 4.2.2</command></screen>
+        </tip>
+<screen>global:
+  imagePullSecrets:
+  - application-collection
+cluster:
+  enabled: True
+standalone:
+  persistence:
+    persistentVolumeClaim:
+      storageClass: local-path
+etcd:
+  replicaCount: 1
+  persistence:
+    storageClassName: local-path
+minio:
+  mode: distributed
+  replicas: 4
+  rootUser: "admin"
+  rootPassword: "adminminio"
+  persistence:
+    storageClass: local-path
+  resources:
+    requests:
+      memory: 1024Mi
+kafka:
+  enabled: true
+  name: kafka
+  replicaCount: 3
+  broker:
+    enabled: true
+  cluster:
+    listeners:
+      client:
+        protocol: 'PLAINTEXT'
+      controller:
+        protocol: 'PLAINTEXT'
+  persistence:
+    enabled: true
+    annotations: {}
+    labels: {}
+    existingClaim: ""
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 8Gi
+    storageClassName: "local-path"</screen>
+        <tip>
+          <para>
+            The above example uses local storage. For production environments,
+            we recommend using an enterprise class storage solution such as
+            &sstorage; in which case the <option>storageClassName</option>
+            option must be set to <literal>longhorn</literal>.
+          </para>
+        </tip>
+      </step>
+      <step>
+        <para>
+          Install the &milvus; &helm; chart using the
+          <filename>milvus_custom_overrides.yaml</filename> override file.
+        </para>
+<screen>&prompt.user;<command>helm upgrade --install \
+  milvus oci://dp.apps.rancher.io/charts/milvus \
+  -n <replaceable>SUSE_AI_NAMESPACE</replaceable> \
+  --version 4.2.2 -f <replaceable>milvus_custom_overrides.yaml</replaceable></command></screen>
+      </step>
+    </procedure>
+    <section xml:id="milvus-kafka-limitation">
+      <title>Using &akafka; with &sstorage;</title>
+      <para>
+        When &milvus; is deployed in cluster mode, it uses &akafka; as a message
+        queue. If &akafka; uses &sstorage; as a storage back-end, you need to
+        create an XFS storage class and make it available for the &akafka;
+        deployment. Otherwise deploying &akafka; with a storage class of an Ext4
+        file system fails with the following error:
+      </para>
+<screen>"Found directory /mnt/kafka/logs/lost+found, 'lost+found' is not
+  in the form of topic-partition or topic-partition.uniqueId-delete
+  (if marked for deletion)"</screen>
+      <para>
+        To introduce the XFS storage class, follow these steps:
+      </para>
+      <procedure>
+        <step>
+          <para>
+            Create a file named <filename>longhorn-xfs.yaml</filename> with the
+            following content:
+          </para>
+<screen>apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-xfs
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "30"
+  fromBackup: ""
+  fsType: "xfs"
+  dataLocality: "disabled"
+  unmapMarkSnapChainRemoved: "ignored"</screen>
+        </step>
+        <step>
+          <para>
+            Create the new storage class using the <command>kubectl</command>
+            command.
+          </para>
+<screen>&prompt.user;<command>kubectl apply -f longhorn-xfs.yaml</command></screen>
+        </step>
+        <step>
+          <para>
+            Update the &milvus; overrides YAML file to reference the &akafka;
+            storage class, as in the following example:
+          </para>
+<screen>
+  [...]
+    kafka:
+    enabled: true
+    persistence:
+      storageClassName: longhorn-xfs</screen>
+        </step>
+      </procedure>
+    </section>
+  </section>
+  <section xml:id="milvus-upgrading">
+    <title>Upgrading &milvus;</title>
+    <para>
+      The &milvus; chart receives application updates and updates of the &helm;
+      chart templates. New versions may include changes that require manual
+      steps. These steps are listed in the corresponding
+      <filename>README</filename> file. All &milvus; dependencies are updated
+      automatically during &milvus; upgrade.
+    </para>
+    <para>
+      To upgrade &milvus;, identify the new version number and run the following
+      command below:
+    </para>
+<screen>&prompt.user;<command>helm upgrade --install \
+  milvus oci://dp.apps.rancher.io/charts/milvus \
+  -n <replaceable>SUSE_AI_NAMESPACE</replaceable> \
+  --version <replaceable>VERSION_NUMBER</replaceable> \
+  -f <replaceable>milvus_custom_overrides.yaml</replaceable></command></screen>
+  </section>
+  <section xml:id="milvus-uninstalling">
+    <title>Uninstalling &milvus;</title>
+    <para>
+      To uninstall &milvus;, run the following command:
+    </para>
+<screen>&prompt.user;<command>helm uninstall milvus -n <replaceable>SUSE_AI_NAMESPACE</replaceable></command></screen>
+  </section>
+</topic>

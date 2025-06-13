@@ -6,7 +6,7 @@
   <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
     %entities;
 ]>
-<topic xml:id="ollama-helmchart-values"
+<topic xml:id="ollama-helmchart"
  role="reference" xml:lang="en"
  xmlns="http://docbook.org/ns/docbook" version="5.2"
  xmlns:its="http://www.w3.org/2005/11/its"
@@ -17,53 +17,111 @@
     <title>Values for the &ollama; &helm; chart</title>
     <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
     <abstract>
-      <para>
-        To override the default values during &ollama; installation using the
-        &helm; chart, you can create a <filename>values.yaml</filename> file and
-        specify your custom values. Then you can apply the values by specifying
-        the path to the <filename>values.yaml</filename> file during the
-        <command>helm install</command> command.
-      </para>
+      <xi:include href="../snippets/helm-chart-overrides-intro.xml"/>
     </abstract>
   </info>
-  <example>
-    <title>Basic <filename>values.yaml</filename> with GPU and two models pulled at startup</title>
-<screen>ollama:
+  <important>
+    <title>GPU section</title>
+    <para>
+      &ollama; can run optimized for &nvidia; GPUs if the following conditions
+      are fulfilled:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          The &nvidia; driver and &nvoperator; are installed as described in
+          <link xlink:href="https://documentation.suse.com/suse-ai/1.0/html/NVIDIA-GPU-driver-on-SL-Micro/index.html"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          The workloads are set to run on &nvidia;-enabled nodes as described in
+          <link xlink:href="https://documentation.suse.com/suse-ai/1.0/html/AI-deployment-intro/index.html#ai-gpu-nodes-assigning"/>.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      If you do not want to use the &nvidia; GPU, remove the
+      <literal>gpu</literal> section from
+      <filename>ollama_custom_overrides.yaml</filename>.
+    </para>
+<screen> ollama:
+  [...]
   gpu:
-    # -- Enable GPU integration
     enabled: true
-    
-    # -- GPU type: 'nvidia' or 'amd'
     type: 'nvidia'
-    
-    # -- Specify the number of GPU to 1
+    number: 1</screen>
+  </important>
+  <example>
+    <title>Basic override file with GPU and two models pulled at startup</title>
+<screen>global:
+  imagePullSecrets:
+  - <replaceable>APPCO_SECRET</replaceable>
+ingress:
+  enabled: false
+defaultModel: "gemma:2b"
+ollama:
+  models:
+    pull:
+      - "gemma:2b"
+      - "llama3.1"
+    run:
+      - "gemma:2b"
+      - "llama3.1"
+  gpu:
+    enabled: true
+    type: 'nvidia'
     number: 1
-   
-  # -- List of models to pull at container startup
-  models: 
-    - mistral
-    - llama2</screen>
+persistentVolume:<co xml:id="co-ollama-persistent"/>
+  enabled: true
+  storageClass: local-path<co xml:id="co-ollama-localpath6"/></screen>
+    <calloutlist>
+      <callout arearefs="co-ollama-persistent">
+        <para>
+          Without the <option>persistentVolume</option> option enabled, changes
+          made to &ollama;&mdash;such as downloading other LLM&mdash; are lost
+          when the container is restarted.
+        </para>
+      </callout>
+      <callout arearefs="co-ollama-localpath6">
+        <para>
+          Use <option>local-path</option> storage only for testing purposes. For
+          production use, we recommend using a storage solution suitable for
+          persistent storage, such as &sstorage;.
+        </para>
+      </callout>
+    </calloutlist>
   </example>
   <example>
-    <title>Basic <filename>values.yaml</filename> with &ingress;</title>
+    <title>Basic override file with &ingress; and no GPU</title>
 <screen>ollama:
   models:
-    - llama2
-  
+    pull:
+      - llama2
+    run:
+      - llama2
+  persistentVolume:
+    enabled: true
+    storageClass: local-path<co xml:id="co-ollama-localpath7"/>
 ingress:
   enabled: true
-    hosts:
-    - host: <replaceable>ollama.domain.lan</replaceable>
-      paths:
-        - path: /
-          pathType: Prefix</screen>
-    <para>
-      &ollama;'s API is reachable at <literal>ollama.domain.lan</literal> in
-      this example.
-    </para>
+  hosts:
+  - host: <replaceable>OLLAMA_API_URL</replaceable>
+    paths:
+      - path: /
+        pathType: Prefix</screen>
+    <calloutlist>
+      <callout arearefs="co-ollama-localpath7">
+        <para>
+          Use <option>local-path</option> storage only for testing purposes. For
+          production use, we recommend using a storage solution suitable for
+          persistent storage, such as &sstorage;.
+        </para>
+      </callout>
+    </calloutlist>
   </example>
   <table>
-    <title><filename>values.yaml</filename> options for the &ollama; &helm; chart</title>
+    <title>Override file options for the &ollama; &helm; chart</title>
     <tgroup cols="4">
       <thead>
         <row>
@@ -1149,7 +1207,7 @@ ingress:
             <para>
               &ollama; server data Persistent Volume access modes. Must match
               those of existing PV or dynamic provisioner, see
-              <link xlink:href="http://kubernetes.io/docs/user-guide/persistent-volumes/"/>
+              <link xlink:href="https://kubernetes.io/docs/concepts/storage/persistent-volumes/"/>.
             </para>
           </entry>
         </row>
@@ -1263,11 +1321,11 @@ ingress:
           <entry>
             <para>
               If persistentVolume.storageClass is present, and is set to either
-              a dash (<quote>-</quote>) or empty string (<quote></quote>),
+              a dash (<quote>-</quote>) or empty string (<quote>&nbsp;/</quote>),
               dynamic provisioning is disabled. Otherwise, the storageClassName
               for persistent volume claim is set to the given value specified by
               persistentVolume.storageClass. If persistentVolume.storageClass is
-              absent, default storage class is be used for dynamic provisioning
+              absent, the default storage class is used for dynamic provisioning
               whenever possible. See
               <link xlink:href="https://kubernetes.io/docs/concepts/storage/storage-classes/"/>
               for more details.

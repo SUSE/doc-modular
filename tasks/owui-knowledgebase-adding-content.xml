@@ -18,11 +18,52 @@
     <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        This topic explains how to add a new content to an existing knowledge
+        This topic explains how to add new content to an existing knowledge
         base.
       </para>
     </abstract>
   </info>
+  <important>
+    <title>File upload size limit</title>
+    <para>
+      The default configuration allows file uploads up to 1&nbsp;MB. To enable
+      larger file uploads, follow these steps:
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Update &ingress; configuration by creating the
+          <filename>ingress.yaml</filename> file with the following content.
+        </para>
+<screen>apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    name: open-webui
+    namespace: suse-private-ai
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-body-size: 100m <co xml:id="ingress-upload-size"/>
+      nginx.ingress.kubernetes.io/proxy-connect-timeout: "360"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "360"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "360"
+      nginx.ingress.kubernetes.io/websocket-services: "open-webui"</screen>
+<calloutlist>
+  <callout arearefs="ingress-upload-size">
+    <para>
+      This example sets the upload file size limit to 100&nbsp;MB. Setting this
+      value to <literal>0</literal> allows unlimited upload size (not
+      recommended).
+    </para>
+  </callout>
+</calloutlist>
+      </step>
+      <step>
+        <para>
+          Apply the changes so that large file uploads are supported.
+        </para>
+<screen>&prompt.user;<command>kubectl apply -f ingress.yaml</command></screen>
+      </step>
+    </procedure>
+  </important>
   <procedure>
     <itemizedlist>
       <title>Requirements</title>
@@ -91,7 +132,7 @@
               You can add a text snippet written in a Markdown format to the
               collection directly.
             </para>
-            <figure>
+            <figure xml:id="owui-knowledgebase-addtext">
               <title>Adding a text entry into &owui; collection</title>
               <mediaobject>
                 <imageobject role="fo">
@@ -104,6 +145,18 @@
                 </textobject>
               </mediaobject>
             </figure>
+            <warning>
+              <para>
+                If you experience the error saying <quote>Extracted content is
+                not available for this file. Please ensure that the file is
+                processed before proceeding,</quote> during the upload process,
+                you need to enable installing NLTK datasets in the &owui; &helm;
+                chart. Refer to
+                <link
+                xlink:href="&dsc;/suse-ai/1.0/html/AI-deployment-intro/index.html#owui-helm-overrides"/>
+                for details.
+              </para>
+            </warning>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -114,14 +167,14 @@
     <step>
       <para>
         The uploaded resource is processed and analyzed so that you can use it
-        as a context for selected AI models. The processing time may 
-        vary depending on the size of the uploaded resources.
+        as a context for selected AI models. The processing time may vary
+        depending on the size of the uploaded resources.
       </para>
       <para>
         After a resource is added, you can view and edit its extracted textual
         information by clicking its name.
       </para>
-      <figure>
+      <figure xml:id="owui-knowledgebase-viewtext">
         <title>Viewing an extracted resource</title>
         <mediaobject>
           <imageobject role="fo">
