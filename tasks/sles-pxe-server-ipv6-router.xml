@@ -20,8 +20,7 @@
     <abstract>
       <para>
         This section describes how to enable basic IPv6 router advertisement and address assignment
-        functionality for PXE clients in networks that rely on Stateless Address Autoconfiguration
-        (SLAAC).
+        functionality for PXE and HTTP Boot clients for host IPv6 auto-configuration.
       </para>
       <note>
         <title>Only required in IPv6 or dual-stack networks</title>
@@ -36,9 +35,9 @@
   <section xml:id="sles-pxe-server-ipv6-router-intro">
     <title>Introduction</title>
     <para>
-      To support PXE booting in IPv6-enabled environments, the PXE server must provide basic router
-      advertisement functionality to inform clients of the network prefix. This is especially
-      necessary in setups using Stateless Address Autoconfiguration (SLAAC) instead of DHCPv6.
+      To support PXE booting in IPv6-enabled environments, the PXE server may provide basic router
+      advertisement functionality to inform clients of the network prefix. However, in production
+      networks the router is usually a separate machine.
     </para>
   </section>
   <section xml:id="sles-pxe-server-ipv6-router-reqs">
@@ -75,14 +74,53 @@
         <example>
           <title>Sample radvd configuration for IPv6 PXE support</title>
 <screen>
-interface eth0 {
-  AdvSendAdvert on;
-  prefix 2001:db8:1::/64 {
-    AdvOnLink on;
-    AdvAutonomous on;
-  };
+interface eth0
+{
+        IgnoreIfMissing on; <co xml:id="ignore-if-missing"></co>
+        AdvSendAdvert on; <co xml:id="adv-send-advert"></co>
+
+        AdvDefaultLifetime 1800; <co xml:id="adv-default-lifetime"></co>
+        AdvManagedFlag on; <co xml:id="adv-managed-flag"></co>
+        prefix 2001:db8:1::/64 <co xml:id="prefix-ipv6"></co>
+        {
+                AdvAutonomous  off; <co xml:id="adv-autonomous-off"></co>
+                AdvValidLifetime        7200;
+                AdvPreferredLifetime    3600;
+        };
 };
-          </screen>
+</screen>
+          <calloutlist>
+            <callout arearefs="ignore-if-missing">
+              <para>
+                Does not fail and exit when interface is missed.
+              </para>
+            </callout>
+            <callout arearefs="adv-send-advert">
+              <para>
+                Sending RAs on this interface is enabled.
+              </para>
+            </callout>
+            <callout arearefs="adv-default-lifetime">
+              <para>
+                Add default route for 1800 seconds.
+              </para>
+            </callout>
+            <callout arearefs="adv-managed-flag">
+              <para>
+                Request IPv6 address, DNS, etc., using DHCPv6.
+              </para>
+            </callout>
+            <callout arearefs="prefix-ipv6">
+              <para>
+                Add route to the network/prefix.
+              </para>
+            </callout>
+            <callout arearefs="adv-autonomous-off">
+              <para>
+                Turn it on to assign IPv6 address using SLAAC.
+              </para>
+            </callout>
+          </calloutlist>
         </example>
       </step>
       <step>

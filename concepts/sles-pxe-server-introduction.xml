@@ -21,7 +21,7 @@
       <para>
         PXE booting enables machines to boot over the network into an installation or runtime
         environment without local storage. This section explains how PXE works in &productname;
-        &productnumber;&agama; and live installer images with a focus on &grub;.
+       &productnumber; &agama; and live installer images with a focus on &grub;.
       </para>
     </abstract>
   </info>
@@ -68,32 +68,54 @@
       PXE booting in &productname; &productnumber; uses &grub; as the bootloader and the &agama;
       installer as the installation interface. Bootloaders and installer files are provided over
       the network using HTTP or TFTP, with &grub; fetching the kernel, initrd and live image. PXE
-      clients can use either BIOS or UEFI firmware and work in both IPv4 and IPv6 networks.
+      clients can use a variety of firmware (including the most common ones such as BIOS or UEFI),
+      bootloader executable or image formats, as required by their architectures such as &x86-64;,
+      &aarch64;, &ppc64le; and s390x. In addition, they must work in both IPv4 and IPv6 networks.
     </para>
     <para>
       The bootloader passes kernel parameters such as <literal>root=live:</literal> to load the
       squashfs-based root filesystem from a live ISO image, starting the &agama; interface either
-      locally or using a remote web UI.
+      locally or as a web service for a remote web UI.
     </para>
-  </section>
   <section xml:id="sles-pxe-server-backward-compatibility-with-sle-15">
     <title>Backward compatibility with &productnameshort; 15.x</title>
     <para>
       The information in this article applies primarily to &productname; 16.0 and later. It focuses
       on PXE booting workflows that integrate with the &agama; installer and rely on live
-      installation images.
+      installation images. In the context and scope of this article, &productnameshort; 16.0 and
+      later versions differs
+      from &productnameshort; 15.x in the following ways:
     </para>
+    <variablelist>
+      <varlistentry>
+        <term>Installer</term>
+        <listitem>
+          <para>
+            Uses <literal>dracut</literal> and &agama; instead of <literal>linuxrc</literal> and
+            &yast;.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>DHCP server</term>
+        <listitem>
+          <para>
+            Use of ISC DHCP is discontinued (EOL 2022). For DHCP server, use any one of Kea or dnsmasq instead.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Boot parameters</term>
+        <listitem>
+          <para>
+            Uses <literal>root=live:</literal> or <literal>rd.kiwi.*</literal> parameters instead
+            of <literal>install=</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
     <para>
-      Earlier versions, such as &productnameshort; 15 SP7 and below, typically used AutoYaST,
-      static initrd-based deployments, or KIWI-prepared root files. These older methods often
-      depended on <literal>pxelinux</literal> and <literal>syslinux</literal> bootloaders and
-      different file layouts.
-    </para>
-    <para>
-      While some underlying components such as TFTP and DHCP remain relevant across versions, this
-      documentation does not cover legacy workflows and bootloader configurations. For
-      &productnameshort; 15.x compatibility, refer to the corresponding Deployment Guide for that
-      release.
+      The bootloader choice (&grub;, pxelinux, etc.) remains flexible and is not version-dependent.
     </para>
   </section>
   <section xml:id="sles-pxe-server-how-to-use-article">
@@ -140,17 +162,19 @@
               <listitem>
                 <para>
                   Use <emphasis role="strong">Kea</emphasis>&mdash;the new DHCP server from
-                  ISC&mdash;for serving everything over HTTP, and supporting UEFI HTTPBoot and
-                  &dhcpipv6;. For more information, refer to
+                  ISC&mdash;as a modern replacement for ISC DHCP. For more information, refer to
                   <link xlink:href="https://www.isc.org/kea/"></link>.
                 </para>
               </listitem>
               <listitem>
                 <para>
-                  You can use <emphasis role="strong">dnsmasq</emphasis> to serve &grub; over TFTP,
-                  and nginx to serve only the kernel/initrd/squashfs over HTTP. dnsmasq doesn't
-                  support UEFI HTTPBoot natively, and therefore the client firmware cannot fetch
-                  the bootloader directly using HTTP.
+                  You can use <emphasis role="strong">dnsmasq</emphasis> as a combination of a TFTP
+                  server, a DHCP server, and a DNS server. In fact, you can use it to serve the
+                  bootloader, kernel, initrd over TFTP, and an HTTP server such as nginx to serve
+                  other files over HTTP. For PXE boot, nginx
+                  is used to serve the the files used in initrd, such as the
+                  <filename>squashfs.img</filename>. dnsmasq provides DHCPv4 options for UEFI
+                  HTTPBoot but requires a separate HTTP server such as nginx to deliver the boot files.
                 </para>
               </listitem>
             </itemizedlist>
@@ -161,7 +185,7 @@
         <term>IPv6 support</term>
         <listitem>
           <para>
-            Only needed if you operate in an IPv6 or dual-stack network environment.
+            Needed if you operate in an IPv6-only or a dual-stack (IPv4 and IPv6) network environment.
           </para>
         </listitem>
       </varlistentry>
