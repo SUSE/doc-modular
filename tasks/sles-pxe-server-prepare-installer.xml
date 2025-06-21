@@ -19,20 +19,27 @@
     <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        This section describes how to extract the kernel, initrd and live image files from a
-        &productname; &productnumber; <literal>.install.iso</literal> image and place them under
-        the PXE boot server file structure for use by &grub; and &agama;.
+        This section describes how to extract and organize installer files from &productname;
+        &productnumber; installation media for use in PXE boot environments. It covers both
+        <literal>.install.iso</literal> images and RPM packages, with specific instructions for
+        different architectures and installation types.
       </para>
     </abstract>
   </info>
   <section xml:id="sles-pxe-server-prepare-installer-intro">
     <title>Introduction</title>
     <para>
-      PXE clients need access to three files to boot into the &agama; installer: the kernel image,
-      the initrd, and the compressed root filesystem (squashfs). These files are located within the
-      &productnameshort; <literal>.install.iso</literal> image and must be made available over HTTP
-      or TFTP. This section guides you through extracting and organizing them into a bootable
-      directory layout.
+      &productname; &productnumber; provides installer files in multiple formats to support
+      different PXE boot scenarios. The &agama; installer requires three essential files: the
+      kernel image (<filename>linux</filename>), the initial RAM disk
+      (<filename>initrd</filename>), and the compressed root filesystem
+      (<filename>squashfs.img</filename>). These files must be extracted from the installation
+      media and organized in a directory structure accessible via TFTP and HTTP.
+    </para>
+    <para>
+      This section covers preparation methods for both <literal>.install.iso</literal> images and
+      RPM packages, ensuring compatibility with various architectures and installation types
+      supported by &productname; &productnumber;.
     </para>
   </section>
   <section xml:id="sles-pxe-server-prepare-installer-reqs">
@@ -40,11 +47,28 @@
     <itemizedlist>
       <listitem>
         <para>
-          A &productname; &productnumber; installation image (<literal>.install.iso</literal>).
-          Download the suitable ISO image files for your product from the &scc;. For example, the
-          filename may maintain the format
-          <filename>SLES-16.0-Full-x86_64-Beta4.install.iso</filename>.
+          &productname; &productnumber; installation media, as available in &scc;. Choose from:
         </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              Online ISO: Installer-only for network installations
+              (<filename>SLES-16.0-Online-<replaceable>ARCH</replaceable>-<replaceable>BUILD</replaceable>.install.iso</filename>)
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Full ISO: Installer with installation repository
+              (<filename>SLES-16.0-Full-<replaceable>ARCH</replaceable>-<replaceable>BUILD</replaceable>.install.iso</filename>)
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              RPM packages:
+              <package>tftpboot-agama-installer-SUSE_SLE_16_PXE-<replaceable>ARCH</replaceable></package>
+            </para>
+          </listitem>
+        </itemizedlist>
       </listitem>
       <listitem>
         <para>
@@ -53,130 +77,357 @@
       </listitem>
       <listitem>
         <para>
-          Sufficient disk space under <filename>/srv/tftpboot</filename> or your chosen PXE root.
+          Sufficient disk space under <filename>/srv/tftpboot</filename> and
+          <filename>/srv/install</filename> for your chosen installation method.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Administrative privileges to create directories and copy files.
         </para>
       </listitem>
     </itemizedlist>
   </section>
-  <section xml:id="sles-pxe-server-prepare-installer-exec">
-    <title>Extracting the installer image files</title>
+  <section xml:id="sles-pxe-server-prepare-installer-iso">
+    <title>Preparing installer files from ISO images</title>
     <para>
-      Perform the following steps to mount the ISO, extract necessary files, and organize them
-      under your PXE boot directory.
+      ISO images provide a straightforward method for extracting installer files. The following
+      procedures cover both Online and Full ISO types for different architectures.
     </para>
-    <procedure>
-      <step>
-        <para>
-          Mount the SLE .install.iso image under <filename>/mnt</filename>.
-        </para>
-<screen>&prompt.sudo;<command>mount -o loop <replaceable>PATH/TO/SLE-16.install.iso</replaceable> /mnt</command></screen>
-      </step>
-      <step>
-        <para>
-          Create a directory to hold the extracted installer files.
-        </para>
-<screen>&prompt.sudo;<command>mkdir -p /srv/tftpboot/images/SLES16.0/x86_64/liveiso</command></screen>
-      </step>
-      <step>
-        <para>
-          Copy the kernel and initrd from the ISO.
-        </para>
-<screen>&prompt.sudo;<command>cp /mnt/boot/x86_64/loader/linux /srv/tftpboot/images/SLES16.0/x86_64/liveiso/</command></screen>
-<screen>&prompt.sudo;<command>cp /mnt/boot/x86_64/loader/initrd /srv/tftpboot/images/SLES16.0/x86_64/liveiso/</command></screen>
-      </step>
-      <step>
-        <para>
-          Copy the compressed root filesystem image.
-        </para>
-<screen>&prompt.sudo;<command>cp /mnt/LiveOS/squashfs.img /srv/tftpboot/images/SLES16.0/x86_64/liveiso/</command></screen>
-      </step>
-      <step>
-        <para>
-          Unmount the ISO when done.
-        </para>
+    <section xml:id="sles-pxe-server-prepare-installer-iso-online">
+      <title>Using Online ISO images</title>
+      <para>
+        Online ISO images contain only the installer components, requiring network access to
+        installation repositories during system installation.
+      </para>
+      <procedure xml:id="proc-prepare-online-iso-x86-aarch64">
+        <title>Extracting files from Online ISO (x86_64 and aarch64)</title>
+        <step>
+          <para>
+            Create the directory structure for installer files:
+          </para>
+<screen>&prompt.sudo;<command>mkdir -p
+/srv/tftpboot/boot/images/SLES-16.0/<replaceable>ARCH</replaceable>/Online/boot/</command></screen>
+<screen>&prompt.sudo;<command>mkdir -p /srv/tftpboot/boot/images/SLES-16.0/<replaceable>ARCH</replaceable>/Online/LiveOS/</command></screen>
+        </step>
+        <step>
+          <para>
+            Mount the Online ISO image:
+          </para>
+<screen>&prompt.sudo;<command>mount -oro,loop /srv/install/iso/SLES-16.0-Online-<replaceable>ARCH</replaceable>-<replaceable>BUILD</replaceable>.install.iso /mnt</command></screen>
+        </step>
+        <step>
+          <para>
+            Copy the kernel and initrd files:
+          </para>
+<screen>&prompt.sudo;<command>cp /mnt/boot/<replaceable>ARCH</replaceable>/loader/linux
+/srv/tftpboot/boot/images/SLES-16.0/<replaceable>ARCH</replaceable>/Online/boot/</command></screen>
+<screen>&prompt.sudo;<command>cp /mnt/boot/<replaceable>ARCH</replaceable>/loader/initrd /srv/tftpboot/boot/images/SLES-16.0/<replaceable>ARCH</replaceable>/Online/boot/</command></screen>
+        </step>
+        <step>
+          <para>
+            Copy the compressed root filesystem:
+          </para>
+<screen>&prompt.sudo;<command>cp /mnt/LiveOS/squashfs.img /srv/tftpboot/boot/images/SLES-16.0/<replaceable>ARCH</replaceable>/Online/LiveOS/</command></screen>
+        </step>
+        <step>
+          <para>
+            Unmount the ISO image:
+          </para>
 <screen>&prompt.sudo;<command>umount /mnt</command></screen>
+        </step>
+      </procedure>
+      <procedure xml:id="proc-prepare-online-iso-ppc64le">
+        <title>Extracting files from Online ISO (ppc64le)</title>
+        <step>
+          <para>
+            Create the directory structure:
+          </para>
+<screen>&prompt.sudo;<command>mkdir -p /srv/tftpboot/boot/images/SLES-16.0/ppc64le/Online/boot/</command>
+</screen>
+<screen>&prompt.sudo;<command>mkdir -p /srv/tftpboot/boot/images/SLES-16.0/ppc64le/Online/LiveOS/</command></screen>
+        </step>
+        <step>
+          <para>
+            Mount the ISO image:
+          </para>
+<screen>&prompt.sudo;<command>mount -oro,loop /srv/install/iso/SLES-16.0-Online-ppc64le-<replaceable>BUILD</replaceable>.install.iso /mnt</command></screen>
+        </step>
+        <step>
+          <para>
+            Copy the kernel and initrd files (note the different path structure for ppc64le):
+          </para>
+<screen>&prompt.sudo;<command>cp /mnt/boot/ppc64le/linux /srv/tftpboot/boot/images/SLES-16.0/ppc64le/Online/boot/</command>
+</screen>
+<screen>&prompt.sudo;<command>cp /mnt/boot/ppc64le/initrd /srv/tftpboot/boot/images/SLES-16.0/ppc64le/Online/boot/</command></screen>
+        </step>
+        <step>
+          <para>
+            Copy the compressed root filesystem:
+          </para>
+<screen>&prompt.sudo;<command>cp /mnt/LiveOS/squashfs.img /srv/tftpboot/boot/images/SLES-16.0/ppc64le/Online/LiveOS/</command></screen>
+        </step>
+        <step>
+          <para>
+            Unmount the ISO image:
+          </para>
+<screen>&prompt.sudo;<command>umount /mnt</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-prepare-installer-iso-full">
+      <title>Using Full ISO images</title>
+      <para>
+        Full ISO images include both the installer and installation repositories, enabling local
+        installations without external network dependencies.
+      </para>
+      <procedure xml:id="proc-prepare-full-iso">
+        <title>Extracting files from Full ISO</title>
+        <step>
+          <para>
+            Create directories for both installer files and installation repository:
+          </para>
+<screen>&prompt.sudo;<command>mkdir -p /srv/tftpboot/boot/images/SLES-16.0/<replaceable>ARCH</replaceable>/Full/boot/</command></screen>
+<screen>&prompt.sudo;<command>mkdir -p
+/srv/tftpboot/boot/images/SLES-16.0/<replaceable>ARCH</replaceable>/Full/LiveOS/</command></screen>
+<screen>&prompt.sudo;<command>mkdir -p /srv/install/SLES-16.0</command></screen>
+        </step>
+        <step>
+          <para>
+            Mount the Full ISO image:
+          </para>
+<screen>&prompt.sudo;<command>mount -oro,loop /srv/install/iso/SLES-16.0-Full-<replaceable>ARCH</replaceable>-<replaceable>BUILD</replaceable>.install.iso /mnt</command></screen>
+        </step>
+        <step>
+          <para>
+            Copy the kernel and initrd files (adjust paths for ppc64le as shown in previous
+            procedures):
+          </para>
+<screen>&prompt.sudo;<command>cp /mnt/boot/<replaceable>ARCH</replaceable>/loader/linux
+/srv/tftpboot/boot/images/SLES-16.0/<replaceable>ARCH</replaceable>/Full/boot/</command></screen>
+<screen>&prompt.sudo;<command>cp /mnt/boot/<replaceable>ARCH</replaceable>/loader/initrd /srv/tftpboot/boot/images/SLES-16.0/<replaceable>ARCH</replaceable>/Full/boot/</command></screen>
+        </step>
+        <step>
+          <para>
+            Copy the compressed root filesystem:
+          </para>
+<screen>&prompt.sudo;<command>cp /mnt/LiveOS/squashfs.img /srv/tftpboot/boot/images/SLES-16.0/<replaceable>ARCH</replaceable>/Full/LiveOS/</command></screen>
+        </step>
+        <step>
+          <para>
+            Copy the installation repository for local HTTP server access:
+          </para>
+<screen>&prompt.sudo;<command>rsync -avP /mnt/install/ /srv/install/SLES-16.0/<replaceable>ARCH</replaceable>/</command></screen>
+        </step>
+        <step>
+          <para>
+            Unmount the ISO image:
+          </para>
+<screen>&prompt.sudo;<command>umount /mnt</command></screen>
+        </step>
+      </procedure>
+    </section>
+  </section>
+  <section xml:id="sles-pxe-server-prepare-installer-rpm">
+    <title>Preparing installer files from RPM packages</title>
+    <para>
+      RPM packages provide an alternative method for obtaining installer files, particularly useful
+      in automated deployment scenarios.
+    </para>
+    <procedure xml:id="proc-prepare-rpm-packages">
+      <title>Installing and using tftpboot RPM packages</title>
+      <step>
+        <para>
+          Install the required packages:
+        </para>
+<screen>&prompt.sudo;<command>zypper in tftpboot-installation-common tftpboot-agama-installer-SUSE_SLE_16_PXE-<replaceable>ARCH</replaceable></command></screen>
+      </step>
+      <step>
+        <para>
+          Enable and start the TFTP mount service:
+        </para>
+<screen>&prompt.sudo;<command>systemctl enable --now tftp "srv-tftpboot-suse\x2dtftp\x2dinstall.mount"</command></screen>
+      </step>
+      <step>
+        <para>
+          Create symbolic links to unify file paths:
+        </para>
+<screen>&prompt.sudo;<command>mkdir -p
+/srv/tftpboot/boot/images/SLES-16.0/<replaceable>ARCH</replaceable></command></screen>
+<screen>&prompt.sudo;<command>cd
+/srv/tftpboot/boot/images/SLES-16.0/<replaceable>ARCH</replaceable></command></screen>
+<screen>&prompt.sudo;<command>ln -s
+../../../../suse-tftp-install/agama-installer-SUSE_SLE_16_PXE/<replaceable>ARCH</replaceable>/loader
+agama</command></screen>
+<screen>&prompt.sudo;<command>ln -s agama/pxeboot.pxe-installer.kernel linux</command></screen>
+<screen>&prompt.sudo;<command>ln -s agama/pxeboot.pxe-installer.initrd initrd</command></screen>
       </step>
     </procedure>
+    <note>
+      <title>RPM package file structure</title>
+      <para>
+        The RPM packages install files in
+        <filename>/usr/share/tftpboot-installation/agama-installer-SUSE_SLE_16_PXE/<replaceable>ARCH</replaceable>/loader/</filename>
+        with the following components:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            <filename>pxeboot.pxe-installer.kernel</filename>
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <filename>pxeboot.pxe-installer.initrd</filename>
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <filename>pxe-installer.xz</filename> (compressed installer image)
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <filename>pxe-installer.sha256</filename> (checksum file)
+          </para>
+        </listitem>
+      </itemizedlist>
+    </note>
   </section>
-  <section xml:id="sles-pxe-server-prepare-installer-summary">
-    <title>Verifying the result</title>
-    <para>
-      You should now have the following files in
-      <filename>/srv/tftpboot/images/SLES16.0/x86_64/liveiso/</filename>:
-    </para>
-    <itemizedlist>
-      <listitem>
-        <para>
-          <filename>linux</filename>
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          <filename>initrd</filename>
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          <filename>squashfs.img</filename>
-        </para>
-      </listitem>
-    </itemizedlist>
-    <para>
-      These files will be referenced later in your &grub; configuration and served over HTTP to PXE
-      clients.
-    </para>
-  </section>
-  <section xml:id="sles-pxe-server-dir-layout-structure">
+  <section xml:id="sles-pxe-server-prepare-installer-dir-structure">
     <title>Recommended directory structure</title>
     <para>
-      This structure assumes that the TFTP root is set to <filename>/srv/tftpboot</filename> and
-      HTTP files are served from <filename>/srv/www/htdocs</filename>. You can adapt the paths to
-      suit your deployment as long as the services are correctly configured to match.
+      Organize extracted files according to the following directory layout to ensure consistency
+      and ease of maintenance. This structure supports multiple architectures and installation
+      types.
     </para>
-    <example>
-      <title>Sample PXE server directory layout</title>
-<screen>
-/srv/tftpboot/
-├── bootx64.efi <co xml:id="co-bootx64"/>
-├── grub.cfg <co xml:id="co-grubcfg-tftp"/>
-/srv/www/htdocs/images/
-├── linux <co xml:id="co-linux"/>
-├── initrd <co xml:id="co-initrd"/>
-├── install/
-│   └── installer files and metadata <co xml:id="co-install"/>
-├── grub/
-│   └── grub.cfg
-</screen>
+    <example xml:id="ex-pxe-directory-layout">
+      <title>Complete PXE server directory layout</title>
+<screen>/srv/tftpboot/
+├── boot/
+│   ├── grub2/
+│   │   ├── x86_64-efi/
+│   │   │   ├── bootx64.efi
+│   │   │   └── grub.cfg
+│   │   ├── i386-pc/
+│   │   │   └── core.0
+│   │   ├── arm64-efi/
+│   │   │   └── bootaa64.efi
+│   │   └── powerpc-ieee1275/
+│   │       └── core.elf
+│   └── images/
+│       └── SLES-16.0/
+│           ├── x86_64/
+│           │   ├── Online/
+│           │   │   ├── boot/
+│           │   │   │   ├── linux <co xml:id="co-kernel"/>
+│           │   │   │   └── initrd <co xml:id="co-initrd"/>
+│           │   │   └── LiveOS/
+│           │   │       └── squashfs.img <co xml:id="co-squashfs"/>
+│           │   └── Full/
+│           │       ├── boot/
+│           │       │   ├── linux
+│           │       │   └── initrd
+│           │       └── LiveOS/
+│           │           └── squashfs.img
+│           ├── aarch64/
+│           └── ppc64le/
+/srv/install/
+└── SLES-16.0/
+    ├── x86_64/ <co xml:id="co-install-repo"/>
+    ├── aarch64/
+    └── ppc64le/</screen>
     </example>
     <calloutlist>
-      <callout arearefs="co-bootx64">
+      <callout arearefs="co-kernel">
         <para>
-          <filename>/srv/tftpboot/bootx64.efi</filename> is the UEFI bootloader used for PXE boot.
-        </para>
-      </callout>
-      <callout arearefs="co-grubcfg-tftp">
-        <para>
-          <filename>/srv/tftpboot/grub.cfg</filename> or a &grub; config path referenced by the
-          bootloader.
-        </para>
-      </callout>
-      <callout arearefs="co-linux">
-        <para>
-          <filename>/srv/www/htdocs/images/linux</filename> is the kernel file extracted from the
-          installer ISO.
+          Kernel image extracted from installation media
         </para>
       </callout>
       <callout arearefs="co-initrd">
         <para>
-          <filename>/srv/www/htdocs/images/initrd</filename> is the corresponding initrd image.
+          Initial RAM disk image
         </para>
       </callout>
-      <callout arearefs="co-install">
+      <callout arearefs="co-squashfs">
         <para>
-          <filename>/srv/www/htdocs/images/install/</filename> contains &agama; installer files and
-          metadata.
+          Compressed root filesystem for &agama; installer
+        </para>
+      </callout>
+      <callout arearefs="co-install-repo">
+        <para>
+          Installation repository from Full ISO (optional)
         </para>
       </callout>
     </calloutlist>
+  </section>
+  <section xml:id="sles-pxe-server-prepare-installer-verify">
+    <title>Verifying the installation</title>
+    <para>
+      After extracting and organizing the installer files, verify that all required components are
+      present and accessible.
+    </para>
+    <procedure xml:id="proc-verify-installer-files">
+      <title>Verification steps</title>
+      <step>
+        <para>
+          Check that essential files are present:
+        </para>
+<screen>&prompt.user;<command>ls -la
+/srv/tftpboot/boot/images/SLES-16.0/<replaceable>ARCH</replaceable>/*/boot/</command></screen>
+<screen>&prompt.user;<command>ls -la /srv/tftpboot/boot/images/SLES-16.0/<replaceable>ARCH</replaceable>/*/LiveOS/</command></screen>
+      </step>
+      <step>
+        <para>
+          Verify file integrity (if checksum files are available):
+        </para>
+<screen>&prompt.user;<command>cd
+/srv/tftpboot/boot/images/SLES-16.0/<replaceable>ARCH</replaceable></command></screen>
+<screen>&prompt.user;<command>sha256sum -c agama/*.sha256</command></screen>
+      </step>
+      <step>
+        <para>
+          Ensure proper file permissions:
+        </para>
+<screen>&prompt.sudo;<command>chmod -R 644 /srv/tftpboot/boot/images/</command></screen>
+<screen>&prompt.sudo;<command>find /srv/tftpboot/boot/images/ -type d -exec chmod 755 {} \;</command></screen>
+      </step>
+    </procedure>
+    <important>
+      <title>File accessibility</title>
+      <para>
+        Ensure that all extracted files are readable by the TFTP and HTTP services. The files will
+        be accessed by PXE clients during the boot process, so proper permissions and service
+        configuration are essential for successful deployments.
+      </para>
+    </important>
+  </section>
+  <section xml:id="sles-pxe-server-prepare-installer-next">
+    <title>Next steps</title>
+    <para>
+      With the installer files properly prepared and organized, you can proceed to:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Configure &grub; for PXE boot with menu entries referencing these files
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Set up HTTP and TFTP services to serve the extracted content
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Configure DHCP to direct PXE clients to the appropriate bootloaders
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      The extracted files will be referenced in &grub; configuration using paths such as
+      <literal>root=live:<replaceable>HTTP://PXE.EXAMPLE.NET/BOOT/IMAGES/SLES-16.0/ARCH</replaceable>/Online/LiveOS/squashfs.img</literal>
+      for live installations or KIWI parameters for traditional installations.
+    </para>
   </section>
 </topic>
