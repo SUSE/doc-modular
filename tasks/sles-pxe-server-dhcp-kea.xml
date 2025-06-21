@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- This file originates from the project https://://github.com/openSUSE/doc-kit -->
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
 <!-- This file can be edited downstream. -->
 <!DOCTYPE topic
 [
@@ -15,35 +15,25 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Configuring &kea; DHCP for HTTPBoot-based PXE booting</title>
+    <title>Configuring DHCP server using &kea;</title>
     <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        This section explains how to configure &kea; DHCP to provide the necessary PXE boot options
-        to clients in a modern HTTP-based setup, using UEFI HTTPBoot in combination with &grub; and
-        the &agama; installer.
+        This section explains how to configure DHCP services using &kea; to provide network
+        configuration and PXE boot information for &productname; &productnumber; installations. &kea;
+        is a modern DHCP server that supports both IPv4 and IPv6 with client class matching for PXE
+        and HTTP boot scenarios.
       </para>
-      <note>
-        <title>Recommended for UEFI HTTPBoot-based setups</title>
-        <para>
-          &kea; is the only supported DHCP server in this documentation that provides full support
-          for UEFI HTTPBoot (via DHCP option 59). Use &kea; when you intend to boot clients entirely
-          via HTTP without relying on TFTP.
-        </para>
-        <para>
-          If you use dnsmasq or legacy ISC DHCP, HTTPBoot will not function as expected. Those
-          methods are suitable only for TFTP-based setups.
-        </para>
-      </note>
     </abstract>
   </info>
   <section xml:id="sles-pxe-server-dhcp-kea-intro">
     <title>Introduction</title>
     <para>
-      &kea; DHCP is a modern, modular DHCP server developed by ISC. Unlike traditional ISC DHCP, it
-      supports dynamic reconfiguration, high availability, and modern PXE workflows including
-      HTTPBoot via DHCP option 59. This section describes a minimal configuration for using &kea;
-      with &grub; over HTTP.
+      &kea; is the modern DHCP server developed by ISC as the successor to the legacy ISC DHCP
+      server. It provides robust support for both DHCPv4 and DHCPv6 with client classification
+      capabilities that enable proper boot file delivery based on client architecture and boot
+      method. &kea; uses JSON-based configuration files and supports advanced features like vendor
+      class identification for HTTP boot.
     </para>
   </section>
   <section xml:id="sles-pxe-server-dhcp-kea-reqs">
@@ -51,70 +41,550 @@
     <itemizedlist>
       <listitem>
         <para>
-          The <literal>kea-dhcp4</literal> package must be installed.
+          &kea; DHCP packages installed: <package>kea-dhcp4</package> and
+          <package>kea-dhcp6</package>
         </para>
       </listitem>
       <listitem>
         <para>
-          Administrative privileges are required to modify configuration and control the service.
+          PXE boot files properly organized under <filename>/srv/tftpboot</filename>
         </para>
       </listitem>
       <listitem>
         <para>
-          &grub; bootloader must be accessible via HTTP from the client, typically served by
-          <literal>nginx</literal>.
+          Network interface configured for DHCP service
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Administrative privileges to configure DHCP services
         </para>
       </listitem>
     </itemizedlist>
   </section>
-  <section xml:id="sles-pxe-server-dhcp-kea-exec">
-    <title>Configuring &kea; DHCP server</title>
+  <section xml:id="sles-pxe-server-dhcp-kea-dhcpv4">
+    <title>Configuring &kea; DHCPv4 server</title>
     <para>
-      Use the following procedure to define a PXE-capable &kea; configuration for UEFI clients.
+      The &kea; DHCPv4 configuration uses client classes to match PXE and HTTP client types and
+      provide appropriate boot files for different architectures.
     </para>
-    <procedure>
+    <procedure xml:id="proc-configure-kea-dhcpv4">
+      <title>Setting up &kea; DHCPv4 server</title>
       <step>
         <para>
-          Edit the configuration file <filename>/etc/kea/kea-dhcp4.conf</filename> and include the
-          following content.
+          Configure the &kea; DHCPv4 server:
         </para>
-        <example>
-          <title>Sample &kea; DHCP configuration for HTTPBoot</title>
-<screen>
+<screen>&prompt.sudo;<command>cat &gt; /etc/kea/kea-dhcp4.conf &lt;&lt; 'EOF'</command>
 {
   "Dhcp4": {
     "interfaces-config": {
-      "interfaces": [ "eth0" ]
+      "interfaces": [
+        "eno1"
+      ]
     },
-    "subnet4": [
+    "control-socket": {
+      "socket-type": "unix",
+      "socket-name": "/tmp/kea4-ctrl-socket"
+    },
+    "lease-database": {
+      "type": "memfile",
+      "persist": true,
+      "name": "/var/lib/kea/dhcp4.leases",
+      "lfc-interval": 3600
+    },
+    "expired-leases-processing": {
+      "reclaim-timer-wait-time": 10,
+      "flush-reclaimed-timer-wait-time": 25,
+      "hold-reclaimed-time": 3600,
+      "max-reclaim-leases": 100,
+      "max-reclaim-time": 250,
+      "unwarned-reclaim-cycles": 5
+    },
+    "renew-timer": 1800,
+    "rebind-timer": 3150,
+    "valid-lifetime": 3600,
+    "option-data": [],
+    "client-classes": [
       {
-        "subnet": "192.168.1.0/24",
-        "pools": [
-          { "pool": "192.168.1.100 - 192.168.1.200" }
-        ],
-        "next-server": "192.168.1.10",
-        "boot-file-name": "http://192.168.1.10/images/bootx64.efi",
+        "name": "pxeclients#00000",
+        "test": "substring(option[60].hex,0,20) == 'PXEClient:Arch:00000'",
+        "next-server": "192.168.1.200",
+        "boot-file-name": "/boot/grub2/i386-pc/core.0"
+      },
+      {
+        "name": "pxeclients#00007",
+        "test": "substring(option[60].hex,0,20) == 'PXEClient:Arch:00007'",
+        "next-server": "192.168.1.200",
+        "boot-file-name": "/boot/grub2/x86_64-efi/bootx64.efi"
+      },
+      {
+        "name": "pxeclients#0000e",
+        "test": "substring(option[60].hex,0,20) == 'PXEClient:Arch:0000e'",
+        "next-server": "192.168.1.200",
+        "boot-file-name": "/boot/grub2/powerpc-ieee1275/core.elf"
+      },
+      {
+        "name": "pxeclients#00011",
+        "test": "substring(option[60].hex,0,20) == 'PXEClient:Arch:00011'",
+        "next-server": "192.168.1.200",
+        "boot-file-name": "/boot/grub2/arm64-efi/bootaa64.efi"
+      },
+      {
+        "name": "httpclients#00016",
+        "test": "substring(option[60].hex,0,21) == 'HTTPClient:Arch:00016'",
+        "boot-file-name": "http://192.168.1.200/boot/grub2/x86_64-efi/bootx64.efi",
         "option-data": [
           {
-            "name": "bootfile-url",
-            "space": "dhcp4",
-            "code": 59,
-            "data": "http://192.168.1.10/images/bootx64.efi"
+            "name": "vendor-class-identifier",
+            "data": "HTTPClient"
           }
         ]
+      },
+      {
+        "name": "httpclients#00019",
+        "test": "substring(option[60].hex,0,21) == 'HTTPClient:Arch:00019'",
+        "boot-file-name": "http://192.168.1.200/boot/grub2/arm64-efi/bootaa64.efi",
+        "option-data": [
+          {
+            "name": "vendor-class-identifier",
+            "data": "HTTPClient"
+          }
+        ]
+      }
+    ],
+    "subnet4": [
+      {
+        "id": 1,
+        "subnet": "192.168.1.0/24",
+        "pools": [
+          {
+            "pool": "192.168.1.100 - 192.168.1.199"
+          }
+        ],
+        "option-data": [
+          {
+            "name": "routers",
+            "data": "192.168.1.1"
+          },
+          {
+            "name": "ntp-servers",
+            "data": "192.168.1.1"
+          },
+          {
+            "name": "domain-name-servers",
+            "data": "192.168.1.200"
+          },
+          {
+            "name": "domain-search",
+            "data": "example.net"
+          }
+        ],
+        "reservations": []
+      }
+    ],
+    "loggers": [
+      {
+        "name": "kea-dhcp4",
+        "output-options": [
+          {
+            "output": "/var/log/kea/dhcp4.log"
+          }
+        ],
+        "severity": "INFO",
+        "debuglevel": 0
       }
     ]
   }
 }
-          </screen>
-        </example>
+EOF
+</screen>
       </step>
       <step>
         <para>
-          Enable and start the &kea; DHCP4 service.
+          Create the &kea; log directory:
         </para>
-<screen>&prompt.sudo;<command>systemctl enable --now kea-dhcp4.service</command></screen>
+<screen>&prompt.sudo;<command>mkdir -p /var/log/kea</command></screen>
+      </step>
+      <step>
+        <para>
+          Test the &kea; DHCPv4 configuration:
+        </para>
+<screen>&prompt.sudo;<command>kea-dhcp4 -t /etc/kea/kea-dhcp4.conf</command></screen>
+      </step>
+      <step>
+        <para>
+          Enable and start the &kea; DHCPv4 service:
+        </para>
+<screen>&prompt.sudo;<command>systemctl enable --now kea-dhcp4</command></screen>
       </step>
     </procedure>
+  </section>
+  <section xml:id="sles-pxe-server-dhcp-kea-dhcpv6">
+    <title>Configuring &kea; DHCPv6 server</title>
+    <para>
+      The &kea; DHCPv6 configuration provides IPv6 address assignment and boot file information using
+      vendor class matching for different client architectures.
+    </para>
+    <procedure xml:id="proc-configure-kea-dhcpv6">
+      <title>Setting up &kea; DHCPv6 server</title>
+      <step>
+        <para>
+          Configure the &kea; DHCPv6 server:
+        </para>
+<screen>&prompt.sudo;<command>cat &gt; /etc/kea/kea-dhcp6.conf &lt;&lt; 'EOF'</command>
+{
+  "Dhcp6": {
+    "interfaces-config": {
+      "interfaces": [
+        "eno1"
+      ]
+    },
+    "control-socket": {
+      "socket-type": "unix",
+      "socket-name": "/tmp/kea6-ctrl-socket"
+    },
+    "lease-database": {
+      "type": "memfile",
+      "persist": true,
+      "name": "/var/lib/kea/dhcp6.leases",
+      "lfc-interval": 3600
+    },
+    "expired-leases-processing": {
+      "reclaim-timer-wait-time": 10,
+      "flush-reclaimed-timer-wait-time": 25,
+      "hold-reclaimed-time": 3600,
+      "max-reclaim-leases": 100,
+      "max-reclaim-time": 250,
+      "unwarned-reclaim-cycles": 5
+    },
+    "renew-timer": 1800,
+    "rebind-timer": 2880,
+    "preferred-lifetime": 3600,
+    "valid-lifetime": 7200,
+    "option-data": [],
+    "option-def": [],
+    "client-classes": [
+      {
+        "name": "pxeclients#00000",
+        "test": "substring(option[16].hex,6,20) == 'PXEClient:Arch:00000'",
+        "option-data": [
+          {
+            "name": "bootfile-url",
+            "data": "tftp://[2001:db8:0:1::200]/boot/grub2/i386-pc/core.0"
+          }
+        ]
+      },
+      {
+        "name": "pxeclients#00007",
+        "test": "substring(option[16].hex,6,20) == 'PXEClient:Arch:00007'",
+        "option-data": [
+          {
+            "name": "bootfile-url",
+            "data": "tftp://[2001:db8:0:1::200]/boot/grub2/x86_64-efi/bootx64.efi"
+          }
+        ]
+      },
+      {
+        "name": "pxeclients#0000e",
+        "test": "substring(option[16].hex,6,20) == 'PXEClient:Arch:0000e'",
+        "option-data": [
+          {
+            "name": "bootfile-url",
+            "data": "tftp://[2001:db8:0:1::200]/boot/grub2/powerpc-ieee1275/core.elf"
+          }
+        ]
+      },
+      {
+        "name": "pxeclients#00011",
+        "test": "substring(option[16].hex,6,20) == 'PXEClient:Arch:00011'",
+        "option-data": [
+          {
+            "name": "bootfile-url",
+            "data": "tftp://[2001:db8:0:1::200]/boot/grub2/arm64-efi/bootaa64.efi"
+          }
+        ]
+      }
+    ],
+    "subnet6": [
+      {
+        "id": 1,
+        "subnet": "2001:db8:0:1::/64",
+        "interface": "eno1",
+        "pools": [
+          {
+            "pool": "2001:db8:0:1:d::/112"
+          }
+        ],
+        "option-data": [
+          {
+            "name": "sntp-servers",
+            "data": "2001:db8:0:1::1"
+          },
+          {
+            "name": "dns-servers",
+            "data": "2001:db8:0:1::200"
+          },
+          {
+            "name": "domain-search",
+            "data": "example.net"
+          }
+        ],
+        "reservations": []
+      }
+    ],
+    "loggers": [
+      {
+        "name": "kea-dhcp6",
+        "output-options": [
+          {
+            "output": "/var/log/kea/dhcp6.log"
+          }
+        ],
+        "severity": "INFO",
+        "debuglevel": 0
+      }
+    ]
+  }
+}
+EOF
+</screen>
+      </step>
+      <step>
+        <para>
+          Test the &kea; DHCPv6 configuration:
+        </para>
+<screen>&prompt.sudo;<command>kea-dhcp6 -t /etc/kea/kea-dhcp6.conf</command></screen>
+      </step>
+      <step>
+        <para>
+          Enable and start the &kea; DHCPv6 service:
+        </para>
+<screen>&prompt.sudo;<command>systemctl enable --now kea-dhcp6</command></screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sles-pxe-server-dhcp-kea-verify">
+    <title>Verifying &kea; DHCP configuration</title>
+    <para>
+      Test the &kea; DHCP server functionality to ensure proper network configuration and boot file
+      delivery to PXE clients.
+    </para>
+    <procedure xml:id="proc-verify-dhcp-kea">
+      <title>Testing &kea; DHCP servers</title>
+      <step>
+        <para>
+          Check &kea; DHCPv4 service status:
+        </para>
+<screen>&prompt.user;<command>systemctl status kea-dhcp4</command></screen>
+      </step>
+      <step>
+        <para>
+          Check &kea; DHCPv6 service status:
+        </para>
+<screen>&prompt.user;<command>systemctl status kea-dhcp6</command></screen>
+      </step>
+      <step>
+        <para>
+          Verify DHCP port binding:
+        </para>
+<screen>&prompt.user;<command>ss -ulnp | grep -E ":67|:547"</command></screen>
+      </step>
+      <step>
+        <para>
+          Monitor DHCPv4 logs:
+        </para>
+<screen>&prompt.user;<command>tail -f /var/log/kea/dhcp4.log</command></screen>
+      </step>
+      <step>
+        <para>
+          Monitor DHCPv6 logs:
+        </para>
+<screen>&prompt.user;<command>tail -f /var/log/kea/dhcp6.log</command></screen>
+      </step>
+      <step>
+        <para>
+          Check active DHCP leases:
+        </para>
+<screen>&prompt.user;<command>cat /var/lib/kea/dhcp4.leases</command></screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sles-pxe-server-dhcp-kea-troubleshooting">
+    <title>Troubleshooting &kea; DHCP configuration</title>
+    <para>
+      Common issues when configuring &kea; DHCP servers for PXE boot environments.
+    </para>
+    <section xml:id="sles-pxe-server-dhcp-kea-troubleshoot-config">
+      <title>Configuration and service issues</title>
+      <para>
+        &kea; services may fail to start due to JSON configuration errors or network interface
+        problems.
+      </para>
+      <procedure xml:id="proc-debug-kea-config">
+        <title>Resolving &kea; configuration problems</title>
+        <step>
+          <para>
+            Test DHCPv4 configuration syntax:
+          </para>
+<screen>&prompt.sudo;<command>kea-dhcp4 -t /etc/kea/kea-dhcp4.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Test DHCPv6 configuration syntax:
+          </para>
+<screen>&prompt.sudo;<command>kea-dhcp6 -t /etc/kea/kea-dhcp6.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Check for JSON syntax errors:
+          </para>
+<screen>&prompt.user;<command>python3 -m json.tool /etc/kea/kea-dhcp4.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify network interface configuration:
+          </para>
+<screen>&prompt.user;<command>ip addr show eno1</command></screen>
+        </step>
+        <step>
+          <para>
+            Check &kea; service logs:
+          </para>
+<screen>&prompt.user;<command>journalctl -u kea-dhcp4 -f</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-dhcp-kea-troubleshoot-leases">
+      <title>DHCP lease assignment problems</title>
+      <para>
+        Clients may fail to receive IP addresses due to subnet configuration or pool exhaustion
+        issues.
+      </para>
+      <procedure xml:id="proc-debug-kea-leases">
+        <title>Diagnosing &kea; lease issues</title>
+        <step>
+          <para>
+            Check subnet and pool configuration:
+          </para>
+<screen>&prompt.user;<command>grep -A 10 "subnet4\|pools" /etc/kea/kea-dhcp4.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Monitor lease assignments in real-time:
+          </para>
+<screen>&prompt.user;<command>tail -f /var/log/kea/dhcp4.log | grep -E "ALLOC|DISCOVER"</command></screen>
+        </step>
+        <step>
+          <para>
+            Check lease database for conflicts:
+          </para>
+<screen>&prompt.user;<command>cat /var/lib/kea/dhcp4.leases | tail -20</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify interface binding:
+          </para>
+<screen>&prompt.user;<command>grep interfaces /etc/kea/kea-dhcp4.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Clear lease database if needed:
+          </para>
+<screen>&prompt.sudo;<command>systemctl stop kea-dhcp4</command></screen>
+<screen>&prompt.sudo;<command>mv /var/lib/kea/dhcp4.leases /var/lib/kea/dhcp4.leases.backup</command></screen>
+<screen>&prompt.sudo;<command>systemctl start kea-dhcp4</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-dhcp-kea-troubleshoot-pxe">
+      <title>PXE client class matching issues</title>
+      <para>
+        PXE clients may receive IP addresses but fail to get correct boot files due to client class
+        configuration problems.
+      </para>
+      <procedure xml:id="proc-debug-kea-pxe">
+        <title>Troubleshooting &kea; client classification</title>
+        <step>
+          <para>
+            Check client class definitions:
+          </para>
+<screen>&prompt.user;<command>grep -A 5 "client-classes" /etc/kea/kea-dhcp4.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Monitor client class matching in logs:
+          </para>
+<screen>&prompt.user;<command>tail -f /var/log/kea/dhcp4.log | grep -i class</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify vendor class identifier patterns:
+          </para>
+<screen>&prompt.user;<command>grep "PXEClient\|HTTPClient" /etc/kea/kea-dhcp4.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Test boot file accessibility:
+          </para>
+<screen>&prompt.user;<command>curl -I http://192.168.1.200/boot/grub2/x86_64-efi/bootx64.efi</command></screen>
+        </step>
+        <step>
+          <para>
+            Enable debug logging for detailed client analysis:
+          </para>
+<screen>&prompt.sudo;<command>sed -i 's/"debuglevel": 0/"debuglevel": 99/' /etc/kea/kea-dhcp4.conf</command></screen>
+<screen>&prompt.sudo;<command>systemctl restart kea-dhcp4</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-dhcp-kea-troubleshoot-ipv6">
+      <title>DHCPv6 specific issues</title>
+      <para>
+        IPv6 DHCP clients require proper router advertisement configuration and have different
+        vendor class option handling than IPv4.
+      </para>
+      <procedure xml:id="proc-debug-kea-ipv6">
+        <title>Resolving &kea; DHCPv6 problems</title>
+        <step>
+          <para>
+            Check DHCPv6 subnet configuration:
+          </para>
+<screen>&prompt.user;<command>grep -A 10 "subnet6" /etc/kea/kea-dhcp6.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify IPv6 router advertisement status:
+          </para>
+<screen>&prompt.user;<command>systemctl status radvd</command></screen>
+        </step>
+        <step>
+          <para>
+            Monitor DHCPv6 vendor class matching:
+          </para>
+<screen>&prompt.user;<command>tail -f /var/log/kea/dhcp6.log | grep "option\[16\]"</command></screen>
+        </step>
+        <step>
+          <para>
+            Check IPv6 bootfile-url option format:
+          </para>
+<screen>&prompt.user;<command>grep "bootfile-url" /etc/kea/kea-dhcp6.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Test IPv6 connectivity to boot server:
+          </para>
+<screen>&prompt.user;<command>ping6 2001:db8:0:1::200</command></screen>
+        </step>
+      </procedure>
+    </section>
+  </section>
+  <section xml:id="sles-pxe-server-dhcp-kea-next-steps">
+    <title>Next steps</title>
+    <para>
+      With &kea; DHCP services configured, PXE clients can receive comprehensive network
+      configuration and boot file information for both IPv4 and IPv6 environments. The client
+      classification system provides precise boot file assignment based on client architecture and
+      supports both traditional PXE and modern HTTP boot methods.
+    </para>
   </section>
 </topic>
