@@ -20,19 +20,26 @@
     <abstract>
       <para>
         This section describes how to configure the &grub; bootloader for PXE-based booting on
-        &productname; &productnumber;. It includes generating the directory layout, copying
-        firmware-specific &grub; binaries and creating a minimal <filename>grub.cfg</filename> to
-        launch the &agama; installer.
+        &productname; &productnumber;. It covers creating the network boot directory structure,
+        setting up architecture-specific bootloaders, and implementing a flexible configuration
+        system that supports multiple architectures and installation scenarios.
       </para>
     </abstract>
   </info>
   <section xml:id="sles-pxe-server-configure-grub2-intro">
     <title>Introduction</title>
     <para>
-      PXE boot clients retrieve a &grub; binary suited to their firmware (BIOS or UEFI), which then
-      loads a configuration file to present boot options. This section shows how to install &grub;
-      network boot files and generate a basic &grub; configuration to load the &productname;
-      &productnumber; installer kernel and initrd.
+      &grub; serves as the network bootloader for PXE clients, loading kernel and initrd files to
+      start the &agama; installer. This section demonstrates how to create a sophisticated &grub;
+      configuration that automatically detects client architecture, manages network interface
+      selection, and provides a unified boot menu supporting multiple installation types and target
+      architectures.
+    </para>
+    <para>
+      The configuration approach uses a modular design with separate files for architecture
+      detection, variable definitions, and boot menu entries. This enables support for
+      machine-specific configurations and automated installation profiles while maintaining
+      consistency across different hardware platforms.
     </para>
   </section>
   <section xml:id="sles-pxe-server-configure-grub2-reqs">
@@ -40,87 +47,639 @@
     <itemizedlist>
       <listitem>
         <para>
-          The &grub; packages for required architectures must already be installed.
+          Ensure that the &grub; network boot directory structure is in place, as described in the
+          previous sections.
         </para>
       </listitem>
       <listitem>
         <para>
-          Root writable access to <filename>/srv/tftpboot</filename> or equivalent PXE root.
+          Ensure that the installer files are properly organized as described in the previous
+          sections.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          &grub; packages for all target architectures must be installed:
+          <package>grub2-x86_64-efi</package>, <package>grub2-i386-pc</package>,
+          <package>grub2-aarch64-efi</package>, and <package>grub2-ppc64le-ieee1275</package>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          The <package>shim</package> package for &uefisecboot; support.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Administrative access to <filename>/srv/tftpboot</filename> or equivalent PXE root.
         </para>
       </listitem>
     </itemizedlist>
   </section>
-  <section xml:id="sles-pxe-server-configure-grub2-exec">
-    <title>Configuring &grub; for PXE boot</title>
+  <section xml:id="sles-pxe-server-configure-grub2-main-config">
+    <title>Creating the &grub; configuration</title>
     <para>
-      Perform the following steps to prepare the &grub; bootloader for network-based installation.
+      The &grub; configuration file handles architecture detection, network interface management,
+      and loads additional configuration files. This modular approach provides flexibility for
+      different deployment scenarios.
     </para>
-    <procedure>
+    <procedure xml:id="proc-create-main-grub-config">
+      <title>Setting up the main <filename>grub.cfg</filename> file</title>
       <step>
         <para>
-          Create the &grub; network boot directory layout under <filename>/srv/tftpboot</filename>.
+          Create the main &grub; configuration file at
+          <filename>/srv/tftpboot/boot/grub2/grub.cfg</filename>:
         </para>
-<screen>&prompt.sudo;<command>grub2-mknetdir --net-directory=/srv/tftpboot</command></screen>
-      </step>
-      <step>
-        <para>
-          Copy the UEFI bootloader binary to support &uefisecboot;.
-        </para>
-<screen>&prompt.sudo;<command>cp /usr/share/efi/x86_64/shim.efi /srv/tftpboot/shim.efi</command></screen>
-      </step>
-      <step>
-        <para>
-          Create a minimal &grub; configuration file at <filename>/srv/tftpboot/grub.cfg</filename>
-          with the following content:
-        </para>
-<screen>
-menuentry 'Install &productname; &productnumber;' {
-  linux /images/SLES16.0/x86_64/liveiso/linux root=live:/images/SLES16.0/x86_64/liveiso/squashfs.img rd.live.dir=liveiso splash=silent
-  initrd /images/SLES16.0/x86_64/liveiso/initrd
+<screen>&prompt.sudo;<command>cat &gt; /srv/tftpboot/boot/grub2/grub.cfg &lt;&lt;
+'EOF'</command>
+# Architecture detection and mapping
+if [ "$grub_cpu" == "i386" ]; then
+  set arch='x86_64'
+elif [ "$grub_cpu" == "x86_64" ]; then
+  set arch='x86_64'
+elif [ "$grub_cpu" == "arm64" ]; then
+  set arch='aarch64'
+elif [ "$grub_cpu" == "powerpc" ]; then
+  set arch='ppc64le'
+fi
+
+if [ "X$arch" == "X" ]; then
+  echo "ERROR: No architecture found for ${grub_cpu}"
+  exit
+else
+  echo "Running on $arch CPU architecture"
+fi
+export arch
+
+# Utility functions for EFI and BIOS compatibility
+function linux_kernel {
+  echo 'Loading kernel...'
+  if [ "$grub_cpu" == "x86_64" ]; then
+      linuxefi "$@"
+  else
+      linux "$@"
+  fi
 }
+
+function linux_initrd {
+  echo 'Loading initrd...'
+  if [ "$grub_cpu" == "x86_64" ]; then
+      initrdefi "$@"
+  else
+      initrd "$@"
+  fi
+}
+
+# Directory path configuration
+set images=(${root})/boot/images
+set config=(${root})/boot/config
+export images
+export config
+
+# Default kernel command line parameters
+set linux_cmdline="showopts"
+export linux_cmdline
+
+# Network interface configuration for PXE-selected NIC
+set ipcfg="ifname=pxe0:${net_default_mac} ip=pxe0:dhcp"
+export ipcfg
+
+# Load machine-specific configuration if available
+if [ -s "${config}/${net_default_mac}/grub.cfg" ]; then
+  source "${config}/${net_default_mac}/grub.cfg"
+fi
+
+source "${prefix}/menu.cfg"
+EOF
 </screen>
       </step>
     </procedure>
+    <variablelist>
+      <title>Key configuration elements</title>
+      <varlistentry>
+        <term>Architecture detection</term>
+        <listitem>
+          <para>
+            Maps &grub; CPU types to distribution architectures, enabling unified menu entries that
+            work across different hardware platforms
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Network interface management</term>
+        <listitem>
+          <para>
+            Uses <varname>${net_default_mac}</varname> to identify the PXE boot interface, avoiding
+            network probing issues on multi-interface systems
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Utility functions</term>
+        <listitem>
+          <para>
+            Provides <function>linux_kernel</function> and <function>linux_initrd</function>
+            functions that automatically select appropriate commands for EFI or BIOS systems
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Machine-specific configuration</term>
+        <listitem>
+          <para>
+            Loads optional per-machine configuration files based on MAC address, enabling
+            customized boot parameters and automated installation profiles
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
   </section>
-  <section xml:id="sles-pxe-server-grub2-config-section">
-    <title>&grub; configuration for HTTP-based boot</title>
+  <section xml:id="sles-pxe-server-configure-grub2-menu">
+    <title>Creating the unified boot menu</title>
     <para>
-      The following is a minimal example of <filename>grub.cfg</filename> used for UEFI PXE
-      clients. Adjust paths and architecture-specific entries according to your environment.
+      The boot menu uses variables from the main configuration to provide architecture-agnostic
+      menu entries that automatically adapt to different hardware platforms and installation types.
     </para>
-    <example>
-      <title>Minimal &grub; configuration for HTTPBoot</title>
-<screen>
-set default=0 <co xml:id="co-default"/>
-set timeout=5 <co xml:id="co-timeout"/>
-menuentry 'Install &productname; &productnumber;' {
-  linuxefi (http,192.168.1.10)/images/linux install=http://192.168.1.10/images/install <co xml:id="co-linuxefi"/>
-  initrdefi (http,192.168.1.10)/images/initrd <co xml:id="co-initrdefi"/>
+    <procedure xml:id="proc-create-grub-menu">
+      <title>Setting up the menu.cfg file</title>
+      <step>
+        <para>
+          Create the unified boot menu at <filename>/srv/tftpboot/boot/grub2/menu.cfg</filename>:
+        </para>
+<screen>&prompt.sudo;<command>cat &gt; /srv/tftpboot/boot/grub2/menu.cfg &lt;&lt;
+'EOF'</command>
+menuentry 'SLES-16.0 Online Installation' {
+  linux_kernel ${images}/SLES-16.0/${arch}/liveiso/boot/linux ${linux_cmdline} ${ipcfg} root=live:http://pxe.example.net/boot/images/SLES-16.0/${arch}/liveiso/LiveOS/squashfs.img
+  linux_initrd ${images}/SLES-16.0/${arch}/liveiso/boot/initrd
 }
-      </screen>
+
+menuentry 'SLES-16.0 Full Installation' {
+  linux_kernel ${images}/SLES-16.0/${arch}/linux ${linux_cmdline} ${ipcfg} root=live:http://pxe.example.net/boot/images/SLES-16.0/${arch}/LiveOS/squashfs.img inst.install_url=http://pxe.example.net/install/SLES-16.0/${arch} ${autoinstall}
+  linux_initrd ${images}/SLES-16.0/${arch}/initrd
+}
+EOF
+</screen>
+      </step>
+    </procedure>
+    <note>
+      <title>Menu entry flexibility</title>
+      <para>
+        The menu entries use variables that are automatically populated based on the client
+        architecture and configuration. The <varname>${arch}</varname> variable ensures the correct
+        files are loaded, while <varname>${ipcfg}</varname> provides appropriate network
+        configuration for the &agama; installer.
+      </para>
+    </note>
+  </section>
+  <section xml:id="sles-pxe-server-configure-grub2-machine-specific">
+    <title>Machine-specific configurations</title>
+    <para>
+      For advanced deployments, you can create machine-specific configuration files that override
+      default settings or provide automated installation parameters.
+    </para>
+    <procedure xml:id="proc-machine-specific-config">
+      <title>Creating machine-specific configuration</title>
+      <step>
+        <para>
+          Create a directory for machine-specific configurations:
+        </para>
+<screen>&prompt.sudo;<command>mkdir -p /srv/tftpboot/boot/config</command></screen>
+      </step>
+      <step>
+        <para>
+          For a machine with MAC address <literal>aa:bb:cc:dd:ee:ff</literal>, create a specific
+          configuration:
+        </para>
+<screen>&prompt.sudo;<command>mkdir -p /srv/tftpboot/boot/config/aa:bb:cc:dd:ee:ff</command></screen>
+      </step>
+      <step>
+        <para>
+          Create the machine-specific <filename>grub.cfg</filename>:
+        </para>
+<screen>&prompt.sudo;<command>cat &gt; /srv/tftpboot/boot/config/aa:bb:cc:dd:ee:ff/grub.cfg &lt;&lt; 'EOF'</command>
+# Machine-specific configuration for aa:bb:cc:dd:ee:ff
+set default="SLES-16.0-Full"
+set timeout=5
+set ipcfg="ip=eno1:dhcp"
+set autoinstall="agama.auto=http://pxe.example.net/install/profiles/aa:bb:cc:dd:ee:ff/autoinstall.jsonnet"
+export autoinstall
+
+# Load the default menu
+source "/boot/grub2/menu.cfg"
+EOF
+</screen>
+      </step>
+    </procedure>
+    <example xml:id="ex-machine-specific-parameters">
+      <title>Common machine-specific parameters</title>
+      <variablelist>
+        <varlistentry>
+          <term><varname>default</varname></term>
+          <listitem>
+            <para>
+              Specifies which menu entry to boot automatically
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>timeout</varname></term>
+          <listitem>
+            <para>
+              Sets the boot timeout in seconds
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>ipcfg</varname></term>
+          <listitem>
+            <para>
+              Overrides network interface configuration for specific hardware
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>autoinstall</varname></term>
+          <listitem>
+            <para>
+              Provides machine-specific automated installation profile URLs
+            </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
     </example>
-    <calloutlist>
-      <callout arearefs="co-default">
+  </section>
+  <section xml:id="sles-pxe-server-configure-grub2-verify">
+    <title>Verifying &grub; configuration</title>
+    <para>
+      After creating the configuration files, verify that the setup is correct and all required
+      files are in place.
+    </para>
+    <procedure xml:id="proc-verify-grub-config">
+      <title>Verification steps</title>
+      <step>
         <para>
-          Sets the default menu entry to the first (0-based index).
+          Check the &grub; directory structure:
         </para>
-      </callout>
-      <callout arearefs="co-timeout">
+<screen>&prompt.user;<command>find /srv/tftpboot/boot/grub2 -type f -name "*.cfg" -o -name "*.efi" -o -name "core.*"</command></screen>
+      </step>
+      <step>
         <para>
-          Specifies a timeout of 5 seconds before the default entry is automatically booted.
+          Verify configuration file syntax by testing with &grub; tools:
         </para>
-      </callout>
-      <callout arearefs="co-linuxefi">
+<screen>&prompt.user;<command>grub2-script-check /srv/tftpboot/boot/grub2/grub.cfg</command></screen>
+<screen>&prompt.user;<command>grub2-script-check /srv/tftpboot/boot/grub2/menu.cfg</command></screen>
+      </step>
+      <step>
         <para>
-          Loads the kernel over HTTP and specifies the install source URL for the &agama;
-          installer.
+          Ensure proper file permissions:
         </para>
-      </callout>
-      <callout arearefs="co-initrdefi">
+<screen>&prompt.sudo;<command>chmod -R 644 /srv/tftpboot/boot/grub2/*.cfg</command></screen>
+<screen>&prompt.sudo;<command>find /srv/tftpboot/boot/grub2 -type d -exec chmod 755 {} \;</command></screen>
+      </step>
+    </procedure>
+    <important>
+      <title>Configuration testing</title>
+      <para>
+        Test the &grub; configuration with actual PXE clients to ensure proper architecture
+        detection and menu functionality. The <varname>${net_default_mac}</varname> variable is
+        only available during actual network boot scenarios.
+      </para>
+    </important>
+  </section>
+  <section xml:id="sles-pxe-server-configure-grub2-troubleshooting">
+    <title>Troubleshooting &grub; configuration</title>
+    <para>
+      Common issues and their solutions when working with &grub; PXE configurations. Each problem
+      includes diagnostic steps and specific commands to resolve the issue.
+    </para>
+    <section xml:id="sles-pxe-server-grub2-troubleshoot-arch">
+      <title>Architecture detection fails</title>
+      <para>
+        When &grub; fails to detect the correct architecture, clients may boot with incorrect
+        binaries or fail to load altogether.
+      </para>
+      <procedure xml:id="proc-debug-arch-detection">
+        <title>Debugging architecture detection</title>
+        <step>
+          <para>
+            Add debug output to the &grub; configuration to see detected values:
+          </para>
+<screen>&prompt.sudo;<command>cat &gt;&gt; /srv/tftpboot/boot/grub2/grub.cfg &lt;&lt; 'EOF'</command>
+# Debug architecture detection
+echo "Detected grub_cpu: ${grub_cpu}"
+echo "Mapped arch: ${arch}"
+sleep 3
+EOF</screen>
+        </step>
+        <step>
+          <para>
+            Test the configuration syntax:
+          </para>
+<screen>&prompt.user;<command>grub2-script-check /srv/tftpboot/boot/grub2/grub.cfg</command></screen>
+        </step>
+        <step>
+          <para>
+            If architecture mapping is incomplete, extend the detection logic:
+          </para>
+<screen>&prompt.sudo;<command>sed -i '/elif \[ "$grub_cpu" == "powerpc" \]/a\\nelif [ "$grub_cpu" == "riscv64" ]; then\n  set arch='\''riscv64'\''\\' /srv/tftpboot/boot/grub2/grub.cfg</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify the architecture-specific directories exist:
+          </para>
+<screen>&prompt.user;<command>ls -la /srv/tftpboot/boot/grub2/</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-grub2-troubleshoot-network">
+      <title>Network interface not found</title>
+      <para>
+        Some firmware implementations may not set the <varname>${net_default_mac}</varname>
+        variable correctly, causing network configuration failures.
+      </para>
+      <procedure xml:id="proc-debug-network-interface">
+        <title>Diagnosing network interface issues</title>
+        <step>
+          <para>
+            Add debug output to check network variables:
+          </para>
+<screen>&prompt.sudo;<command>sed -i '/set ipcfg=/i\\necho "Default MAC: ${net_default_mac}"\necho "Network variables set"\nsleep 2' /srv/tftpboot/boot/grub2/grub.cfg</command></screen>
+        </step>
+        <step>
+          <para>
+            Create a fallback network configuration:
+          </para>
+<screen>&prompt.sudo;<command>cat &gt;&gt; /srv/tftpboot/boot/grub2/grub.cfg &lt;&lt; 'EOF'</command>
+
+# Fallback network configuration if net_default_mac is empty
+if [ "X${net_default_mac}" == "X" ]; then
+  set ipcfg="ip=dhcp"
+  set ifcfg="ifcfg=*=dhcp"
+  echo "WARNING: Using fallback network configuration"
+  sleep 2
+fi
+EOF
+</screen>
+        </step>
+        <step>
+          <para>
+            Test network configuration with a specific interface:
+          </para>
+<screen>&prompt.sudo;<command>echo 'set ipcfg="ip=eno1:dhcp"' &gt; /srv/tftpboot/boot/config/test-network.cfg</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify network interface names on the target system:
+          </para>
+<screen>&prompt.user;<command>ip link show</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-grub2-troubleshoot-file-paths">
+      <title>File paths not found</title>
+      <para>
+        Incorrect file paths prevent &grub; from loading kernel and initrd files, causing boot
+        failures.
+      </para>
+      <procedure xml:id="proc-debug-file-paths">
+        <title>Verifying file path accessibility</title>
+        <step>
+          <para>
+            Check if installer files exist in expected locations:
+          </para>
+<screen>&prompt.user;<command>find /srv/tftpboot/boot/images -name "linux" -o -name "initrd" -o -name "squashfs.img"</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify TFTP access to boot files:
+          </para>
+<screen>&prompt.user;<command>tftp localhost -c get /boot/grub2/grub.cfg /tmp/test-grub.cfg</command></screen>
+        </step>
+        <step>
+          <para>
+            Test HTTP access to installer files:
+          </para>
+<screen>&prompt.user;<command>curl -I http://localhost/boot/images/SLES-16.0/x86_64/linux</command></screen>
+        </step>
+        <step>
+          <para>
+            Check file permissions and ownership:
+          </para>
+<screen>&prompt.user;<command>ls -la /srv/tftpboot/boot/images/SLES-16.0/*/</command></screen>
+        </step>
+        <step>
+          <para>
+            Fix permissions if needed:
+          </para>
+<screen>&prompt.sudo;<command>chmod -R 644 /srv/tftpboot/boot/images/</command></screen>
+<screen>&prompt.sudo;<command>find /srv/tftpboot/boot/images/ -type d -exec chmod 755 {} \;</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify symbolic links are not broken:
+          </para>
+<screen>&prompt.user;<command>find /srv/tftpboot/boot/images/ -type l -exec ls -la {} \;</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-grub2-troubleshoot-efi">
+      <title>EFI boot failures</title>
+      <para>
+        EFI and Secure Boot issues can prevent proper bootloader initialization or cause
+        authentication failures.
+      </para>
+      <procedure xml:id="proc-debug-efi-boot">
+        <title>Diagnosing EFI boot problems</title>
+        <step>
+          <para>
+            Verify Secure Boot files are present:
+          </para>
+<screen>&prompt.user;<command>ls -la /srv/tftpboot/boot/grub2/x86_64-efi/</command></screen>
+        </step>
+        <step>
+          <para>
+            Check that shim files are properly copied:
+          </para>
+<screen>&prompt.user;<command>file /srv/tftpboot/boot/grub2/x86_64-efi/shim.efi</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify EFI file integrity:
+          </para>
+<screen>&prompt.user;<command>sha256sum /srv/tftpboot/boot/grub2/x86_64-efi/*.efi</command></screen>
+        </step>
+        <step>
+          <para>
+            Test if files are accessible via TFTP:
+          </para>
+<screen>&prompt.user;<command>tftp localhost -c get /boot/grub2/x86_64-efi/shim.efi /tmp/test-shim.efi</command></screen>
+        </step>
+        <step>
+          <para>
+            For aarch64 systems, verify ARM64 EFI files:
+          </para>
+<screen>&prompt.user;<command>ls -la /srv/tftpboot/boot/grub2/arm64-efi/</command></screen>
+        </step>
+        <step>
+          <para>
+            Check DHCP configuration provides correct bootloader paths:
+          </para>
+<screen>&prompt.user;<command>grep -n "bootx64.efi\|shim.efi\|bootaa64.efi" /etc/dhcpd.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            If files are missing, recopy from the shim package:
+          </para>
+<screen>&prompt.sudo;<command>cp -pL /usr/share/efi/x86_64/* /srv/tftpboot/boot/grub2/x86_64-efi/</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-grub2-troubleshoot-menu">
+      <title>Menu entries not loading</title>
+      <para>
+        When &grub; loads but menu entries fail or display errors, the issue is often related to
+        variable expansion or file references.
+      </para>
+      <procedure xml:id="proc-debug-menu-entries">
+        <title>Debugging menu entry problems</title>
+        <step>
+          <para>
+            Test menu configuration syntax:
+          </para>
+<screen>&prompt.user;<command>grub2-script-check /srv/tftpboot/boot/grub2/menu.cfg</command></screen>
+        </step>
+        <step>
+          <para>
+            Add debug output to menu entries:
+          </para>
+<screen>&prompt.sudo;<command>sed -i '/linux_kernel.*{images}/i\\necho "Loading: ${images}/SLES-16.0/${arch}/linux"\necho "Architecture: ${arch}"' /srv/tftpboot/boot/grub2/menu.cfg</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify variable expansion works correctly:
+          </para>
+<screen>&prompt.sudo;<command>cat &gt; /srv/tftpboot/boot/grub2/debug-menu.cfg &lt;&lt; 'EOF'</command>
+menuentry 'Debug Variables' {
+  echo "arch = ${arch}"
+  echo "images = ${images}"
+  echo "ipcfg = ${ipcfg}"
+  sleep 5
+}
+EOF
+</screen>
+        </step>
+        <step>
+          <para>
+            Test with a simplified menu entry:
+          </para>
+<screen>&prompt.sudo;<command>cat &gt; /srv/tftpboot/boot/grub2/simple-menu.cfg &lt;&lt; 'EOF'</command>
+menuentry 'Simple Test' {
+  linux /boot/images/SLES-16.0/x86_64/linux
+  initrd /boot/images/SLES-16.0/x86_64/initrd
+}
+EOF
+</screen>
+        </step>
+        <step>
+          <para>
+            Load the test menu temporarily:
+          </para>
+<screen>&prompt.sudo;<command>sed -i 's|source "${prefix}/menu.cfg"|source "${prefix}/simple-menu.cfg"|' /srv/tftpboot/boot/grub2/grub.cfg</command></screen>
+        </step>
+        <step>
+          <para>
+            Restore the original menu after testing:
+          </para>
+<screen>&prompt.sudo;<command>sed -i 's|source "${prefix}/simple-menu.cfg"|source "${prefix}/menu.cfg"|' /srv/tftpboot/boot/grub2/grub.cfg</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-grub2-troubleshoot-logging">
+      <title>Enabling detailed logging</title>
+      <para>
+        For persistent issues, enable comprehensive logging to capture detailed information about
+        the boot process.
+      </para>
+      <procedure xml:id="proc-enable-grub-logging">
+        <title>Setting up &grub; debug logging</title>
+        <step>
+          <para>
+            Create a debug version of the main configuration:
+          </para>
+<screen>&prompt.sudo;<command>cp /srv/tftpboot/boot/grub2/grub.cfg /srv/tftpboot/boot/grub2/grub.cfg.backup</command></screen>
+        </step>
+        <step>
+          <para>
+            Add comprehensive debug output:
+          </para>
+<screen>&prompt.sudo;<command>cat &gt; /srv/tftpboot/boot/grub2/debug.cfg &lt;&lt; 'EOF'</command>
+# Debug configuration for GRUB troubleshooting
+set debug=all
+set pager=1
+
+echo "=== GRUB Debug Information ==="
+echo "grub_cpu: ${grub_cpu}"
+echo "grub_platform: ${grub_platform}"
+echo "net_default_mac: ${net_default_mac}"
+echo "net_default_server: ${net_default_server}"
+echo "============================="
+sleep 5
+EOF
+</screen>
+        </step>
+        <step>
+          <para>
+            Include debug configuration in main file:
+          </para>
+<screen>&prompt.sudo;<command>sed -i '1i\source "${prefix}/debug.cfg"' /srv/tftpboot/boot/grub2/grub.cfg</command></screen>
+        </step>
+        <step>
+          <para>
+            Monitor TFTP logs during boot attempts:
+          </para>
+<screen>&prompt.user;<command>sudo journalctl -f -u tftp.socket</command></screen>
+        </step>
+        <step>
+          <para>
+            Monitor DHCP logs for PXE requests:
+          </para>
+<screen>&prompt.user;<command>sudo journalctl -f -u dhcpd</command></screen>
+        </step>
+        <step>
+          <para>
+            Disable debug mode after troubleshooting:
+          </para>
+<screen>&prompt.sudo;<command>sed -i '/source "${prefix}\/debug.cfg"/d' /srv/tftpboot/boot/grub2/grub.cfg</command></screen>
+        </step>
+      </procedure>
+    </section>
+  </section>
+  <section xml:id="sles-pxe-server-configure-grub2-next-steps">
+    <title>Next steps</title>
+    <para>
+      With &grub; properly configured, you can proceed to:
+    </para>
+    <itemizedlist>
+      <listitem>
         <para>
-          Loads the corresponding initrd image from the HTTP server.
+          Configure HTTP and TFTP services to serve the boot files and installer content
         </para>
-      </callout>
-    </calloutlist>
+      </listitem>
+      <listitem>
+        <para>
+          Set up DHCP services to direct PXE clients to the appropriate bootloaders
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Test the complete PXE boot process with target hardware
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      The flexible &grub; configuration system provides a foundation for sophisticated PXE
+      deployment scenarios, supporting multiple architectures and installation types through a
+      unified interface.
+    </para>
   </section>
 </topic>
