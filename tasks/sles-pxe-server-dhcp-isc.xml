@@ -1,0 +1,544 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refer to README.md for file and id naming conventions -->
+<topic xml:id="sles-pxe-server-dhcp-isc"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring DHCP server using ISC DHCP</title>
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        This section explains how to configure DHCP services using ISC DHCP to provide network
+        configuration and PXE boot information for &productname; &productnumber; installations. ISC
+        DHCP uses class and subclass matching to support PXE and HTTP boot scenarios across
+        different client architectures.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="sles-pxe-server-dhcp-isc-intro">
+    <title>Introduction</title>
+    <para>
+      ISC DHCP is the traditional DHCP server that provides network configuration and boot file
+      information to PXE clients using a class and subclass system. While ISC has declared this
+      server end-of-life as of 2022, it remains widely used in existing deployments and provides
+      robust support for PXE and HTTP boot scenarios with vendor class identification.
+    </para>
+    <important>
+      <title>ISC DHCP end-of-life status</title>
+      <para>
+        ISC DHCP has been declared end-of-life by ISC in 2022. For new deployments, consider using
+        Kea or dnsmasq instead. This configuration is provided for compatibility with existing ISC
+        DHCP installations.
+      </para>
+    </important>
+  </section>
+  <section xml:id="sles-pxe-server-dhcp-isc-reqs">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          ISC DHCP packages installed: <package>dhcp-server</package>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          PXE boot files properly organized under <filename>/srv/tftpboot</filename>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Network interface configured for DHCP service
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Administrative privileges to configure DHCP services
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="sles-pxe-server-dhcp-isc-dhcpv4">
+    <title>Configuring ISC DHCPv4 server</title>
+    <para>
+      The ISC DHCPv4 configuration uses class and subclass declarations to match PXE and HTTP
+      client types and provide appropriate boot files for different architectures.
+    </para>
+    <procedure xml:id="proc-configure-isc-dhcpv4">
+      <title>Setting up ISC DHCPv4 server</title>
+      <step>
+        <para>
+          Configure the ISC DHCPv4 server:
+        </para>
+<screen>&prompt.sudo;<command>cat &gt; /etc/dhcpd.conf &lt;&lt; 'EOF'</command>
+# /etc/dhcpd.conf
+#
+# Sample configuration file for ISC dhcpd
+#
+# *** PLEASE CONFIGURE IT FIRST ***
+#
+# Don't forget to set the DHCPD_INTERFACE in the
+# /etc/sysconfig/dhcpd file.
+#
+
+# if you want to use dynamical DNS updates, you should first read
+# read /usr/share/doc/packages/dhcp-server/DDNS-howto.txt
+#
+ddns-updates off;
+
+# Use this to enable / disable dynamic dns updates globally.
+ddns-update-style none;
+
+# default lease time
+default-lease-time              3600;
+max-lease-time                  7200;
+
+##
+## PXE / HTTP boot option declarations
+##
+class "pxeclients" {
+        # PXEClient:Arch:00000:UNDI:002001
+        match substring (option vendor-class-identifier, 0, 20);
+}
+class "httpclients" {
+        # HTTPClient:Arch:00016:UNDI:003001
+        match substring (option vendor-class-identifier, 0, 21);
+}
+
+##
+## PXE / HTTP boot subclass request matches
+##
+subclass "pxeclients"   "PXEClient:Arch:00000" {
+        next-server     192.168.1.200;
+        filename        "/boot/grub2/i386-pc/core.0";
+}
+subclass "pxeclients"   "PXEClient:Arch:00007" {
+        next-server     192.168.1.200;
+        filename        "/boot/grub2/x86_64-efi/bootx64.efi";
+}
+subclass "pxeclients"   "PXEClient:Arch:0000e" {
+        next-server     192.168.1.200;
+        filename        "/boot/grub2/powerpc-ieee1275/core.elf";
+}
+subclass "pxeclients"   "PXEClient:Arch:00011" {
+        next-server     192.168.1.200;
+        filename        "/boot/grub2/arm64-efi/bootaa64.efi";
+}
+
+subclass "httpclients"  "HTTPClient:Arch:00016" {
+        option vendor-class-identifier "HTTPClient";
+        filename        "http://192.168.1.200/boot/grub2/x86_64-efi/bootx64.efi";
+}
+subclass "httpclients"  "HTTPClient:Arch:00019" {
+        option vendor-class-identifier "HTTPClient";
+        filename        "http://192.168.1.200/boot/grub2/arm64-efi/bootaa64.efi";
+}
+
+##
+## Subnet declaration for the pxe network
+##
+subnet 192.168.1.0 netmask 255.255.255.0 {
+        authoritative;
+
+        range  dynamic-bootp            192.168.1.100 192.168.1.199;
+
+        option subnet-mask              255.255.255.0;
+
+        option routers                  192.168.1.1;
+        option ntp-servers              192.168.1.1;
+        option domain-name-servers      192.168.1.200;
+        option domain-name              "example.net";
+        option domain-search            "example.net";
+}
+EOF
+</screen>
+      </step>
+      <step>
+        <para>
+          Configure the DHCP interface in sysconfig:
+        </para>
+<screen>&prompt.sudo;<command>echo 'DHCPD_INTERFACE="eno1"' &gt; /etc/sysconfig/dhcpd</command></screen>
+      </step>
+      <step>
+        <para>
+          Test the DHCPv4 configuration:
+        </para>
+<screen>&prompt.sudo;<command>dhcpd -t -cf /etc/dhcpd.conf</command></screen>
+      </step>
+      <step>
+        <para>
+          Enable and start the ISC DHCPv4 service:
+        </para>
+<screen>&prompt.sudo;<command>systemctl enable --now dhcpd</command></screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sles-pxe-server-dhcp-isc-dhcpv6">
+    <title>Configuring ISC DHCPv6 server</title>
+    <para>
+      The ISC DHCPv6 configuration provides IPv6 address assignment and boot file information using
+      vendor class matching with proper DHCPv6 option handling.
+    </para>
+    <procedure xml:id="proc-configure-isc-dhcpv6">
+      <title>Setting up ISC DHCPv6 server</title>
+      <step>
+        <para>
+          Configure the ISC DHCPv6 server:
+        </para>
+<screen>&prompt.sudo;<command>cat &gt; /etc/dhcpd6.conf &lt;&lt; 'EOF'</command>
+# /etc/dhcpd6.conf
+#
+# Sample DHCPv6 configuration file for ISC dhcpd
+#
+# *** PLEASE CONFIGURE IT FIRST ***
+#
+# Don't forget to set the DHCPD6_INTERFACE in the
+# /etc/sysconfig/dhcpd file.
+#
+
+# if you want to use dynamical DNS updates, you should first
+# read /usr/share/doc/packages/dhcp-server/DDNS-howto.txt
+ddns-updates off;
+
+# Use this to enable / disable dynamic dns updates globally.
+ddns-update-style none;
+
+# IPv6 address valid lifetime
+#  (at the end the address is no longer usable by the client)
+#  (set to 30 days, the usual IPv6 default)
+default-lease-time 7200;
+
+# IPv6 address preferred lifetime
+#  (at the end the address is deprecated, i.e., the client should use
+#   other addresses for new connections)
+#  (set to 7 days, the	usual IPv6 default)
+preferred-lifetime 3600;
+
+##
+## PXE / HTTP boot option declarations
+##
+
+# The dhcp6 option 16 is in fact an:
+#   { uint32 enterprise-number, array of { uint16 len, string tag} vendor-class-data }
+# this declaration is using the whole option data as string for substring match:
+option dhcp6.vendor-class-as-string code 16 = string;
+
+# this declaration is using the enterprise-number with 1st tag length and string:
+option dhcp6.vendor-class-en-len-tag code 16 = {integer 32, integer 16, string};
+
+class "pxeclients" {
+        # PXEClient:Arch:00000:UNDI:002001
+        # note: +6 to skip the enterprise-number+len until the PXEClient string
+        match substring (option dhcp6.vendor-class-as-string, 6, 20);
+}
+class "httpclients" {
+        # HTTPClient:Arch:00016:UNDI:003001
+        # note: +6 to skip the enterprise-number+len until the HTTPClient string
+        match substring (option dhcp6.vendor-class-as-string, 6, 21);
+}
+
+##
+## PXE / HTTP boot subclass request matches
+##
+subclass "pxeclients"   "PXEClient:Arch:00000" {
+        option dhcp6.bootfile-url "tftp://[2001:db8:0:1::200]/boot/grub2/i386-pc/core.0";
+}
+subclass "pxeclients"   "PXEClient:Arch:00007" {
+        option dhcp6.bootfile-url "tftp://[2001:db8:0:1::200]/boot/grub2/x86_64-efi/bootx64.efi";
+}
+subclass "pxeclients"   "PXEClient:Arch:0000e" {
+        option dhcp6.bootfile-url "tftp://[2001:db8:0:1::200]/boot/grub2/powerpc-ieee1275/core.elf";
+}
+subclass "pxeclients"   "PXEClient:Arch:00011" {
+        option dhcp6.bootfile-url "tftp://[2001:db8:0:1::200]/boot/grub2/arm64-efi/bootaa64.efi";
+}
+
+subclass "httpclients"  "HTTPClient:Arch:00016" {
+        option dhcp6.vendor-class-en-len-tag 343 10 "HTTPClient";
+        option dhcp6.bootfile-url "http://[2001:db8:0:1::200]/boot/grub2/x86_64-efi/bootx64.efi";
+}
+subclass "httpclients"  "HTTPClient:Arch:00019" {
+        option dhcp6.vendor-class-en-len-tag 343 10 "HTTPClient";
+        option dhcp6.bootfile-url "http://[2001:db8:0:1::200]/boot/grub2/arm64-efi/bootaa64.efi";
+}
+
+##
+## Subnet declaration for the pxe network
+##
+subnet6 2001:db8:0:1::/64 {
+       authoritative;
+
+       range6  2001:db8:0:1:d:: 2001:db8:0:1:d::ffff;
+
+       option dhcp6.sntp-servers       2001:db8:0:1::1;
+       option dhcp6.name-servers       2001:db8:0:1::200;
+       option dhcp6.domain-search      "example.net";
+}
+EOF
+</screen>
+      </step>
+      <step>
+        <para>
+          Configure the DHCPv6 interface in sysconfig:
+        </para>
+<screen>&prompt.sudo;<command>echo 'DHCPD6_INTERFACE="eno1"' &gt;&gt; /etc/sysconfig/dhcpd</command></screen>
+      </step>
+      <step>
+        <para>
+          Test the DHCPv6 configuration:
+        </para>
+<screen>&prompt.sudo;<command>dhcpd -6 -t -cf /etc/dhcpd6.conf</command></screen>
+      </step>
+      <step>
+        <para>
+          Enable and start the ISC DHCPv6 service:
+        </para>
+<screen>&prompt.sudo;<command>systemctl enable --now dhcpd6</command></screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sles-pxe-server-dhcp-isc-verify">
+    <title>Verifying ISC DHCP configuration</title>
+    <para>
+      Test the ISC DHCP server functionality to ensure proper network configuration and boot file
+      delivery to PXE clients.
+    </para>
+    <procedure xml:id="proc-verify-dhcp-isc">
+      <title>Testing ISC DHCP servers</title>
+      <step>
+        <para>
+          Check ISC DHCPv4 service status:
+        </para>
+<screen>&prompt.user;<command>systemctl status dhcpd</command></screen>
+      </step>
+      <step>
+        <para>
+          Check ISC DHCPv6 service status:
+        </para>
+<screen>&prompt.user;<command>systemctl status dhcpd6</command></screen>
+      </step>
+      <step>
+        <para>
+          Verify DHCP port binding:
+        </para>
+<screen>&prompt.user;<command>ss -ulnp | grep -E ":67|:547"</command></screen>
+      </step>
+      <step>
+        <para>
+          Monitor DHCP logs:
+        </para>
+<screen>&prompt.user;<command>journalctl -u dhcpd -f</command></screen>
+      </step>
+      <step>
+        <para>
+          Check active DHCP leases:
+        </para>
+<screen>&prompt.user;<command>cat /var/lib/dhcp/dhcpd.leases</command></screen>
+      </step>
+      <step>
+        <para>
+          Monitor DHCPv6 activity:
+        </para>
+<screen>&prompt.user;<command>journalctl -u dhcpd6 -f</command></screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sles-pxe-server-dhcp-isc-troubleshooting">
+    <title>Troubleshooting ISC DHCP configuration</title>
+    <para>
+      Common issues when configuring ISC DHCP servers for PXE boot environments.
+    </para>
+    <section xml:id="sles-pxe-server-dhcp-isc-troubleshoot-config">
+      <title>Configuration and service issues</title>
+      <para>
+        ISC DHCP services may fail to start due to configuration syntax errors or interface binding
+        problems.
+      </para>
+      <procedure xml:id="proc-debug-isc-config">
+        <title>Resolving ISC DHCP configuration problems</title>
+        <step>
+          <para>
+            Test DHCPv4 configuration syntax:
+          </para>
+<screen>&prompt.sudo;<command>dhcpd -t -cf /etc/dhcpd.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Test DHCPv6 configuration syntax:
+          </para>
+<screen>&prompt.sudo;<command>dhcpd -6 -t -cf /etc/dhcpd6.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Check interface configuration:
+          </para>
+<screen>&prompt.user;<command>cat /etc/sysconfig/dhcpd</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify network interface status:
+          </para>
+<screen>&prompt.user;<command>ip addr show eno1</command></screen>
+        </step>
+        <step>
+          <para>
+            Check for port conflicts:
+          </para>
+<screen>&prompt.user;<command>ss -ulnp | grep :67</command></screen>
+        </step>
+        <step>
+          <para>
+            View detailed service logs:
+          </para>
+<screen>&prompt.user;<command>journalctl -u dhcpd -xe</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-dhcp-isc-troubleshoot-leases">
+      <title>DHCP lease assignment problems</title>
+      <para>
+        Clients may fail to receive IP addresses due to subnet configuration or authorization
+        issues.
+      </para>
+      <procedure xml:id="proc-debug-isc-leases">
+        <title>Diagnosing ISC DHCP lease issues</title>
+        <step>
+          <para>
+            Check subnet and range configuration:
+          </para>
+<screen>&prompt.user;<command>grep -A 10 "subnet\|range" /etc/dhcpd.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify authoritative setting:
+          </para>
+<screen>&prompt.user;<command>grep authoritative /etc/dhcpd.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Monitor lease assignments in real-time:
+          </para>
+<screen>&prompt.user;<command>tail -f /var/log/messages | grep dhcpd</command></screen>
+        </step>
+        <step>
+          <para>
+            Check lease database for errors:
+          </para>
+<screen>&prompt.user;<command>tail -20 /var/lib/dhcp/dhcpd.leases</command></screen>
+        </step>
+        <step>
+          <para>
+            Test DHCP response manually:
+          </para>
+<screen>&prompt.user;<command>dhcping -s 192.168.1.200 -h aa:bb:cc:dd:ee:ff</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-dhcp-isc-troubleshoot-classes">
+      <title>Class and subclass matching issues</title>
+      <para>
+        PXE clients may receive IP addresses but fail to get correct boot files due to class
+        matching configuration problems.
+      </para>
+      <procedure xml:id="proc-debug-isc-classes">
+        <title>Troubleshooting ISC DHCP class matching</title>
+        <step>
+          <para>
+            Check class definitions:
+          </para>
+<screen>&prompt.user;<command>grep -A 3 "class.*clients" /etc/dhcpd.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify subclass entries:
+          </para>
+<screen>&prompt.user;<command>grep -A 5 "subclass" /etc/dhcpd.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Monitor vendor class identification:
+          </para>
+<screen>&prompt.user;<command>tail -f /var/log/messages | grep -E "PXEClient|HTTPClient"</command></screen>
+        </step>
+        <step>
+          <para>
+            Test boot file accessibility:
+          </para>
+<screen>&prompt.user;<command>tftp 192.168.1.200 -c get /boot/grub2/x86_64-efi/bootx64.efi</command></screen>
+        </step>
+        <step>
+          <para>
+            Enable detailed logging:
+          </para>
+<screen>&prompt.sudo;<command>sed -i '1i\log-facility local7;' /etc/dhcpd.conf</command></screen>
+<screen>&prompt.sudo;<command>systemctl restart dhcpd</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-dhcp-isc-troubleshoot-ipv6">
+      <title>DHCPv6 vendor class option issues</title>
+      <para>
+        IPv6 DHCP clients have complex vendor class option handling that may require specific
+        configuration for proper PXE boot support.
+      </para>
+      <procedure xml:id="proc-debug-isc-ipv6">
+        <title>Resolving ISC DHCPv6 problems</title>
+        <step>
+          <para>
+            Check DHCPv6 option definitions:
+          </para>
+<screen>&prompt.user;<command>grep -A 3 "option dhcp6" /etc/dhcpd6.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify vendor class string parsing:
+          </para>
+<screen>&prompt.user;<command>grep "substring.*6.*20\|21" /etc/dhcpd6.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Monitor DHCPv6 vendor class matching:
+          </para>
+<screen>&prompt.user;<command>journalctl -u dhcpd6 | grep -i vendor</command></screen>
+        </step>
+        <step>
+          <para>
+            Check IPv6 bootfile-url format:
+          </para>
+<screen>&prompt.user;<command>grep "bootfile-url" /etc/dhcpd6.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify router advertisement dependency:
+          </para>
+<screen>&prompt.user;<command>systemctl status radvd</command></screen>
+        </step>
+        <step>
+          <para>
+            Test IPv6 connectivity:
+          </para>
+<screen>&prompt.user;<command>ping6 2001:db8:0:1::200</command></screen>
+        </step>
+      </procedure>
+    </section>
+  </section>
+  <section xml:id="sles-pxe-server-dhcp-isc-next-steps">
+    <title>Next steps</title>
+    <para>
+      With ISC DHCP services configured, PXE clients can receive network configuration and boot
+      file information using the traditional class and subclass system. While ISC DHCP is
+      end-of-life, this configuration provides compatibility for existing deployments that require
+      PXE and HTTP boot functionality across multiple client architectures.
+    </para>
+  </section>
+</topic>

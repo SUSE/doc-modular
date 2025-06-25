@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refer to README.md for file and id naming conventions -->
+<topic xml:id="sles-pxe-server-configure-dns"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring DNS server using dnsmasq</title>
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        This section explains how to configure DNS services using dnsmasq to provide hostname
+        resolution for PXE clients accessing &productname; &productnumber; installation resources.
+        DNS configuration enables clients to use hostnames instead of IP addresses in boot URLs and
+        DHCP configurations.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="sles-pxe-server-configure-dns-intro">
+    <title>Introduction</title>
+    <para>
+      DNS services enable PXE clients to resolve hostnames in boot URLs and installation sources.
+      While full DNS server configuration is beyond the scope of this document, this section
+      provides a basic DNS configuration using dnsmasq that allows clients to resolve the PXE
+      server hostname (<replaceable>PXE.EXAMPLE.NET</replaceable>) to its IP addresses.
+    </para>
+    <para>
+      Without DNS configuration, boot URLs must use IP addresses directly, such as
+      <literal>http://192.168.1.200/</literal> or <literal>http://[2001:db8:0:1::200]/</literal>.
+      Some BIOS/UEFI firmware implementations do not support hostnames in DHCP TFTP URLs and
+      require IP addresses like <literal>tftp://[2001:db8:0:1::200]/</literal>.
+    </para>
+  </section>
+  <section xml:id="sles-pxe-server-configure-dns-requirements">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          The <package>dnsmasq</package> package installed
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Static IP addresses configured for the PXE server
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Administrative privileges to configure DNS services
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="sles-pxe-server-configure-dns-setup">
+    <title>Configuring dnsmasq DNS services</title>
+    <para>
+      The dnsmasq DNS configuration provides local hostname resolution and uses upstream
+      nameservers for external queries.
+    </para>
+    <procedure xml:id="proc-configure-dnsmasq-dns">
+      <title>Setting up dnsmasq DNS server</title>
+      <step>
+        <para>
+          Create the DNS configuration file for dnsmasq:
+        </para>
+<screen>&prompt.sudo;<command>cat &gt; /etc/dnsmasq.d/dns.conf &lt;&lt; 'EOF'</command>
+# DNS configuration file for dnsmasq
+
+# Log DNS queries
+log-queries
+
+# DNS cache behavior
+cache-size=10000
+local-ttl=60
+neg-ttl=10
+
+# Never forward A or AAAA queries for plain names to upstream nameservers
+domain-needed
+
+# Add local domain to simple names in /etc/hosts and DHCP
+expand-hosts
+
+# Specifies DNS domain and networks including local forward and reverse declarations
+domain=<replaceable>EXAMPLE.NET</replaceable>,192.168.1.0/24,local
+domain=<replaceable>EXAMPLE.NET</replaceable>,2001:db8:0:1::/64,local
+EOF
+</screen>
+      </step>
+      <step>
+        <para>
+          Add hostname entries to the system hosts file:
+        </para>
+<screen>&prompt.sudo;<command>cat &gt;&gt; /etc/hosts &lt;&lt; 'EOF'</command>
+192.168.1.200 <replaceable>PXE.EXAMPLE.NET</replaceable>
+2001:db8:0:1::200 <replaceable>PXE.EXAMPLE.NET</replaceable>
+EOF
+</screen>
+      </step>
+      <step>
+        <para>
+          Test the dnsmasq configuration:
+        </para>
+<screen>&prompt.sudo;<command>dnsmasq --test</command></screen>
+      </step>
+      <step>
+        <para>
+          Enable and start the dnsmasq service:
+        </para>
+<screen>&prompt.sudo;<command>systemctl enable --now dnsmasq</command></screen>
+      </step>
+    </procedure>
+    <note>
+      <title>DNS forwarding behavior</title>
+      <para>
+        By default, dnsmasq uses the nameservers in <filename>/etc/resolv.conf</filename> as
+        forwarders and provides records from <filename>/etc/hosts</filename>. This allows the PXE
+        server to resolve external hostnames while providing local resolution for PXE-related
+        services.
+      </para>
+    </note>
+  </section>
+  <section xml:id="sles-pxe-server-configure-dns-verify">
+    <title>Verifying DNS configuration</title>
+    <para>
+      Test the DNS server functionality to ensure hostname resolution works for PXE clients.
+    </para>
+    <procedure xml:id="proc-verify-dns">
+      <title>Testing DNS server functionality</title>
+      <step>
+        <para>
+          Test IPv4 hostname resolution:
+        </para>
+<screen>&prompt.user;<command>nslookup <replaceable>PXE.EXAMPLE.NET</replaceable> localhost</command></screen>
+      </step>
+      <step>
+        <para>
+          Test IPv6 hostname resolution:
+        </para>
+<screen>&prompt.user;<command>nslookup <replaceable>PXE.EXAMPLE.NET</replaceable> localhost | grep 2001:db8</command></screen>
+      </step>
+      <step>
+        <para>
+          Test reverse DNS lookup for IPv4:
+        </para>
+<screen>&prompt.user;<command>nslookup 192.168.1.200 localhost</command></screen>
+      </step>
+      <step>
+        <para>
+          Verify external DNS forwarding still works:
+        </para>
+<screen>&prompt.user;<command>nslookup google.com localhost</command></screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sles-pxe-server-configure-dns-troubleshooting">
+    <title>Troubleshooting DNS configuration</title>
+    <para>
+      Common issues when configuring dnsmasq for DNS services in PXE environments.
+    </para>
+    <section xml:id="sles-pxe-server-dns-troubleshoot-config">
+      <title>Configuration and service issues</title>
+      <para>
+        dnsmasq may fail to start due to configuration errors or port conflicts.
+      </para>
+      <procedure xml:id="proc-debug-dns-config">
+        <title>Resolving DNS configuration problems</title>
+        <step>
+          <para>
+            Test the dnsmasq configuration syntax:
+          </para>
+<screen>&prompt.sudo;<command>dnsmasq --test</command></screen>
+        </step>
+        <step>
+          <para>
+            Check dnsmasq service status:
+          </para>
+<screen>&prompt.user;<command>systemctl status dnsmasq</command></screen>
+        </step>
+        <step>
+          <para>
+            Check what is using DNS port 53:
+          </para>
+<screen>&prompt.user;<command>ss -ulnp | grep :53</command></screen>
+        </step>
+        <step>
+          <para>
+            View dnsmasq logs for errors:
+          </para>
+<screen>&prompt.user;<command>journalctl -u dnsmasq -f</command></screen>
+        </step>
+        <step>
+          <para>
+            Stop conflicting DNS services if needed:
+          </para>
+<screen>&prompt.sudo;<command>systemctl stop systemd-resolved</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-dns-troubleshoot-resolution">
+      <title>Hostname resolution failures</title>
+      <para>
+        DNS queries may fail due to incorrect configuration or missing hostname entries.
+      </para>
+      <procedure xml:id="proc-debug-dns-resolution">
+        <title>Diagnosing DNS resolution issues</title>
+        <step>
+          <para>
+            Check if hostname entries exist in hosts file:
+          </para>
+<screen>&prompt.user;<command>grep <replaceable>PXE.EXAMPLE.NET</replaceable> /etc/hosts</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify domain configuration in dnsmasq:
+          </para>
+<screen>&prompt.user;<command>grep domain= /etc/dnsmasq.d/dns.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Test DNS query with verbose output:
+          </para>
+<screen>&prompt.user;<command>dig @localhost <replaceable>PXE.EXAMPLE.NET</replaceable></command></screen>
+        </step>
+        <step>
+          <para>
+            Monitor dnsmasq query logs:
+          </para>
+<screen>&prompt.user;<command>journalctl -u dnsmasq | grep "query"</command></screen>
+        </step>
+        <step>
+          <para>
+            Restart dnsmasq to reload configuration:
+          </para>
+<screen>&prompt.sudo;<command>systemctl restart dnsmasq</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-dns-troubleshoot-forwarding">
+      <title>DNS forwarding problems</title>
+      <para>
+        External DNS queries may fail if upstream nameserver configuration is incorrect.
+      </para>
+      <procedure xml:id="proc-debug-dns-forwarding">
+        <title>Troubleshooting DNS forwarding issues</title>
+        <step>
+          <para>
+            Check upstream nameserver configuration:
+          </para>
+<screen>&prompt.user;<command>cat /etc/resolv.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Test direct query to upstream nameserver:
+          </para>
+<screen>&prompt.user;<command>nslookup google.com 8.8.8.8</command></screen>
+        </step>
+        <step>
+          <para>
+            Check dnsmasq forwarding configuration:
+          </para>
+<screen>&prompt.user;<command>grep -E "server=|no-resolv" /etc/dnsmasq.d/dns.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Add specific upstream nameserver if needed:
+          </para>
+<screen>&prompt.sudo;<command>echo "server=8.8.8.8" >> /etc/dnsmasq.d/dns.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Restart dnsmasq service:
+          </para>
+<screen>&prompt.sudo;<command>systemctl restart dnsmasq</command></screen>
+        </step>
+      </procedure>
+    </section>
+  </section>
+  <section xml:id="sles-pxe-server-configure-dns-next-steps">
+    <title>Next steps</title>
+    <para>
+      With DNS services configured, PXE clients can now resolve hostnames in boot URLs and
+      installation sources. You can proceed to configure DHCP services that reference the DNS
+      server for client configuration.
+    </para>
+  </section>
+</topic>

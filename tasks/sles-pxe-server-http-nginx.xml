@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refer to README.md for file and id naming conventions -->
+<topic xml:id="sles-pxe-server-configure-nginx"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring nginx for HTTP delivery</title>
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        This section explains how to configure nginx to serve PXE boot content over HTTP, allowing
+        clients to load installer files like kernel, initrd, and squashfs images from a central
+        location. HTTP delivery provides better performance than TFTP for large files and is
+        required for &productname; &productnumber; &agama; installations.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="sles-pxe-server-configure-nginx-intro">
+    <title>Introduction</title>
+    <para>
+      nginx serves as the HTTP server for PXE boot environments, providing access to installer
+      files through web-based delivery. The HTTP server exposes the TFTP boot directory and
+      installation repositories, enabling PXE clients to download kernel images, initrd files, and
+      the &agama; installer components over HTTP rather than the slower TFTP protocol.
+    </para>
+  </section>
+  <section xml:id="sles-pxe-server-configure-nginx-reqs">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          The <package>nginx</package> package installed
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          PXE boot files organized under <filename>/srv/tftpboot/boot</filename>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Installation repositories available under <filename>/srv/install</filename>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Administrative privileges to modify nginx configuration
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="sles-pxe-server-configure-nginx-setup">
+    <title>Configuring nginx for PXE boot</title>
+    <para>
+      The nginx configuration defines location aliases that expose the TFTP boot directory and
+      installation repositories through HTTP URLs.
+    </para>
+    <procedure xml:id="proc-configure-nginx">
+      <title>Setting up nginx HTTP server</title>
+      <step>
+        <para>
+          Edit the nginx configuration file:
+        </para>
+<screen>&prompt.sudo;<command>vim /etc/nginx/nginx.conf</command></screen>
+      </step>
+      <step>
+        <para>
+          Configure the HTTP server block in the <literal>http</literal> section:
+        </para>
+<screen>&prompt.sudo;<command>cat &gt; /etc/nginx/nginx.conf &lt;&lt; 'EOF'</command>
+http {
+
+    include             mime.types;
+    default_type        application/octet-stream;
+
+    charset             utf-8;
+    sendfile            on;
+    keepalive_timeout   65;
+
+    server {
+        listen          80  default_server;
+        listen     [::]:80  default_server;
+
+        location / {
+            root   /srv/www/htdocs/;
+            index  index.html index.htm;
+        }
+
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   /srv/www/htdocs/;
+        }
+
+        # Expose TFTP boot directory for HTTP boot
+        location /boot {
+            alias      /srv/tftpboot/boot;
+            autoindex  on;
+        }
+
+        # Expose installation repositories and profiles
+        location /install {
+            alias      /srv/install;
+            autoindex  on;
+        }
+    }
+}
+
+events {
+    worker_connections  1024;
+}
+EOF
+</screen>
+      </step>
+      <step>
+        <para>
+          Test the nginx configuration syntax:
+        </para>
+<screen>&prompt.sudo;<command>nginx -t</command></screen>
+      </step>
+      <step>
+        <para>
+          Enable and start the nginx service:
+        </para>
+<screen>&prompt.sudo;<command>systemctl enable --now nginx.service</command></screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sles-pxe-server-configure-nginx-verify">
+    <title>Verifying nginx configuration</title>
+    <para>
+      Test the HTTP server functionality to ensure it can serve PXE boot files and installation
+      content to clients.
+    </para>
+    <procedure xml:id="proc-verify-nginx">
+      <title>Testing nginx HTTP server</title>
+      <step>
+        <para>
+          Test HTTP access to boot files:
+        </para>
+<screen>&prompt.user;<command>curl -I http://localhost/boot/</command></screen>
+      </step>
+      <step>
+        <para>
+          Test access to installation directory:
+        </para>
+<screen>&prompt.user;<command>curl -I http://localhost/install/</command></screen>
+      </step>
+      <step>
+        <para>
+          Verify a specific installer file is accessible:
+        </para>
+<screen>&prompt.user;<command>curl -I http://localhost/boot/images/SLES-16.0/x86_64/liveiso/LiveOS/squashfs.img</command></screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sles-pxe-server-configure-nginx-troubleshooting">
+    <title>Troubleshooting nginx configuration</title>
+    <para>
+      Common issues when configuring nginx for PXE boot HTTP delivery.
+    </para>
+    <section xml:id="sles-pxe-server-nginx-troubleshoot-config">
+      <title>Configuration syntax errors</title>
+      <para>
+        Incorrect nginx configuration syntax prevents the service from starting or reloading
+        properly.
+      </para>
+      <procedure xml:id="proc-debug-nginx-config">
+        <title>Resolving nginx configuration issues</title>
+        <step>
+          <para>
+            Test the configuration syntax:
+          </para>
+<screen>&prompt.sudo;<command>nginx -t</command></screen>
+        </step>
+        <step>
+          <para>
+            Check nginx service status if startup fails:
+          </para>
+<screen>&prompt.user;<command>systemctl status nginx.service</command></screen>
+        </step>
+        <step>
+          <para>
+            View detailed error logs:
+          </para>
+<screen>&prompt.user;<command>journalctl -u nginx.service -f</command></screen>
+        </step>
+        <step>
+          <para>
+            Check nginx error log file:
+          </para>
+<screen>&prompt.user;<command>tail -f /var/log/nginx/error.log</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-nginx-troubleshoot-permissions">
+      <title>File access and permission issues</title>
+      <para>
+        nginx may fail to serve files due to incorrect permissions or missing directories.
+      </para>
+      <procedure xml:id="proc-debug-nginx-permissions">
+        <title>Resolving file access problems</title>
+        <step>
+          <para>
+            Check if the boot directory exists and is accessible:
+          </para>
+<screen>&prompt.user;<command>ls -la /srv/tftpboot/boot/</command></screen>
+        </step>
+        <step>
+          <para>
+            Check if the install directory exists:
+          </para>
+<screen>&prompt.user;<command>ls -la /srv/install/</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify nginx can read the directories:
+          </para>
+<screen>&prompt.user;<command>sudo -u nginx ls /srv/tftpboot/boot/</command></screen>
+        </step>
+        <step>
+          <para>
+            Create missing directories if needed:
+          </para>
+<screen>&prompt.sudo;<command>mkdir -p /srv/install</command></screen>
+        </step>
+        <step>
+          <para>
+            Set appropriate permissions:
+          </para>
+<screen>&prompt.sudo;<command>chmod -R 755 /srv/tftpboot/boot /srv/install</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-nginx-troubleshoot-port">
+      <title>Port binding conflicts</title>
+      <para>
+        nginx may fail to start if another service is using port 80.
+      </para>
+      <procedure xml:id="proc-debug-nginx-port">
+        <title>Resolving port conflicts</title>
+        <step>
+          <para>
+            Check what is using port 80:
+          </para>
+<screen>&prompt.user;<command>ss -tlnp | grep :80</command></screen>
+        </step>
+        <step>
+          <para>
+            Stop conflicting services if needed:
+          </para>
+<screen>&prompt.sudo;<command>systemctl stop apache2</command></screen>
+        </step>
+        <step>
+          <para>
+            Start nginx service:
+          </para>
+<screen>&prompt.sudo;<command>systemctl start nginx.service</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify nginx is listening on port 80:
+          </para>
+<screen>&prompt.user;<command>ss -tlnp | grep :80</command></screen>
+        </step>
+      </procedure>
+    </section>
+  </section>
+  <section xml:id="sles-pxe-server-configure-nginx-next-steps">
+    <title>Next steps</title>
+    <para>
+      With nginx configured for HTTP delivery, you can proceed to configure DHCP services for
+      directing PXE clients to the appropriate bootloaders and HTTP resources.
+    </para>
+  </section>
+</topic>

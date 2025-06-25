@@ -1,0 +1,424 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refer to README.md for file and id naming conventions -->
+<topic xml:id="sles-pxe-server-dhcp-dnsmasq"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring DHCP server using dnsmasq</title>
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        This section explains how to configure DHCP services using dnsmasq to provide
+        network configuration and PXE boot information for &productname; &productnumber;
+        installations. The dnsmasq DHCP server uses tag-based configuration to support
+        both IPv4 and IPv6 PXE clients with UEFI and BIOS boot capabilities.
+      </para>
+    </abstract>
+  </info>
+
+  <section xml:id="sles-pxe-server-dhcp-dnsmasq-intro">
+    <title>Introduction</title>
+    <para>
+      The dnsmasq DHCP server provides network configuration and boot file information
+      to PXE clients using a tag-based system to match client types and provide
+      appropriate bootloaders. This configuration supports both PXEClient and HTTPClient
+      matches that work for DHCPv4 and DHCPv6, enabling boot via UEFI and BIOS systems
+      across multiple architectures.
+    </para>
+    <important>
+      <title>HTTPClient limitations in dnsmasq</title>
+      <para>
+        dnsmasq version 2.90 and earlier does not support sending the vendor-class
+        option6:16 back to DHCPv6 clients for HTTPClient configurations. For full
+        HTTPClient support, consider using &kea; or ISC DHCP servers.
+      </para>
+    </important>
+  </section>
+
+  <section xml:id="sles-pxe-server-dhcp-dnsmasq-reqs">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          The <package>dnsmasq</package> package installed
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          PXE boot files properly organized under <filename>/srv/tftpboot</filename>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Network interface configured for DHCP service
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Administrative privileges to configure DHCP services
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+
+  <section xml:id="sles-pxe-server-dhcp-dnsmasq-setup">
+    <title>Configuring dnsmasq DHCP services</title>
+    <para>
+      The dnsmasq DHCP configuration includes client type matching, network ranges,
+      and boot file assignments for both IPv4 and IPv6 networks.
+    </para>
+
+    <procedure xml:id="proc-configure-dnsmasq-dhcp">
+      <title>Setting up dnsmasq DHCP server</title>
+      <step>
+        <para>
+          Create the DHCP configuration file for dnsmasq:
+        </para>
+<screen>&prompt.sudo;<command>cat &gt; /etc/dnsmasq.d/dhcp.conf &lt;&lt; 'EOF'</command>
+# DHCP configuration file for dnsmasq
+
+# Log DHCP processing
+log-dhcp
+
+# This is the only DHCP server, don't ignore unknown clients/send NAK
+dhcp-authoritative
+
+# Disable re-use of the DHCPv4 servername and filename fields as extra
+# option space, which may confuse old or broken clients
+dhcp-no-override
+
+# IPv4 PXE/HTTP boot client matches (no enterprise number)
+# Match client type in PXEClient:Arch and map to a tag
+dhcp-vendorclass=set:tftp_bios_x86_pc,PXEClient:Arch:00000
+dhcp-vendorclass=set:tftp_uefi_x86_64,PXEClient:Arch:00007
+dhcp-vendorclass=set:tftp_ieee_ppc_64,PXEClient:Arch:0000e
+dhcp-vendorclass=set:tftp_uefi_arm_64,PXEClient:Arch:00011
+# Match client type in HTTPClient:Arch and map to a tag
+dhcp-vendorclass=set:http_uefi_x86_64,HTTPClient:Arch:00016
+dhcp-vendorclass=set:http_uefi_arm_64,HTTPClient:Arch:00019
+
+# IPv6 PXE/HTTP boot client matches (enterprise:343 intel)
+# Match client type in PXEClient:Arch and map to a tag
+dhcp-vendorclass=set:tftp_bios_x86_pc,enterprise:343,PXEClient:Arch:00000
+dhcp-vendorclass=set:tftp_uefi_x86_64,enterprise:343,PXEClient:Arch:00007
+dhcp-vendorclass=set:tftp_ieee_ppc_64,enterprise:343,PXEClient:Arch:0000e
+dhcp-vendorclass=set:tftp_uefi_arm_64,enterprise:343,PXEClient:Arch:00011
+# Match client type in HTTPClient:Arch and map to a tag
+dhcp-vendorclass=set:http_uefi_x86_64,enterprise:343,HTTPClient:Arch:00016
+dhcp-vendorclass=set:http_uefi_arm_64,enterprise:343,HTTPClient:Arch:00019
+EOF
+</screen>
+      </step>
+      <step>
+        <para>
+          Configure IPv4 DHCP range and options:
+        </para>
+<screen>&prompt.sudo;<command>cat &gt;&gt; /etc/dnsmasq.d/dhcp.conf &lt;&lt; 'EOF'</command>
+
+# IPv4 range and options
+dhcp-range=set:net0v4,192.168.1.100,192.168.1.199,255.255.255.0,1h
+dhcp-option=tag:net0v4,option:domain-search,example.net
+dhcp-option=tag:net0v4,option:dns-server,192.168.1.200
+dhcp-option=tag:net0v4,option:ntp-server,192.168.1.1
+dhcp-option=tag:net0v4,option:router,192.168.1.1
+EOF
+</screen>
+      </step>
+      <step>
+        <para>
+          Configure IPv4 PXE boot options:
+        </para>
+<screen>&prompt.sudo;<command>cat &gt;&gt; /etc/dnsmasq.d/dhcp.conf &lt;&lt; 'EOF'</command>
+
+# IPv4 PXEClient boot
+dhcp-boot=tag:net0v4,tag:tftp_bios_x86_pc,/boot/grub2/i386-pc/core.0,192.168.1.200
+dhcp-boot=tag:net0v4,tag:tftp_uefi_x86_64,/boot/grub2/x86_64-efi/bootx64.efi,192.168.1.200
+dhcp-boot=tag:net0v4,tag:tftp_ieee_ppc_64,/boot/grub2/powerpc-ieee1275/core.elf,192.168.1.200
+dhcp-boot=tag:net0v4,tag:tftp_uefi_arm_64,/boot/grub2/arm64-efi/bootaa64.efi,192.168.1.200
+
+# IPv4 HTTPClient boot
+dhcp-option-force=tag:net0v4,tag:http_uefi_x86_64,option:vendor-class,HTTPClient
+dhcp-boot=tag:net0v4,tag:http_uefi_x86_64,http://192.168.1.200/boot/grub2/x86_64-efi/bootx64.efi
+dhcp-option-force=tag:net0v4,tag:http_uefi_arm_64,option:vendor-class,HTTPClient
+dhcp-boot=tag:net0v4,tag:http_uefi_arm_64,http://192.168.1.200/boot/grub2/arm64-efi/bootaa64.efi
+EOF
+</screen>
+      </step>
+      <step>
+        <para>
+          Configure IPv6 DHCP range and options:
+        </para>
+<screen>&prompt.sudo;<command>cat &gt;&gt; /etc/dnsmasq.d/dhcp.conf &lt;&lt; 'EOF'</command>
+
+# IPv6 range and options
+dhcp-range=set:net0v6,2001:db8:0:1:d::,2001:db8:0:1:d::ffff,64,1h
+dhcp-option=tag:net0v6,option6:domain-search,example.net
+dhcp-option=tag:net0v6,option6:dns-server,[2001:db8:0:1::200]
+dhcp-option=tag:net0v6,option6:sntp-server,[2001:db8:0:1::1]
+EOF
+</screen>
+      </step>
+      <step>
+        <para>
+          Configure IPv6 PXE boot options:
+        </para>
+<screen>&prompt.sudo;<command>cat &gt;&gt; /etc/dnsmasq.d/dhcp.conf &lt;&lt; 'EOF'</command>
+
+# IPv6 PXEClient boot
+dhcp-option=tag:net0v6,tag:tftp_bios_x86_pc,option6:bootfile-url,tftp://[2001:db8:0:1::200]/boot/grub2/i386-pc/core.0
+dhcp-option=tag:net0v6,tag:tftp_uefi_x86_64,option6:bootfile-url,tftp://[2001:db8:0:1::200]/boot/grub2/x86_64-efi/bootx64.efi
+dhcp-option=tag:net0v6,tag:tftp_ieee_ppc_64,option6:bootfile-url,tftp://[2001:db8:0:1::200]/boot/grub2/powerpc-ieee1275/core.elf
+dhcp-option=tag:net0v6,tag:tftp_uefi_arm_64,option6:bootfile-url,tftp://[2001:db8:0:1::200]/boot/grub2/arm64-efi/bootaa64.efi
+
+# IPv6 HTTPClient boot
+# Note: dnsmasq &lt;= 2.90 does not support sending vendor-class option6:16 back to client
+EOF
+</screen>
+      </step>
+      <step>
+        <para>
+          Test the dnsmasq configuration:
+        </para>
+<screen>&prompt.sudo;<command>dnsmasq --test</command></screen>
+      </step>
+      <step>
+        <para>
+          Enable and start the dnsmasq service:
+        </para>
+<screen>&prompt.sudo;<command>systemctl enable --now dnsmasq</command></screen>
+      </step>
+    </procedure>
+  </section>
+
+  <section xml:id="sles-pxe-server-dhcp-dnsmasq-verify">
+    <title>Verifying DHCP configuration</title>
+    <para>
+      Test the DHCP server functionality to ensure proper network configuration
+      and boot file delivery to PXE clients.
+    </para>
+
+    <procedure xml:id="proc-verify-dhcp-dnsmasq">
+      <title>Testing dnsmasq DHCP server</title>
+      <step>
+        <para>
+          Check dnsmasq service status:
+        </para>
+<screen>&prompt.user;<command>systemctl status dnsmasq</command></screen>
+      </step>
+      <step>
+        <para>
+          Verify DHCP port binding:
+        </para>
+<screen>&prompt.user;<command>ss -ulnp | grep :67</command></screen>
+      </step>
+      <step>
+        <para>
+          Monitor DHCP lease assignments:
+        </para>
+<screen>&prompt.user;<command>journalctl -u dnsmasq -f</command></screen>
+      </step>
+      <step>
+        <para>
+          Check active DHCP leases:
+        </para>
+<screen>&prompt.user;<command>cat /var/lib/dhcp/dhcpd.leases</command></screen>
+      </step>
+    </procedure>
+  </section>
+
+  <section xml:id="sles-pxe-server-dhcp-dnsmasq-troubleshooting">
+    <title>Troubleshooting dnsmasq DHCP configuration</title>
+    <para>
+      Common issues when configuring dnsmasq for DHCP services in PXE environments.
+    </para>
+
+    <section xml:id="sles-pxe-server-dhcp-dnsmasq-troubleshoot-service">
+      <title>Service startup and configuration issues</title>
+      <para>
+        dnsmasq may fail to start due to configuration errors or port conflicts
+        with other DHCP services.
+      </para>
+
+      <procedure xml:id="proc-debug-dnsmasq-dhcp-service">
+        <title>Resolving dnsmasq DHCP service problems</title>
+        <step>
+          <para>
+            Test dnsmasq configuration syntax:
+          </para>
+<screen>&prompt.sudo;<command>dnsmasq --test</command></screen>
+        </step>
+        <step>
+          <para>
+            Check for DHCP port conflicts:
+          </para>
+<screen>&prompt.user;<command>ss -ulnp | grep :67</command></screen>
+        </step>
+        <step>
+          <para>
+            Stop conflicting DHCP services:
+          </para>
+<screen>&prompt.sudo;<command>systemctl stop dhcpd</command></screen>
+        </step>
+        <step>
+          <para>
+            View detailed service logs:
+          </para>
+<screen>&prompt.user;<command>journalctl -u dnsmasq -f</command></screen>
+        </step>
+        <step>
+          <para>
+            Restart dnsmasq after resolving conflicts:
+          </para>
+<screen>&prompt.sudo;<command>systemctl restart dnsmasq</command></screen>
+        </step>
+      </procedure>
+    </section>
+
+    <section xml:id="sles-pxe-server-dhcp-dnsmasq-troubleshoot-leases">
+      <title>DHCP lease assignment problems</title>
+      <para>
+        Clients may fail to receive IP addresses due to range configuration
+        or network connectivity issues.
+      </para>
+
+      <procedure xml:id="proc-debug-dhcp-leases">
+        <title>Diagnosing DHCP lease issues</title>
+        <step>
+          <para>
+            Check DHCP range configuration:
+          </para>
+<screen>&prompt.user;<command>grep dhcp-range /etc/dnsmasq.d/dhcp.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Monitor DHCP requests in real-time:
+          </para>
+<screen>&prompt.user;<command>journalctl -u dnsmasq -f | grep DHCP</command></screen>
+        </step>
+        <step>
+          <para>
+            Check network interface status:
+          </para>
+<screen>&prompt.user;<command>ip addr show</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify DHCP authoritative setting:
+          </para>
+<screen>&prompt.user;<command>grep dhcp-authoritative /etc/dnsmasq.d/dhcp.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Test DHCP response with dhcping:
+          </para>
+<screen>&prompt.user;<command>dhcping -s 192.168.1.200</command></screen>
+        </step>
+      </procedure>
+    </section>
+
+    <section xml:id="sles-pxe-server-dhcp-dnsmasq-troubleshoot-pxe">
+      <title>PXE boot file delivery issues</title>
+      <para>
+        PXE clients may receive IP addresses but fail to boot due to incorrect
+        boot file configuration or client type matching problems.
+      </para>
+
+      <procedure xml:id="proc-debug-pxe-boot">
+        <title>Troubleshooting PXE boot configuration</title>
+        <step>
+          <para>
+            Check client vendor class matching:
+          </para>
+<screen>&prompt.user;<command>grep dhcp-vendorclass /etc/dnsmasq.d/dhcp.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify boot file paths:
+          </para>
+<screen>&prompt.user;<command>grep dhcp-boot /etc/dnsmasq.d/dhcp.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Test TFTP access to boot files:
+          </para>
+<screen>&prompt.user;<command>tftp 192.168.1.200 -c get /boot/grub2/x86_64-efi/bootx64.efi</command></screen>
+        </step>
+        <step>
+          <para>
+            Monitor PXE-specific DHCP logs:
+          </para>
+<screen>&prompt.user;<command>journalctl -u dnsmasq | grep -E "PXE|HTTP"</command></screen>
+        </step>
+        <step>
+          <para>
+            Check tag assignment in logs:
+          </para>
+<screen>&prompt.user;<command>journalctl -u dnsmasq | grep "tags:"</command></screen>
+        </step>
+      </procedure>
+    </section>
+
+    <section xml:id="sles-pxe-server-dhcp-dnsmasq-troubleshoot-ipv6">
+      <title>IPv6 DHCP configuration issues</title>
+      <para>
+        IPv6 DHCP clients require proper router advertisement configuration
+        and may have different addressing requirements than IPv4.
+      </para>
+
+      <procedure xml:id="proc-debug-ipv6-dhcp">
+        <title>Resolving IPv6 DHCP problems</title>
+        <step>
+          <para>
+            Verify IPv6 DHCP range configuration:
+          </para>
+<screen>&prompt.user;<command>grep "2001:db8" /etc/dnsmasq.d/dhcp.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Check IPv6 router advertisement status:
+          </para>
+<screen>&prompt.user;<command>systemctl status radvd</command></screen>
+        </step>
+        <step>
+          <para>
+            Monitor DHCPv6 requests:
+          </para>
+<screen>&prompt.user;<command>journalctl -u dnsmasq | grep "DHCPv6"</command></screen>
+        </step>
+        <step>
+          <para>
+            Test IPv6 connectivity:
+          </para>
+<screen>&prompt.user;<command>ping6 2001:db8:0:1::200</command></screen>
+        </step>
+        <step>
+          <para>
+            Check IPv6 option configuration:
+          </para>
+<screen>&prompt.user;<command>grep option6 /etc/dnsmasq.d/dhcp.conf</command></screen>
+        </step>
+      </procedure>
+    </section>
+  </section>
+
+  <section xml:id="sles-pxe-server-dhcp-dnsmasq-next-steps">
+    <title>Next steps</title>
+    <para>
+      With dnsmasq DHCP services configured, PXE clients can receive network
+      configuration and boot file information for both IPv4 and IPv6 environments.
+      The tag-based system provides flexible boot file assignment based on client
+      architecture and boot method requirements.
+    </para>
+  </section>
+</topic>

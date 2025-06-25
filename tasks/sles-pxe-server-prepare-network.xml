@@ -1,0 +1,412 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="sles-pxe-server-prepare-network"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Preparing the network for PXE boot services</title>
+    <!-- can be changed via merge
+      in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <!-- can be changed via merge in the assembly -->
+      <para>
+        This module describes the network infrastructure requirements for deploying PXE boot
+        services on &productname; &productnumber;.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="sles-pxe-server-network-configuration-introduction">
+    <title>Introduction</title>
+    <para>
+      A PXE server comprises of three servers - a TFTP server, an HTTP server, and a DHCP server.
+      In addition, there might be a DNS sever, and NTP server and a router with IPv6
+      support&mdash;usually they are separate from the PXE server in a production network. A PXE
+      server running &productname; &productnumber; may also need a specific network interface,
+      certain persistent rules added to the firewall, and some permissions in
+      <systemitem>SELinux</systemitem>. This section illustrates a sample network with suitable IP
+      ranges, and necessary rules for firewall and SELinux.
+    </para>
+  </section>
+  <section xml:id="sles-pxe-server-network-configuration">
+    <title>Assumptions and sample network configuration</title>
+    <para>
+      In this article, we assume the following:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          The PXE server is running on the <literal>eno1</literal> network interface with the
+          following network configuration:
+        </para>
+        <table frame="all">
+          <title>Sample PXE network configuration</title>
+          <tgroup cols="4">
+            <colspec colname="c1"/>
+            <colspec colname="c2"/>
+            <colspec colname="c3"/>
+            <colspec colname="c4"/>
+            <thead>
+              <row>
+                <entry/>
+                <entry>IPv4</entry>
+                <entry>IPv6</entry>
+                <entry>DNS Name</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>PXE Network</entry>
+                <entry>192.168.1.0/24</entry>
+                <entry>2001:db8:0:1::/64</entry>
+                <entry>example.net</entry>
+              </row>
+              <row>
+                <entry>PXE Server</entry>
+                <entry>192.168.1.200</entry>
+                <entry>2001:db8:0:1::200</entry>
+                <entry>pxe.example.net</entry>
+              </row>
+              <row>
+                <entry>PXE Gateway</entry>
+                <entry>192.168.1.1</entry>
+                <entry>2001:db8:0:1::1</entry>
+                <entry></entry>
+              </row>
+              <row>
+                <entry>DNS Server</entry>
+                <entry>192.168.1.200</entry>
+                <entry>2001:db8:0:1::200</entry>
+                <entry></entry>
+              </row>
+              <row>
+                <entry>NTP Server</entry>
+                <entry>192.168.1.1</entry>
+                <entry>2001:db8:0:1::1</entry>
+                <entry></entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
+      </listitem>
+      <listitem>
+        <para>
+          By default, the IPv6 router, NTP and DNS servers are external and running on another
+          machine. This article may provide some hints, but does not cover the complete router
+          configuration.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="sles-pxe-server-firewall-selinux">
+    <title>Configure network interface, firewall and <systemitem>SELinux</systemitem> for PXE services</title>
+    <para>
+      Configure the network interface and firewall to allow network services required by the PXE
+      server. Adjust <systemitem>SELinux</systemitem> settings to enable installation testing and
+      define persistent local policies.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Verify and assign the PXE network interface to the appropriate firewalld zone.
+        </para>
+        <substeps>
+          <step>
+            <para>
+              Check the currently active zones and their assigned interfaces:
+            </para>
+<screen>&prompt.sudo;<command>firewall-cmd --get-active-zones</command></screen>
+          </step>
+          <step>
+            <para>
+              If <literal>eno1</literal> is not assigned to the <literal>public</literal> zone,
+              assign it:
+            </para>
+<screen>&prompt.sudo;<command>firewall-cmd --zone=public --change-interface=eno1</command></screen>
+          </step>
+          <step>
+            <para>
+              Make the interface assignment persistent across reboots:
+            </para>
+<screen>&prompt.sudo;<command>firewall-cmd --permanent --zone=public --add-interface=eno1</command></screen>
+          </step>
+        </substeps>
+      </step>
+      <step>
+        <para>
+          Configure the firewall for DNS service access.
+        </para>
+        <substeps>
+          <step>
+            <para>
+              Allow DNS service for the current session:
+            </para>
+<screen>&prompt.sudo;<command>firewall-cmd --zone=public --add-service=dns</command></screen>
+          </step>
+          <step>
+            <para>
+              Make the change persistent:
+            </para>
+<screen>&prompt.sudo;<command>firewall-cmd --permanent --zone=public --add-service=dns</command></screen>
+          </step>
+        </substeps>
+      </step>
+      <step>
+        <para>
+          Configure the firewall for NTP service access.
+        </para>
+        <substeps>
+          <step>
+            <para>
+              Allow NTP service for the current session:
+            </para>
+<screen>&prompt.sudo;<command>firewall-cmd --zone=public --add-service=ntp</command></screen>
+          </step>
+          <step>
+            <para>
+              Make the change persistent:
+            </para>
+<screen>&prompt.sudo;<command>firewall-cmd --permanent --zone=public --add-service=ntp</command></screen>
+          </step>
+        </substeps>
+      </step>
+      <step>
+        <para>
+          Configure the firewall for DHCP (IPv4) service access.
+        </para>
+        <substeps>
+          <step>
+            <para>
+              Allow DHCP service for the current session:
+            </para>
+<screen>&prompt.sudo;<command>firewall-cmd --zone=public --add-service=dhcp</command></screen>
+          </step>
+          <step>
+            <para>
+              Make the change persistent:
+            </para>
+<screen>&prompt.sudo;<command>firewall-cmd --permanent --zone=public --add-service=dhcp</command></screen>
+          </step>
+        </substeps>
+      </step>
+      <step>
+        <para>
+          Configure the firewall for DHCPv6 service access.
+        </para>
+        <substeps>
+          <step>
+            <para>
+              Allow DHCPv6 service for the current session:
+            </para>
+<screen>&prompt.sudo;<command>firewall-cmd --zone=public --add-service=dhcpv6</command></screen>
+          </step>
+          <step>
+            <para>
+              Make the change persistent:
+            </para>
+<screen>&prompt.sudo;<command>firewall-cmd --permanent --zone=public --add-service=dhcpv6</command></screen>
+          </step>
+        </substeps>
+      </step>
+      <step>
+        <para>
+          Configure the firewall for TFTP service access.
+        </para>
+        <substeps>
+          <step>
+            <para>
+              Allow TFTP service for the current session:
+            </para>
+<screen>&prompt.sudo;<command>firewall-cmd --zone=public --add-service=tftp</command></screen>
+          </step>
+          <step>
+            <para>
+              Make the change persistent:
+            </para>
+<screen>&prompt.sudo;<command>firewall-cmd --permanent --zone=public --add-service=tftp</command></screen>
+          </step>
+        </substeps>
+      </step>
+      <step>
+        <para>
+          Configure the firewall for HTTP service access.
+        </para>
+        <substeps>
+          <step>
+            <para>
+              Allow HTTP service for the current session:
+            </para>
+<screen>&prompt.sudo;<command>firewall-cmd --zone=public --add-service=http</command></screen>
+          </step>
+          <step>
+            <para>
+              Make the change persistent:
+            </para>
+<screen>&prompt.sudo;<command>firewall-cmd --permanent --zone=public --add-service=http</command></screen>
+          </step>
+        </substeps>
+      </step>
+      <step>
+        <para>
+          Configure the firewall for HTTPS service access.
+        </para>
+        <substeps>
+          <step>
+            <para>
+              Allow HTTPS service for the current session:
+            </para>
+<screen>&prompt.sudo;<command>firewall-cmd --zone=public --add-service=https</command></screen>
+          </step>
+          <step>
+            <para>
+              Make the change persistent:
+            </para>
+<screen>&prompt.sudo;<command>firewall-cmd --permanent --zone=public --add-service=https</command></screen>
+          </step>
+        </substeps>
+      </step>
+      <step>
+        <para>
+          Reload the firewall to apply the persistent changes:
+        </para>
+<screen>&prompt.sudo;<command>firewall-cmd --reload</command></screen>
+      </step>
+      <step>
+        <para>
+          Temporarily disable <systemitem>SELinux</systemitem> for setup testing.
+        </para>
+        <substeps>
+          <step>
+            <para>
+              Set <systemitem>SELinux</systemitem> to permissive mode:
+            </para>
+<screen>&prompt.sudo;<command>setenforce 0</command></screen>
+          </step>
+          <step>
+            <para>
+              Check <systemitem>SELinux</systemitem> status:
+            </para>
+<screen>&prompt.sudo;<command>sestatus</command></screen>
+          </step>
+        </substeps>
+      </step>
+      <step>
+        <para>
+          Generate and install local <systemitem>SELinux</systemitem> policy modules for
+          PXE-related services.
+        </para>
+        <substeps>
+          <step>
+            <para>
+              Create and install a module for <literal>nginx</literal>:
+            </para>
+<screen>&prompt.sudo;<command>ausearch -c 'nginx' --raw | audit2allow -a -M local-nginx</command></screen>
+<screen>&prompt.sudo;<command>semodule -i local-nginx.pp</command></screen>
+          </step>
+          <step>
+            <para>
+              Create and install a module for <literal>dnsmasq</literal>:
+            </para>
+<screen>&prompt.sudo;<command>ausearch -c 'dnsmasq' --raw | audit2allow -a -M local-dnsmasq</command></screen>
+<screen>&prompt.sudo;<command>semodule -i local-dnsmasq.pp</command></screen>
+          </step>
+          <step>
+            <para>
+              Create and install a module for <literal>in.tftpd</literal>:
+            </para>
+<screen>&prompt.sudo;<command>ausearch -c 'in.tftpd' --raw | audit2allow -a -M local-tftpd</command></screen>
+<screen>&prompt.sudo;<command>semodule -i local-tftpd.pp</command></screen>
+          </step>
+        </substeps>
+      </step>
+      <step>
+        <para>
+          Re-enable <systemitem>SELinux</systemitem> enforcement mode.
+        </para>
+        <substeps>
+          <step>
+            <para>
+              Set <systemitem>SELinux</systemitem> to enforcing mode:
+            </para>
+<screen>&prompt.sudo;<command>setenforce 1</command></screen>
+          </step>
+          <step>
+            <para>
+              Verify <systemitem>SELinux</systemitem> status:
+            </para>
+<screen>&prompt.sudo;<command>sestatus</command></screen>
+          </step>
+        </substeps>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sles-pxe-firewall-selinux-summary">
+    <title>Summary</title>
+    <para>
+      This procedure ensured that the PXE server's network interface, firewall, and
+      <systemitem>SELinux</systemitem> policy were correctly configured for secure and functional
+      operation.
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Verified and assigned the PXE-serving interface (typically <filename>eno1</filename>) to
+          the <literal>public</literal> firewalld zone.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Opened the required firewall services for PXE operation, including
+          <literal>dns</literal>, <literal>ntp</literal>, <literal>dhcp</literal>,
+          <literal>dhcpv6</literal>, <literal>tftp</literal>, <literal>http</literal>, and
+          <literal>https</literal>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Temporarily set <systemitem>SELinux</systemitem> to <literal>permissive</literal> mode to
+          facilitate service testing and log AVC denials.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Used <command>ausearch</command> and <command>audit2allow</command> to generate and
+          install custom SELinux policy modules for services such as
+          <systemitem>nginx</systemitem>, <systemitem>dnsmasq</systemitem>, and
+          <systemitem>in.tftpd</systemitem>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Restored <systemitem>SELinux</systemitem> to <literal>enforcing</literal> mode to secure
+          the system for production use.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      With these steps complete, the PXE server is securely configured and ready to serve client
+      machines over the network using either IPv4 or IPv6.
+    </para>
+  </section>
+  <!-- section xml:id="task-example-troubleshooting">
+    <title>Troubleshooting</title>
+    <para>
+    Add some troubleshooting information, if applicable.
+    </para>
+    </section -->
+</topic>
