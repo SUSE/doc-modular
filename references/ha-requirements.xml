@@ -30,8 +30,11 @@
       <varlistentry>
         <term>Servers</term>
         <listitem>
-          <para><!-- Add profiling here later -->
+          <para condition="threenode">
             Three servers to act as cluster nodes.
+          </para>
+          <para condition="twonode">
+            Three servers: two to act as cluster nodes, and one to run &qnet;.
           </para>
           <!--para>
             Number of cluster nodes (only needed for full install)
@@ -99,7 +102,8 @@
         <term>Operating system</term>
         <listitem>
           <para>
-            All nodes must have &sles; installed and registered.
+            All nodes<phrase condition="twonode">, and the &qnet; server,</phrase> must have &sles;
+            installed and registered.
           </para>
         </listitem>
       </varlistentry>
@@ -125,51 +129,21 @@
         <term>Time synchronization</term>
         <listitem>
           <para>
-            Cluster nodes must synchronize to an NTP server outside the cluster. In &sles;,
-            &chrony; is the default implementation of NTP.
+            All systems must synchronize to an NTP server outside the cluster. &sles; uses &chrony;
+            for NTP. When you initialize the cluster, you are warned if &chrony; is not running.
           </para>
           <para>
-            The cluster might not work properly if the nodes are not synchronized, or even if they
-            are synchronized but have different timezones configured. Log files and cluster reports
-            are also difficult to analyze without synchronization.
+            Even if the nodes are synchronized, log files and cluster reports can still become
+            difficult to analyze if the nodes have different time zones configured.
           </para>
-          <para>
-            When you initialize the cluster, you are warned if &chrony; is not configured yet.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>SSH</term>
-        <listitem>
-          <para>
-            All cluster nodes must be able to access each other via SSH. The &crmshell; (&crmsh;)
-            uses passwordless SSH authentication for communication between the nodes. When you
-            initialize the cluster, the setup script checks for existing SSH keys and generates
-            them if they do not exist.
-          </para>
-          <important>
-            <title>&rootuser; SSH access in &sle; 16</title>
-            <para>
-              In &sle; 16, &rootuser; SSH login with a password is disabled by default.
-            </para>
-            <para>
-              On each node, either create a user with <command>sudo</command> privileges or set up
-              passwordless SSH authentication for the &rootuser; user before you initialize the cluster.
-            </para>
-            <para>
-              If you initialize the cluster with a <command>sudo</command> user, some &crmsh;
-              commands also require passwordless <command>sudo</command> permission.
-            </para><!-- trichardson 2025-06-23: Was this needed in HA 15? Not sure how secure it is-->
-          </important>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term>Host name and IP address</term>
         <listitem>
           <para>
-            Members of the cluster must be able to find each other by name. If the names are not
-            available, internal cluster communication fails. Use the following methods for reliable
-            name resolution:
+            All cluster nodes must be able to find each other<phrase condition="twonode">, and the
+            &qnet; server,</phrase> by name. Use the following methods for reliable name resolution:
           </para>
           <itemizedlist>
             <listitem>
@@ -186,6 +160,43 @@
           </itemizedlist>
           <para>
             Only the primary IP address on each NIC is supported.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>SSH</term>
+        <listitem>
+          <para>
+            All cluster nodes must be able to access each other<phrase condition="twonode">,
+            and the &qnet; server,</phrase> via SSH. Certain cluster operations also require
+            passwordless SSH authentication. When you initialize the cluster, the setup script
+            checks for existing SSH keys and generates them if they do not exist.
+          </para>
+          <important>
+            <title>&rootuser; SSH access in &sle; 16</title>
+            <para>
+              In &sle; 16, &rootuser; SSH login with a password is disabled by default.
+            </para>
+            <para>
+              On each node,<phrase condition="twonode"> and the &qnet; server,</phrase> either
+              create a user with <command>sudo</command> privileges or set up passwordless SSH
+              authentication for the &rootuser; user before you initialize the cluster.
+            </para>
+            <para>
+              If you initialize the cluster with a <command>sudo</command> user, certain &crmsh;
+              commands also require passwordless <command>sudo</command> permission.
+            </para>
+          </important>
+        </listitem>
+      </varlistentry>
+      <varlistentry condition="twonode">
+        <term>Separate network for &qnet;</term>
+        <listitem>
+          <para>
+            We recommend having the cluster nodes reach the &qnet; server via a different network
+            than the one &corosync; uses. Ideally, the &qnet; server should be in a separate rack
+            from the cluster, or at least on a separate PSU and not in the same network segment as
+            the &corosync; communication channels.
           </para>
         </listitem>
       </varlistentry>
