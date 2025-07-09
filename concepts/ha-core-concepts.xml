@@ -94,6 +94,63 @@
      </listitem>
     </varlistentry>
    </variablelist>
+   <para>
+              &sleha; supports different geographical scenarios,
+    including &geo.dispersed; clusters (&geo; clusters).
+   </para>
+   <variablelist>
+    <varlistentry>
+     <term>Local clusters</term>
+     <listitem>
+      <para>
+       A single cluster in one location (for example, all nodes are located
+       in one data center). The cluster uses multicast or unicast for
+       communication between the nodes and manages failover internally.
+       Network latency can be neglected. Storage is typically accessed
+       synchronously by all nodes.
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term>Metro clusters</term>
+     <listitem>
+      <para>
+       A single cluster that can stretch over multiple buildings or data
+       centers, with all sites connected by Fibre Channel. The cluster uses
+       multicast or unicast for communication between the nodes and manages
+       failover internally. Network latency is usually low (&lt;5&nbsp;ms for
+       distances of approximately 20 miles). Storage is frequently
+       replicated (mirroring or synchronous replication).
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term>&geo; clusters (multi-site clusters)</term>
+     <listitem>
+      <para>
+       Multiple, &geo.dispersed; sites with a local cluster each. The
+       sites communicate via IP. Failover across the sites is coordinated by
+       a higher-level entity. &geo; clusters need to cope with limited
+       network bandwidth and high latency. Storage is replicated
+       asynchronously.
+      </para>
+      <note>
+       <title>Geo clustering and SAP workloads</title>
+       <!--taroth 2022-01-28: might change for some scenarios in the future-->
+       <para>
+        Currently &geo; clusters support neither &hana; system replication
+        nor &s4h; and &nw; enqueue replication setups.
+       </para>
+      </note>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+   <para>
+    The greater the geographical distance between individual cluster nodes,
+    the more factors may potentially disturb the high availability of
+    services the cluster provides. Network latency, limited bandwidth and
+    access to storage are the main challenges for long-distance clusters.
+            </para>
   </section>
 
   <section xml:id="ha-core-concepts-resource-management">
@@ -163,17 +220,13 @@ C = number of cluster nodes</screen>
     <varlistentry>
      <term>&corosync; configuration</term>
      <listitem>
-      <para>&corosync; is a messaging and membership layer, see
-      <xref linkend="sec-ha-config-basics-corosync-2-node"/> and
-       <xref linkend="sec-ha-config-basics-corosync-n-node"/>.
+      <para>&corosync; is a messaging and membership layer. See the following examples:
       </para>
-     </listitem>
-    </varlistentry>
-   </variablelist>
-
-  <section xml:id="sec-ha-config-basics-corosync-2-node">
-   <title>&corosync; configuration for two-node clusters</title>
-   <para>
+      <variablelist>
+       <varlistentry>
+         <term>&corosync; configuration for two-node clusters</term>
+         <listitem>
+          <para>
     When using the bootstrap scripts, the &corosync; configuration contains
     a <literal>quorum</literal> section with the following options:
    </para>
@@ -194,10 +247,12 @@ C = number of cluster nodes</screen>
     started on both nodes in parallel. Otherwise, the first node performs
     a startup-fencing on the missing second node.
    </para>
-  </section>
-  <section xml:id="sec-ha-config-basics-corosync-n-node">
-   <title>&corosync; configuration for n-node clusters</title>
-   <para> When not using a two-node cluster, we strongly recommend an odd
+         </listitem>
+       </varlistentry>
+       <varlistentry>
+         <term>&corosync; configuration for n-node clusters</term>
+         <listitem>
+          <para> When not using a two-node cluster, we strongly recommend an odd
     number of nodes for your N-node cluster. For quorum
     configuration, you have the following options: </para>
    <itemizedlist>
@@ -245,11 +300,15 @@ C = number of cluster nodes</screen>
      </callout>
     </calloutlist>
    </example>
-   </section>
-   <section xml:id="sec-ha-config-basics-global-quorum">
-  <title>Global option <literal>no-quorum-policy</literal></title>
+         </listitem>
+       </varlistentry>
+     </variablelist>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+
   <para>
-   This global option defines what to do when a cluster partition does not
+   The global option <literal>no-quorum-policy</literal> defines what to do when a cluster partition does not
    have quorum (no majority of nodes is part of the partition).
   </para>
   <para>
@@ -322,13 +381,12 @@ C = number of cluster nodes</screen>
     </listitem>
    </varlistentry>
   </variablelist>
- </section>
   </section>
 
   <section xml:id="ha-core-concepts-storage-data-replication">
     <title>Storage and data replication</title>
     <para>
-      Cluster configurations with &productname; might or might not include a
+      Cluster configurations with &sleha; might or might not include a
     shared disk subsystem. The shared disk subsystem can be connected via
     high-speed Fibre Channel cards, cables and switches, or it can be
     configured to use iSCSI. If a node fails, another designated node in
