@@ -19,7 +19,7 @@
     <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
     <abstract>
       <para>
-         This section provides an overview of &sleha;'s architecture and how the different
+         This section describes the architecture of a &ha; cluster and how the different
          components interoperate.
       </para>
     </abstract>
@@ -89,15 +89,12 @@
               <listitem>
               <para>
                 The <systemitem>pacemaker-controld</systemitem> daemon is the cluster controller,
-             which coordinates all actions. This daemon has an instance on each cluster node.
-             &pace; centralizes all cluster decision-making by electing one of those instances as
-             a primary. Should the elected <systemitem >pacemaker-controld</systemitem> daemon fail,
-             a new primary is established.
-                The DC is elected from the cluster nodes when the cluster services start, or if the
-                current DC leaves the cluster for any reason. The DC is the only entity in the
-                cluster that can decide that a cluster-wide change must be performed, such as
-                fencing a node or moving resources. All other nodes get their configuration and
-                resource allocation information from the current DC.
+                which coordinates all actions. This daemon has an instance on each cluster node,
+                but only one instance is elected to act as the DC. The DC is elected when the
+                cluster services start, or if the current DC fails or leaves the cluster. The DC
+                decides whether a cluster-wide change must be performed, such as fencing a node or
+                moving resources. All other nodes get their configuration and resource allocation
+                information from the current DC.
               </para>
               </listitem>
             </varlistentry>
@@ -140,20 +137,22 @@
   <section xml:id="ha-architecture-process">
     <title>Process flow</title>
     <para>
-      Many actions performed in the cluster cause a cluster-wide change. These actions can include things like adding or removing a cluster resource or changing resource constraints. It is important to understand what happens in the cluster when you perform such an action.
+      Many actions performed in the cluster cause a cluster-wide change, for example, adding or
+      removing a cluster resource or changing resource constraints. The following example explains
+      what happens in the cluster when you perform such an action:
     </para>
-    <para>
-      For example, suppose you want to add a cluster IP address resource.
-    </para>
+    <example>
+      <title>Cluster process when you add a new resource</title>
     <procedure>
       <step>
         <para>
-          To do this, you can use the &crmshell; or the Web interface to modify the CIB. It is not required to perform the actions on the DC.
+          You use the &crmshell; or &hawk; to add a new cluster resource. You can do this from any
+          node in the cluster. Adding the resource modifies the CIB.
         </para>
       </step>
       <step>
         <para>
-          You can use either tool on any node in the cluster and it is relayed to the DC.
+          The CIB change is relayed to the DC.
         </para>
       </step>
       <step>
@@ -163,37 +162,49 @@
       </step>
       <step>
         <para>
-          Based on the information in the CIB, the <systemitem >pacemaker-schedulerd</systemitem> then computes the ideal state of the cluster and how it should be achieved. It feeds a list of instructions to the DC.
+          Based on the information in the CIB, <systemitem >pacemaker-schedulerd</systemitem>
+          calculates the ideal state of the cluster and how it should be achieved. It feeds a
+          list of instructions to the DC.
         </para>
       </step>
       <step>
         <para>
-          The DC sends commands via &corosync;, which are received by the <systemitem>pacemaker-controld</systemitem> peers on other nodes.
+          The DC sends commands via &corosync;, which are received by the
+          <systemitem>pacemaker-controld</systemitem> instances on the other nodes.
         </para>
       </step>
       <step>
         <para>
-          Each of them uses its local resource manager (implemented as <systemitem>pacemaker-execd</systemitem>) to perform resource modifications. The <systemitem>pacemaker-execd</systemitem> is not cluster-aware and interacts directly with resource agents.
+          Each node uses its local resource manager (<systemitem>pacemaker-execd</systemitem>)
+          to perform resource modifications. The <systemitem>pacemaker-execd</systemitem> daemon
+          is not cluster-aware and interacts directly with resource agents.
         </para>
       </step>
       <step>
         <para>
-          All peer nodes report the results of their operations back to the DC.
+          All nodes report the results of their operations back to the DC.
         </para>
       </step>
       <step>
         <para>
-          After the DC concludes that all necessary operations are successfully performed in the cluster, the cluster returns to the idle state and waits for further events.
+          After the DC concludes that all necessary operations have been successfully performed,
+          the cluster returns to an idle state and waits for further events.
         </para>
       </step>
       <step>
         <para>
-          If any operation was not carried out as planned, the <systemitem>pacemaker-schedulerd</systemitem> is invoked again with the new information recorded in the CIB.
+          If any operation was not carried out as planned, <systemitem>pacemaker-schedulerd</systemitem>
+          is invoked again with the new information recorded in the CIB.
         </para>
       </step>
     </procedure>
+  </example>
     <para>
-      In some cases, it might be necessary to power off nodes to protect shared data or complete resource recovery. In a &pace; cluster, the implementation of node level fencing is &stonith;. For this, &pace; comes with a fencing subsystem, <systemitem>pacemaker-fenced</systemitem>. When clients detect a failure, they send a request to <systemitem >pacemaker-fenced</systemitem>, which then executes the fencing agent to bring down the node.
+      Sometimes the cluster might need to power off nodes to protect shared data or complete
+      resource recovery. In a &sleha; cluster, the node-level fencing mechanism is &stonith;,
+      which is managed by the fencing subsystem <systemitem>pacemaker-fenced</systemitem>. When the
+      cluster detects a failure, it sends a request to <systemitem >pacemaker-fenced</systemitem>,
+      which calls the fencing agent to bring down the node.
     </para>
   </section>
 </topic>
