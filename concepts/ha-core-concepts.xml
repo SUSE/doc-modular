@@ -19,13 +19,13 @@
     <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
     <abstract>
       <para>
-       Introductory text
+       This section explains the core concepts of a &sleha; cluster. This is about broad concepts, not specific architectural components.
       </para>
     </abstract>
   </info>
 
-  <section xml:id="ha-core-concepts-cluster-configurations">
-    <title>Cluster configurations</title>
+  <section xml:id="ha-core-concepts-cluster-nodes">
+    <title>Cluster nodes</title>
     <para>Clusters usually fall into one of two categories:</para>
    <itemizedlist>
     <listitem>
@@ -36,65 +36,6 @@
     </listitem>
    </itemizedlist>
    <para>
-    Adding also different topologies, different use cases can be derived.
-    The following use cases are the most common:
-   </para>
-
-   <variablelist>
-    <varlistentry><!-- 1.1 -->
-     <term>Two-node cluster in one location</term>
-     <listitem>
-      <formalpara>
-       <title>Configuration:</title>
-       <para>FC SAN or similar shared storage, layer 2 network.</para>
-      </formalpara>
-      <formalpara>
-       <title>Usage scenario:</title>
-       <para>Embedded clusters that focus on service high
-       availability and not data redundancy for data replication.
-       Such a setup is used for radio stations or assembly line controllers,
-       for example.
-       </para>
-      </formalpara>
-     </listitem>
-    </varlistentry>
-    <varlistentry xml:id="vl-2x2node-2locs"><!-- 2.1 -->
-     <term>Two-node clusters in two locations (most widely used)</term>
-     <listitem>
-      <formalpara>
-       <title>Configuration:</title>
-       <para>Symmetrical stretched cluster, FC SAN, and layer 2 network
-        all across two locations.</para>
-      </formalpara>
-      <formalpara>
-       <title>Usage scenario:</title>
-       <para>Classic stretched clusters, focus on high availability of services
-        and local data redundancy. For databases and enterprise
-        resource planning. One of the most popular setups.
-       </para>
-      </formalpara>
-     </listitem>
-    </varlistentry>
-    <varlistentry xml:id="vl-n-nodes-3locs"><!-- 3.1 -->
-     <term>Odd number of nodes in three locations</term>
-     <listitem>
-      <formalpara>
-       <title>Configuration:</title>
-       <para>2&times;N+1 nodes, FC SAN across two main locations. Auxiliary
-        third site with no FC SAN, but acts as a majority maker.
-        Layer 2 network at least across two main locations.
-       </para>
-      </formalpara>
-      <formalpara>
-       <title>Usage scenario:</title>
-       <para>Classic stretched cluster, focus on high availability of services
-        and data redundancy. For example, databases, enterprise resource planning.
-       </para>
-      </formalpara>
-     </listitem>
-    </varlistentry>
-   </variablelist>
-   <para>
               &sleha; supports different geographical scenarios,
     <!--including &geo.dispersed; clusters (&geo; clusters)-->.
    </para>
@@ -104,9 +45,8 @@
      <listitem>
       <para>
        A single cluster in one location (for example, all nodes are located
-       in one data center). The cluster uses multicast or unicast for
-       communication between the nodes and manages failover internally.
-       Network latency can be neglected. Storage is typically accessed
+       in one data center). The cluster manages failover internally.
+       Network latency is negligible. Storage is typically accessed
        synchronously by all nodes.
       </para>
      </listitem>
@@ -116,8 +56,7 @@
      <listitem>
       <para>
        A single cluster that can stretch over multiple buildings or data
-       centers, with all sites connected by Fibre Channel. The cluster uses
-       multicast or unicast for communication between the nodes and manages
+       centers, with all sites connected by Fibre Channel. The cluster manages
        failover internally. Network latency is usually low (&lt;5&nbsp;ms for
        distances of approximately 20 miles). Storage is frequently
        replicated (mirroring or synchronous replication).
@@ -150,63 +89,6 @@
     services the cluster provides. Network latency, limited bandwidth and
     access to storage are the main challenges for long-distance clusters.
             </para>
-  </section>
-
-  <section xml:id="ha-core-concepts-resource-management">
-    <title>Resource management</title>
-    <para>
-      And resource agents
-    </para>
-  </section>
-
-  <section xml:id="ha-core-concepts-node-fencing">
-    <title>Node fencing</title>
-    <para>
-      Important: No Support Without STONITH
-    You must have a node fencing mechanism for your cluster.
-    The global cluster options stonith-enabled and startup-fencing must be set to true. When you change them, you lose support.
-    To avoid a “split-brain” scenario, clusters need a node fencing mechanism. In a split-brain scenario, cluster nodes are divided into two or more groups that do not know about each other (because of a hardware or software failure or because of a cut network connection). A fencing mechanism isolates the node in question (usually by resetting or powering off the node). This is also called STONITH (“Shoot the other node in the head”). A node fencing mechanism can be either a physical device (a power switch) or a mechanism like SBD (STONITH by disk) in combination with a watchdog. SBD can be used either with shared storage or in diskless mode.
-    </para>
-    <para>
-       The global option stonith-enabled defines whether to apply fencing, allowing STONITH devices to shoot failed nodes and nodes with resources that cannot be stopped. By default, this global option is set to true, because for normal cluster operation it is necessary to use STONITH devices. According to the default value, the cluster refuses to start any resources if no STONITH resources have been defined.
-      If you need to disable fencing for any reasons, set stonith-enabled to false, but be aware that this has impact on the support status for your product. Furthermore, with stonith-enabled="false", resources like the Distributed Lock Manager (DLM) and all services depending on DLM (such as lvmlockd, GFS2, and OCFS2) will fail to start.
-    </para>
-  </section>
-
- <section xml:id="ha-core-concepts-quorum-determination">
-    <title>Quorum determination</title>
-        <para>
-      And &qdevice;
-    </para>
-    <para>
-   Whenever communication fails between one or more nodes and the rest of the
-   cluster, a cluster partition occurs. The nodes can only communicate with
-   other nodes in the same partition and are unaware of the separated nodes.
-   A cluster partition is defined as having quorum (being <quote>quorate</quote>)
-   if it has the majority of nodes (or votes).
-   How this is achieved is done by <emphasis>quorum calculation</emphasis>.
-   Quorum is a requirement for fencing.
-   </para>
-   <para>
-   Quorum is not calculated or determined by &pace;. &corosync; can handle quorum for
-   two-node clusters directly without changing the &pace; configuration.
-  </para>
-
-  <para>How quorum is calculated is influenced by the following factors:</para>
-   <variablelist>
-    <varlistentry xml:id="vl-ha-config-basics-global-number-of-cluster-nodes">
-     <term>Number of cluster nodes</term>
-     <listitem>
-         <para>To keep services running, a cluster with more than two nodes
-       relies on quorum (majority vote) to resolve cluster partitions.
-       Based on the following formula, you can calculate the minimum
-       number of operational nodes required for the cluster to function:</para>
-       <screen>N ≥ C/2 + 1
-
-N = minimum number of operational nodes
-C = number of cluster nodes</screen>
-      <para>For example, a five-node cluster needs a minimum of three operational
-       nodes (or two nodes which can fail). </para>
       <para>
        We strongly recommend to use either a two-node cluster or an odd number
        of cluster nodes.
@@ -214,200 +96,135 @@ C = number of cluster nodes</screen>
        Clusters with an odd number of nodes can either be built on one single
        site or might be spread across three sites.
       </para>
+   <para>
+    The following use cases are the most common:
+   </para>
+
+   <variablelist>
+    <varlistentry>
+     <term>Two-node cluster in one location</term>
+     <listitem>
+      <formalpara>
+       <title>Configuration:</title>
+       <para>FC SAN or similar shared storage, layer 2 network.</para>
+      </formalpara>
+      <formalpara>
+       <title>Usage scenario:</title>
+       <para>Embedded clusters that focus on service high
+       availability and not data redundancy for data replication.
+       Such a setup is used for radio stations or assembly line controllers,
+       for example.
+       </para>
+      </formalpara>
      </listitem>
     </varlistentry>
     <varlistentry>
-     <term>&corosync; configuration</term>
+     <term>Two-node clusters in two locations (most widely used)</term>
      <listitem>
-      <para>&corosync; is a messaging and membership layer. See the following examples:
-      </para>
-      <variablelist>
-       <varlistentry>
-         <term>&corosync; configuration for two-node clusters</term>
-         <listitem>
-          <para>
-    When using the bootstrap scripts, the &corosync; configuration contains
-    a <literal>quorum</literal> section with the following options:
-   </para>
-   <example xml:id="ex-ha-config-basics-corosync-quorum">
-    <title>Excerpt of &corosync; configuration for a two-node cluster</title>
-    <screen>quorum {
-   # Enable and configure quorum subsystem (default: off)
-   # see also corosync.conf.5 and votequorum.5
-   provider: corosync_votequorum
-   expected_votes: 2
-   two_node: 1
-}</screen>
-   </example>
-   <para>
-    By default, when <literal>two_node: 1</literal> is set, the
-    <literal>wait_for_all</literal> option is automatically enabled.
-    If <literal>wait_for_all</literal> is not enabled, the cluster should be
-    started on both nodes in parallel. Otherwise, the first node performs
-    a startup-fencing on the missing second node.
-   </para>
-         </listitem>
-       </varlistentry>
-       <varlistentry>
-         <term>&corosync; configuration for n-node clusters</term>
-         <listitem>
-          <para> When not using a two-node cluster, we strongly recommend an odd
-    number of nodes for your N-node cluster. For quorum
-    configuration, you have the following options: </para>
-   <itemizedlist>
-    <listitem>
-     <para>Adding additional nodes with the <command>crm cluster join</command>
-     command, or</para>
-    </listitem>
-    <listitem>
-     <para>Adapting the &corosync; configuration manually.</para>
-    </listitem>
-   </itemizedlist>
-   <para>
-    If you adjust <filename>/etc/corosync/corosync.conf</filename> manually,
-    use the following settings:
-   </para>
-   <example>
-    <title>Excerpt of &corosync; configuration for an n-node cluster</title>
-    <screen>quorum {
-   provider: corosync_votequorum <co xml:id="co-corosync-quorum-n-node-corosync-votequorum"/>
-   expected_votes: <replaceable>N</replaceable> <co xml:id="co-corosync-quorum-n-node-expected-votes"/>
-   wait_for_all: 1 <co xml:id="co-corosync-quorum-n-node-wait-for-all"/>
-}</screen>
-    <calloutlist>
-     <callout arearefs="co-corosync-quorum-n-node-corosync-votequorum">
-      <para>Use the quorum service from &corosync;</para>
-     </callout>
-     <callout arearefs="co-corosync-quorum-n-node-expected-votes">
-      <para>The number of votes to expect. This parameter can either be
-       provided inside the <literal>quorum</literal> section, or is
-       automatically calculated when the <literal>nodelist</literal>
-       section is available. For example, in a five-node cluster every node has one vote and thus,
-       <option>expected_votes</option> is set to <literal>5</literal>.
-       When three or more nodes are visible to each other, the cluster
-       partition becomes quorate and can start operating.
-      </para>
-     </callout>
-     <callout arearefs="co-corosync-quorum-n-node-wait-for-all">
-      <para>
-       Enables the wait for all (WFA) feature.
-       When WFA is enabled, the cluster will be quorate for the first time
-       only after all nodes have become visible.
-       To avoid some startup race conditions, setting <option>wait_for_all</option>
-       to <literal>1</literal> may help.
-      </para>
-     </callout>
-    </calloutlist>
-   </example>
-         </listitem>
-       </varlistentry>
-     </variablelist>
+      <formalpara>
+       <title>Configuration:</title>
+       <para>Symmetrical stretched cluster, FC SAN, and layer 2 network
+        all across two locations.</para>
+      </formalpara>
+      <formalpara>
+       <title>Usage scenario:</title>
+       <para>Classic stretched clusters, focus on high availability of services
+        and local data redundancy. For databases and enterprise
+        resource planning. One of the most popular setups.
+       </para>
+      </formalpara>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term>Odd number of nodes in three locations</term>
+     <listitem>
+      <formalpara>
+       <title>Configuration:</title>
+       <para>2&times;N+1 nodes, FC SAN across two main locations. Auxiliary
+        third site with no FC SAN, but acts as a majority maker.
+        Layer 2 network at least across two main locations.
+       </para>
+      </formalpara>
+      <formalpara>
+       <title>Usage scenario:</title>
+       <para>Classic stretched cluster, focus on high availability of services
+        and data redundancy. For example, databases, enterprise resource planning.
+       </para>
+      </formalpara>
      </listitem>
     </varlistentry>
    </variablelist>
+  </section>
 
-  <para>
-   The global option <literal>no-quorum-policy</literal> defines what to do when a cluster partition does not
-   have quorum (no majority of nodes is part of the partition).
-  </para>
-  <para>
-   The following values are available:
-  </para>
-  <variablelist>
-   <varlistentry>
-    <term><literal>ignore</literal>
-    </term>
-    <listitem>
-     <para></para>
-     <para>
-      Setting <literal>no-quorum-policy</literal> to <literal>ignore</literal> makes
-      a cluster partition behave like it has quorum, even if it does not. The cluster
-      partition is allowed to issue fencing and continue resource management.
-     </para>
-     <para>
-      On &slsa;&nbsp;11 this was the recommended setting for a two-node cluster.
-      Starting with &slsa;&nbsp;12, the value <literal>ignore</literal> is obsolete
-      and must not be used.
-      Based on configuration and conditions, &corosync; gives cluster nodes
-      or a single node <quote>quorum</quote>&mdash;or not.
-     </para>
-     <para>
-     For two-node clusters the only meaningful behavior is to always
-     react in case of node loss. The first step should always be
-     to try to fence the lost node.
-     </para>
-    </listitem>
-   </varlistentry>
-   <varlistentry>
-    <term><literal>freeze</literal>
-    </term>
-    <listitem>
-     <para>
-      If quorum is lost, the cluster partition freezes. Resource management
-      is continued: running resources are not stopped (but might be
-      restarted in response to monitor events), but no further resources
-      are started within the affected partition.
-     </para>
-     <para>
-      This setting is recommended for clusters where certain resources
-      depend on communication with other nodes (for example, OCFS2 mounts).
-      In this case, the default setting
-      <literal>no-quorum-policy=stop</literal> is not useful, as it would
-      lead to the following scenario: stopping those resources would not be
-      possible while the peer nodes are unreachable. Instead, an attempt to
-      stop them would eventually time out and cause a <literal>stop
-      failure</literal>, triggering escalated recovery and fencing.
-     </para>
-    </listitem>
-   </varlistentry>
-   <varlistentry>
-    <term><literal>stop</literal> (default value)</term>
-    <listitem>
-     <para>
-      If quorum is lost, all resources in the affected cluster partition
-      are stopped in an orderly fashion.
-     </para>
-    </listitem>
-   </varlistentry>
-   <varlistentry>
-    <term><literal>suicide</literal>
-    </term>
-    <listitem>
-     <para>
-      If quorum is lost, all nodes in the affected cluster partition are
-      fenced. This option works only in combination with SBD.
-     </para>
-    </listitem>
-   </varlistentry>
-  </variablelist>
+    <section xml:id="ha-core-concepts-communication-channels">
+    <title>Communication channels</title>
+    <para>
+      For a supported cluster setup, two or more communication channels are required, using one of the following methods: network bonding (preferred), or creating a second communication channel in &corosync;.
+    </para>
+    <para>
+      &sleha; uses knet as the default transport protocol.
+    </para>
+    <para>
+      Redundant Ring Protocol (RRP) allows the use of multiple redundant local area networks for resilience against partial or total network faults. This way, cluster communication can still be kept up as long as a single network is operational. &corosync; supports the Totem Redundant Ring Protocol. A logical token-passing ring is imposed on all participating nodes to deliver messages in a reliable and sorted manner. A node is allowed to broadcast a message only if it holds the token.
+    </para>
+  </section>
+
+  <section xml:id="ha-core-concepts-resource-management">
+    <title>Resource management</title>
+    <para>
+      In a High Availability cluster, the applications and services that need to be highly available are called <emphasis>resources</emphasis>. Cluster resources can include Web sites, e-mail servers, databases, file systems, virtual machines and any other server-based applications or services you want to make available to users at all times.
+    </para>
+    <para>
+      The cluster can start, stop, monitor and migrate resources as needed. You can also specify whether specific resources should run together on the same node, or start and stop in sequential order. If a cluster node fails, the resources running on it <emphasis>fail over</emphasis> (move) to another node instead of being lost.
+    </para>
+    <para>
+      The cluster manages resources via <emphasis>resource agents</emphasis> (RAs). A resource agent abstracts the application or service it manages and presents its status to the cluster. The cluster relies on the resource agent to start, stop and monitor the resource. &sleha; supports many different resource agents that are designed to manage specific types of applications or services.
+    </para>
+  </section>
+
+  <section xml:id="ha-core-concepts-node-fencing">
+    <title>Node fencing</title>
+    <para>
+      In a <emphasis>split-brain scenario</emphasis>, cluster nodes are divided into two or more groups (or <emphasis>partitions</emphasis>) that do not know about each other. This might be because of a hardware or software failure, or because of a cut network connection, for example. A split-brain scenario can be resolved by <emphasis>fencing</emphasis> one or more of the nodes. Node-level fencing prevents a failed node from accessing shared resources and prevents cluster resources from running on a node with an uncertain status. This is usually done by resetting or powering off the node.
+    </para>
+    <para>
+      In &sleha;, the node fencing mechanism is &stonith; (<quote>Shoot the other node in the head</quote>). To be supported, all &sleha; clusters <emphasis>must</emphasis> have at least one &stonith; device. This can be either a physical device (a power switch) or &sbd; (&sbd.long;) in combination with a watchdog. &sbd; can be used either with shared storage or in diskless mode.
+    </para>
+  </section>
+
+ <section xml:id="ha-core-concepts-quorum-determination">
+    <title>Quorum determination</title>
+    <para>
+      When communication fails between one or more nodes and the rest of the cluster (a <emphasis>split-brain scenario</emphasis>), a cluster <emphasis>partition</emphasis> occurs. The nodes can only communicate with other nodes in the same partition and are unaware of the separated nodes. A cluster partition is defined as having <emphasis>quorum</emphasis> (or being <quote>quorate</quote>) if it has the majority of nodes (or <quote>votes</quote>). This is determined by <emphasis>quorum calculation</emphasis>. Quorum is a requirement for fencing.
+    </para>
+    <para>
+      &corosync; calculates quorum based on the following formula:
+    </para>
+<screen>N ≥ C/2 + 1
+
+N = minimum number of operational nodes
+C = number of cluster nodes</screen>
+    <para>
+      For example, a five-node cluster needs a minimum of three operational nodes to maintain quorum.
+    </para>
+    <para>
+      Clusters with an odd number of nodes can calculate quorum easily because one partition will have more nodes than the other partition. However, clusters with an even number of nodes, especially two-node clusters, might have equal numbers of nodes in each partition and therefore no majority. To avoid this situation, you can configure the cluster to use &qdevice; in combination with &qnet;. &qnet; is an <emphasis>arbitrator</emphasis> running outside the cluster. It communicates with the &qdevice; daemon running on the cluster nodes to provide a configurable number of votes for quorum calculation. This lets a cluster sustain more node failures than the standard quorum rules allow.
+    </para>
   </section>
 
   <section xml:id="ha-core-concepts-storage-data-replication">
     <title>Storage and data replication</title>
     <para>
-      Cluster configurations with &sleha; might or might not include a
-    shared disk subsystem. The shared disk subsystem can be connected via
-    high-speed Fibre Channel cards, cables and switches, or it can be
-    configured to use iSCSI. If a node fails, another designated node in
-    the cluster automatically mounts the shared disk directories that were
-    previously mounted on the failed node. This gives network users
-    continuous access to the directories on the shared disk subsystem.
+      &sleha; clusters might or might not include a shared disk subsystem. The shared disk subsystem
+      can be connected via Fibre Channel or iSCSI. If a node fails, another designated node in the
+      cluster automatically mounts the shared disk directories that were previously mounted on the
+      failed node. This gives network users continuous access to the directories on the shared disk
+      subsystem. Content stored on the shared disk might include data, applications and services.
     </para>
-    <important>
-    <title>Shared disk subsystem with LVM</title>
     <para>
-      When using a shared disk subsystem with LVM, that subsystem must be
-      connected to all servers in the cluster from which it needs to be
-      accessed.
-    </para>
-    </important>
-    <para>
-    Typical resources might include data, applications and services. The
-    following figures show how a typical Fibre Channel cluster configuration
-    might look.
-    The green lines depict connections to an Ethernet power switch. Such
-    a device can be controlled over a network and can reboot
-    a node when a ping request fails.
+       The following figure shows what a typical Fibre Channel cluster configuration might look like.
+       The green lines depict connections to an Ethernet power switch, which can reboot a node if a
+       ping request fails.
     </para>
     <figure>
     <title>Typical Fibre Channel cluster configuration</title>
@@ -428,11 +245,8 @@ C = number of cluster nodes</screen>
     </mediaobject>
     </figure>
     <para>
-    Although Fibre Channel provides the best performance, you can also
-    configure your cluster to use iSCSI. iSCSI is an alternative to Fibre
-    Channel that can be used to create a low-cost Storage Area Network (SAN).
-    The following figure shows how a typical iSCSI cluster configuration
-    might look.
+      Although Fibre Channel provides the best performance, you can also configure your cluster to
+      use iSCSI. The following figure shows what a typical iSCSI cluster configuration might look like.
     </para>
     <figure>
     <title>Typical iSCSI cluster configuration</title>
@@ -453,16 +267,15 @@ C = number of cluster nodes</screen>
     </mediaobject>
     </figure>
     <para>
-    Although most clusters include a shared disk subsystem, it is also
-    possible to create a cluster without a shared disk subsystem. The
-    following figure shows how a cluster without a shared disk subsystem
-    might look.
+      Although most clusters include a shared disk subsystem, you can also create a cluster without
+      a shared disk subsystem. The following figure shows what a cluster without a shared disk
+      subsystem might look like.
     </para>
     <figure>
     <title>Typical cluster configuration without shared storage</title>
     <mediaobject>
       <imageobject role="fo">
-      <imagedata fileref="ha-example-no-shared-storage.svg" width="100%"/>
+      <imagedata fileref="ha-example-no-shared-storage.svg" width="90%"/>
       </imageobject>
       <imageobject role="html">
       <imagedata fileref="ha-example-no-shared-storage.svg" width="80%"/>
