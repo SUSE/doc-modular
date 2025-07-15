@@ -66,7 +66,7 @@
       </listitem>
       <listitem>
         <para>
-          The <package>shim</package> package for &uefisecboot; support.
+          The <package>shim</package> package for &uefisecboot; support (optional).
         </para>
       </listitem>
       <listitem>
@@ -90,8 +90,7 @@
           Create the main &grub; configuration file at
           <filename>/srv/tftpboot/boot/grub2/grub.cfg</filename>:
         </para>
-<screen>&prompt.sudo;<command>cat &gt; /srv/tftpboot/boot/grub2/grub.cfg &lt;&lt;
-'EOF'</command>
+<screen>&prompt.sudo;<command>cat &gt; /srv/tftpboot/boot/grub2/grub.cfg &lt;&lt; 'EOF'</command>
 # Architecture detection and mapping
 if [ "$grub_cpu" == "i386" ]; then
   set arch='x86_64'
@@ -111,45 +110,31 @@ else
 fi
 export arch
 
-# Utility functions for EFI and BIOS compatibility
-function linux_kernel {
-  echo 'Loading kernel...'
-  if [ "$grub_cpu" == "x86_64" ]; then
-      linuxefi "$@"
-  else
-      linux "$@"
-  fi
-}
 
-function linux_initrd {
-  echo 'Loading initrd...'
-  if [ "$grub_cpu" == "x86_64" ]; then
-      initrdefi "$@"
-  else
-      initrd "$@"
-  fi
-}
+# Network interface configuration for PXE-selected NIC
+# - dracut based images on SLE-16:
+set ipcfg="ifname=pxe0:${net_default_mac} ip=pxe0:dhcp"
+export ipcfg
+# - linuxrc installer on SLE-15:
+set ifcfg="ifcfg=${net_default_mac}=dhcp"
+export ifcfg
 
-# Directory path configuration
-set images=(${root})/boot/images
-set config=(${root})/boot/config
-export images
-export config
+# Define typical serial console kernel parameter
+set sconsole="console=tty0 console=ttyS0,115200n8"
+export sconsole
 
 # Default kernel command line parameters
 set linux_cmdline="showopts"
 export linux_cmdline
 
-# Network interface configuration for PXE-selected NIC
-set ipcfg="ifname=pxe0:${net_default_mac} ip=pxe0:dhcp"
-export ipcfg
-
 # Load machine-specific configuration if available
 if [ -s "${config}/${net_default_mac}/grub.cfg" ]; then
+  ## Source a host specific configuration of grub menu:
   source "${config}/${net_default_mac}/grub.cfg"
+else
+  ## Source default grub boot menu:
+  source "${prefix}/menu.cfg"
 fi
-
-source "${prefix}/menu.cfg"
 EOF
 </screen>
       </step>
@@ -169,17 +154,17 @@ EOF
         <term>Network interface management</term>
         <listitem>
           <para>
-            Uses <varname>${net_default_mac}</varname> to identify the PXE boot interface, avoiding
-            network probing issues on multi-interface systems
-          </para>
+            Defines an <varname>${ipcfg}<varname> variable using the grub2 variable
+            <varname>${net_default_mac}</varname> to activate dhcp only on the PXE boot interface
+            named <literal>pxe0</literal>, avoiding network probing issues on multi-interface systems.
+            </para>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term>Utility functions</term>
+        <term>Utility definitions</term>
         <listitem>
           <para>
-            Provides <function>linux_kernel</function> and <function>linux_initrd</function>
-            functions that automatically select appropriate commands for EFI or BIOS systems
+            Defines a typical <varname>${sconsole}<varname> variable with serial console parameters.
           </para>
         </listitem>
       </varlistentry>
@@ -188,7 +173,7 @@ EOF
         <listitem>
           <para>
             Loads optional per-machine configuration files based on MAC address, enabling
-            customized boot parameters and automated installation profiles
+            customized per-machine boot parameters and automated installation profiles
           </para>
         </listitem>
       </varlistentry>
@@ -206,16 +191,15 @@ EOF
         <para>
           Create the unified boot menu at <filename>/srv/tftpboot/boot/grub2/menu.cfg</filename>:
         </para>
-<screen>&prompt.sudo;<command>cat &gt; /srv/tftpboot/boot/grub2/menu.cfg &lt;&lt;
-'EOF'</command>
+<screen>&prompt.sudo;<command>cat &gt; /srv/tftpboot/boot/grub2/menu.cfg &lt;&lt; 'EOF'</command>
 menuentry 'SLES-16.0 Online Installation' {
-  linux_kernel ${images}/SLES-16.0/${arch}/liveiso/boot/linux ${linux_cmdline} ${ipcfg} root=live:http://pxe.example.net/boot/images/SLES-16.0/${arch}/liveiso/LiveOS/squashfs.img
-  linux_initrd ${images}/SLES-16.0/${arch}/liveiso/boot/initrd
+  linux  /boot/images/SLES-16.0/${arch}/Online/linux root=live:http://pxe.example.net/boot/images/SLES-16.0/${arch}/Online/squashfs.img ${ipcfg} ${sconsole}
+  initrd /boot/images/SLES-16.0/${arch}/Online/initrd
 }
 
 menuentry 'SLES-16.0 Full Installation' {
-  linux_kernel ${images}/SLES-16.0/${arch}/linux ${linux_cmdline} ${ipcfg} root=live:http://pxe.example.net/boot/images/SLES-16.0/${arch}/LiveOS/squashfs.img inst.install_url=http://pxe.example.net/install/SLES-16.0/${arch} ${autoinstall}
-  linux_initrd ${images}/SLES-16.0/${arch}/initrd
+  linux  /boot/images/SLES-16.0/${arch}/Full/linux root=live:http://pxe.example.net/boot/images/SLES-16.0/${arch}/Full/squashfs.img inst.install_url=http://pxe.example.net/install/SLES-16.0/${arch} ${ipcfg} ${sconsole} ${autoinstall}
+  initrd /boot/images/SLES-16.0/${arch}/Full/initrd
 }
 EOF
 </screen>
@@ -225,10 +209,17 @@ EOF
       <title>Menu entry flexibility</title>
       <para>
         The menu entries use variables that are automatically populated based on the client
-        architecture and configuration. The <varname>${arch}</varname> variable ensures the correct
-        files are loaded, while <varname>${ipcfg}</varname> provides appropriate network
-        configuration for the &agama; installer.
-      </para>
+        architecture and configuration. The <varname>${arch}</varname> variable ensures the
+        correct files are loaded.
+       </para>
+       <para>
+        The optional <varname>${ipcfg}</varname> variable causes to setup the PXE-selected
+        network interface only.
+       </para>
+       <para>
+        The optional <varname>${sconsole}</varname> variable enables serial console in the
+        installer system.
+       </para>
     </note>
   </section>
   <section xml:id="sles-pxe-server-configure-grub2-machine-specific">
@@ -258,14 +249,34 @@ EOF
         </para>
 <screen>&prompt.sudo;<command>cat &gt; /srv/tftpboot/boot/config/aa:bb:cc:dd:ee:ff/grub.cfg &lt;&lt; 'EOF'</command>
 # Machine-specific configuration for aa:bb:cc:dd:ee:ff
-set default="SLES-16.0-Full"
+set default='SLES-16.0 Full Installation'
+
+# Activate the menu-entry after 5sec timeout
 set timeout=5
+
+# Use know predictable network interface name
 set ipcfg="ip=eno1:dhcp"
-set autoinstall="agama.auto=http://pxe.example.net/install/profiles/aa:bb:cc:dd:ee:ff/autoinstall.jsonnet"
+
+# Set the autoinstall variable for this machine
+set autoinstall="inst.auto=http://pxe.example.net/install/profiles/aa:bb:cc:dd:ee:ff/sles16.json"
 export autoinstall
 
 # Load the default menu
 source "/boot/grub2/menu.cfg"
+EOF
+</screen>
+        <para>
+          Alternatively, provide own menu entry in the host-specific <filename>grub.cfg</filename>
+          (e.g. generated for a specific boot attempt):
+        </para>
+<screen>&prompt.sudo;<command>cat &gt; /srv/tftpboot/boot/config/aa:bb:cc:dd:ee:ff/grub.cfg &lt;&lt; 'EOF'</command>
+set default='SLES-16.0 Auto-Installation'
+set timeout=5
+
+menuentry 'SLES-16.0 Auto-Installation' {
+  linux  /boot/images/SLES-16.0/${arch}/Full/linux root=live:http://pxe.example.net/boot/images/SLES-16.0/${arch}/Full/squashfs.img inst.install_url=http://pxe.example.net/install/SLES-16.0/${arch} inst.auto=http://pxe.example.net/install/profiles/${net_default_mac}/sles16.json ip=eno1:dhcp
+  initrd /boot/images/SLES-16.0/${arch}/Full/initrd
+}
 EOF
 </screen>
       </step>
@@ -334,7 +345,7 @@ EOF
           Ensure proper file permissions:
         </para>
 <screen>&prompt.sudo;<command>chmod -R 644 /srv/tftpboot/boot/grub2/*.cfg</command></screen>
-<screen>&prompt.sudo;<command>find /srv/tftpboot/boot/grub2 -type d -exec chmod 755 {} \;</command></screen>
+<screen>&prompt.sudo;<command>find /srv/tftpboot/boot/grub2 -type d -exec chmod 0755 {} \;</command></screen>
       </step>
     </procedure>
     <important>
