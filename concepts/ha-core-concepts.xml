@@ -19,183 +19,123 @@
     <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
     <abstract>
       <para>
-       This section explains the core concepts of a &sleha; cluster. This is about broad concepts, not specific architectural components.
+       This section explains the core concepts of &sleha;.
       </para>
     </abstract>
   </info>
 
   <section xml:id="ha-core-concepts-cluster-nodes">
     <title>Cluster nodes</title>
-    <para>Clusters usually fall into one of two categories:</para>
-   <itemizedlist>
-    <listitem>
-     <para>Two-node clusters</para>
-    </listitem>
-    <listitem>
-     <para>Clusters with more than two nodes. This usually means an odd number of nodes.</para>
-    </listitem>
-   </itemizedlist>
-   <para>
-              &sleha; supports different geographical scenarios,
-    <!--including &geo.dispersed; clusters (&geo; clusters)-->.
-   </para>
-   <variablelist>
-    <varlistentry>
-     <term>Local clusters</term>
-     <listitem>
+    <para>
+      Servers that are configured as members of the cluster are called <emphasis>nodes</emphasis>.
+      If one node fails, the resources running on it can move to another node in the cluster.
+      &sleha; supports clusters with up to 32 nodes. However, clusters usually fall into one of
+      two categories:
+    </para>
+    <itemizedlist>
+      <listitem>
       <para>
-       A single cluster in one location (for example, all nodes are located
-       in one data center). The cluster manages failover internally.
-       Network latency is negligible. Storage is typically accessed
-       synchronously by all nodes.
+        Two-node clusters
       </para>
-     </listitem>
-    </varlistentry>
-    <varlistentry>
-     <term>Metro clusters</term>
-     <listitem>
+      </listitem>
+      <listitem>
       <para>
-       A single cluster that can stretch over multiple buildings or data
-       centers, with all sites connected by Fibre Channel. The cluster manages
-       failover internally. Network latency is usually low (&lt;5&nbsp;ms for
-       distances of approximately 20 miles). Storage is frequently
-       replicated (mirroring or synchronous replication).
+        Clusters with an odd number of nodes (typically three or five)
       </para>
-     </listitem>
-    </varlistentry>
-    <!--varlistentry>
-     <term>&geo; clusters (multi-site clusters)</term>
-     <listitem>
-      <para>
-       Multiple, &geo.dispersed; sites with a local cluster each. The
-       sites communicate via IP. Failover across the sites is coordinated by
-       a higher-level entity. &geo; clusters need to cope with limited
-       network bandwidth and high latency. Storage is replicated
-       asynchronously.
-      </para>
-      <note>
-       <title>Geo clustering and SAP workloads</title>
-       <para>
-        Currently &geo; clusters support neither &hana; system replication
-        nor &s4h; and &nw; enqueue replication setups.
-       </para>
-      </note>
-     </listitem>
-    </varlistentry-->
-   </variablelist>
-   <para>
-    The greater the geographical distance between individual cluster nodes,
-    the more factors may potentially disturb the high availability of
-    services the cluster provides. Network latency, limited bandwidth and
-    access to storage are the main challenges for long-distance clusters.
-            </para>
-      <para>
-       We strongly recommend to use either a two-node cluster or an odd number
-       of cluster nodes.
-       Two-node clusters make sense for stretched setups across two sites.
-       Clusters with an odd number of nodes can either be built on one single
-       site or might be spread across three sites.
-      </para>
-   <para>
-    The following use cases are the most common:
-   </para>
-
-   <variablelist>
-    <varlistentry>
-     <term>Two-node cluster in one location</term>
-     <listitem>
-      <formalpara>
-       <title>Configuration:</title>
-       <para>FC SAN or similar shared storage, layer 2 network.</para>
-      </formalpara>
-      <formalpara>
-       <title>Usage scenario:</title>
-       <para>Embedded clusters that focus on service high
-       availability and not data redundancy for data replication.
-       Such a setup is used for radio stations or assembly line controllers,
-       for example.
-       </para>
-      </formalpara>
-     </listitem>
-    </varlistentry>
-    <varlistentry>
-     <term>Two-node clusters in two locations (most widely used)</term>
-     <listitem>
-      <formalpara>
-       <title>Configuration:</title>
-       <para>Symmetrical stretched cluster, FC SAN, and layer 2 network
-        all across two locations.</para>
-      </formalpara>
-      <formalpara>
-       <title>Usage scenario:</title>
-       <para>Classic stretched clusters, focus on high availability of services
-        and local data redundancy. For databases and enterprise
-        resource planning. One of the most popular setups.
-       </para>
-      </formalpara>
-     </listitem>
-    </varlistentry>
-    <varlistentry>
-     <term>Odd number of nodes in three locations</term>
-     <listitem>
-      <formalpara>
-       <title>Configuration:</title>
-       <para>2&times;N+1 nodes, FC SAN across two main locations. Auxiliary
-        third site with no FC SAN, but acts as a majority maker.
-        Layer 2 network at least across two main locations.
-       </para>
-      </formalpara>
-      <formalpara>
-       <title>Usage scenario:</title>
-       <para>Classic stretched cluster, focus on high availability of services
-        and data redundancy. For example, databases, enterprise resource planning.
-       </para>
-      </formalpara>
-     </listitem>
-    </varlistentry>
-   </variablelist>
+      </listitem>
+    </itemizedlist>
+    <para>
+      &sleha; also supports different geographical scenarios:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Local clusters: a single cluster in one location (for example, all nodes are located in
+          one data center). Network latency is negligible. Storage is typically accessed
+          synchronously by all nodes.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Metro clusters: a single cluster that can stretch over multiple buildings or data centers,
+          with all sites connected by Fibre Channel. Network latency is usually low. Storage is
+          frequently replicated (mirroring or synchronous replication).
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      The greater the geographical distance between individual cluster nodes, the more factors can
+      potentially disturb the high availability of the resources the cluster manages. Network latency,
+      limited bandwidth and access to storage are the main challenges for long-distance clusters.
+    </para>
   </section>
 
     <section xml:id="ha-core-concepts-communication-channels">
     <title>Communication channels</title>
     <para>
-      For a supported cluster setup, two or more communication channels are required, using one of the following methods: network bonding (preferred), or creating a second communication channel in &corosync;.
+      Internal cluster communication is handled by <emphasis>&corosync;</emphasis>. The &corosync;
+      cluster engine is a group communication system that provides messaging, membership and quorum
+      information about the cluster. In &sleha; 16, &corosync; uses Kronosnet (<literal>knet</literal>)
+      as the default transport protocol.
     </para>
     <para>
-      &sleha; uses knet as the default transport protocol.
-    </para>
-    <para>
-      Redundant Ring Protocol (RRP) allows the use of multiple redundant local area networks for resilience against partial or total network faults. This way, cluster communication can still be kept up as long as a single network is operational. &corosync; supports the Totem Redundant Ring Protocol. A logical token-passing ring is imposed on all participating nodes to deliver messages in a reliable and sorted manner. A node is allowed to broadcast a message only if it holds the token.
+      To be supported, &sleha; clusters must have at least two communication channels. The preferred
+      method is to use network device bonding. If you cannot use bonding, you can set up a redundant
+      communication channel in &corosync; (also known as a second <quote>ring</quote>).
     </para>
   </section>
 
   <section xml:id="ha-core-concepts-resource-management">
     <title>Resource management</title>
     <para>
-      In a High Availability cluster, the applications and services that need to be highly available are called <emphasis>resources</emphasis>. Cluster resources can include Web sites, e-mail servers, databases, file systems, virtual machines and any other server-based applications or services you want to make available to users at all times.
+      In a High Availability cluster, the applications and services that need to be highly available
+      are called <emphasis>resources</emphasis>. Cluster resources can include Web sites, e-mail
+      servers, databases, file systems, virtual machines and any other server-based applications or
+      services you want to make available to users at all times.
     </para>
     <para>
-      The cluster can start, stop, monitor and migrate resources as needed. You can also specify whether specific resources should run together on the same node, or start and stop in sequential order. If a cluster node fails, the resources running on it <emphasis>fail over</emphasis> (move) to another node instead of being lost.
+      The cluster can start, stop, monitor and migrate resources as needed. You can also specify
+      whether specific resources should run together on the same node, or start and stop in
+      sequential order. If a cluster node fails, the resources running on it <emphasis>fail
+      over</emphasis> (move) to another node instead of being lost.
     </para>
     <para>
-      The cluster manages resources via <emphasis>resource agents</emphasis> (RAs). A resource agent abstracts the application or service it manages and presents its status to the cluster. The cluster relies on the resource agent to start, stop and monitor the resource. &sleha; supports many different resource agents that are designed to manage specific types of applications or services.
+      The cluster manages resources via <emphasis>resource agents</emphasis> (RAs). A resource
+      agent abstracts the application or service it manages and presents its status to the cluster.
+      The cluster relies on the resource agent to start, stop and monitor the resource. &sleha;
+      supports many different resource agents that are designed to manage specific types of
+      applications or services.
     </para>
   </section>
 
   <section xml:id="ha-core-concepts-node-fencing">
     <title>Node fencing</title>
     <para>
-      In a <emphasis>split-brain scenario</emphasis>, cluster nodes are divided into two or more groups (or <emphasis>partitions</emphasis>) that do not know about each other. This might be because of a hardware or software failure, or because of a cut network connection, for example. A split-brain scenario can be resolved by <emphasis>fencing</emphasis> one or more of the nodes. Node-level fencing prevents a failed node from accessing shared resources and prevents cluster resources from running on a node with an uncertain status. This is usually done by resetting or powering off the node.
+      In a <emphasis>split-brain scenario</emphasis>, cluster nodes are divided into two or more
+      groups (or <emphasis>partitions</emphasis>) that do not know about each other. This might be
+      because of a hardware or software failure, or a failed network connection, for example. A split-brain scenario can be resolved by <emphasis>fencing</emphasis> (resetting or powering off)
+      one or more of the nodes. Node-level fencing prevents a failed node from accessing shared
+      resources and prevents cluster resources from running on a node with an uncertain status.
     </para>
     <para>
-      In &sleha;, the node fencing mechanism is &stonith; (<quote>Shoot the other node in the head</quote>). To be supported, all &sleha; clusters <emphasis>must</emphasis> have at least one &stonith; device. This can be either a physical device (a power switch) or &sbd; (&sbd.long;) in combination with a watchdog. &sbd; can be used either with shared storage or in diskless mode.
+      &sleha; uses &stonith; (<quote>Shoot the other node in the head</quote>) as the node fencing
+      mechanism. To be supported, all &sleha; clusters <emphasis>must</emphasis> have at least one
+      &stonith; device. For critical workloads, we recommend using two or three &stonith; devices.
+      A &stonith; device can be either a physical power switch or &sbd; (&sbd.long;) in combination
+      with a watchdog. &sbd; can be used either with shared storage or in diskless mode.
     </para>
   </section>
 
  <section xml:id="ha-core-concepts-quorum-determination">
     <title>Quorum determination</title>
     <para>
-      When communication fails between one or more nodes and the rest of the cluster (a <emphasis>split-brain scenario</emphasis>), a cluster <emphasis>partition</emphasis> occurs. The nodes can only communicate with other nodes in the same partition and are unaware of the separated nodes. A cluster partition is defined as having <emphasis>quorum</emphasis> (or being <quote>quorate</quote>) if it has the majority of nodes (or <quote>votes</quote>). This is determined by <emphasis>quorum calculation</emphasis>. Quorum is a requirement for fencing.
+      When communication fails between one or more nodes and the rest of the cluster (a
+      <emphasis>split-brain scenario</emphasis>), a cluster <emphasis>partition</emphasis> occurs.
+      The nodes can only communicate with other nodes in the same partition and are unaware of the
+      separated nodes. A cluster partition is defined as having <emphasis>quorum</emphasis> (or
+      being <quote>quorate</quote>) if it has the majority of nodes (or <quote>votes</quote>). This
+      is determined by <emphasis>quorum calculation</emphasis>. Quorum must be calculated before the
+      non-quorate nodes can be <emphasis>fenced</emphasis>.
     </para>
     <para>
       &corosync; calculates quorum based on the following formula:
@@ -208,85 +148,92 @@ C = number of cluster nodes</screen>
       For example, a five-node cluster needs a minimum of three operational nodes to maintain quorum.
     </para>
     <para>
-      Clusters with an odd number of nodes can calculate quorum easily because one partition will have more nodes than the other partition. However, clusters with an even number of nodes, especially two-node clusters, might have equal numbers of nodes in each partition and therefore no majority. To avoid this situation, you can configure the cluster to use &qdevice; in combination with &qnet;. &qnet; is an <emphasis>arbitrator</emphasis> running outside the cluster. It communicates with the &qdevice; daemon running on the cluster nodes to provide a configurable number of votes for quorum calculation. This lets a cluster sustain more node failures than the standard quorum rules allow.
+      Clusters with an odd number of nodes can calculate quorum easily because one partition will
+      have more nodes than the other partition. However, clusters with an even number of nodes,
+      especially two-node clusters, might have equal numbers of nodes in each partition and
+      therefore no majority. To avoid this situation, you can configure the cluster to use &qdevice;
+      in combination with &qnet;. &qnet; is an <emphasis>arbitrator</emphasis> running outside the
+      cluster. It communicates with the &qdevice; daemon running on the cluster nodes to provide a
+      configurable number of votes for quorum calculation. This lets a cluster sustain more node
+      failures than the standard quorum rules allow.
     </para>
   </section>
 
   <section xml:id="ha-core-concepts-storage-data-replication">
     <title>Storage and data replication</title>
     <para>
-      &sleha; clusters might or might not include a shared disk subsystem. The shared disk subsystem
-      can be connected via Fibre Channel or iSCSI. If a node fails, another designated node in the
-      cluster automatically mounts the shared disk directories that were previously mounted on the
-      failed node. This gives network users continuous access to the directories on the shared disk
-      subsystem. Content stored on the shared disk might include data, applications and services.
+      &sleha; clusters might or might not include a shared disk subsystem connected via Fibre Channel
+      or iSCSI. If a node fails, another designated node in the cluster automatically mounts the
+      shared disk directories that were previously mounted on the failed node. This gives network
+      users continuous access to the directories on the shared disk subsystem. Content stored on the
+      shared disk might include data, applications and services.
     </para>
     <para>
        The following figure shows what a typical Fibre Channel cluster configuration might look like.
        The green lines depict connections to an Ethernet power switch, which can reboot a node if a
        ping request fails.
     </para>
-    <figure>
-    <title>Typical Fibre Channel cluster configuration</title>
-    <mediaobject>
-      <imageobject role="fo">
-      <imagedata fileref="ha-example-shared-storage-fibre-channel.svg" width="100%"/>
-      </imageobject>
-      <imageobject role="html">
-      <imagedata fileref="ha-example-shared-storage-fibre-channel.svg" width="80%"/>
-      </imageobject>
-      <textobject role="description">
-        <phrase>
-          This diagram shows shared storage connected to a Fibre Channel switch. The switch is
-          then connected to six servers. Each of the six servers is also connected to a network hub,
-          which is then connected to an Ethernet power switch.
-        </phrase>
-      </textobject>
-    </mediaobject>
+    <figure xml:id="ha-example-shared-storage-fibre-channel">
+      <title>Typical Fibre Channel cluster configuration</title>
+      <mediaobject>
+        <imageobject role="fo">
+        <imagedata fileref="ha-example-shared-storage-fibre-channel.svg" width="100%"/>
+        </imageobject>
+        <imageobject role="html">
+        <imagedata fileref="ha-example-shared-storage-fibre-channel.svg" width="80%"/>
+        </imageobject>
+        <textobject role="description">
+          <phrase>
+            This diagram shows shared storage connected to a Fibre Channel switch. The switch is
+            then connected to six servers. Each of the six servers is also connected to a network
+            hub, which is then connected to an Ethernet power switch.
+          </phrase>
+        </textobject>
+      </mediaobject>
     </figure>
     <para>
       Although Fibre Channel provides the best performance, you can also configure your cluster to
       use iSCSI. The following figure shows what a typical iSCSI cluster configuration might look like.
     </para>
-    <figure>
-    <title>Typical iSCSI cluster configuration</title>
-    <mediaobject>
-      <imageobject role="fo">
-      <imagedata fileref="ha-example-shared-storage-iscsi.svg" width="100%"/>
-      </imageobject>
-      <imageobject role="html">
-      <imagedata fileref="ha-example-shared-storage-iscsi.svg" width="80%"/>
-      </imageobject>
-      <textobject role="description">
-        <phrase>
-          This diagram shows shared storage connected to an Ethernet switch. The switch is
-          then connected to six servers. Each of the six servers is also connected to a network hub,
-          which is then connected to an Ethernet power switch and backed by a network backbone.
-        </phrase>
-      </textobject>
-    </mediaobject>
+    <figure xml:id="ha-example-shared-storage-iscsi">
+      <title>Typical iSCSI cluster configuration</title>
+      <mediaobject>
+        <imageobject role="fo">
+        <imagedata fileref="ha-example-shared-storage-iscsi.svg" width="100%"/>
+        </imageobject>
+        <imageobject role="html">
+        <imagedata fileref="ha-example-shared-storage-iscsi.svg" width="80%"/>
+        </imageobject>
+        <textobject role="description">
+          <phrase>
+            This diagram shows shared storage connected to an Ethernet switch. The switch is
+            then connected to six servers. Each of the six servers is also connected to a network
+            hub, which is then connected to an Ethernet power switch and backed by a network backbone.
+          </phrase>
+        </textobject>
+      </mediaobject>
     </figure>
     <para>
       Although most clusters include a shared disk subsystem, you can also create a cluster without
       a shared disk subsystem. The following figure shows what a cluster without a shared disk
       subsystem might look like.
     </para>
-    <figure>
-    <title>Typical cluster configuration without shared storage</title>
-    <mediaobject>
-      <imageobject role="fo">
-      <imagedata fileref="ha-example-no-shared-storage.svg" width="90%"/>
-      </imageobject>
-      <imageobject role="html">
-      <imagedata fileref="ha-example-no-shared-storage.svg" width="80%"/>
-      </imageobject>
-      <textobject role="description">
-        <phrase>
-          This diagram shows an Ethernet power switch connected to a network hub. The hub is
-          then connected to six servers.
-        </phrase>
-      </textobject>
-    </mediaobject>
+    <figure xml:id="ha-example-no-shared-storage">
+      <title>Typical cluster configuration without shared storage</title>
+      <mediaobject>
+        <imageobject role="fo">
+        <imagedata fileref="ha-example-no-shared-storage.svg" width="90%"/>
+        </imageobject>
+        <imageobject role="html">
+        <imagedata fileref="ha-example-no-shared-storage.svg" width="80%"/>
+        </imageobject>
+        <textobject role="description">
+          <phrase>
+            This diagram shows an Ethernet power switch connected to a network hub. The hub is
+            then connected to six servers.
+          </phrase>
+        </textobject>
+      </mediaobject>
     </figure>
   </section>
 </topic>
