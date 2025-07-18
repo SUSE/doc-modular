@@ -6,8 +6,8 @@
   <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
     %entities;
   <!ENTITY arch "<phrase xmlns='http://docbook.org/ns/docbook' arch='power'>&ppc64le;</phrase><phrase xmlns='http://docbook.org/ns/docbook' arch='x86_64'>x86_64</phrase><phrase xmlns='http://docbook.org/ns/docbook' arch='zseries'>s390x</phrase>">
-  <!ENTITY installer.iso  "SLES-Online-16.0-&arch;-Beta2.install.iso">
-  <!ENTITY full.iso "SLES-16.0-&arch;-Beta2.install.iso">
+  <!ENTITY installer.iso  "SLES-Online-16.0-&arch;-Beta4.install.iso">
+  <!ENTITY full.iso "SLES-16.0-Full-&arch;-Beta4.install.iso">
 ]>
 <!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
 <!-- point back to this document with a similar comment added to your legacy doc piece -->
@@ -22,10 +22,9 @@
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
     <title>Installing &productname; using &agama;</title>
-    <!-- can be changed via merge
-      in the assembly -->
+    <!-- can be changed via merge in the assembly -->
     <!-- add author's e-mail -->
-    <meta name="souvik.sarkar@suse.com" content="" its:translate="no"/>
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
     <abstract>
       <!-- can be changed via merge in the assembly -->
       <para>
@@ -159,14 +158,16 @@
         <para>
           Download <filename>&installer.iso;</filename> and mount it:
         </para>
-<screen>&prompt.sudo;<command>mount</command> -o loop <filename>&installer.iso;</filename> ./install/agama/</screen>
+<screen>&prompt.sudo;<command>mkdir</command> -p <filename>/srv/ftp/agama</filename>
+&prompt.sudo;<command>mount</command> -o loop <filename>&installer.iso;</filename> <filename>/srv/ftp/agama</filename></screen>
       </step>
       <step xml:id="st-z-install-iso" arch="zseries" performance="optional">
         <para>
           For installation in an air-gapped environment or without registration,
           download <filename>&full.iso;</filename> and mount it.
         </para>
-<screen>&prompt.sudo;<command>mount</command> -o loop <filename>&full.iso;</filename> ./install/agama-offline/install/</screen>
+<screen>&prompt.sudo;<command>mkdir</command> -p <filename>/srv/ftp/agama-offline</filename>
+&prompt.sudo;<command>mount</command> -o loop <filename>&full.iso;</filename> <filename>/srv/ftp/agama-offline</filename></screen>
       </step>
       <step arch="zseries">
         <para>
@@ -174,19 +175,29 @@
         </para>
         <example>
           <title>Example parmfile</title>
-<screen>root=live:ftp://&ftpip;/install/LiveOS/squashfs.img<co xml:id="co-parmfile-source"/>
-ip=&wwwip;<co xml:id="co-parmfile-ip"/>::192.168.3.254:24<co xml:id="co-parmfile-gw"/>:SLE16-Beta2:enc800:none
-rd.zdev=qeth,0.0.0800:0.0.0801:0.0.0802,layer2=1,portno=0
-cio_ignore=all,!condev,!0.0.0160 nameserver=&dnsip;<co xml:id="co-parmfile-dns"/>
-live.password=linux<co xml:id="co-parmfile-pw"/> rd.zdev=dasd,0.0.0160</screen>
+<screen>cio_ignore=all,!condev,<replaceable>!0.0.0160</replaceable><co xml:id="co-parmfile-cio-ignore"/>
+rd.zdev=<replaceable>dasd,0.0.0160</replaceable><co xml:id="co-parmfile-activate-dasd"/>
+rd.zdev=<replaceable>qeth,0.0.0800:0.0.0801:0.0.0802,layer2=1,portno=0</replaceable><co xml:id="co-parmfile-activate-qeth"/>
+ip=<replaceable>&wwwip;</replaceable><co xml:id="co-parmfile-ip"/>::192.168.3.254:24<co xml:id="co-parmfile-gw"/>::enc800:none
+ip=192.168.3.100::192.168.3.254:24:SLE16-Beta2:enc800:none
+hostname=<replaceable>&wsI;</replaceable><co xml:id="co-parmfile-hostname"/> nameserver=<replaceable>&dnsip;</replaceable><co xml:id="co-parmfile-dns"/>
+root=live:<replaceable>ftp://&ftpip;</replaceable>/agama/LiveOS/squashfs.img<co xml:id="co-parmfile-agama-source"/>
+live.password=<replaceable>linux</replaceable><co xml:id="co-parmfile-pw"/></screen>
         </example>
-        <para>
-          Adjust your parmfile accordingly.
-        </para>
         <calloutlist>
-          <callout arearefs="co-parmfile-source">
+          <callout arearefs="co-parmfile-cio-ignore">
             <para>
-              URI of the installer ISO mounted in <xref linkend="st-z-agama-iso"/>
+              Only expose the devices that the machine should be aware of
+            </para>
+          </callout>
+          <callout arearefs="co-parmfile-activate-dasd">
+            <para>
+              Activation of a DASD device
+            </para>
+          </callout>
+          <callout arearefs="co-parmfile-activate-qeth">
+            <para>
+              Activation of a qeth device
             </para>
           </callout>
           <callout arearefs="co-parmfile-ip">
@@ -202,10 +213,24 @@ live.password=linux<co xml:id="co-parmfile-pw"/> rd.zdev=dasd,0.0.0160</screen>
               IP address of the gateway for the system
             </para>
           </callout>
+          <callout arearefs="co-parmfile-hostname">
+            <para>
+              Host name of the system. You can also set the host name in the
+              <literal>ip</literal> parameter, however it is transient whereas
+              <literal>hostname</literal> gets written to <filename>/etc/hostname</filename>.
+            </para>
+          </callout>
           <callout arearefs="co-parmfile-dns">
             <para>
-              IP address the DNS server for the system
+              IP address of the DNS server for the system
             </para>
+          </callout>
+          <callout arearefs="co-parmfile-agama-source">
+            <para>
+              URI of the installer ISO mounted in <xref linkend="st-z-agama-iso"/>. For
+              installation in an LPAR, use the ISO file directly as in:
+            </para>
+<screen>root=live:<replaceable>ftp://&ftpip;/agama/&installer.iso;</replaceable></screen>
           </callout>
           <callout arearefs="co-parmfile-pw">
             <para>
@@ -216,22 +241,111 @@ live.password=linux<co xml:id="co-parmfile-pw"/> rd.zdev=dasd,0.0.0160</screen>
             </para>
           </callout>
         </calloutlist>
-      </step>
-      <step arch="zseries" performance="optional">
         <para>
-          For installation in an air-gapped environment or without registration, add the
-          <literal>agama.install_url</literal> parameter to the parmfile to install from &full.iso;
-          mounted in <xref linkend="st-z-install-iso"/>:
+          Adjust your parmfile accordingly:
         </para>
-        <example>
-        <title>Example parmfile for installation in an air-gapped environment</title>
- <screen>root=live:ftp://<replaceable>&ftpip;</replaceable>/install/LiveOS/squashfs.img
-agama.install_url=ftp://<replaceable>&ftpip;</replaceable>/install/agama-offline/install
-ip=<replaceable>&wwwip;::192.168.3.254:24:SLE16-Beta2:enc800:none</replaceable>
-rd.zdev=qeth,0.0.0800:0.0.0801:0.0.0802,layer2=1,portno=0
-cio_ignore=all,!condev,!0.0.0160 nameserver=<replaceable>10.144.53.53</replaceable>
-live.password=linux rd.zdev=dasd,0.0.0160</screen>
-        </example>
+        <stepalternatives>
+          <step>
+            <para>
+              For installation in an air-gapped environment or without registration, add the
+              <option>agama.install_url</option> to the parmfile to install from &full.iso;
+              mounted in <xref linkend="st-z-install-iso"/>:
+            </para>
+<screen>agama.install_url=ftp://<replaceable>&ftpip;</replaceable>/agama-offline/install</screen>
+          </step>
+          <step>
+            <para>
+              If you are using a VLAN, add the <option>vlan</option> parameter. Make sure to
+              specify the virtual device instead of the underlying physical device.
+            </para>
+<screen>ip=<replaceable>&wwwip;</replaceable>::192.168.3.254:24::<replaceable>enc800.2174</replaceable>:none
+hostname=<replaceable>&wsI;</replaceable> nameserver=<replaceable>&dnsip;</replaceable> vlan=<replaceable>enc800.2174:enc800</replaceable></screen>
+          </step>
+        </stepalternatives>
+        <tip>
+          <title><literal>ifcfg</literal> vs <literal>ip</literal> syntax</title>
+          <para>
+            Earlier versions of &sle; used <command>linuxrc</command> using the interface
+            configuration (<literal>ifcfg</literal>) files, whereas &sle; 16 uses
+            <command>dracut</command> with <literal>ip</literal> syntax for &nm;. While &agama;
+            supports translating some options, it is recommended to use the new and more powerful
+            syntax.
+          </para>
+          <table>
+            <title><literal>ifcfg</literal> vs <literal>ip</literal></title>
+            <tgroup cols="2">
+              <colspec colwidth="50*"/>
+              <colspec colwidth="50*"/>
+              <thead>
+                <row>
+                  <entry>
+                    <para>
+                      <literal>ifcfg</literal>
+                    </para>
+                  </entry>
+                  <entry>
+                    <para>
+                      <literal>dracut</literal>
+                    </para>
+                  </entry>
+                </row>
+              </thead>
+              <tbody>
+                <row>
+                  <entry>
+                    <para>
+                      ifcfg=*=dhcp
+                    </para>
+                    </entry>
+                  <entry>
+                    <para>
+                      ip=dhcp
+                    </para>
+                  </entry>
+                </row>
+                <row>
+                  <entry>
+                    <para>
+                      ifcfg=eth0=dhcp
+                    </para>
+                  </entry>
+                  <entry>
+                    <para>
+                      ip=eth0:dhcp
+                    </para>
+                  </entry>
+                </row>
+                <row>
+                  <entry>
+                    <para>
+                      ifcfg=eth0.10=192.168.0.100/24,192.168.0.1
+                    </para>
+                  </entry>
+                  <entry>
+                    <para>
+                      vlan=eth0.10:eth0 ip=192.168.0.100::192.168.0.1:24::eth0.10
+                    </para>
+                  </entry>
+               </row>
+               <row>
+                  <entry>
+                    <para>
+                      ifcfg="eth0=192.168.0.33/24 10.0.0.100/24,192.168.0.1,192.168.0.1 10.0.0.1,&exampledomain;"
+                    </para>
+                  </entry>
+                  <entry>
+                     <para>
+                      ip=192.168.0.33::192.168.0.1:24::eth0 nameserver=192.168.0.1 nameserver=10.0.0.1 ip=10.0.0.100:::24::eth0
+                    </para>
+                  </entry>
+               </row>
+              </tbody>
+            </tgroup>
+          </table>
+          <para>
+            For a complete list of <command>dracut</command> options, refer to <command>man 7 dracut.cmdline</command>.
+          </para>
+        </tip>
       </step>
       <step arch="zseries">
         <para>
