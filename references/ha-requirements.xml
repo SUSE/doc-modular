@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/article_installation.xml
+ and https://github.com/SUSE/doc-sleha/blob/main/xml/ha_requirements.xml -->
+
+<topic xml:id="ha-requirements"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+   <title>&ha; system requirements</title>
+    <meta name="maintainer" content="" its:translate="no"/>
+    <abstract>
+      <para><!-- Add profiling here later when we do the full requirements -->
+       This section describes the system requirements for a minimal setup of &sleha;.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="ha-requirements-hardware">
+    <title>Hardware requirements</title>
+    <variablelist>
+      <varlistentry>
+        <term>Servers</term>
+        <listitem>
+          <para condition="threenode">
+            Three servers to act as cluster nodes.
+          </para>
+          <para condition="twonode">
+            Three servers: two to act as cluster nodes, and one to run &qnet;.
+          </para>
+          <!--para>
+            Number of cluster nodes (only needed for full install)
+          </para-->
+          <para>
+            The servers can be bare metal or virtual machines. They do not require identical
+            hardware (memory, disk space, etc.), but they must have the same architecture.
+            Cross-platform clusters are not supported.
+          </para>
+          <para>
+            See the <citetitle>System Requirements</citetitle> section at
+            <link xlink:href="https://www.suse.com/download/sle-ha/"/> for more details
+            about server hardware.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Network Interface Cards (NICs)</term>
+        <listitem>
+          <para>
+            At least two NICs per cluster node. For a supported cluster setup, two or more
+            communication channels are required, using one of the following methods:
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                Combining the NICs into a network bond (preferred). In this case, you must set up
+                the bonded device on each node before you initialize the cluster.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Creating a second communication channel in &corosync;. This can be configured by
+                the cluster setup script. In this case, the two NICs must be on different subnets.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>&stonith; (node fencing)</term>
+        <listitem>
+          <para>
+            To be supported, all &sleha; clusters <emphasis>must</emphasis> have at least one
+            node fencing (&stonith;) device to avoid split-brain scenarios. This can be either a
+            physical device (a power switch) or &sbd; (&sbd.long;) in combination with a watchdog.
+            &sbd; can be used either with shared storage or in diskless mode.
+          </para>
+          <para><!-- Add profiling here later -->
+            The minimal setup described in this guide uses a software watchdog and diskless &sbd;,
+            so no additional hardware is required. Before using this cluster in a production
+            environment, replace the software watchdog with a hardware watchdog.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="ha-requirements-software">
+    <title>Software requirements</title>
+    <variablelist>
+      <varlistentry>
+        <term>Operating system</term>
+        <listitem>
+          <para>
+            All nodes<phrase condition="twonode"> and the &qnet; server</phrase> must have &sles;
+            installed and registered.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>&ha; extension</term>
+        <listitem>
+          <para>
+            The &sleha; extension requires an additional registration code.
+          </para>
+          <para>
+            This extension can be enabled during the &slsa; installation, or you can enable it later
+            on a running system. This guide explains how to enable and register the extension on a
+            running system.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="ha-requirements-network">
+    <title>Network requirements</title>
+    <variablelist>
+      <varlistentry>
+        <term>Time synchronization</term>
+        <listitem>
+          <para>
+            All systems must synchronize to an NTP server outside the cluster. &sles; uses &chrony;
+            for NTP. When you initialize the cluster, you are warned if &chrony; is not running.
+          </para>
+          <para>
+            Even if the nodes are synchronized, log files and cluster reports can still become
+            difficult to analyze if the nodes have different time zones configured.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Host name and IP address</term>
+        <listitem>
+          <para>
+            All cluster nodes must be able to find each other<phrase condition="twonode">, and the
+            &qnet; server,</phrase> by name. Use the following methods for reliable name resolution:
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                Use static IP addresses.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                List all nodes in the <filename>/etc/hosts</filename> file with their IP address,
+                FQDN and short host name.
+              </para>
+            </listitem>
+          </itemizedlist>
+          <para>
+            Only the primary IP address on each NIC is supported.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>SSH</term>
+        <listitem>
+          <para>
+            All cluster nodes must be able to access each other<phrase condition="twonode">,
+            and the &qnet; server,</phrase> via SSH. Certain cluster operations also require
+            passwordless SSH authentication. When you initialize the cluster, the setup script
+            checks for existing SSH keys and generates them if they do not exist.
+          </para>
+          <important>
+            <title>&rootuser; SSH access in &sle; 16</title>
+            <para>
+              In &sle; 16, &rootuser; SSH login with a password is disabled by default.
+            </para>
+            <para>
+              On each node,<phrase condition="twonode"> and the &qnet; server,</phrase> either
+              create a user with <command>sudo</command> privileges or set up passwordless SSH
+              authentication for the &rootuser; user before you initialize the cluster.
+            </para>
+            <para>
+              If you initialize the cluster with a <command>sudo</command> user, certain &crmsh;
+              commands also require passwordless <command>sudo</command> permission.
+            </para>
+          </important>
+        </listitem>
+      </varlistentry>
+      <varlistentry condition="twonode">
+        <term>Separate network for &qnet;</term>
+        <listitem>
+          <para>
+            We recommend having the cluster nodes reach the &qnet; server via a different network
+            than the one &corosync; uses. Ideally, the &qnet; server should be in a separate rack
+            from the cluster, or at least on a separate PSU and not in the same network segment as
+            the &corosync; communication channels.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <!--section xml:id="ha-requirements-storage">
+    <title>Shared storage requirements</title>
+    <para>
+      Don't need this for the quick start but will for full installation.
+    </para>
+    <variablelist>
+      <title>A title</title>
+      <varlistentry>
+        <term></term>
+        <listitem>
+          <para>
+            A paragraph of text.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term></term>
+        <listitem>
+          <para>
+            Another paragraph of text.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section-->
+</topic>
