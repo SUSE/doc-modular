@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/slemicro_security_selinux.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="selinux-enable-disable"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Disabling and Re-Enabling &selnx;</title>
+    <!-- can be changed via merge
+      in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract>
+      <!-- can be changed via merge in the assembly -->
+      <para>
+        The topic covers enabling and disabling &selnx; via the kernel command line.
+      </para>
+    </abstract>
+  </info>
+  <note>
+    <title>Disabling SELinux is not recommended</title>
+    <para>
+    It is not recommended to disable &selnx;. If &selnx; is possibly causing issues to your system, switch to the <literal>permissive</literal> mode to debug your system.
+    </para>
+  </note>
+  <para>
+    &selnx; is enabled by default in &productnameshort; &productnumber;.
+    To disable or re-enable &selnx;, it requires a modification of the kernel command line.
+    This can be done temporarily for one boot or permanently by modifying the
+    bootloader configuration.
+  </para>
+  <section xml:id="selinux-enable-disable-grub">
+    <title>Modify the kernel command line via the grub bootloader configuration</title>
+    <para>
+     To disable &selnx;, edit the grub configuration file to include <literal>selinux=0</literal>:
+    </para>
+<screen>
+&prompt.root;update-bootloader --add-option "selinux=0"
+&prompt.root;update-bootloader --config
+</screen>
+    <para>
+      Verify that <filename>/etc/default/grub</filename> contains <literal>selinux=0</literal>:
+    </para>
+<screen>GRUB_CMDLINE_LINUX_DEFAULT="...... selinux=0"</screen>
+    <para>
+      The change will be effective after reboot. To verify that SELinux is disabled, run:
+    </para>
+<screen>
+&prompt.root;sestatus
+SELinux status:                 disabled
+</screen>
+    <para>
+      To enable &selnx; again, edit the grub configuration
+      file to drop the <literal>selinux=0</literal> option and ask the system to relabel
+      during reboot. &selnx; will be re-enabled after reboot.
+    </para>
+<screen>
+&prompt.root;update-bootloader --del-option "selinux=0"
+&prompt.root;update-bootloader --config
+&prompt.root;touch /etc/selinux/.autorelabel
+</screen>
+    <note>
+      <title>Relabeling your system after re-enabling SELinux</title>
+      <para>
+        If you disable &selnx; on your system and then enable it later, make
+        sure that you relabel your system. When &selnx; is disabled and you
+        perform changes to your file system, the changes are not reflected in
+        the context anymore (for example, new files do not have any context).
+        Therefore, you need to relabel your system by using the
+        <command>restorecon</command> command, using the
+        <literal>autorelabel</literal> boot parameter, or by creating a file
+        that will trigger relabeling on the next boot. To create the file, run
+        the following command:
+      </para>
+<screen>&prompt.root;touch /etc/selinux/.autorelabel</screen>
+      <para>
+        After reboot, the file <filename>/etc/selinux/.autorelabel</filename>
+        is replaced with another flag file,
+        <filename>/etc/selinux/.relabelled</filename>, to prevent relabeling on
+        subsequent reboots.
+      </para>
+    </note>
+  </section>
+</topic>
