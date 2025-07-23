@@ -37,27 +37,96 @@
             <para>
              On all nodes, install the <package>corosync-qdevice</package> package:
             </para>
-            <screen>&prompt.root;<command>zypper install corosync-qdevice</command></screen>
+<screen>&prompt.user;<command>sudo zypper install corosync-qdevice</command></screen>
          </step>
          <step>
             <para>
              On one of the nodes, run the following command to configure &qdevice;:
             </para>
-<screen>&prompt.root;<command>crm cluster init qdevice</command>
-Do you want to configure QDevice (y/n)? <command>y</command>
-HOST or IP of the QNetd server to be used []<command><replaceable>QNETD_SERVER</replaceable></command>
-TCP PORT of QNetd server [5403]
-QNetd decision ALGORITHM (ffsplit/lms) [ffsplit]
-QNetd TIE_BREAKER (lowest/highest/valid node id) [lowest]
-Whether using TLS on QDevice/QNetd (on/off/required) [on]
-Heuristics COMMAND to run with absolute path; For multiple commands, use ";" to separate []</screen>
-            <para>
-             Confirm with <literal>y</literal> that you want to configure &qdevice;,
-             then enter the host name or IP address of the &qnet; server. For the
-             remaining fields, you can accept the default values or change them
-             if required.
-            </para>
+<screen>&prompt.user;<command>sudo crm cluster init qdevice</command></screen>
          </step>
+         <step>
+          <para>
+            Confirm with <literal>y</literal> that you want to configure &qdevice; and &qnet;.
+          </para>
+        </step>
+        <step>
+          <para>
+            Enter the IP address or host name of the &qnet; server, with or without a user name.
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                If you include a non-&rootuser; user name, you are prompted for the password, and the
+                script configures passwordless SSH authentication from the node to the &qnet; server.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                If you omit a user name, the script defaults to the &rootuser; user, so passwordless
+                SSH authentication must already be configured for the node to access the &qnet; server.
+              </para>
+            </listitem>
+          </itemizedlist>
+          <para>
+            For the remaining fields, accept the default values<!--or change them as required-->:
+          </para>
+        </step>
+        <step>
+          <para>
+            Accept the proposed port (<literal>5403</literal>) or enter a different one.
+          </para>
+        </step>
+        <step>
+          <para>
+            Choose the algorithm that determines how votes are assigned. The default is
+            <literal>ffsplit</literal>.
+          </para>
+        </step>
+        <step>
+          <para>
+            Choose the method to use when a tie-breaker is required. The default is
+            <literal>lowest</literal>.
+          </para>
+        </step>
+        <step>
+          <para>
+            Choose whether to enable TLS for client certificate checking:
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <literal>off</literal>: TLS is not required and should not be tried.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>on</literal>: Attempt to connect with TLS, but connect without TLS
+                if it is not available. This is the default setting.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>required</literal>: TLS is mandatory. &qdevice; will exit with an
+                error if TLS is not available.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </step>
+        <step performance="optional">
+          <para>
+            Enter heuristics commands to affect how votes are determined. To skip this
+            step, leave the field blank.
+          </para>
+          <para>
+            You can pass one or more commands (separated by semicolons) with absolute paths. For example, if your own command for heuristic checks is located at <filename>/usr/sbin/my-script.sh</filename>. Only when all commands finish successfully (return
+         code is zero), have the heuristics passed.
+      </para>
+      <para>
+         The command or commands can be written in any language such as Shell, Pythons or Ruby.
+         If they succeed, they return <literal>0</literal> (zero), otherwise they return an error code.
+      </para>
+        </step>
       </procedure>
       <para>
         The script configures &qdevice; on the nodes and completes the &qnet; configuration
@@ -78,35 +147,6 @@ Heuristics COMMAND to run with absolute path; For multiple commands, use ";" to 
           such as <literal>35</literal>.
         </para>
       </important>
-      <para>
-         If you need additional control over how votes are determined, use heuristics.
-         Heuristics are a set of commands that are executed in parallel.
-      </para>
-      <para>
-         For this purpose, the command <command>crm cluster init qdevice</command>
-         provides the option <option>--qdevice-heuristics</option>. You can
-         pass one or more commands (separated by semicolons) with absolute paths.
-      </para>
-      <para>
-         For example, if your own command for heuristic checks is located at
-         <filename>/usr/sbin/my-script.sh</filename> you can run it on
-         one of your cluster nodes as follows:
-      </para>
-      <screen>&prompt.root;<command>crm cluster init qdevice --qnetd-hostname=&node3; \
-     --qdevice-heuristics=/usr/sbin/my-script.sh \
-     --qdevice-heuristics-mode=on</command></screen>
-      <para>
-         The command or commands can be written in any language such as Shell, Python, or Ruby.
-         If they succeed, they return <literal>0</literal> (zero), otherwise they return an error code.
-      </para>
-      <para>
-         You can also pass a set of commands. Only when all commands finish successfully (return
-         code is zero), have the heuristics passed.
-      </para>
-      <para>
-         The <option>--qdevice-heuristics-mode=on</option> option lets the heuristics
-         commands run regularly.
-      </para>
   <para>
     Check the status of the cluster with <command>crm status</command>.
   </para>
