@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/article_installation.xml -->
+
+<topic xml:id="ha-testing-resource-failover"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Testing resource failover</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Check whether the cluster moves resources to another node if the current node is
+        set to <literal>standby</literal>. This procedure uses example nodes called
+        <systemitem>&node1;</systemitem> and <systemitem>&node2;</systemitem>,
+        and a virtual IP resource called <literal>admin-ip</literal> with the example
+        IP address <literal>&subnetI;.10</literal>.
+      </para>
+    </abstract>
+  </info>
+  <procedure>
+    <step>
+      <para>
+        Open two terminals.
+      </para>
+    </step>
+    <step>
+      <para>
+        In the first terminal, ping the virtual IP address:
+      </para>
+<screen>&prompt.user;<command>ping &subnetI;.10</command></screen>
+    </step>
+    <step>
+      <para>
+        In the second terminal, log in to one of the cluster nodes.
+      </para>
+    </step>
+    <step>
+      <para>
+        Check which node the virtual IP address is running on:
+      </para>
+<screen>&prompt.user;<command>sudo crm status</command>
+[..]
+Node List:
+  * Online: [ &node1; &node2; ]
+
+Full List of Resources:
+  * admin-ip  (ocf:heartbeat:IPaddr2):    Started &node1;</screen>
+    </step>
+    <step>
+      <para>
+        Put <systemitem>&node1;</systemitem> into standby mode:
+      </para>
+<screen>&prompt.user;<command>sudo crm node standby &node1;</command></screen>
+    </step>
+    <step>
+      <para>
+        Check the cluster status again. The resource <literal>admin-ip</literal> should have
+        migrated to <systemitem>&node2;</systemitem>:
+      </para>
+<screen>&prompt.user;<command>sudo crm status</command>
+[...]
+Node List:
+  * Node &node1;: standby
+  * Online: [ &node2; ]
+
+Full List of Resources:
+  * admin-ip  (ocf:heartbeat:IPaddr2):    Started &node2;</screen>
+    </step>
+    <step>
+      <para>
+        In the first terminal, you should see an uninterrupted flow of pings to the virtual IP
+        address during the migration. This shows that the cluster setup and the floating IP address
+        work correctly.
+      </para>
+    </step>
+    <step>
+      <para>
+        Cancel the <command>ping</command> command with
+        <keycombo><keycap function="control"/><keycap>C</keycap></keycombo>.
+      </para>
+    </step>
+    <step>
+      <para>
+        In the second terminal, bring <systemitem>&node1;</systemitem> back online:
+      </para>
+<screen>&prompt.user;<command>sudo crm node online &node1;</command></screen>
+    </step>
+  </procedure>
+</topic>
