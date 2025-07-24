@@ -16,47 +16,48 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Modifying &selnx; context types</title><!-- can be changed via merge
+    <title>Managing Custom File Contexts</title><!-- can be changed via merge
 in the assembly -->
     <!-- add author's e-mail -->
     <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
     <abstract><!-- can be changed via merge in the assembly -->
       <para>
-       The topic covers changing of the security context type.
+       The topic covers changing of the &selnx; file context.
       </para>
     </abstract>
   </info>
   <para>
-    An important part of the work of an administrator is setting context
-    types on files to ensure appropriate working of &selnx;.
-   </para>
-   <para>
-    If a file is created within a specific directory, it inherits the
-    context type of the parent directory by default. If, however, a file is
-    moved from one location to another location, it retains the context type
-    that it had in the old location.
-   </para>
-   <para>
-    To set the context type for files, you can use the <command>semanage
-    fcontext</command> command. With this command, you write the new context
-    type to the policy, but it does not change the actual context type
-    immediately! To apply the context types that are in the policy, you need
-    to run the <command>restorecon</command> command afterward.
-   </para>
-   <para>
-    The challenge when working with <command>semanage fcontext</command> is
-    to find out which context you actually need. You can use
-   </para>
-<screen>&prompt.sudo;<command>semanage fcontext -l</command></screen>
-   <para>
-    to list all contexts in the policy, but it may be a bit hard
-    to find out the actual context you need from that list as it is rather
-    long (see
-    <xref linkend="ex-selnx-semanage" xrefstyle="select:label quotedtitle nopage"/>).
-   </para>
-   <example xml:id="ex-selnx-semanage">
+    When changing the default location of configuration files or other files
+    of a confined service, you likely need to define or modify the security contexts
+    (also sometimes called <emphasis>labels</emphasis>) that are attached to certain files by &selnx;.
+  </para>
+  <para>
+    For instance, if a web server is configured to serve web pages from a custom directory other than its
+    default location, the corresponding SELinux file contexts needs to be updated
+    as well to permit this operation.
+  </para>
+  <para>
+    To update the security context of the files in a custom location permanently,
+    you can use the <command>semanage fcontext</command> command.
+    With this command, the new file context is written to the policy.
+    Additionally, the <command>restorecon</command> command needs to be run
+    afterward to reflect the policy change in the filesystem.
+  </para>
+  <para>
+    The challenge when updating the &selnx; context to its workload is
+    to find out which &selnx; context is needed when doing the customization.
+    You can list all mappings of security contexts to files in the file system
+    using:
+  </para>
+<screen>&prompt.root;<command>semanage fcontext -l</command></screen>
+  <para>
+    This will show a long list of regular expressions, to which file type they
+    match and which security context the files will be assigned.
+    This can be searched to find the appropriate labels.
+  </para>
+  <example xml:id="ex-selnx-semanage">
     <title>Viewing default file contexts</title>
-<screen>&prompt.sudo;<command>semanage fcontext -l | less</command>
+<screen>&prompt.root;<command>semanage fcontext -l | less</command>
 &selnx; fcontext                                   type               Context
 
 /                                                  directory          system_u:object_r:root_t:s0
@@ -70,5 +71,74 @@ in the assembly -->
 /afs                                               directory          system_u:object_r:mnt_t:s0
 /bin                                               directory          system_u:object_r:bin_t:s0
 /bin/.*                                            all files          system_u:object_r:bin_t:s0</screen>
-   </example>
+  </example>
+  <para>
+    Another way is to consult the &selnx; man page of the service which has the custom
+    path and check which type needs to be set. The man page convention is
+    <command>SERVICE_selinux</command>. For example, the SELinux man page for
+    web servers is named <command>httpd_selinux</command>.
+  </para>
+  <para>
+    When the correct type for the custom path has been identified, you can set it
+    by using <command>semanage fcontext</command> and using the <literal>TYPE</literal>
+    and a regular expression <literal>REGEX</literal> to match the custom file path:
+<screen>
+ &prompt.root;<command>semanage fcontext -a -t TYPE REGEX</command>
+</screen>
+    For example to set all files below <filename>/srv/wwwcustom/html</filename> to have
+the type <literal>httpd_sys_content_t</literal>, use:
+<screen>
+ &prompt.root;<command>semanage fcontext -a -t httpd_sys_content_t "/srv/wwwcustom/html(/.*)?"</command>
+</screen>
+   Then, you can verify if your modification set up correctly by using <command>matchpathcon</command>:
+<screen>
+&prompt.root;<command>matchpathcon /srv/wwwcustom/html</command>
+/srv/wwwcustom/html	system_u:object_r:httpd_sys_content_t:s0
+</screen>
+   Then, reflect the security context in the file system for that directory
+   by resetting the security context:
+<screen>
+&prompt.root;<command>restorecon -Rv /srv/wwwcustom/html</command>
+</screen>
+  </para>
+  <tip>
+    <title>Set equivalencies between the label of the default and custom location</title>
+    <para>
+      When you are using a different location in the filesystem than the default one,
+      you can check which security context would have been assigned
+      to the default location and assign the same to the new location.
+      For example, the default served location of a web server is <filename>/srv/www/html</filename>.
+      You want to move it to <filename>/srv/wwwcustom/html</filename>.
+      Check out the label of the default location:
+<screen>
+&prompt.root;<command>matchpathcon /srv/www/html</command>
+/srv/www/html	system_u:object_r:httpd_sys_content_t:s0
+</screen>
+      Check out the label of the new custom location:
+<screen>
+&prompt.root;<command>matchpathcon /srv/wwwcustom/html</command>
+/srv/wwwcustom/html	system_u:object_r:var_t:s0
+</screen>
+      Set an equivalency between /srv/www/html and /srv/wwwcustom/html by running:
+<screen>
+&prompt.root;<command>semanage fcontext -a -e /srv/www/html /srv/wwwcustom/html</command>
+</screen>
+      The new custom location now has the same label as the default one:
+<screen>
+&prompt.root;<command>matchpathcon /srv/wwwcustom/html</command>
+/srv/wwwcustom/html	system_u:object_r:httpd_sys_content_t:s0
+</screen>
+      Then, reset the security contexts in the file system:
+<screen>
+&prompt.root;<command>restorecon -Rv /srv/wwwcustom/html</command>
+</screen>
+      Your workload should work now as expected.
+    </para>
+  </tip>
+  <para>
+    In case you would like to remove the customization again, run:
+<screen>
+ &prompt.root;<command>semanage fcontext -d "/srv/wwwcustom/html(/.*)?"</command>
+</screen>
+  </para>
 </topic>
