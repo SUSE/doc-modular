@@ -34,10 +34,11 @@
   <section xml:id="sles-pxe-server-network-configuration-introduction">
     <title>Introduction</title>
     <para>
-      A PXE server comprises of three servers - a TFTP server, an HTTP server, and a DHCP server.
+      A PXE server comprises of three servers - an DHCP server providing the address and boot file
+      (bootloader) location and TFTP and/or HTTP server to retrieve the files.
       In addition, there might be a DNS sever, and NTP server and a router with IPv6
       support&mdash;usually they are separate from the PXE server in a production network. A PXE
-      server running &productname; &productnumber; may also need a specific network interface,
+      server running &productname; &productnumber; may also need a specific network interface setup,
       certain persistent rules added to the firewall, and some permissions in
       <systemitem>SELinux</systemitem>. This section illustrates a sample network with suitable IP
       ranges, and necessary rules for firewall and SELinux.
@@ -106,8 +107,8 @@
       </listitem>
       <listitem>
         <para>
-          By default, the IPv6 router, NTP and DNS servers are external and running on another
-          machine. This article may provide some hints, but does not cover the complete router
+          By default, the router, NTP and DNS servers are external and running on another
+          machine. This article provides some hints, but does not cover their complete
           configuration.
         </para>
       </listitem>
@@ -282,12 +283,6 @@
       </step>
       <step>
         <para>
-          Reload the firewall to apply the persistent changes:
-        </para>
-<screen>&prompt.sudo;<command>firewall-cmd --reload</command></screen>
-      </step>
-      <step>
-        <para>
           Temporarily disable <systemitem>SELinux</systemitem> for setup testing.
         </para>
         <substeps>
@@ -315,22 +310,28 @@
             <para>
               Create and install a module for <literal>nginx</literal>:
             </para>
-<screen>&prompt.sudo;<command>ausearch -c 'nginx' --raw | audit2allow -a -M local-nginx</command></screen>
-<screen>&prompt.sudo;<command>semodule -i local-nginx.pp</command></screen>
+<screen>&prompt.sudo;<command>if test `ausearch -c 'nginx' --raw | wc -l` -gt 0 ; then</command></screen>
+<screen>&prompt.sudo;<command>  ausearch -c 'nginx' --raw | audit2allow -a -M local-nginx</command></screen>
+<screen>&prompt.sudo;<command>  semodule -i local-nginx.pp</command></screen>
+<screen>&prompt.sudo;<command>fi</command></screen>
           </step>
           <step>
             <para>
               Create and install a module for <literal>dnsmasq</literal>:
             </para>
-<screen>&prompt.sudo;<command>ausearch -c 'dnsmasq' --raw | audit2allow -a -M local-dnsmasq</command></screen>
-<screen>&prompt.sudo;<command>semodule -i local-dnsmasq.pp</command></screen>
+<screen>&prompt.sudo;<command>if test `ausearch -c 'dnsmasq' --raw | wc -l` -gt 0 ; then</command></screen>
+<screen>&prompt.sudo;<command>  ausearch -c 'dnsmasq' --raw | audit2allow -a -M local-dnsmasq</command></screen>
+<screen>&prompt.sudo;<command>  semodule -i local-dnsmasq.pp</command></screen>
+<screen>&prompt.sudo;<command>fi</command></screen>
           </step>
           <step>
             <para>
               Create and install a module for <literal>in.tftpd</literal>:
             </para>
-<screen>&prompt.sudo;<command>ausearch -c 'in.tftpd' --raw | audit2allow -a -M local-tftpd</command></screen>
-<screen>&prompt.sudo;<command>semodule -i local-tftpd.pp</command></screen>
+<screen>&prompt.sudo;<command>if test `ausearch -c 'in.tftpd' --raw | wc -l` -gt 0 ; then</command></screen>
+<screen>&prompt.sudo;<command>  ausearch -c 'in.tftpd' --raw | audit2allow -a -M local-tftpd</command></screen>
+<screen>&prompt.sudo;<command>  semodule -i local-tftpd.pp</command></screen>
+<screen>&prompt.sudo;<command>fi</command></screen>
           </step>
         </substeps>
       </step>
@@ -365,8 +366,8 @@
     <itemizedlist>
       <listitem>
         <para>
-          Verified and assigned the PXE-serving interface (typically <filename>eno1</filename>) to
-          the <literal>public</literal> firewalld zone.
+          Verified and assigned the PXE-serving interface (<filename>eno1</filename> in this example)
+          to the <literal>public</literal> firewalld zone.
         </para>
       </listitem>
       <listitem>
