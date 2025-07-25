@@ -27,11 +27,11 @@
       Quorum must be calculated so the non-quorate nodes can be fenced.
     </para>
     <para>
-      &qdevice; and &qnet; participate in quorum calculations. &qdevice; runs on each cluster node
-      and communicates with an arbitrator, &qnet;, to provide a configurable number of votes to the
-      cluster. This allows the cluster to sustain more node failures than the standard quorum rules
-      allow. We recommend using &qdevice; in clusters with an even number of nodes, and especially
-      in two-node clusters.
+      &qdevice; and &qnet; participate in quorum calculations in a split-brain scenario. &qdevice;
+      runs on each cluster node and communicates with an arbitrator, &qnet;, to provide a
+      configurable number of votes to the cluster. This allows the cluster to sustain more node
+      failures than the standard quorum rules allow. We recommend using &qdevice; in clusters with
+      an even number of nodes, and especially in two-node clusters.
       </para>
     </abstract>
   </info>
@@ -53,18 +53,23 @@
       </listitem>
       <listitem>
         <para>
+          You can write your own heuristics scripts to affect votes. This is especially useful for
+          complex setups.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
           Two-node clusters can use diskless &sbd; if &qdevice; is also configured.
         </para>
       </listitem>
       <listitem>
         <para>
-          A &qnet; server can provide votes for multiple clusters.
+          One &qnet; server can provide votes for multiple clusters.
         </para>
       </listitem>
       <listitem>
         <para>
-          You can write your own heuristics scripts to affect votes. This is especially useful for
-          complex setups.
+          &qnet; can work with TLS for client certificate checking.
         </para>
       </listitem>
     </itemizedlist>
@@ -79,10 +84,8 @@
         <term>&qdevice; (<systemitem>corosync-qdevice</systemitem>)</term>
         <listitem>
           <para>
-            A systemd service (a daemon) on each cluster node running together with &corosync;. This is the client of <systemitem>corosync-qnetd</systemitem>. Its primary use is to allow a cluster to sustain more node failures than standard quorum rules allow.
-          </para>
-          <para>
-            &qdevice; is designed to work with different arbitrators. However, currently, only &qnet; is supported.
+            &qdevice; runs together with &corosync; on each cluster node. It communicates with the
+            arbitrator &qnet; to provide a configurable number of votes to the cluster.
           </para>
         </listitem>
       </varlistentry>
@@ -90,13 +93,12 @@
         <term>&qnet; (<systemitem>corosync-qnetd</systemitem>)</term>
         <listitem>
           <para>
-          A systemd service (a daemon, the <quote>&qnet; server</quote>) which is not part of the cluster. The systemd service provides a vote to the <systemitem>corosync-qdevice</systemitem> daemon.
-          </para>
-          <para>
-            By default, the <systemitem>corosync-qnetd</systemitem> service runs the daemon as the user <systemitem>coroqnetd</systemitem> in the group <systemitem>coroqnetd</systemitem>. This avoids running the daemon as &rootuser;.
-          </para>
-          <para>
-            To improve security, <systemitem>corosync-qnetd</systemitem> can work with TLS for client certificate checking.
+            &qnet; is an arbitrator that runs outside the cluster. It provides a vote to the
+            &qdevice; service on each cluster node to help it participate in quorum decisions.
+            &qnet; can support multiple clusters if each cluster has a unique name. By default,
+            &qnet; runs the <systemitem>corosync-qnetd</systemitem> daemon as the user
+            <systemitem>coroqnetd</systemitem> in the group <systemitem>coroqnetd</systemitem>.
+            This avoids running the daemon as &rootuser;.
           </para>
         </listitem>
       </varlistentry>
@@ -104,15 +106,10 @@
         <term>Algorithms</term>
         <listitem>
           <para>
-            &qdevice; supports different algorithms, which determine the behavior of how votes are assigned. FFSplit (<quote>fifty-fifty split</quote>) or LMS (<quote>last man standing</quote>).
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>Tiebreaker</term>
-        <listitem>
-          <para>
-            This is used as a fallback if the cluster partitions are equal even with the same heuristics results. It can be configured to be the lowest node ID, the highest node ID, or a specific node ID.
+            &qdevice; supports different algorithms to determine how votes are assigned.
+            <quote>Fifty-fifty split</quote> is helpful for clusters with an even number of nodes.
+            <quote>Last man standing</quote> is helpful for clusters where only one
+            <emphasis>active</emphasis> node needs to remain quorate.
           </para>
         </listitem>
       </varlistentry>
@@ -120,10 +117,22 @@
         <term>Heuristics</term>
         <listitem>
           <para>
-            &qdevice; supports a set of commands (<quote>heuristics</quote>). The commands are executed locally on start-up of cluster services, cluster membership change, successful connection to <systemitem>corosync-qnetd</systemitem>, or, optionally, at regular times. The heuristics can be set with the <parameter>quorum.device.heuristics</parameter> key (in the <filename>corosync.conf</filename> file) or with the <option>--qdevice-heuristics-mode</option> option. Both know the values <literal>off</literal> (default), <literal>sync</literal>, and <literal>on</literal>. The difference between <literal>sync</literal> and <literal>on</literal> is that you can additionally execute the above commands regularly.
+            &qdevice; supports a set of commands (or <quote>heuristics</quote>). The commands run
+            when the cluster services start (or restart), when the cluster membership changes, and
+            when nodes connect to the &qnet; server. Optionally, you can also configure the commands
+            to run at regular intervals. The commands can be written in any programming language.
+            If the commands succeed, they return <literal>0</literal>; otherwise, they return an
+            error code. The result is sent to &qnet; to help with the quorum calculation.
           </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Tiebreaker</term>
+        <listitem>
           <para>
-            Only if all commands are executed successfully are the heuristics considered to have passed; otherwise, they failed. The heuristics' result is sent to <systemitem>corosync-qnetd</systemitem> where it is used in calculations to determine which partition should be quorate.
+            This is used as a fallback if the cluster partitions are equal even after the heuristics
+            results are applied. The tie-breaker vote can be configured to go to the node with the
+            lowest node ID, the highest node ID, or a specific node ID.
           </para>
         </listitem>
       </varlistentry>
@@ -132,8 +141,8 @@
   <section xml:id="ha-qdevice-what-is-more-info">
     <title>For more information</title>
     <para>
-      For more information about &qdevice; and &qnet;, see the man pages
-      <literal>corosync-qdevice</literal> and <literal>corosync-qnetd</literal>.
+      For more information, see the man pages <literal>corosync-qdevice</literal> and
+      <literal>corosync-qnetd</literal>.
     </para>
   </section>
 </topic>
