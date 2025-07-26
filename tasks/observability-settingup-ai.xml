@@ -22,7 +22,8 @@
         your infrastructure and applications. It enables efficient tracking of
         metrics, logs and traces, helping you maintain optimal performance and
         troubleshoot issues effectively. This procedure guides you through
-        setting up &sobservability; for the &productname; environment.
+        setting up &sobservability; for the &productname; environment using the
+        &productname; Observability Extension.
       </para>
     </abstract>
   </info>
@@ -48,9 +49,30 @@
           Have a valid license for &sobservability; in &scc;
         </para>
       </listitem>
+      <listitem>
+        <para>
+          Utilize &openlit; SDK for instrumentation.
+        </para>
+      </listitem>
     </itemizedlist>
+    <para>
+      To generate telemetry data for your applications, you need the &openlit;
+      SDK for instrumentation. Instrumentation is what enables your application
+      to produce signals such as traces and metrics and send those to
+      &sobservability; through the OpenTelemetry Collector. By using the
+      &openlit; SDK, you are able to gather information from all AI components
+      that your system interacts with.
+    </para>
+    <important>
+      <title>&sappco; not instrumented by default</title>
+      <para>
+        Applications from the &sappco; are not instrumented by default. If you
+        want to monitor your AI applications, you need to add and initialize
+        &openlit; for each of them.
+      </para>
+    </important>
   </section>
-  <section xml:id="ai-observability-overview">
+  <section xml:id="ai-observability-2clusters">
     <title>Setup process overview</title>
     <para>
       The following chart shows the high-level steps in the &sobservability;
@@ -71,14 +93,14 @@
         </para>
       </listitem>
     </itemizedlist>
-    <figure xml:id="ai-observability-overview-figure">
+    <figure xml:id="ai-observability-2clusters-figure">
       <title>High-level overview of the &sobservability; setup</title>
       <mediaobject>
         <imageobject role="fo">
-          <imagedata fileref="ai-observability-overview.png" width="75%"/>
+          <imagedata fileref="ai-observability-overview.png" width="100%"/>
         </imageobject>
         <imageobject role="html">
-          <imagedata fileref="ai-observability-overview.png" width="75%"/>
+          <imagedata fileref="ai-observability-overview.png" width="100%"/>
         </imageobject>
         <textobject role="description"><phrase>The chart showing a high-level overview of the &sobservability; setup</phrase>
         </textobject>
@@ -96,6 +118,84 @@
         if you already have one configured.
       </para>
     </tip>
+    <para>
+      The diagram below shows the result of the above steps. There are two
+      clusters represented, one for the &sobservability; workload and another
+      one for &productname;. You may use identical setup or customize it for
+      your environment.
+    </para>
+    <figure xml:id="ai-observability-setp-2clusters">
+      <title>Separate clusters for &productname; and &sobservability;</title>
+      <mediaobject>
+        <imageobject role="fo">
+          <imagedata fileref="ai-observability-2clusters.png" width="75%"/>
+        </imageobject>
+        <imageobject role="html">
+          <imagedata fileref="ai-observability-2clusters.png" width="75%"/>
+        </imageobject>
+        <textobject role="description"><phrase>The chart showing setup of separate clusters for &productname; and &sobservability;</phrase>
+        </textobject>
+      </mediaobject>
+    </figure>
+    <itemizedlist>
+      <title>Points to notice</title>
+      <listitem>
+        <para>
+          You can install &productname; Observability Extension alongside
+          &sobservability;. It means that you can confidently use the internal
+          &kube; DNS.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          &sobservability; contains several components and the following two of
+          them need to be accessible by the AI Cluster:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              The Collector endpoint. Refer to
+              <link
+              xlink:href="https://documentation.suse.com/cloudnative/suse-observability/next/en/setup/install-stackstate/kubernetes_openshift/ingress.html">Exposing
+              &sobservability; outside of the cluster</link> or
+              <link xlink:href="https://documentation.suse.com/cloudnative/suse-observability/next/en/setup/otel/otlp-apis.html#_self_hosted_suse_observability">Self-hosted
+              &sobservability;</link> for details about exposing it.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              The &sobservability; API. Refer to
+              <link xlink:href="https://documentation.suse.com/cloudnative/suse-observability/next/en/setup/install-stackstate/kubernetes_openshift/ingress.html">Exposing
+              &sobservability; outside of the cluster</link> for details about
+              exposing it.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              &milvus; metrics and traces can be scraped by the OpenTelemetry
+              Collector with simple configurations, provided below. The same is
+              true for GPU metrics.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              To get information from &owui;or &ollama;, you must have a
+              specific instrumentation set. It can be an application
+              instrumented with the &openlit; SDK or other form of
+              instrumentation following the same patterns.
+            </para>
+          </listitem>
+        </itemizedlist>
+        <important>
+          <para>
+            Remember that it is <emphasis role="bold">critical</emphasis> to
+            properly expose your endpoints. Configure TLS, be careful with the
+            configuration, and make sure to provide the right keys and tokens.
+            More details are provided in the respective instructions.
+          </para>
+        </important>
+      </listitem>
+    </itemizedlist>
   </section>
   <section xml:id="ai-observability-observability-cluster">
     <title>Setting up the &sobservability; cluster</title>
@@ -195,7 +295,7 @@ clusterName: <replaceable>OBSERVED_SERVER_NAME</replaceable><co xml:id="co-obs-o
           After the installation, you can verify that a new lateral menu
           appears:
         </para>
-        <figure>
+        <figure xml:id="ai-observability-genai-menu">
           <title>New GenAI Observability menu item</title>
           <mediaobject>
             <imageobject role="fo">
@@ -265,6 +365,12 @@ config:
                 namespaces:
                   names:
                     - gpu-operator
+          - job_name: 'milvus'
+            scrape_interval: 15s
+            metrics_path: '/metrics'
+ 
+            static_configs:
+              - targets: ['{{ milvus_service_name }}.{{ suse_ai_namespace }}.svc.cluster.local:9091'] <co xml:id="co-obs-otel-namespace"/>
   exporters:
     otlp:
       endpoint: http://suse-observability-otel-collector.suse-observability.svc.cluster.local:4317 <co xml:id="co-obs-otel-collector3"/>
@@ -345,6 +451,13 @@ config:
         processors: [memory_limiter, resource, batch]
         exporters: [debug, otlp]</screen>
         <calloutlist>
+          <callout arearefs="co-obs-otel-namespace">
+            <para>
+              Configure the &milvus; service and namespace for the &prometheus;
+              scraper. Because &milvus; will be installed in subsequent steps,
+              you can return to this step and edit the endpoint if necessary.
+            </para>
+          </callout>
           <callout arearefs="co-obs-otel-collector3">
             <para>
               Set the exporter to your exposed &sobservability; collector. For
