@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="ailibrary-installing-metachart"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Installing &ailibrary; components using &saideployer;</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        &saideployer; consists of a meta &helm; chart that takes care of
+        downloading and installing individual &ailibrary; components required by
+        &productname; on a &kube; cluster.
+      </para>
+    </abstract>
+  </info>
+  <procedure>
+    <para>
+      The following procedure describes how to customize and use the
+      &saideployer; to install &ailibrary; components. It assumes that you
+      already completed steps described in
+      <xref linkend="suse-ai-deploy-suse-ai"/> including the installation of
+      &certmanager;.
+    </para>
+    <step>
+      <para>
+        Pull the &saideployer; &helm; chart with the relevant chart version and
+        untar it. You can find the latest of the chart on the &sappco; page at
+        <link xlink:href="https://apps.rancher.io/applications/suse-ai-deployer"/>.
+      </para>
+<screen>&prompt.user;<command>helm pull oci://dp.apps.rancher.io/charts/suse-ai-deployer \
+  --version 1.0.0 --untar</command>
+&prompt.user;cd suse-ai-deployer</screen>
+    </step>
+    <step>
+      <para>
+        Inspect the downloaded chart and its default values.
+      </para>
+<screen>&prompt.user;<command>helm show chart .</command>
+&prompt.user;helm show values .</screen>
+      <tip>
+        <para>
+          To see default values for the charts of the individual components
+          within the meta chart, run the following commands.
+        </para>
+<screen>&prompt.user;<command>helm show values charts/ollama/</command>
+&prompt.user;<command>helm show values charts/open-webui/</command>
+&prompt.user;<command>helm show values charts/milvus/</command>
+&prompt.user;<command>helm show values charts/pytorch</command></screen>
+      </tip>
+    </step>
+    <step>
+      <para>
+        Explore downloaded example override files in the
+        <filename>suse-ai-deployer/examples</filename> subdirectory. It
+        typically includes the following files:
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><filename>suse-gen-ai-minimal.yaml</filename></term>
+          <listitem>
+            <para>
+              Basic configuration to get started with GenAI. It deploys &ollama;
+              without GPU support, &owui;, and &milvus; in stand-alone mode
+              using local storage. &pytorch; is disabled.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>suse-gen-ai.yaml</filename></term>
+          <listitem>
+            <para>
+              Configuration optimized for production usage. It deploys &ollama;
+              with GPU support, &owui;, and &milvus; in cluster mode using
+              Longhorn storage. &pytorch; is disabled.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>suse-ml-stack.yaml</filename></term>
+          <listitem>
+            <para>
+              Basic configuration that enables deployment of &pytorch; with no
+              GPU support with Longhorn storage. It deploys &pytorch; but
+              disables &ollama;, &owui; and &milvus;.
+            </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </step>
+    <step>
+      <para>
+        Create <filename>custom-overrides.yaml</filename> override file based
+        one of the above examples. The examples use self-signed certificates for
+        TLS communication. To use other option (see
+        <xref linkend="owui-tls-sources"/>), copy the <literal>global</literal>
+        section from the <filename>values.yaml</filename> file into your
+        <filename>custom-overrides.yaml</filename> and update its
+        <literal>tls</literal> section as needed.
+      </para>
+    </step>
+    <step>
+      <para>
+        Install the &saideployer; &helm; chart with while overriding values from
+        the <filename>custom-overrides.yaml</filename> file. Use the appropriate
+        <replaceable>RELEASE_NAME</replaceable> and
+        <replaceable>SUSE_AI_NAMESPACE</replaceable> based the configuration in
+        <filename>custom-overrides.yaml</filename>.
+      </para>
+<screen>&prompt.user;<command>helm upgrade --install \
+  <replaceable>RELEASE_NAME</replaceable> \
+  --namespace  <replaceable>SUSE_AI_NAMESPACE</replaceable> \
+  --create-namespace \
+  --values ./custom-overrides.yaml \
+  --version 1.0.0 \
+  oci://dp.apps.rancher.io/charts/suse-ai-deployer</command></screen>
+    </step>
+  </procedure>
+</topic>
