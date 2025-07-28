@@ -25,6 +25,16 @@
       </para>
     </abstract>
   </info>
+  <important>
+    <title>Cluster restart might be required</title>
+    <para>
+      The &qdevice; setup script performs checks to determine whether a cluster restart is required
+      and whether it is safe to do so automatically. If any resources are running, the script does
+      <emphasis>not</emphasis> automatically restart the cluster services. Instead, it warns you to
+      restart the cluster services manually. This allows you to put the cluster into maintenance
+      mode first to avoid resource downtime.
+    </para>
+  </important>
   <itemizedlist>
     <title>Requirements</title>
     <listitem>
@@ -212,19 +222,52 @@
       </para>
       <para>
         After you enter the password, the script configures &qdevice; on the nodes and completes
-        the &qnet; configuration on the &qnet; server, including generating CA and server
-        certificates and starting the <systemitem>corosync-qnetd</systemitem> daemon.
+        the &qnet; server's configuration, including generating CA and server certificates and
+        starting the <systemitem>corosync-qnetd</systemitem> daemon. If the cluster services need
+        to be restarted, the script automatically does so <emphasis>only</emphasis> if no resources
+        are running. If any resources are running, the script warns you to restart the cluster
+        services manually.
       </para>
     </step>
     <step>
       <para>
-        Restart the cluster services on all nodes to update the cluster's quorum configuration:
+        If you need to restart the cluster services manually, follow these steps to avoid
+        resource downtime:
       </para>
+      <substeps>
+      <step>
+        <para>
+          Put the cluster into maintenance mode:
+        </para>
+<screen>&prompt.user;<command>sudo crm maintenance on</command></screen>
+        <para>
+          In this state, the cluster stops monitoring all resources. This allows the services
+          managed by the resources to keep running during the cluster restart.
+        </para>
+      </step>
+      <step>
+        <para>
+          Restart the cluster services on all nodes to update the cluster's quorum configuration:
+        </para>
 <screen>&prompt.user;<command>sudo crm cluster restart --all</command></screen>
+      </step>
+      <step>
+        <para>
+          Check the status of the cluster:
+        </para>
+<screen>&prompt.user;<command>sudo crm status</command></screen>
+        <para>
+          Initially, the nodes have a status of <literal>UNCLEAN (offline)</literal>, but after a
+          short time they change to <literal>Online</literal>.
+        </para>
+      </step>
+      <step>
+        <para>
+          When the nodes are back online, put the cluster back into normal operation:
+        </para>
+<screen>&prompt.user;<command>sudo crm maintenance off</command></screen>
+      </step>
+    </substeps>
     </step>
   </procedure>
-  <para>
-    The cluster now uses &qdevice; to help with quorum decisions. You can check the status of the
-    cluster with <command>crm status</command>.
-  </para>
 </topic>
