@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/slemicro_security_selinux.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="selinux-search-audit-log"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Reading the Audit Log</title>
+    <!-- can be changed via merge
+      in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract>
+      <!-- can be changed via merge in the assembly -->
+      <para>
+        The topic covers enabling and disabling &selnx; via the kernel command line.
+      </para>
+    </abstract>
+  </info>
+  <para>
+      The <filename>audit.log</filename> file contains structured records. The <command>ausearch</command> utility is designed to query these logs effectively. The most common use is to search for recent AVC denials.
+    </para>
+<screen>&prompt.root;<command>ausearch -m AVC -ts recent</command>
+type=AVC msg=audit(1753703741.779:1779): avc:  denied  { getattr } for  pid=22212 comm="httpd-prefork" path="/srv/wwwcustom/vhosts/example.com/index.html" dev="vda3" ino=278 scontext=system_u:system_r:httpd_t:s0 tcontext=system_u:object_r:var_t:s0 tclass=file permissive=0
+</screen>
+    <para>
+      Here, <option>-m AVC</option> filters for &selnx; denials, and <option>-ts recent</option> limits the search to events that happened in the last 10 minutes (you can also use values like <literal>today</literal>, a specific date or <literal>boot</literal>).
+    </para>
+    <para>
+      The log entry contains all the information needed to understand the denial. The key fields are:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>denied  { getattr }</term>
+        <listitem>
+          <para>The specific <emphasis role="bold">permission</emphasis> that was denied.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>comm="httpd-prefork"</term>
+        <listitem>
+          <para>The <emphasis role="bold">command</emphasis> that triggered the denial.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>path="/srv/wwwcustom/vhosts/example.com/index.html"</term>
+        <listitem>
+          <para>The <emphasis role="bold">path</emphasis> that was accessed (only for files)</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>scontext=...:httpd_t:...</term>
+        <listitem>
+          <para>The <emphasis role="bold">Source Context</emphasis> of the process that attempted the action.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>tcontext=...:var_t:...</term>
+        <listitem>
+          <para>The <emphasis role="bold">Target Context</emphasis> of the object (file, directory, port) that was being accessed.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>tclass=file</term>
+        <listitem>
+          <para>The <emphasis role="bold">Target Class</emphasis>, which specifies the type of object (e.g., <literal>file</literal>, <literal>dir</literal>, <literal>tcp_socket</literal>).</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>permissive=0</term>
+        <listitem>
+          <para>The <emphasis role="bold">Mode</emphasis> of the source domain. <literal>permissive=0</literal>
+          means the security policy is enforced, while <literal>permissive=1</literal> means logging only.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <para>
+      In simple terms, the log above states: The process named <command>httpd-prefork</command> (running with the <literal>httpd_t</literal> context) was denied permission to <literal>getattr</literal> a <literal>file</literal> that has the <literal>var_t</literal> context.
+    </para>
+    <para>
+     This example AVC occured when a web server was configured to use a different
+     directory (<filename>/srv/wwwcustom</filename>) for the served files instead of
+     the default path.
+     This needs to be adjusted in SELinux as well, which can can be
+     seen in <xref linkend="modify-context-type"/>.
+    </para>
+</topic>
