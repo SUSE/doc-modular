@@ -100,64 +100,6 @@
         tools to achieve a fully functional system.
       </para>
     </section>
-    <section xml:id="nvidia-gpu-pre-install-version-mismatch">
-      <title>Package version mismatch</title>
-      <para>
-        It is important to distinguish between &suse; and &nvidia; repositories.
-        There can be a mismatch between the package versions that &nvidia; makes
-        available versus what &suse; has built. This usually arises when &suse;
-        makes a new version of the open-driver available, and it takes a couple
-        of days before the equivalent packages are made available in &nvidia;
-        repositories to match.
-      </para>
-      <para>
-        We recommend ensuring that the selected driver version is compatible
-        with your GPU and meets any specific CUDA requirements by checking:
-      </para>
-      <itemizedlist>
-        <listitem>
-          <para>
-            The CUDA
-            <link
-            xlink:href="https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/">release
-            notes</link>.
-          </para>
-        </listitem>
-        <listitem>
-          <para>
-            The driver version you plan to deploy has a matching version in the
-            &nvidia; SLE15-SP6 repository. Ensure that you also have equivalent
-            package versions available for the supporting components.
-          </para>
-        </listitem>
-      </itemizedlist>
-      <tip>
-        <title>Finding &nvidia; open-driver versions</title>
-        <para>
-          To find the &nvidia; open-driver versions, either run <command>zypper
-          se -s nvidia-open-driver</command> on the target machine or search the
-          &scc; for the <quote>nvidia-open-driver</quote> string in SLE Micro
-          &productnumber; for x86_64.
-        </para>
-        <para>
-          In the following example, you can see four versions available, with
-          550.54.14 being the newest:
-        </para>
-        <figure xml:id="ai-nvidia-open-driver-versions">
-          <title>SCC with &productname; drivers selection</title>
-          <mediaobject>
-            <imageobject role="fo">
-              <imagedata fileref="scc-packages-nvidia.png" width="80%"/>
-            </imageobject>
-            <imageobject role="html">
-              <imagedata fileref="scc-packages-nvidia.png" width="80%"/>
-            </imageobject>
-            <textobject role="description"><phrase>SCC with &productname; drivers selection</phrase>
-            </textobject>
-          </mediaobject>
-        </figure>
-      </tip>
-    </section>
   </section>
   <section xml:id="nvidia-gpu-pre-install-procedure">
     <title>The installation procedure</title>
@@ -176,60 +118,24 @@
           from &nvidia;. This allows us to pull in additional utilities, for
           example, <literal>nvidia-smi</literal>.
         </para>
-<screen>&prompt.tr-up;<command>zypper ar
-https://download.nvidia.com/suse/sle15sp6/ nvidia-sle15sp6-main</command>
-&prompt.root;<command>zypper --gpg-auto-import-keys refresh</command></screen>
-      </step>
-      <step performance="optional">
-        <para>
-          Identify the available version of the
-          <package>nvidia-open-driver</package> package.
-        </para>
-<screen>zypper se -s nvidia-open-driver | grep nvidia-open-driver- | \
-sed "s/.* package | //g" | sed "s/\s.*//g" | sort | head -n 1 | sed "s/[-_].*//g"</screen>
-      <para>
-        The output of the command should include a version number, for example,
-        <literal>550.100</literal>.
-      </para>
+<screen>&prompt.tr-up;<command>zypper ar https://developer.download.nvidia.com/compute/cuda/repos/sles15/x86_64/ cuda-sle15</command>
+&prompt.tr-up;<command>zypper --gpg-auto-import-keys refresh</command></screen>
       </step>
       <step>
         <para>
-          You can then install the driver and
-          <package>nvidia-compute-utils</package> for additional utilities that
-          are useful for testing purposes. Include the discovered version number
-          after the <quote>=</quote> character, for example:
+          Install the Open Kernel driver KMP and detect the driver version.
+        </para>
+<screen>&prompt.tr-up;<command>zypper in -y --auto-agree-with-licenses nv-prefer-signed-open-driver</command>
+&prompt.tr-up;<command>version=$(rpm -qa --queryformat '%{VERSION}\n' nv-prefer-signed-open-driver | cut -d "_" -f1 | sort -u | tail -n 1)</command></screen>
+      </step>
+      <step>
+        <para>
+          You can then install the appropriate packages
+          for additional utilities that
+          are useful for testing purposes.
         </para>
 <screen>&prompt.tr-up;<command>zypper install -y --auto-agree-with-licenses \
-  nvidia-open-driver-G06-signed-kmp nvidia-compute-utils-G06=<replaceable>550.100</replaceable></command></screen>
-        <note>
-          <title>Possible version mismatch</title>
-          <para>
-            The installation may fail at this step with an error message similar
-            to the following:
-          </para>
-<screen>'nvidia-open-driver-G06-signed-kmp' not found in package names. Trying capabilities.
-Resolving package dependencies...
-Problem: 1: nothing provides 'kernel-azure' needed by the to be installed \
-  nvidia-driver-G06-kmp-azure-550.135_k6.4.0_150600.6-150600.28.1.x86_64
-[...]</screen>
-          <para>
-            This might indicate a dependency mismatch between the selected
-            driver version and what &nvidia; ships in their repositories. Refer
-            to <xref linkend="nvidia-gpu-pre-install-version-mismatch"/> to
-            verify that the versions match. Attempt to install a different
-            driver version. For example, if the &nvidia; repositories have an
-            earlier version, you can try specifying
-            <literal>nvidia-open-driver-G06-signed-kmp=550.54.14</literal> on
-            your install command to specify a version that aligns.
-          </para>
-        </note>
-      </step>
-      <step performance="optional">
-        <para>
-          If you are not using a supported GPU, you can see if the driver works
-          by enabling support at the module level.
-        </para>
-<screen>&prompt.tr-up;<command>sed -i '/NVreg_OpenRmEnableUnsupportedGpus/s/^#//g' /etc/modprobe.d/50-nvidia-default.conf</command></screen>
+nvidia-compute-utils-G06 = ${version}</command></screen>
       </step>
       <step>
         <para>
@@ -250,30 +156,29 @@ Problem: 1: nothing provides 'kernel-azure' needed by the to be installed \
           The output of this command should show you something similar to the
           following output. In the example below, we have two GPUs.
         </para>
-<screen>Wed Oct 28 12:31:06 2024
-  +-----------------------------------------------------------------------------+
-  | NVIDIA-SMI 550.54.14    Driver Version: 550.54.14    CUDA Version: 12.3     |
-  |-------------------------------+----------------------+----------------------+
-  | GPU  Name       Persistence-M | Bus-Id        Disp.A | Volatile Uncorr. ECC |
-  | Fan  Temp  Perf Pwr:Usage/Cap |         Memory-Usage | GPU-Util  Compute M. |
-  |                               |                      |               MIG M. |
-  |===============================+======================+======================|
-  |  0  NVIDIA A100-PCIE-40GB Off | 00000000:17:00.0 Off |                    0 |
-  | N/A   29C    P0    35W / 250W |      4MiB / 40960MiB |      0%      Default |
-  |                               |                      |             Disabled |
-  +-------------------------------+----------------------+----------------------+
-  |  1  NVIDIA A100-PCIE-40GB Off | 00000000:CA:00.0 Off |                    0 |
-  | N/A   30C    P0    33W / 250W |      4MiB / 40960MiB |      0%      Default |
-  |                               |                      |             Disabled |
-  +-------------------------------+----------------------+----------------------+
-  
-  +-----------------------------------------------------------------------------+
-  | Processes:                                                                  |
-  |  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
-  |        ID   ID                                                   Usage      |
-  |=============================================================================|
-  |  No running processes found                                                 |
-  +-----------------------------------------------------------------------------+</screen>
+<screen>Tue Jul 22 17:08:05 2025
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 570.169                Driver Version: 570.169        CUDA Version: 12.8     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA RTX A1000 Laptop GPU    Off |   00000000:01:00.0 Off |                  N/A |
+| N/A   37C    P8              5W /   60W |      78MiB /   4096MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|    0   N/A  N/A            2161      G   /usr/bin/gnome-shell                      1MiB |
+|    0   N/A  N/A            4978      G   ...share/Steam/ubuntu12_32/steam          2MiB |
+|    0   N/A  N/A            5128      G   ./steamwebhelper                         22MiB |
+|    0   N/A  N/A            5156    C+G   ...am/ubuntu12_64/steamwebhelper          5MiB |
++-----------------------------------------------------------------------------------------+</screen>
       </step>
     </procedure>
   </section>
@@ -358,11 +263,12 @@ Problem: 1: nothing provides 'kernel-azure' needed by the to be installed \
       <step>
         <para>
           Inside the container, install the required CUDA libraries. In the
-          example below, we are installing CUDA 12.3 and pulling many examples,
+          example below, we are installing CUDA 12.9 and pulling many examples,
           demos and development kits so you can fully validate the GPU.
         </para>
 <screen>&prompt.root;<command>zypper ar http://developer.download.nvidia.com/compute/cuda/repos/sles15/x86_64/ cuda-sle15-sp6</command>
-&prompt.root;<command>zypper in -y cuda-libraries-12-8 cuda-demo-suite-12-8</command></screen>
+&prompt.root;<command>zypper in -y cuda-libraries-12-9 cuda-demo-suite-12-9</command>
+        </screen>
       </step>
       <step>
         <para>
@@ -371,19 +277,19 @@ Problem: 1: nothing provides 'kernel-azure' needed by the to be installed \
           within the container itself.
         </para>
 <screen>&prompt.root;<command>/usr/local/cuda-12/extras/demo_suite/deviceQuery</command> Starting...
-CUDA Device Query (Runtime API) version (CUDART static linking)
+ CUDA Device Query (Runtime API)
 
-Detected 2 CUDA Capable device(s)
+Detected 1 CUDA Capable device(s)
 
-Device 0: "NVIDIA A100-PCIE-40GB"
-  CUDA Driver Version / Runtime Version          12.2 / 12.1
-  CUDA Capability Major/Minor version number:    8.0
-  Total amount of global memory:                 40339 MBytes (42298834944 bytes)
-  (108) Multiprocessors, ( 64) CUDA Cores/MP:     6912 CUDA Cores
-  GPU Max Clock rate:                            1410 MHz (1.41 GHz)
-  Memory Clock rate:                             1215 Mhz
-  Memory Bus Width:                              5120-bit
-  L2 Cache Size:                                 41943040 bytes
+Device 0: "NVIDIA RTX A1000 Laptop GPU"
+  CUDA Driver Version / Runtime Version          12.8 / 12.9
+  CUDA Capability Major/Minor version number:    8.6
+  Total amount of global memory:                 3779 MBytes (3962765312 bytes)
+  (16) Multiprocessors, (128) CUDA Cores/MP:     2048 CUDA Cores
+  GPU Max Clock rate:                            1627 MHz (1.63 GHz)
+  Memory Clock rate:                             7001 Mhz
+  Memory Bus Width:                              128-bit
+  L2 Cache Size:                                 1572864 bytes
   Maximum Texture Dimension Size (x,y,z)         1D=(131072), 2D=(131072, 65536), 3D=(16384, 16384, 16384)
   Maximum Layered 1D Texture Size, (num) layers  1D=(32768), 2048 layers
   Maximum Layered 2D Texture Size, (num) layers  2D=(32768, 32768), 2048 layers
@@ -391,32 +297,27 @@ Device 0: "NVIDIA A100-PCIE-40GB"
   Total amount of shared memory per block:       49152 bytes
   Total number of registers available per block: 65536
   Warp size:                                     32
-  Maximum number of threads per multiprocessor:  2048
+  Maximum number of threads per multiprocessor:  1536
   Maximum number of threads per block:           1024
   Max dimension size of a thread block (x,y,z): (1024, 1024, 64)
   Max dimension size of a grid size    (x,y,z): (2147483647, 65535, 65535)
   Maximum memory pitch:                          2147483647 bytes
   Texture alignment:                             512 bytes
-  Concurrent copy and kernel execution:          Yes with 3 copy engine(s)
+  Concurrent copy and kernel execution:          Yes with 2 copy engine(s)
   Run time limit on kernels:                     No
   Integrated GPU sharing Host Memory:            No
   Support host page-locked memory mapping:       Yes
   Alignment requirement for Surfaces:            Yes
-  Device has ECC support:                        Enabled
+  Device has ECC support:                        Disabled
   Device supports Unified Addressing (UVA):      Yes
   Device supports Compute Preemption:            Yes
   Supports Cooperative Kernel Launch:            Yes
   Supports MultiDevice Co-op Kernel Launch:      Yes
-  Device PCI Domain ID / Bus ID / location ID:   0 / 23 / 0
+  Device PCI Domain ID / Bus ID / location ID:   0 / 1 / 0
   Compute Mode:
-      &lt; Default (multiple host threads can use ::cudaSetDevice() with device simultaneously) &gt;
+     &lt; Default (multiple host threads can use ::cudaSetDevice() with device simultaneously) &gt;
 
-Device 1: &lt;snip to reduce output for multiple devices>
-      &lt; Default (multiple host threads can use ::cudaSetDevice() with device simultaneously) &gt;
-&gt; Peer access from NVIDIA A100-PCIE-40GB (GPU0) -> NVIDIA A100-PCIE-40GB (GPU1) : Yes
-&gt; Peer access from NVIDIA A100-PCIE-40GB (GPU1) -> NVIDIA A100-PCIE-40GB (GPU0) : Yes
-
-deviceQuery, CUDA Driver = CUDART, CUDA Driver Version = 12.3, CUDA Runtime Version = 12.3, NumDevs = 2, Device0 = NVIDIA A100-PCIE-40GB, Device1 = NVIDIA A100-PCIE-40GB
+deviceQuery, CUDA Driver = CUDART, CUDA Driver Version = 12.8, CUDA Runtime Version = 12.9, NumDevs = 1, Device0 = NVIDIA RTX A1000 Laptop GPU
 Result = PASS</screen>
         <para>
           From inside the container, you can continue to run any other CUDA
