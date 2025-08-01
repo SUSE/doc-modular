@@ -44,7 +44,7 @@ and with what parameters. &ansible; then connects to your Linux hosts and execut
         </listitem>
         <listitem>
           <para>
-           De registration of systems or products
+           Deregistration of systems or products
           </para>
         </listitem>
         <listitem>
@@ -60,19 +60,123 @@ and with what parameters. &ansible; then connects to your Linux hosts and execut
            <para>The following variables can be configured in this role:</para>
             <itemizedlist>
               <listitem>
-                <para></para>
-                </listitem>
+                <para>The<literal>suseconnect_base_product</literal> variable is of <literal>type:dict</literal>.
+                It defines the base product that should be activated on the target system. The dictionary includes the following
+                keys:
+              </para>
+<table xml:id="suseconnect-table">
+  <title>Bonding and teaming feature comparison</title>
+  <tgroup cols="4">
+   <colspec colname="c1"/>
+   <colspec colname="c2"/>
+   <colspec colname="c3"/>
+<colspec colname="c4"/>
+   <thead>
+    <row>
+<entry>Key</entry>
+     <entry>Type</entry>
+     <entry>Description</entry>
+     <entry>Required</entry>
+    </row>
+   </thead>
+   <tbody>
+    <row>
+     <entry><literal>product</literal></entry>
+     <entry>string</entry>
+     <entry>Internal product name</entry>
+<entry>No</entry>
+</row>
+<row>
+  <entry><literal>key</literal></entry>
+  <entry>string</entry>
+  <entry>Registration key for the product</entry>
+<entry>Yes</entry>
+</row>
+<row>
+  <entry><literal>version</literal></entry>
+  <entry>string</entry>
+  <entry>Version of the product to be activated, default is the base OS version</entry>
+<entry>No</entry>
+</row>
+<row>
+  <entry><literal>arch</literal></entry>
+  <entry>string</entry>
+  <entry>Architecture of the product, default is the to the OS architecture <literal>ansible_machine</literal></entry>
+<entry>No</entry>
+</row>
+<row>
+  <entry><literal>email</literal></entry>
+  <entry>string</entry>
+  <entry>Email address used for &scc; registration</entry>
+<entry>No</entry>
+</row>
+ </tbody>
+  </tgroup>
+ </table>
+</listitem>
                 </itemizedlist>
             </section>
             <section xml:id="role-examples">
               <title>Role examples</title>
-             <para>Some examples include</para>
+             <para>Some examples include:</para>
               <itemizedlist>
                 <listitem>
-                  <para></para>
+                  <para>This example registers a &productname; system and activates several modules.</para>
+                  <screen>
+                    - name: Register with SCC and activate modules
+                      hosts: all
+                      vars:
+                        suseconnect_base_product:
+                          key: '{{ sles_registration_key }}'
+                          product: '{{ ansible_distribution }}'
+
+                        suseconnect_subscriptions:
+                          - {name: "sle-module-containers", state: enabled}
+                          - {name: "PackageHub", state: disabled}
+                          - {name: "sle-module-python3", state: enabled}
+
+                      tasks:
+                        - name: Register system and modules with SUSE Customer Center
+                          ansible.builtin.include_role:
+                            name: suseconnect
+                  </screen>
                   </listitem>
+                  <listitem>
+                    <para>This example adds or removes modules and extensions and also registers and de-registers
+                    components as well as enables or disables their repositories.
+                    </para>
+                    <screen>
+                      - name: Adding or deleting modules and extensions
+                        hosts: all
+                        vars:
+                          suseconnect_subscriptions:
+                          - {name: "sle-module-containers", state: enabled}
+                          - {name: "PackageHub", state: disabled}
+                          - {name: "sle-module-python3", state: enabled}
+                          - {name: "sle-ha", state: enabled, key: "REGISTRATION-KEY"}
+
+                        tasks:
+                          - name: Remove other subscriptions
+                            ansible.builtin.include_role:
+                              name: suseconnect
+                  </screen>
+                    </listitem>
+                    <listitem>
+                      <para>This example shows how to de-register base products that are no longer required.
+                      </para>
+                         <screen>
+                          - name: Deregister products from SCC
+                            hosts: all
+                            vars:
+                              suseconnect_deregister: true
+
+                            tasks:
+                              - name: Deregister products from SUSE Customer Center
+                                ansible.builtin.include_role:
+                                  name: suseconnect
+                      </screen>
+                      </listitem>
                   </itemizedlist>
               </section>
       </section>
-
 </topic>
