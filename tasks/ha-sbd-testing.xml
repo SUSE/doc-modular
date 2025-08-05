@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_storage_protection.xml -->
+
+<topic xml:id="ha-sbd-testing"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Testing &sbd; and fencing</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        To test whether &sbd; works as expected for node fencing purposes, use one or all of the following methods:
+      </para>
+    </abstract>
+  </info>
+
+  <variablelist>
+   <varlistentry>
+    <term>Manually triggering fencing of a node</term>
+    <listitem>
+     <para>To trigger a fencing action for node <replaceable>NODENAME</replaceable>:</para>
+ <screen>&prompt.root;<command>crm node fence <replaceable>NODENAME</replaceable></command></screen>
+     <para>Check if the node is fenced and if the other nodes consider the node as fenced
+      after the <parameter>stonith-watchdog-timeout</parameter>.</para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>Simulating an SBD failure</term>
+    <listitem>
+     <procedure>
+      <step>
+       <para>Identify the process ID of the SBD inquisitor:</para>
+       <screen>&prompt.root;<command>systemctl status sbd</command>
+● sbd.service - Shared-storage based fencing daemon
+
+   Loaded: loaded (/usr/lib/systemd/system/sbd.service; enabled; vendor preset: disabled)
+   Active: active (running) since Tue 2018-04-17 15:24:51 CEST; 6 days ago
+     Docs: man:sbd(8)
+  Process: 1844 ExecStart=/usr/sbin/sbd $SBD_OPTS -p /var/run/sbd.pid watch (code=exited, status=0/SUCCESS)
+ Main PID: 1859 (sbd)
+    Tasks: 4 (limit: 4915)
+   CGroup: /system.slice/sbd.service
+           ├─<emphasis role="strong">1859 sbd: inquisitor</emphasis>
+[...]</screen>
+      </step>
+      <step>
+       <para>Simulate an SBD failure by terminating the SBD inquisitor process.
+       In our example, the process ID of the SBD inquisitor is
+         <literal>1859</literal>:</para>
+       <screen>&prompt.root;<command>kill -9 1859</command></screen>
+       <para>
+        The node proactively self-fences. The other nodes notice the loss of
+        the node and consider it has self-fenced after the
+        <parameter>stonith-watchdog-timeout</parameter>.
+       </para>
+      </step>
+     </procedure>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>Triggering fencing through a monitor operation failure</term>
+    <listitem>
+     <para>With a normal configuration, a failure of a resource <emphasis>stop operation</emphasis>
+      triggers fencing. To trigger fencing manually, you can produce a failure
+      of a resource stop operation. Alternatively, you can temporarily change
+      the configuration of a resource <emphasis>monitor operation</emphasis>
+      and produce a monitor failure as described below:</para>
+     <procedure>
+      <step>
+       <para>Configure an <literal>on-fail=fence</literal> property for a resource monitor
+        operation:</para>
+       <screen>op monitor interval=10 on-fail=fence</screen>
+      </step>
+      <step>
+       <para>Let the monitoring operation fail (for example, by terminating the respective
+        daemon, if the resource relates to a service).</para>
+       <para>This failure triggers a fencing action.</para>
+      </step>
+     </procedure>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+</topic>

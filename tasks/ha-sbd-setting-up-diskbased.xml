@@ -1,0 +1,396 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_storage_protection.xml -->
+
+<topic xml:id="ha-sbd-setting-up-diskbased"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Setting up disk-based &sbd;</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Almost all of this will probably be replaced by the <command>crm sbd</command> command.
+      </para>
+    </abstract>
+  </info>
+
+  <para>
+   The following steps are necessary for setup:
+  </para>
+ <procedure>
+   <step>
+    <para>
+     <xref linkend="pro-ha-storage-protect-sbd-create" xrefstyle="select:title"/>
+        </para>
+   </step>
+   <step>
+    <para>
+     <xref linkend="pro-ha-storage-protect-sbd-config" xrefstyle="select:title"/>
+    </para>
+   </step>
+   <step>
+    <para>
+     <xref linkend="pro-ha-storage-protect-sbd-services" xrefstyle="select:title"/>
+    </para>
+   </step>
+   <step>
+    <para>
+     <xref linkend="pro-ha-storage-protect-sbd-test" xrefstyle="select:title"/>
+    </para>
+   </step>
+   <step>
+    <para>
+     <xref linkend="pro-ha-storage-protect-fencing" xrefstyle="select:title"/>
+    </para>
+   </step>
+  </procedure>
+
+  <para>
+   The node terminates itself if the SBD daemon running on it has not
+   updated the watchdog timer fast enough. After having set the timeouts, test
+   them in your specific environment.
+  </para>
+
+  <procedure xml:id="pro-ha-storage-protect-sbd-create">
+   <title>Initializing the SBD devices</title>
+   <para>
+    To use SBD with shared storage, you must first create the messaging
+    layout on one to three block devices. The <command>sbd create</command> command
+    writes a metadata header to the specified device or devices. It also
+    initializes the messaging slots for up to 255 nodes. If executed without any
+    further options, the command uses the default timeout settings.</para>
+    <warning>
+     <title>Overwriting existing data</title>
+      <para> Make sure the device or devices you want to use for SBD do not hold any
+       important data. When you execute the <command>sbd create</command>
+       command, roughly the first megabyte of the specified block devices
+       is overwritten without further requests or backup.
+      </para>
+    </warning>
+    <step>
+     <para>Decide which block device or block devices to use for SBD.</para>
+    </step>
+    <step>
+     <para>Initialize the SBD device: </para>
+     <itemizedlist>
+       <listitem>
+         <para>
+           To use one device with the default timeout values, run the following command:
+         </para>
+<screen>&prompt.root;<command>sbd -d /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> create</command></screen>
+       </listitem>
+       <listitem>
+         <para>
+           To use more than one device for SBD, specify the <option>-d</option> option multiple
+           times, for example:
+         </para>
+<screen>&prompt.root;<command>sbd -d /dev/disk/by-id/<replaceable>DEVICE_ID1</replaceable> -d /dev/disk/by-id/<replaceable>DEVICE_ID2</replaceable> -d /dev/disk/by-id/<replaceable>DEVICE_ID3</replaceable> create</command></screen>
+       </listitem>
+       <listitem>
+       <para>To adjust the timeouts to use for SBD (for example, if your SBD device resides on a
+        multipath group), use the <option>-1</option> and <option>-4</option> options. If you
+        initialize more than one device, you must set the same timeout values for all devices.
+        All timeouts are given in seconds:</para>
+<screen>&prompt.root;<command>sbd -d /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> -1 30</command><co xml:id="co-ha-sbd-watchdog"/> <command>-4 60</command><co xml:id="co-ha-sbd-msgwait"/> <command>create</command></screen>
+       <calloutlist>
+         <callout arearefs="co-ha-sbd-watchdog">
+         <para> The <option>-1</option> option is used to specify the
+          <literal>watchdog</literal> timeout. In the example above, it is set
+          to <literal>30</literal> seconds. The minimum allowed value for the
+          emulated watchdog is <literal>15</literal> seconds. </para>
+        </callout>
+        <callout arearefs="co-ha-sbd-msgwait">
+        <para> The <option>-4</option> option is used to specify the
+          <literal>msgwait</literal> timeout. In the example above, it is set to
+          <literal>60</literal> seconds. </para>
+        </callout>
+      </calloutlist>
+      </listitem>
+     </itemizedlist>
+    </step>
+    <step>
+     <para>Check what is written on the device: </para>
+     <screen>&prompt.root;<command>sbd -d /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> dump</command>
+Header version     : 2.1
+UUID               : 619127f4-0e06-434c-84a0-ea82036e144c
+Number of slots    : 255
+Sector size        : 512
+Timeout (watchdog) : 15
+Timeout (allocate) : 2
+Timeout (loop)     : 1
+Timeout (msgwait)  : 30
+==Header on disk /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> is dumped</screen>
+    <para> As you can see, the timeouts are also stored in the header to ensure
+    that all participating nodes agree on them. </para>
+    </step>
+   </procedure>
+   <para>
+    After you have initialized the SBD devices, edit the SBD configuration file,
+    then enable and start the respective services for the changes to take effect.
+   </para>
+
+   <procedure xml:id="pro-ha-storage-protect-sbd-config">
+   <title>Editing the SBD configuration file</title>
+    <step>
+     <para>Open the file <filename>/etc/sysconfig/sbd</filename>.</para>
+    </step>
+    <step>
+     <para>Search for the following parameter: <parameter>SBD_DEVICE</parameter>.
+     </para>
+     <para>It specifies the devices to monitor and to use for exchanging SBD messages.
+     </para>
+    <para> Edit this line by replacing /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable>
+     with your SBD device:</para>
+    <screen>SBD_DEVICE="/dev/disk/by-id/<replaceable>DEVICE_ID</replaceable>"</screen>
+    <para> If you need to specify multiple devices in the first line, separate them with semicolons
+     (the order of the devices does not matter):</para>
+    <screen>SBD_DEVICE="/dev/disk/by-id/<replaceable>DEVICE_ID1</replaceable>;/dev/disk/by-id/<replaceable>DEVICE_ID2</replaceable>;/dev/disk/by-id/<replaceable>DEVICE_ID3</replaceable>"</screen>
+    <para> If the SBD device is not accessible, the daemon fails to start and inhibits
+     cluster start-up. </para>
+   </step>
+   <step xml:id="st-ha-storage-protect-sbd-delay-start">
+    <para>Search for the following parameter: <varname>SBD_DELAY_START</varname>.</para>
+    <para>
+      Enables or disables a delay. Set <varname>SBD_DELAY_START</varname>
+      to <literal>yes</literal> if <literal>msgwait</literal> is
+      long, but your cluster nodes boot quickly.
+      Setting this parameter to <literal>yes</literal> delays the start of
+      SBD on boot. This is sometimes necessary with virtual machines.
+    </para>
+    <para>
+      The default delay length is the same as the <literal>msgwait</literal> timeout value.
+      Alternatively, you can specify an integer, in seconds, instead of <literal>yes</literal>.
+      For help calculating an appropriate value, see <command>man sbd</command>, section
+      <literal>Configuration via environment</literal>.
+    </para>
+    <para>
+      If you enable <varname>SBD_DELAY_START</varname>, you must also check the SBD service file
+      to ensure that the value of <literal>TimeoutStartSec</literal> is greater than the value of
+      <varname>SBD_DELAY_START</varname>. For more information, see
+      <link xlink:href="https://www.suse.com/support/kb/doc/?id=000019356"/>.
+    </para>
+   </step>
+   <step>
+     <para>
+       Copy the configuration file to all nodes by using <command>csync2</command>:
+     </para>
+<screen>&prompt.root;<command>csync2 -xv</command></screen>
+   </step>
+  </procedure>
+
+ <para>After you have added your SBD devices to the SBD configuration file,
+  enable the SBD daemon. The SBD daemon is a critical piece
+  of the cluster stack. It needs to be running when the cluster stack is running.
+  Thus, the <systemitem>sbd</systemitem> service is started as a dependency whenever
+  the cluster services are started.</para>
+
+  <procedure xml:id="pro-ha-storage-protect-sbd-services">
+   <title>Enabling and starting the SBD service</title>
+   <step>
+    <para>On each node, enable the SBD service:</para>
+    <screen>&prompt.root;<command>systemctl enable sbd</command></screen>
+    <para>SBD starts together with the Corosync service whenever the
+     cluster services are started.</para>
+   </step>
+   <step>
+    <para>Restart the cluster services on all nodes at once by using the <option>--all</option>
+     option:</para>
+    <screen>&prompt.root;<command>crm cluster restart --all</command></screen>
+    <para> This automatically triggers the start of the SBD daemon. </para>
+    <important>
+     <title>Restart cluster services for SBD changes</title>
+     <para>
+       If any SBD metadata changes, you must restart the cluster services again. To keep critical
+       cluster resources running during the restart, consider putting the cluster into maintenance
+       mode first.
+     </para>
+   </important>
+   </step>
+  </procedure>
+
+  <para>
+   As a next step, test the SBD devices as described in <xref linkend="pro-ha-storage-protect-sbd-test" xrefstyle="select:label"/>.
+  </para>
+
+  <procedure xml:id="pro-ha-storage-protect-sbd-test">
+   <title>Testing the SBD devices</title>
+    <step>
+     <para> The following command dumps the node slots and their current
+      messages from the SBD device: </para>
+<screen>&prompt.root;<command>sbd -d /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> list</command></screen>
+    <para> Now you should see all cluster nodes that have ever been started with SBD listed here.
+     For example, if you have a two-node cluster, the message slot should show
+      <literal>clear</literal> for both nodes:</para>
+     <screen>0       &node1;        clear
+1       &node2;          clear</screen>
+    </step>
+    <step>
+     <para> Try sending a test message to one of the nodes: </para>
+<screen>&prompt.root;<command>sbd -d /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> message &node1; test</command></screen>
+    </step>
+    <step>
+     <para> The node acknowledges the receipt of the message in the system
+      log files: </para>
+<screen>May 03 16:08:31 &node1; sbd[66139]: /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable>: notice: servant:
+Received command test from &node2; on disk /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></screen>
+     <para> This confirms that SBD is indeed up and running on the node and
+      that it is ready to receive messages. </para>
+    </step>
+   </procedure>
+
+  <para>
+   As a final step, you need to adjust the cluster configuration as described in
+   <xref linkend="pro-ha-storage-protect-fencing" xrefstyle="select:label"/>.
+  </para>
+
+<procedure xml:id="pro-ha-storage-protect-fencing">
+ <title>Configuring the cluster to use SBD</title>
+   <step>
+    <para>
+     Start a shell and log in as &rootuser; or equivalent.
+    </para>
+   </step>
+   <step>
+    <para>
+     Run <command>crm configure</command>.
+    </para>
+   </step>
+   <step>
+    <para>Enter the following:</para>
+    <screen>
+&prompt.crm.conf;<command>property stonith-enabled="true"</command><co xml:id="co-ha-sbd-st-enabled"/>
+&prompt.crm.conf;<command>property stonith-watchdog-timeout=0</command><co xml:id="co-ha-sbd-watchdog-timeout"/>
+&prompt.crm.conf;<command>property stonith-timeout="40s"</command><co xml:id="co-ha-sbd-st-timeout"/></screen>
+    <calloutlist>
+     <callout arearefs="co-ha-sbd-st-enabled">
+      <para>
+       This is the default configuration, because clusters without &stonith; are not supported.
+       But in case &stonith; has been deactivated for testing purposes,
+       make sure this parameter is set to <literal>true</literal> again.</para>
+     </callout>
+     <callout arearefs="co-ha-sbd-watchdog-timeout">
+      <para>If not explicitly set, this value defaults to <literal>0</literal>,
+        which is appropriate for use of SBD with one to three devices.
+      </para>
+     </callout>
+     <callout arearefs="co-ha-sbd-st-timeout">
+      <para>
+       A <systemitem>stonith-timeout</systemitem> value of <literal>40</literal>
+       would be appropriate if the <literal>msgwait</literal> timeout value for
+       SBD was set to <literal>30</literal> seconds.</para>
+     </callout>
+   </calloutlist>
+  </step>
+  <step xml:id="st-ha-storage-protect-fencing-static-random">
+   <para>
+    Configure the SBD &stonith; resource. You do not need to clone this resource.
+   </para>
+   <para>
+    For a two-node cluster, in case of split brain, fencing is issued from
+    each node to the other as expected. To prevent both nodes from being reset at practically
+    the same time, it is recommended to apply the following fencing
+    delays to help one of the nodes, or even the preferred node, win the fencing match.
+    For clusters with more than two nodes, you do not need to apply these delays.
+   </para>
+   <variablelist>
+    <varlistentry>
+     <term>Priority fencing delay</term>
+     <listitem>
+       <para>
+        The <literal>priority-fencing-delay</literal> cluster property is disabled by
+        default. By configuring a delay value, if the other node is lost and it has
+        the higher total resource priority, the fencing targeting it is delayed
+        for the specified amount of time. This means that in case of split-brain,
+        the more important node wins the fencing match.
+      </para>
+      <para>
+        Resources that matter can be configured with priority meta attribute. On
+        calculation, the priority values of the resources or instances that are running
+        on each node are summed up to be accounted. A promoted resource instance takes the
+        configured base priority plus one so that it receives a higher value than any
+        unpromoted instance.
+      </para>
+      <screen>&prompt.root;<command>crm configure property priority-fencing-delay=30</command></screen>
+       <para>
+        Even if <literal>priority-fencing-delay</literal> is used, we still
+        recommend also using <literal>pcmk_delay_base</literal> or
+        <literal>pcmk_delay_max</literal> as described below to address any
+        situations where the nodes happen to have equal priority.
+        The value of <literal>priority-fencing-delay</literal> should be significantly
+        greater than the maximum of <literal>pcmk_delay_base</literal> / <literal>pcmk_delay_max</literal>,
+        and preferably twice the maximum.
+       </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term>Predictable static delay</term>
+     <listitem>
+      <para>This parameter adds a static delay before executing &stonith; actions.
+      To prevent the nodes from being reset at the same time under split-brain of
+      a two-node cluster, configure separate fencing resources with different delay values.
+      The preferred node can be marked with the parameter to be targeted with a longer
+      fencing delay so that it wins any fencing match.
+      To make this succeed, each node must have two primitive &stonith;
+      devices. In the following configuration, &node1; wins
+      and survives in a split-brain scenario:
+      </para>
+<screen>&prompt.crm.conf;<command>primitive st-sbd-&node1; stonith:external/sbd \
+  params pcmk_host_list=&node1; pcmk_delay_base=20</command>
+&prompt.crm.conf;<command>primitive st-sbd-&node2; stonith:external/sbd \
+  params pcmk_host_list=&node2; pcmk_delay_base=0</command></screen>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term>Dynamic random delay</term>
+     <listitem>
+      <para>This parameter adds a random delay for &stonith; actions on the fencing device.
+       Rather than a static delay targeting a specific node, the parameter
+       <parameter>pcmk_delay_max</parameter> adds a random delay for any fencing
+       with the fencing resource to prevent double reset. Unlike
+       <parameter>pcmk_delay_base</parameter>, this parameter can be specified for
+       a unified fencing resource targeting multiple nodes.
+      </para>
+<screen>&prompt.crm.conf;<command>primitive stonith_sbd stonith:external/sbd \
+  params pcmk_delay_max=30</command></screen>
+      <warning>
+       <title><parameter>pcmk_delay_max</parameter> might not prevent double reset
+       in a split-brain scenario</title>
+       <para>
+        The lower the value of <parameter>pcmk_delay_max</parameter>, the higher
+        the chance that a double reset might still occur.
+       </para>
+       <para>
+        If your aim is to have a predictable survivor, use a priority fencing delay
+        or predictable static delay.
+       </para>
+      </warning>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+  </step>
+  <step>
+    <para>
+     Review your changes with <command>show</command>.
+    </para>
+   </step>
+   <step>
+    <para>
+     Submit your changes with <command>commit</command> and leave the crm live
+     configuration with <command>quit</command>.
+    </para>
+   </step>
+  </procedure>
+
+   <para> After the resource starts, your cluster is successfully
+    configured to use SBD if a node needs to be fenced.</para>
+</topic>
