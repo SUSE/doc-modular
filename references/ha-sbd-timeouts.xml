@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_storage_protection.xml -->
+
+<topic xml:id="ha-sbd-timeouts"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+   <title>&sbd; timeouts</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+       When using SBD as a fencing mechanism, it is vital to consider the timeouts
+      of all components, because they depend on each other. When using more than one
+      SBD device, all devices must have the same timeout values.
+      </para>
+    </abstract>
+  </info>
+  <variablelist>
+     <varlistentry>
+      <term><literal>watchdog</literal> timeout</term>
+      <listitem>
+       <para>
+        This timeout is set during initialization of the SBD device. It depends
+        mostly on your storage latency. The majority of devices must be successfully
+        read within this time. Otherwise, the node might self-fence.
+       </para>
+       <note>
+        <title>Multipath or iSCSI setup for disk-based SBD</title>
+          <para>
+          If your SBD devices reside on a multipath setup or iSCSI, the timeout
+          should be set to the time required to detect a path failure and switch
+          to the next path.
+          </para>
+          <para>
+           This also means that in <filename>/etc/multipath.conf</filename>, the
+           value of <literal>max_polling_interval</literal> must be less than the
+           <literal>watchdog</literal> timeout set during initialization of the SBD device.
+         </para>
+       </note>
+       <para>
+        For diskless SBD, the watchdog timeout is set by the <literal>SBD_WATCHDOG_TIMEOUT</literal>
+        parameter in <filename>/etc/sysconfig/sbd</filename>. <literal>SBD_WATCHDOG_TIMEOUT</literal>
+        does not need to be set for disk-based SBD because the watchdog setting in the SBD device's
+        metadata takes precedence over <filename>/etc/sysconfig/sbd</filename>.
+       </para>
+      </listitem>
+     </varlistentry>
+     <varlistentry>
+      <term><literal>msgwait</literal> timeout</term>
+      <listitem>
+       <para>
+        This timeout is set during initialization of the SBD device. It defines
+        the time after which a message written to a node's slot on the SBD device
+        is considered delivered. The timeout should be long enough for the node to
+        detect that it needs to self-fence.
+       </para>
+       <para>
+        However, if the <literal>msgwait</literal> timeout is long,
+        a fenced cluster node might rejoin before the fencing action returns.
+        This can be mitigated by setting the <varname>SBD_DELAY_START</varname>
+        parameter in the SBD configuration.
+       </para>
+      </listitem>
+     </varlistentry>
+     <varlistentry>
+      <term><literal>stonith-timeout</literal> in the CIB</term>
+      <listitem>
+       <para>
+        This timeout is set in the CIB as a global cluster property. It defines
+        how long to wait for the &stonith; action (reboot, on, off) to complete.
+       </para>
+      </listitem>
+     </varlistentry>
+     <varlistentry>
+      <term><literal>stonith-watchdog-timeout</literal> in the CIB</term>
+      <listitem>
+       <para>
+        This timeout is set in the CIB as a global cluster property. If not set
+        explicitly, it defaults to <literal>0</literal>, which is appropriate for
+        using SBD with one to three devices. For SBD in diskless mode, this timeout
+        must <emphasis>not</emphasis> be <literal>0</literal>.</para>
+      </listitem>
+     </varlistentry>
+    </variablelist>
+  <para>
+   If you change the watchdog timeout, you must adjust the other timeouts
+   as well. The following formula expresses the relationship between these values
+   for disk-based SBD:
+  </para>
+   <example xml:id="ex-ha-storage-protect-disk-based-sbd-timings">
+    <title>Formula for disk-based SBD timeout calculation</title>
+    <screen>Timeout (msgwait) &gt;= (Timeout (watchdog) * 2)
+stonith-timeout &gt;= Timeout (msgwait) + 20%</screen>
+    <para>
+      For example, if you set the watchdog timeout to <literal>30</literal>,
+      set the <literal>msgwait</literal> timeout to at least <literal>60</literal> and
+      <literal>stonith-timeout</literal> to at least <literal>72</literal>.
+    </para>
+   </example>
+   <para>
+    The following formula expresses the relationship between these values
+    for diskless SBD:
+   </para>
+   <example xml:id="ex-ha-storage-protect-diskless-sbd-timings">
+    <title>Formula for diskless SBD timeout calculation</title>
+    <screen>stonith-watchdog-timeout &gt;= (SBD_WATCHDOG_TIMEOUT * 2)
+stonith-timeout &gt;= stonith-watchdog-timeout + 20%
+    </screen>
+    <para>
+      For example, if you set <literal>SBD_WATCHDOG_TIMEOUT</literal> to <literal>10</literal>,
+      set <literal>stonith-watchdog-timeout</literal> to at least <literal>20</literal> and
+      <literal>stonith-timeout</literal> to at least <literal>24</literal>.
+    </para>
+   </example>
+    <para>
+     If you use the bootstrap scripts provided by the &crmshell; to set up a
+     cluster and to initialize the SBD device, the relationship between these
+     timeouts is automatically considered.
+    </para>
+</topic>
