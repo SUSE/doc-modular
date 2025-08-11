@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="deployment-vmdk-cloud-init"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Preparing the firstboot cloud-init configuration</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+       The topic covers preparing the firstboot cloud-init configuration.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    The system is inteded to be configure on the first boot, to create a user, add SSH keys,
+    install packages and so on. Therefore, you need to create a cloud-init configuration and later
+    pass it to the virtual machine.
+  </para>
+  <para>
+    Before you compose the cloud-init configuration, prepare hashed passwords for users of the
+    system, as described in the following procedure:
+  </para>
+  <procedure xml:id="creating-password-hash"> 
+    <title>Creating a password hash</title>  
+    <step>
+      <para>
+        Generate a salt to prefix the hash password:
+      </para>
+      <screen>&prompt.user;<command>openssl rand -hex 16</command>
+      
+      ab5c3063ff477c689288bb3891910023
+      </screen>
+      <para>
+        Note the output of the command and use it in the following step.
+      </para>
+    </step>
+    <step>
+      <para>
+        Choose a strong password and generate a hash from it:
+      </para>
+      <screen>&prompt.user;<command>openssl passwd -6 -salt ab5c3063ff477c689288bb3891910023
+      password</command>
+      
+    $6$ab5c3063ff477c68$ywRiGL2w2MNmnnabhw1C5wjIioDC6lbcTs.tBoSK/d3bqggfD/nvkjB4Nw.uZrUvRQfuKLJi79SnQvxM1Xv260
+    </screen>
+    <para>
+      Use the prepared hash in the cloud-init configuration described bellow.
+    </para>
+    </step>
+  </procedure>
+  <para>
+    An example cloud-init configuration follows:
+  </para>
+  <screen>
+#cloud-config
+package_update: true
+# disable root user
+disable_root: true
+runcmd:
+# Disable root login over ssh, both password and key based
+  - transactional-update --continue run sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /usr/etc/ssh/sshd_config
+# Temporarily register template machine with scc to enable zypper repos
+  - transactional-update --continue register --url https://scc.suse.com -r SCCREGCODEXXX
+# Install system packages
+  - transactional-update --continue --non-interactive pkg install jq net-tools ca-certificates cloud-init cloud-init-config-suse openssh-server open-vm-tools nfs-client
+# Disable Auto update transaction-update.timer
+  - transactional-update --continue run systemctl --now disable transactional-update.timer
+# Set cgroupv1 hiearachy enabled
+  - sed -i 's/GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="systemd.unified_cgroup_hierarchy=0"/' /etc/default/grub
+# Disable selinux
+  - sed -i 's/selinux=1/selinux=0/' /etc/default/grub
+# Enable ia32_emulation
+  - sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="ia32_emulation=on /' /etc/default/grub
+  - sed -i 's/GRUB_TIMEOUT=.*/GRUB_TIMEOUT=0/' /etc/default/grub
+# Potential Work Around for fsck issue
+  - transactional-update --continue run dracut --regenerate-all -f -N
+# Deregister template machine from scc
+  - transactional-update --continue register -d --url https://scc.suse.com -r SCCREGCODE <co id="registration-code"/>
+# Rebuild bootloader
+  - transactional-update --continue run update-bootloader
+# Reset cloud-init for next build
+  - transactional-update --continue run cloud-init clean --logs
+
+users:
+# Add non-root user
+  - name: tux <co id="unprivileged-user"/>
+    hashed_passwd: $6$ab5c3063ff477c68$ywRiGL2w2MNmnnabhw1C5wjIioDC6lbcTs.tBoSK/d3bqggfD/nvkjB4Nw.uZrUvRQfuKLJi79SnQvxM1Xv260 <co id="password-hash"/>
+    lock_passwd: false
+    shell: /bin/bash
+# Add sudo entry for non-root user
+    sudo: ALL=(ALL) NOPASSWD:ALL
+# Add authorized keys
+    ssh_authorized_keys: <co id="ssh-keys"/>
+      - ssh-rsa
+        AAAAB3NzaC1yc2EAAAABJQAAAQEAkW7bd2iQBx8/A5pAbN207oWgcrV0lXgUHT2RZI/r/xbb9/ydLKCUBqmYhSKgBF80KJoWvE3cPeUDfThqo+qLlivc9vrTYZDMB+7wP/XGtA99jqFQsXDyC2gb8H/yKIRKu9eSrY9BHW9el80bpdxPID0YbxWYGJoxib5DO4mg3WtGIv9MeW4bvgoMj1ZhKMFrq2tYGv3P1MpuNgklwsGmUW+rIOVjhCEUz3KSr2+4EfcusOV6FD32SHkIgdeNy3C5MT1Oe6hk0bsUx/fZ9KS9YHX6b3LuIjkw1FuZBCByMgMWa4jO9QK/y76YMOFHOQtxhOszSuEkHtl6ijeejZYPtQ==
+      - ssh-rsa
+        AAAAB3NzaC1yc2EAAAADAQABAAABgQDZxAsYNJS266jPpWEsJwyibfZJN6FPNMHMxW9PlruOXJLrvdXc1wgo23d4c1BbaGiRoXW3xwd5zJwtr4dVB+QGtW1rCOYtHLGtvfIh6L5Y0SVrGOtDSVIpuwYtMnt4YBfZfBeDyJfnuvZ5E8CMNI1CekzfT7FgZnF1TQigOKgO8MUUS3HTNd3oly8D7w3QZLcjHufhFGojnZjEXfuT8tXqOaiCmlAzkdAmGczwTfXjZ3Q3KCEH20KTK31AxUP+80p75i2FE3QEMfHijXiuUbdEPTN8L2XSRe8nX7c3NZO5hWV+t9wLyfZgc5qHC5CS9fN1vGfLTpjQoaRoxKCS9dFJKVDg4huHcOz1go0YAQy6Ef+c7gkQv1ZV7VATTU9kVQWOy7+gztXnwoFXSg2qmn3JiJPVMDift2yozzpF+O4GpC9dgplBcugZT5Bg3TNPcfEBLGcNgIAC/bYma1z6+TDee0RDkWLg8JsCw554QCDI/B7Is1DZ/J4gTkmO1MNw3mM=
+
+# set desired power_state after cloud-init finishes
+power_state:
+  mode: poweroff
+  message: Powering Off for Templating
+  timeout: 10
+  condition: True
+  </screen>
+  <calloutlist>
+    <callout arearefs="unprivileged-user">
+      <para>
+        Specify the desired user name.
+      </para>
+    </callout>
+    <callout arearefs="registration-code">
+    <para>
+      Replace the <replaceable>SCCREGCODE</replaceable> with your registration code.
+    </para>
+  </callout>
+  <callout arearefs="password-hash">
+    <para>
+      Paste the password hash you created in <xref linkend="creating-password-hash"/>.
+    </para>
+  </callout>
+  <callout arearefs="ssh-keys">
+    <para>
+      Paste your own SSH keys there.
+    </para>
+  </callout>
+  </calloutlist>
+  <para>
+    After you finish editing the cloud-init config, convert it to the Base64 encoding:
+  </para>
+  <screen>&prompt.user;<command>base64 -w 0 <replaceable>CONFIG_FILE</replaceable> <replaceable>OUTPUT_FILE</replaceable></command></screen>
+</topic>
