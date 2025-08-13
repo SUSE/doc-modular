@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_concepts.xml -->
+
+<topic xml:id="ha-architecture"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Architecture overview</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+         This section explains the architecture of a &sleha; cluster and how the different
+         components interoperate.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="ha-architecture-layers">
+    <title>Architecture layers</title>
+    <para>
+      &sleha; has a layered architecture. The following figure shows the different layers and their
+      associated components.
+    </para>
+    <figure xml:id="fig-ha-architecture-layers">
+      <title>Architecture of a &sleha; cluster</title>
+      <mediaobject>
+      <imageobject role="fo">
+        <imagedata fileref="ha-cluster-stack-arch.svg" width="100%"/>
+      </imageobject>
+      <imageobject role="html">
+        <imagedata fileref="ha-cluster-stack-arch.svg" width="100%"/>
+      </imageobject>
+      <textobject role="description">
+        <phrase>
+          This diagram shows the layers of components on two cluster nodes. Some components
+          are local to the node, and some communicate across nodes, such as &corosync; and the CIB.
+        </phrase>
+      </textobject>
+      </mediaobject>
+    </figure>
+    <variablelist>
+      <varlistentry>
+        <term>Membership and messaging (&corosync;)</term>
+        <listitem>
+          <para>
+            The &corosync; Cluster Engine is a group communication system that provides messaging,
+            membership and quorum information about the cluster.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Cluster resource manager (&pace;)</term>
+        <listitem>
+          <para>
+            &pace; is the cluster resource manager that reacts to
+            events occurring in the cluster. Events might be nodes that join or leave the cluster,
+            failure of resources, or scheduled activities such as maintenance, for example. The
+            <systemitem>pacemakerd</systemitem> daemon launches and monitors all other related daemons.
+          </para>
+          <para>
+            The following components are also part of the &pace; layer:
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <emphasis role="bold">Cluster Information Database (CIB)</emphasis>
+              </para>
+              <para>
+                On every node, &pace; maintains the cluster information database (CIB).
+                  This is an XML representation of the cluster configuration (including cluster
+                  options, nodes, resources, constraints and the relationships to each other).
+                  The CIB also reflects the current cluster status. The CIB manager
+                  (<systemitem>pacemaker-based</systemitem>) keeps the CIB synchronized across the
+                  cluster and handles reading and writing cluster configuration and status.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <emphasis role="bold">Designated Coordinator (DC)</emphasis>
+              </para>
+              <para>
+                The <systemitem>pacemaker-controld</systemitem> daemon is the cluster controller,
+                which coordinates all actions. This daemon has an instance on each cluster node,
+                but only one instance is elected to act as the DC. The DC is elected when the
+                cluster services start, or if the current DC fails or leaves the cluster. The DC
+                decides whether a cluster-wide change must be performed, such as fencing a node or
+                moving resources.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <emphasis role="bold">Scheduler</emphasis>
+              </para>
+              <para>
+                The scheduler runs on every node as the <systemitem>pacemaker-schedulerd</systemitem>
+                daemon, but is only active on the DC. When a cluster transition is needed, the
+                scheduler calculates the expected next state of the cluster and determines what
+                actions need to be scheduled to achieve that state.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Local executor</term>
+        <listitem>
+          <para>
+            The local executor is located between the &pace; layer and the resources layer on each
+            node. The <systemitem>pacemaker-execd</systemitem> daemon allows &pace; to start, stop
+            and monitor resources.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Resources and resource agents</term>
+        <listitem>
+          <para>
+            In a &ha; cluster, the services that need to be highly available are called
+            <emphasis>resources</emphasis>. Resource agents (RAs) are scripts that start,
+            stop and monitor cluster resources.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+
+  <section xml:id="ha-architecture-process">
+    <title>Process flow</title>
+    <para>
+      Many actions performed in the cluster cause a cluster-wide change, for example, adding or
+      removing a cluster resource or changing resource constraints. The following example explains
+      what happens in the cluster when you perform such an action:
+    </para>
+    <example>
+      <title>Cluster process when you add a new resource</title>
+    <procedure>
+      <step>
+        <para>
+          You use the &crmshell; or &hawk; to add a new cluster resource. You can do this from any
+          node in the cluster. Adding the resource modifies the CIB.
+        </para>
+      </step>
+      <step>
+        <para>
+          The CIB change is replicated to all cluster nodes.
+        </para>
+      </step>
+      <step>
+        <para>
+          Based on the information in the CIB, <systemitem >pacemaker-schedulerd</systemitem>
+          calculates the ideal state of the cluster and how it should be achieved. It feeds a
+          list of instructions to the DC.
+        </para>
+      </step>
+      <step>
+        <para>
+          The DC sends commands via &corosync;, which are received by the
+          <systemitem>pacemaker-controld</systemitem> instances on the other nodes.
+        </para>
+      </step>
+      <step>
+        <para>
+          Each node uses its local executor (<systemitem>pacemaker-execd</systemitem>) to perform
+          resource modifications. The <systemitem>pacemaker-execd</systemitem> daemon is not
+          cluster-aware and interacts directly with resource agents.
+        </para>
+      </step>
+      <step>
+        <para>
+          All nodes report the results of their operations back to the DC.
+        </para>
+      </step>
+      <step>
+        <para>
+          If fencing is required, <systemitem >pacemaker-fenced</systemitem> calls the fencing agent
+          to fence the node.
+        </para>
+      </step>
+      <step>
+        <para>
+          After the DC concludes that all necessary operations have been successfully performed,
+          the cluster returns to an idle state and waits for further events.
+        </para>
+      </step>
+      <step>
+        <para>
+          If any operation was not carried out as planned, <systemitem>pacemaker-schedulerd</systemitem>
+          is invoked again with the new information recorded in the CIB.
+        </para>
+      </step>
+    </procedure>
+  </example>
+  </section>
+</topic>
