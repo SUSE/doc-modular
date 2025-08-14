@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_fencing.xml -->
+
+<topic xml:id="ha-stonith-what-is"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>What is &stonith;?</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        In a <emphasis>split-brain scenario</emphasis>, cluster nodes are divided into two or more
+        groups (or <emphasis>partitions</emphasis>) that do not know about each other. This might be
+        because of a hardware or software failure, or a failed network connection, for example. A
+        split-brain scenario can be resolved by <emphasis>fencing</emphasis> (resetting or powering
+        off) one or more of the nodes. Node-level fencing prevents a failed node from accessing shared
+        resources and prevents cluster resources from running on a node with an uncertain status.
+      </para>
+      <para>
+        &sleha; uses &stonith; as the node fencing mechanism. To be supported, all &sleha; clusters
+        <emphasis>must</emphasis> have at least one &stonith; device. For critical workloads, we
+        recommend using two or three &stonith; devices. A &stonith; device can be either a physical
+        device (a power switch) or a software mechanism (&sbd; in combination with a watchdog).
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="ha-stonith-what-is-components">
+    <title>Components</title>
+    <para>
+      In &sleha;, &stonith; consists of two components:
+    </para>
+   <variablelist>
+    <varlistentry>
+     <term>pacemaker-fenced</term>
+     <listitem>
+      <para>
+       <systemitem class="daemon">pacemaker-fenced</systemitem> is a daemon which can be accessed by local processes or over
+       the network. It accepts the commands which correspond to fencing
+       operations: reset, power-off, and power-on. It can also check the
+       status of the fencing device.
+      </para>
+      <para>
+       The <systemitem class="daemon">pacemaker-fenced</systemitem> daemon runs on every node in the &ha; cluster. The
+       <systemitem class="resource">pacemaker-fenced</systemitem> instance running on the DC node receives a fencing request
+       from the <systemitem class="daemon">pacemaker-controld</systemitem>. It
+       is up to this and other <systemitem class="daemon">pacemaker-fenced</systemitem> programs to carry
+       out the desired fencing operation.
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term>&stonith; plug-ins</term>
+     <listitem>
+      <para>
+       For every supported fencing device there is a &stonith; plug-in which
+       is capable of controlling said device. A &stonith; plug-in is the
+       interface to the fencing device. The &stonith; plug-ins contained in
+       the <package>cluster-glue</package> package reside in
+       <filename>/usr/lib64/stonith/plugins</filename> on each node.
+       (If you installed the
+       <package>fence-agents</package> package, too,
+       the plug-ins contained there are installed in
+       <filename>/usr/sbin/fence_*</filename>.) All &stonith; plug-ins look
+       the same to <systemitem class="daemon">pacemaker-fenced</systemitem>,
+       but are different on the other side, reflecting the nature of the
+       fencing device.
+      </para>
+      <para>
+       Some plug-ins support more than one device. A typical example is
+       <literal>ipmilan</literal> (or <literal>external/ipmi</literal>)
+       which implements the IPMI protocol and can control any device which
+       supports this protocol.
+      </para>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+  </section>
+  <section xml:id="ha-stonith-what-is-device-types">
+    <title>&stonith; devices</title>
+    <para>
+    To use node level fencing, you first need to have a fencing device. To
+    get a list of &stonith; devices which are supported by &productname;, run
+    one of the following commands on any of the nodes:
+   </para>
+<screen>&prompt.root;<command>crm ra list stonith</command></screen>
+   <para>
+    &stonith; devices can be classified into the following categories:
+   </para>
+   <variablelist>
+    <varlistentry>
+     <term>Power Distribution Units (PDU)</term>
+     <listitem>
+      <para>
+       Power Distribution Units are an essential element in managing power
+       capacity and functionality for critical network, server, and data
+       center equipment. They can provide remote load monitoring of
+       connected equipment and individual outlet power control for remote
+       power recycling.
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term>Uninterruptible Power Supplies (UPS)</term>
+     <listitem>
+      <para>
+       A stable power supply provides emergency power to connected equipment
+       by supplying power from a separate source if a utility
+       power failure occurs.
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term>Blade power control devices</term>
+     <listitem>
+      <para>
+       If you are running a cluster on a set of blades, then the power
+       control device in the blade enclosure is the only candidate for
+       fencing. This device must be capable of managing single
+       blade computers.
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term>Lights-out devices</term>
+     <listitem>
+      <para>
+      <!--This para just describes why these devices suck; is that really all we want to say?-->
+       Lights-out devices (IBM RSA, HP iLO, Dell DRAC) are becoming
+       increasingly popular and may even become standard in off-the-shelf
+       computers. However, they are inferior to UPS devices, because they
+       share a power supply with their host (a cluster node). If a node
+       stays without power, the device supposed to control it would be
+       useless. In that case, the CRM would continue its attempts to fence
+       the node indefinitely while all other resource operations would wait
+       for the fencing/&stonith; operation to complete.
+      </para>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+   <para>
+    The choice of the &stonith; device depends mainly on your budget and the
+    kind of hardware you use.
+   </para>
+   <para>
+   In addition to plug-ins which handle physical &stonith; devices, there are
+   special purpose &stonith; plug-ins:
+  </para>
+  <variablelist>
+   <varlistentry>
+    <term><literal>fence_kdump</literal>
+    </term>
+    <listitem>
+     <para>
+      This plug-in checks if a Kernel dump is in progress on a node. If so,
+      it returns <literal>true</literal>, and acts as if the node has been
+      fenced. The node cannot run any resources during the dump anyway. This
+      avoids fencing a node that is already down but doing a dump, which
+      takes some time. The plug-in must be used together with a physical &stonith; device.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term><literal>fence_sbd</literal>
+    </term>
+    <listitem>
+     <para>
+      This is a self-fencing device. It reacts to a so-called <quote>poison
+      pill</quote> which can be inserted into a shared disk. On
+      shared-storage connection loss, it stops the node from operating.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>Diskless &sbd;</term>
+    <listitem>
+     <para>
+      This configuration is useful if you want a fencing mechanism without shared storage. In this diskless mode, &sbd; fences nodes by using the hardware watchdog without relying on any shared device. However, diskless &sbd; cannot handle a split-brain scenario for a two-node cluster. Use this option only for clusters with <emphasis>more than two</emphasis> nodes, or in combination with &qdevice; to help handle split-brain scenarios.
+     </para>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+  </section>
+  <section xml:id="ha-stonith-what-is-more-info">
+    <title>For more information</title>
+    <para>
+      For more information, see some command and some man page.
+    </para>
+  </section>
+</topic>
