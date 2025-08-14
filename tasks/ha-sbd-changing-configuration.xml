@@ -1,0 +1,450 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_storage_protection.xml -->
+
+<topic xml:id="ha-sbd-changing-configuration"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Changing &sbd; configuration</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        You might need to change the cluster's SBD configuration for various reasons. For example:
+      </para>
+      <itemizedlist>
+      <listitem>
+        <para>
+          Changing disk-based SBD to diskless SBD
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Changing diskless SBD to disk-based SBD
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Replacing an SBD device with a new device
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Changing timeout values and other settings
+        </para>
+      </listitem>
+      </itemizedlist>
+    </abstract>
+  </info>
+  <para>
+    You can use &crmsh; to change the SBD configuration. This method uses
+    &crmsh;'s default settings, including timeout values.
+  </para>
+  <itemizedlist>
+    <listitem>
+      <para>
+        <xref linkend="pro-ha-storage-protect-sbd-redeploy-disk-based-crmsh"/>
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <xref linkend="pro-ha-storage-protect-sbd-redeploy-diskless-crmsh"/>
+      </para>
+    </listitem>
+  </itemizedlist>
+  <para>
+    If you need to change any settings,
+    or if you use custom settings and need to retain them when replacing a device, you must
+    manually edit the SBD configuration.
+  </para>
+  <itemizedlist>
+    <listitem>
+      <para>
+        <xref linkend="pro-ha-storage-protect-sbd-redeploy-disk-based-manual"/>
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <xref linkend="pro-ha-storage-protect-sbd-redeploy-diskless-manual"/>
+      </para>
+    </listitem>
+  </itemizedlist>
+
+  <procedure xml:id="pro-ha-storage-protect-sbd-redeploy-disk-based-crmsh">
+    <title>Redeploying disk-based SBD with &crmsh;</title>
+    <para>
+      Use this procedure to change diskless SBD to disk-based SBD, or to replace an existing
+      SBD device with a new device.
+    </para>
+    <step>
+      <para>
+        Put the cluster into maintenance mode:
+      </para>
+<screen>&prompt.root;<command>crm maintenance on</command></screen>
+      <para>
+        In this state, the cluster stops monitoring all resources, so the services managed
+        by the resources can continue to run even if the cluster services stop.
+      </para>
+    </step>
+    <step>
+      <para>
+        Configure the new device:
+      </para>
+<screen>&prompt.root;<command>crm -F cluster init sbd -s /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+      <para>
+        The <option>-F</option> option allows &crmsh; to reconfigure SBD even if the SBD service is
+        already running.
+      </para>
+    </step>
+    <step>
+      <para>
+        Check the status of the cluster:
+      </para>
+<screen>&prompt.root;<command>crm status</command></screen>
+      <para>
+        Initially, the nodes have a status of <literal>UNCLEAN (offline)</literal>,
+        but after a short time they change to <literal>Online</literal>.
+      </para>
+    </step>
+    <step>
+      <para>
+        Check the SBD configuration. First, check the device metadata:
+      </para>
+<screen>&prompt.root;<command>sbd -d /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> dump</command>
+</screen>
+      <para>
+        Then check that all nodes in the cluster are assigned to a slot in the device:
+      </para>
+<screen>&prompt.root;<command>sbd -d /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> list</command></screen>
+    </step>
+    <step>
+      <para>
+        Check the status of the SBD service:
+      </para>
+<screen>&prompt.root;<command>systemctl status sbd</command></screen>
+      <para>
+        If you changed diskless SBD to disk-based SBD, check that the following section
+        includes a device ID:
+      </para>
+<screen>CGroup: /system/.slice/sbd.service
+        |&mdash;23314 "sbd: inquisitor"
+        |&mdash;23315 "sbd: watcher: /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> - slot: 0 - uuid: <replaceable>DEVICE_UUID</replaceable>"
+        |&mdash;23316 "sbd: watcher: Pacemaker"
+        |&mdash;23317 "sbd: watcher: Cluster"</screen>
+    </step>
+    <step>
+      <para>
+        When the nodes are back online, move the cluster out of maintenance mode and back
+        into normal operation:
+      </para>
+<screen>&prompt.root;<command>crm maintenance off</command></screen>
+    </step>
+  </procedure>
+
+  <procedure xml:id="pro-ha-storage-protect-sbd-redeploy-disk-based-manual">
+    <title>Redeploying disk-based SBD manually</title>
+    <para>
+      Use this procedure to change diskless SBD to disk-based SBD, to replace an existing
+      SBD device with a new device, or to change the timeout settings for disk-based SBD.
+    </para>
+    <step>
+      <para>
+        Put the cluster into maintenance mode:
+      </para>
+<screen>&prompt.root;<command>crm maintenance on</command></screen>
+      <para>
+        In this state, the cluster stops monitoring all resources, so the services managed
+        by the resources can continue to run even when you stop the cluster services.
+      </para>
+    </step>
+    <step>
+      <para>
+        Stop the cluster services, including SBD, on all nodes:
+      </para>
+<screen>&prompt.root;<command>crm cluster stop --all</command></screen>
+    </step>
+    <step>
+      <para>
+        Reinitialize the device metadata, specifying the new device ID and timeouts as required:
+      </para>
+<screen>&prompt.root;<command>sbd -d /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> -1 <replaceable>VALUE</replaceable> -4 <replaceable>VALUE</replaceable> create</command></screen>
+      <para>
+        The <option>-1</option> option specifies the <literal>watchdog</literal> timeout.
+      </para>
+      <para>
+        The <option>-4</option> option specifies the <literal>msgwait</literal> timeout. This must
+        be at least double the <literal>watchdog</literal> timeout.
+      </para>
+      <para>
+        For more information, see <xref linkend="pro-ha-storage-protect-sbd-create"/>.
+      </para>
+    </step>
+    <step>
+      <para>
+        Open the file <filename>/etc/sysconfig/sbd</filename>.
+      </para>
+    </step>
+    <step>
+      <para>
+        If you are changing diskless SBD to disk-based SBD, add the following line and
+        specify the device ID. If you are replacing an SBD device, change the value of
+        this line to the new device ID:
+      </para>
+<screen>SBD_DEVICE="/dev/disk/by-id/<replaceable>DEVICE_ID</replaceable>"</screen>
+    </step>
+    <step>
+      <para>
+        Adjust the other settings as required. For more information,
+        see <xref linkend="pro-ha-storage-protect-sbd-config"/>.
+      </para>
+    </step>
+    <step>
+      <para>
+        Copy the configuration file to all nodes:
+      </para>
+<screen>&prompt.root;<command>csync2 -xv</command></screen>
+    </step>
+    <step>
+      <para>
+        Start the cluster services on all nodes:
+      </para>
+<screen>&prompt.root;<command>crm cluster start --all</command></screen>
+    </step>
+    <step>
+      <para>
+        Check the status of the cluster:
+      </para>
+<screen>&prompt.root;<command>crm status</command></screen>
+      <para>
+        Initially, the nodes have a status of <literal>UNCLEAN (offline)</literal>,
+        but after a short time they change to <literal>Online</literal>.
+      </para>
+    </step>
+    <step>
+      <para>
+        Check the SBD configuration. First, check the device metadata:
+      </para>
+<screen>&prompt.root;<command>sbd -d /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> dump</command>
+</screen>
+      <para>
+        Then check that all nodes in the cluster are assigned to a slot in the device:
+      </para>
+<screen>&prompt.root;<command>sbd -d /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> list</command></screen>
+    </step>
+    <step>
+      <para>
+        Check the status of the SBD service:
+      </para>
+<screen>&prompt.root;<command>systemctl status sbd</command></screen>
+      <para>
+        If you changed diskless SBD to disk-based SBD, check that the following section
+        includes a device ID:
+      </para>
+<screen>CGroup: /system/.slice/sbd.service
+        |&mdash;23314 "sbd: inquisitor"
+        |&mdash;23315 "sbd: watcher: /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> - slot: 0 - uuid: <replaceable>DEVICE_UUID</replaceable>"
+        |&mdash;23316 "sbd: watcher: Pacemaker"
+        |&mdash;23317 "sbd: watcher: Cluster"</screen>
+    </step>
+    <step>
+      <para>
+        If you changed any timeouts, or if you changed diskless SBD to disk-based SBD,
+        you might also need to change the CIB properties <literal>stonith-timeout</literal> and
+        <literal>stonith-watchdog-timeout</literal>. For disk-based SBD,
+        <literal>stonith-watchdog-timeout</literal> should be <literal>0</literal> or defaulted.
+      </para>
+      <para>
+        To check the current values, run the following command:
+      </para>
+<screen>&prompt.root;<command>crm configure show</command></screen>
+      <para>
+        If you need to change the values, use the following commands:
+      </para>
+<screen>&prompt.root;<command>crm configure property stonith-watchdog-timeout=0</command>
+&prompt.root;<command>crm configure property stonith-timeout=<replaceable>VALUE</replaceable></command></screen>
+    </step>
+    <step>
+      <para>
+        If you changed diskless SBD to disk-based SBD, you must configure a &stonith; resource
+        for SBD. For example:
+      </para>
+<screen>&prompt.root;<command>crm configure primitive stonith-sbd stonith:external/sbd</command></screen>
+      <para>
+        For more information, see <xref linkend="st-ha-storage-protect-fencing-static-random"/> in
+        <xref linkend="pro-ha-storage-protect-fencing"/>.
+      </para>
+    </step>
+    <step>
+      <para>
+        When the nodes are back online, move the cluster out of maintenance mode and back
+        into normal operation:
+      </para>
+<screen>&prompt.root;<command>crm maintenance off</command></screen>
+    </step>
+  </procedure>
+
+  <procedure xml:id="pro-ha-storage-protect-sbd-redeploy-diskless-crmsh">
+    <title>Redeploying diskless SBD with &crmsh;</title>
+    <para>
+      Use this procedure to change disk-based SBD to diskless SBD.
+    </para>
+    <step>
+      <para>
+        Put the cluster into maintenance mode:
+      </para>
+<screen>&prompt.root;<command>crm maintenance on</command></screen>
+      <para>
+        In this state, the cluster stops monitoring all resources, so the services managed
+        by the resources can continue to run even if the cluster services stop.
+      </para>
+    </step>
+    <step>
+      <para>
+        Configure diskless SBD:
+          </para>
+<screen>&prompt.root;<command>crm -F cluster init sbd -S</command></screen>
+      <para>
+        The <option>-F</option> option allows &crmsh; to reconfigure SBD even if the SBD service is
+        already running.
+      </para>
+    </step>
+    <step>
+      <para>
+        Check the status of the cluster:
+      </para>
+<screen>&prompt.root;<command>crm status</command></screen>
+      <para>
+        Initially, the nodes have a status of <literal>UNCLEAN (offline)</literal>,
+        but after a short time they change to <literal>Online</literal>.
+      </para>
+    </step>
+    <step>
+      <para>
+        Check the status of the SBD service:
+      </para>
+<screen>&prompt.root;<command>systemctl status sbd</command></screen>
+      <para>
+        The following section should <emphasis>not</emphasis> include a device ID:
+      </para>
+<screen>CGroup: /system/.slice/sbd.service
+        |&mdash;23314 "sbd: inquisitor"
+        |&mdash;23315 "sbd: watcher: Pacemaker"
+        |&mdash;23316 "sbd: watcher: Cluster"</screen>
+    </step>
+    <step>
+      <para>
+        When the nodes are back online, move the cluster out of maintenance mode and back
+        into normal operation:
+      </para>
+<screen>&prompt.root;<command>crm maintenance off</command></screen>
+    </step>
+  </procedure>
+
+  <procedure xml:id="pro-ha-storage-protect-sbd-redeploy-diskless-manual">
+    <title>Redeploying diskless SBD manually</title>
+    <para>
+      Use this procedure to change disk-based SBD to diskless SBD, or to change
+      the timeout values for diskless SBD.
+    </para>
+    <step>
+      <para>
+        Put the cluster into maintenance mode:
+      </para>
+<screen>&prompt.root;<command>crm maintenance on</command></screen>
+      <para>
+        In this state, the cluster stops monitoring all resources, so the services managed
+        by the resources can continue to run even when you stop the cluster services.
+      </para>
+    </step>
+    <step>
+      <para>
+        Stop the cluster services, including SBD, on all nodes:
+      </para>
+<screen>&prompt.root;<command>crm cluster stop --all</command></screen>
+    </step>
+    <step>
+      <para>
+        Open the file <filename>/etc/sysconfig/sbd</filename>.
+      </para>
+    </step>
+    <step>
+      <para>
+        If you are changing disk-based SBD to diskless SBD, remove or comment out the
+        <literal>SBD_DEVICE</literal> entry.
+      </para>
+    </step>
+    <step>
+      <para>
+        Adjust the other settings as required.
+      </para>
+    </step>
+    <step>
+      <para>
+        Copy the configuration file to all nodes:
+      </para>
+<screen>&prompt.root;<command>csync2 -xv</command></screen>
+    </step>
+    <step>
+      <para>
+        Start the cluster services on all nodes:
+      </para>
+<screen>&prompt.root;<command>crm cluster start --all</command></screen>
+    </step>
+    <step>
+      <para>
+        Check the status of the cluster:
+      </para>
+<screen>&prompt.root;<command>crm status</command></screen>
+      <para>
+        Initially, the nodes have a status of <literal>UNCLEAN (offline)</literal>,
+        but after a short time they change to <literal>Online</literal>.
+      </para>
+    </step>
+    <step>
+      <para>
+        Check the status of the SBD service:
+      </para>
+<screen>&prompt.root;<command>systemctl status sbd</command></screen>
+      <para>
+        If you changed disk-based SBD to diskless SBD, check that the following section does
+        <emphasis>not</emphasis> include a device ID:
+      </para>
+<screen>CGroup: /system/.slice/sbd.service
+        |&mdash;23314 "sbd: inquisitor"
+        |&mdash;23315 "sbd: watcher: Pacemaker"
+        |&mdash;23316 "sbd: watcher: Cluster"</screen>
+    </step>
+    <step>
+      <para>
+        If you changed any timeouts, or if you changed disk-based SBD to diskless SBD, you might
+        also need to change the CIB properties <literal>stonith-timeout</literal> and
+        <literal>stonith-watchdog-timeout</literal>.
+      </para>
+      <para>
+        To check the current values, run the following command:
+      </para>
+<screen>&prompt.root;<command>crm configure show</command></screen>
+      <para>
+        If you need to change the values, use the following commands:
+      </para>
+<screen>&prompt.root;<command>crm configure property stonith-watchdog-timeout=<replaceable>VALUE</replaceable></command>
+&prompt.root;<command>crm configure property stonith-timeout=<replaceable>VALUE</replaceable></command></screen>
+    </step>
+    <step>
+      <para>
+        When the nodes are back online, move the cluster out of maintenance mode and back
+        into normal operation:
+      </para>
+<screen>&prompt.root;<command>crm maintenance off</command></screen>
+    </step>
+  </procedure>
+</topic>
