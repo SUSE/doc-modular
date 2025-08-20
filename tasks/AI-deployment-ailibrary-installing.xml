@@ -18,11 +18,23 @@
     <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        This procedure includes steps to install &ailibrary; applications.
+        This procedure includes steps to install &ailibrary;
+        applications<phrase
+        condition="deployment_airgapped"> in air-gap
+        environments</phrase>.
       </para>
     </abstract>
   </info>
   <procedure>
+    <important condition="deployment_airgapped">
+      <para condition="deployment_airgapped">
+        If the following steps do not specify on which part of the air-gap
+        architecture&mdash;<emphasis>local</emphasis> or
+        <emphasis>remote</emphasis>&mdash;the task should be performed, assume
+        <emphasis>remote</emphasis>. The isolated <emphasis>local</emphasis>
+        part will always be specified.
+      </para>
+    </important>
     <step>
       <para>
         Purchase the &productname; entitlement. It is a separate entitlement
@@ -53,10 +65,13 @@
     </step>
     <step>
       <para>
-        Create a &kube; namespace if it does not already exist. The steps in
-        this procedure assume that all containers are deployed into the same
-        namespace referred to as <replaceable>SUSE_AI_NAMESPACE</replaceable>.
-        Replace its name to match your preferences.
+        <phrase condition="deployment_airgapped">On the
+        <emphasis>local</emphasis> cluster, create</phrase>
+        <phrase condition="deployment_standard">Create</phrase> a &kube;
+        namespace if it does not already exist. The steps in this procedure
+        assume that all containers are deployed into the same namespace referred
+        to as <replaceable>SUSE_AI_NAMESPACE</replaceable>. Replace its name to
+        match your preferences.
       </para>
 <screen>&prompt.user;<command>kubectl create namespace <replaceable>SUSE_AI_NAMESPACE</replaceable></command></screen>
     </step>
@@ -78,6 +93,42 @@
   -u <replaceable>APPCO_USERNAME</replaceable> \
   -p <replaceable>APPCO_USER_TOKEN</replaceable></command></screen>
     </step>
+    <step condition="deployment_airgapped">
+      <para>
+        On the <emphasis>remote</emphasis> host, download the &productname;
+        <link xlink:href="https://github.com/SUSE/suse-ai-stack/tree/SUSEAI-79/air-gapped-install">air-gap
+        installation script</link> and run it.
+      </para>
+<screen>&prompt.user;<command>./SUSE-AI-get-images.sh</command></screen>
+      <para>
+        This script creates a subdirectory with all necessary &helm; charts plus
+        <filename>suse-ai-containers.tgz</filename> and
+        <filename>suse-ai-containers.txt</filename> files.
+      </para>
+    </step>
+    <step condition="deployment_airgapped">
+      <para>
+        Create a &docker; registry on one of the <emphasis>local</emphasis>
+        hosts so that the <emphasis>local</emphasis> &kube; cluster can access
+        it.
+      </para>
+    </step>
+    <step condition="deployment_airgapped">
+      <para>
+        Securely transfer the created subdirectory with &helm; charts plus
+        <filename>suse-ai-containers.tgz</filename> and
+        <filename>suse-ai-containers.txt</filename> files from the
+        <emphasis>remote</emphasis> host to a <emphasis>local</emphasis> host
+        and load all container images to the <emphasis>local</emphasis> &docker;
+        registry. Set <varname>DST_REGISTRY_USERNAME</varname> and
+        <varname>DST_REGISTRY_PASSWORD</varname> environment variables if they
+        are required to access the registry.
+      </para>
+<screen>&prompt.user;<command>./SUSE-AI-load-images.sh \
+  -d <replaceable>LOCAL_DOCKER_REGISTRY_URL</replaceable> \
+  -i charts/suse-ai-containers.txt \
+  -f charts/suse-ai-containers.tgz</command> </screen>
+    </step>
     <step>
       <para>
         Install &certmanager; as described in
@@ -86,40 +137,28 @@
     </step>
     <step>
       <para>
-        Install &ailibrary; components. You can either install each component
-        separately, or use the &saideployer; chart to install the components
-        together.
+        Install &ailibrary; components.
+        <phrase condition="deployment_standard">You can either install each
+        component separately, or use the &saideployer; chart to install the
+        components together as described in
+        <xref linkend="ailibrary-installing-deployer"/>.</phrase>
       </para>
       <substeps>
         <step>
           <para>
-            Install &ailibrary; components separately.
+            Install &milvus; as described in
+            <xref linkend="milvus-installing"/>.
           </para>
-          <substeps>
-            <step>
-              <para>
-                Install &milvus; as described in
-                <xref linkend="milvus-installing"/>.
-              </para>
-            </step>
-            <step performance="optional">
-              <para>
-                Install &ollama; as described in
-                <xref linkend="ollama-installing"/>.
-              </para>
-            </step>
-            <step>
-              <para>
-                Install &owui; as described in
-                <xref linkend="owui-installing"/>.
-              </para>
-            </step>
-          </substeps>
+        </step>
+        <step performance="optional">
+          <para>
+            Install &ollama; as described in
+            <xref linkend="ollama-installing"/>.
+          </para>
         </step>
         <step>
           <para>
-            Install all required &ailibrary; components using the &saideployer;
-            as described in <xref linkend="ailibrary-installing-deployer"/>.
+            Install &owui; as described in <xref linkend="owui-installing"/>.
           </para>
         </step>
       </substeps>
