@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_qdevice-qnetd.xml -->
+
+<topic xml:id="ha-qdevice-what-is"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>What are &qdevice; and &qnet;?</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+    <para>
+      When communication fails between one or more nodes and the rest of the cluster (a split-brain
+      scenario), a cluster partition occurs. The nodes can only communicate with other nodes in the
+      same partition and are unaware of the separated nodes. A cluster partition has
+      <emphasis>quorum</emphasis> (or is <quote>quorate</quote>) if it has the majority of nodes
+      (or <quote>votes</quote>). This is determined by <emphasis>quorum calculation</emphasis>.
+      Quorum must be calculated so the non-quorate nodes can be fenced.
+    </para>
+    <para>
+      &qdevice; and &qnet; participate in quorum calculations in a split-brain scenario. &qdevice;
+      runs on each cluster node and communicates with an arbitrator, &qnet;, to provide a
+      configurable number of votes to the cluster. This allows the cluster to sustain more node
+      failures than the standard quorum rules allow. We recommend using &qdevice; and &qnet; for
+      clusters with an even number of nodes, and especially for two-node clusters.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="ha-qdevice-what-is-benefits">
+    <title>Benefits</title>
+    <para>
+      Configuring a cluster to use &qdevice; and &qnet; has the following benefits:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Clusters with an even number of nodes can make quorum calculations more easily.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          The cluster can sustain more node failures than the standard quorum rules allow.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          You can write your own heuristics scripts to affect votes. This is especially useful for
+          complex setups.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Two-node clusters can use diskless &sbd; if &qdevice; is also configured.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          One &qnet; server can provide votes for multiple clusters.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          &qnet; can work with TLS for client certificate checking.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="ha-qdevice-what-is-components">
+    <title>Components</title>
+    <para>
+      A setup with &qdevice; and &qnet; consists of the following components and mechanisms:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>&qdevice; (<systemitem>corosync-qdevice</systemitem>)</term>
+        <listitem>
+          <para>
+            &qdevice; runs together with &corosync; on each cluster node. It communicates with the
+            arbitrator &qnet; to provide a configurable number of votes to the cluster.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>&qnet; (<systemitem>corosync-qnetd</systemitem>)</term>
+        <listitem>
+          <para>
+            &qnet; is an arbitrator that runs outside the cluster. It provides a vote to the
+            &qdevice; service on each cluster node to help it participate in quorum decisions.
+            &qnet; can support multiple clusters if each cluster has a unique name. By default,
+            &qnet; runs the <systemitem>corosync-qnetd</systemitem> daemon as the user
+            <systemitem>coroqnetd</systemitem> in the group <systemitem>coroqnetd</systemitem>.
+            This avoids running the daemon as &rootuser;.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Algorithms</term>
+        <listitem>
+          <para>
+            &qdevice; supports different algorithms to determine how votes are assigned.
+            <quote>Fifty-fifty split</quote> is helpful for clusters with an even number of nodes.
+            <quote>Last man standing</quote> is helpful for clusters where only one
+            <emphasis>active</emphasis> node needs to remain quorate.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Heuristics</term>
+        <listitem>
+          <para>
+            &qdevice; supports a set of commands (or <quote>heuristics</quote>). The commands run
+            when the cluster services start (or restart), when the cluster membership changes, and
+            when nodes connect to the &qnet; server. Optionally, you can also configure the commands
+            to run at regular intervals. The commands can be written in any programming language.
+            If the commands succeed, they return <literal>0</literal>; otherwise, they return an
+            error code. The result is sent to &qnet; to help with the quorum calculation.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Tiebreaker</term>
+        <listitem>
+          <para>
+            This is used as a fallback if the cluster partitions are equal even after the heuristics
+            results are applied. The tie-breaker vote can be configured to go to the node with the
+            lowest node ID, the highest node ID, or a specific node ID.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="ha-qdevice-what-is-more-info">
+    <title>For more information</title>
+    <para>
+      For more information, see the man pages <literal>corosync-qdevice</literal> and
+      <literal>corosync-qnetd</literal>.
+    </para>
+  </section>
+</topic>
