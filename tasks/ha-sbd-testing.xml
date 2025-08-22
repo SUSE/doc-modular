@@ -19,101 +19,112 @@
     <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        To test whether &sbd; works as expected for node fencing purposes, use one or all of the following methods:
+        To check whether &sbd; works as expected, perform one or more of the following tests:
       </para>
     </abstract>
   </info>
-
-  <procedure xml:id="pro-ha-storage-protect-sbd-test">
-   <title>Testing the SBD devices</title>
-    <step>
-     <para> The following command dumps the node slots and their current
-      messages from the SBD device: </para>
-<screen>&prompt.root;<command>sbd -d /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> list</command></screen>
-    <para> Now you should see all cluster nodes that have ever been started with SBD listed here.
-     For example, if you have a two-node cluster, the message slot should show
-      <literal>clear</literal> for both nodes:</para>
-     <screen>0       &node1;        clear
+<!-- Add a note somewhere recommending testing this in a test env first -->
+  <variablelist>
+    <varlistentry>
+      <term>Checking &sbd; communication</term>
+      <listitem>
+        <procedure>
+          <step>
+            <para>
+              List the node slots and their current messages from the &sbd; device:
+            </para>
+<screen>&prompt.user;<command>sudo sbd -d /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> list</command></screen>
+            <para>
+              For example, if you have a two-node cluster, the message slot should show <literal>clear</literal> for both nodes:
+            </para>
+<screen>0       &node1;        clear
 1       &node2;          clear</screen>
-    </step>
-    <step>
-     <para> Try sending a test message to one of the nodes: </para>
-<screen>&prompt.root;<command>sbd -d /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> message &node1; test</command></screen>
-    </step>
-    <step>
-     <para> The node acknowledges the receipt of the message in the system
-      log files: </para>
+          </step>
+          <step>
+            <para>
+              Send a test message from one of the nodes to another node:
+            </para>
+<screen>&prompt.user;<command>sudo sbd -d /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> message &node1; test</command></screen>
+          </step>
+          <step>
+            <para>
+              The node acknowledges the receipt of the message in <filename>/var/log/messages</filename>:
+            </para>
 <screen>May 03 16:08:31 &node1; sbd[66139]: /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable>: notice: servant:
 Received command test from &node2; on disk /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></screen>
-     <para> This confirms that SBD is indeed up and running on the node and
-      that it is ready to receive messages. </para>
-    </step>
-   </procedure>
-
-  <variablelist>
-   <varlistentry>
-    <term>Manually triggering fencing of a node</term>
-    <listitem>
-     <para>To trigger a fencing action for node <replaceable>NODENAME</replaceable>:</para>
- <screen>&prompt.root;<command>crm node fence <replaceable>NODENAME</replaceable></command></screen>
-     <para>Check if the node is fenced and if the other nodes consider the node as fenced
-      after the <parameter>stonith-watchdog-timeout</parameter>.</para>
-    </listitem>
-   </varlistentry>
-   <varlistentry>
-    <term>Simulating an SBD failure</term>
-    <listitem>
-     <procedure>
-      <step>
-       <para>Identify the process ID of the SBD inquisitor:</para>
-       <screen>&prompt.root;<command>systemctl status sbd</command>
+            <para>
+              This confirms that &sbd; is up and running on the node and that it is ready to receive messages.
+            </para>
+          </step>
+        </procedure>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>Manually triggering node fencing</term>
+      <listitem>
+        <para>
+          To trigger a fencing action for node <replaceable>NODENAME</replaceable>:
+        </para>
+<screen>&prompt.user;<command>sudo crm node fence <replaceable>NODENAME</replaceable></command></screen>
+        <para>
+          Check if the node is fenced and if the other nodes consider the node as fenced after the <parameter>stonith-watchdog-timeout</parameter>.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>Simulating an &sbd; failure</term>
+      <listitem>
+        <procedure>
+          <step>
+            <para>
+              Identify the process ID of the &sbd; inquisitor:
+            </para>
+<screen>&prompt.user;<command>systemctl status sbd</command>
 ● sbd.service - Shared-storage based fencing daemon
-
-   Loaded: loaded (/usr/lib/systemd/system/sbd.service; enabled; vendor preset: disabled)
-   Active: active (running) since Tue 2018-04-17 15:24:51 CEST; 6 days ago
-     Docs: man:sbd(8)
-  Process: 1844 ExecStart=/usr/sbin/sbd $SBD_OPTS -p /var/run/sbd.pid watch (code=exited, status=0/SUCCESS)
- Main PID: 1859 (sbd)
-    Tasks: 4 (limit: 4915)
-   CGroup: /system.slice/sbd.service
-           ├─<emphasis role="strong">1859 sbd: inquisitor</emphasis>
-[...]</screen>
-      </step>
-      <step>
-       <para>Simulate an SBD failure by terminating the SBD inquisitor process.
-       In our example, the process ID of the SBD inquisitor is
-         <literal>1859</literal>:</para>
-       <screen>&prompt.root;<command>kill -9 1859</command></screen>
-       <para>
-        The node proactively self-fences. The other nodes notice the loss of
-        the node and consider it has self-fenced after the
-        <parameter>stonith-watchdog-timeout</parameter>.
-       </para>
-      </step>
-     </procedure>
-    </listitem>
-   </varlistentry>
-   <varlistentry>
-    <term>Triggering fencing through a monitor operation failure</term>
-    <listitem>
-     <para>With a normal configuration, a failure of a resource <emphasis>stop operation</emphasis>
-      triggers fencing. To trigger fencing manually, you can produce a failure
-      of a resource stop operation. Alternatively, you can temporarily change
-      the configuration of a resource <emphasis>monitor operation</emphasis>
-      and produce a monitor failure as described below:</para>
-     <procedure>
-      <step>
-       <para>Configure an <literal>on-fail=fence</literal> property for a resource monitor
-        operation:</para>
-       <screen>op monitor interval=10 on-fail=fence</screen>
-      </step>
-      <step>
-       <para>Let the monitoring operation fail (for example, by terminating the respective
-        daemon, if the resource relates to a service).</para>
-       <para>This failure triggers a fencing action.</para>
-      </step>
-     </procedure>
-    </listitem>
-   </varlistentry>
+[...]
+   Main PID: 13831 (sbd)
+      Tasks: 4
+     CGroup: /system.slice/sbd.service
+             ├─<emphasis role="bold">13831 "sbd: inquisitor"</emphasis>
+             ├─13832 "sbd: watcher: /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable>"
+             ├─13833 "sbd: watcher: Pacemaker"
+             └─13834 "sbd: watcher: Cluster"</screen>
+          </step>
+          <step>
+            <para>
+              Simulate an &sbd; failure by terminating the &sbd; inquisitor process. In this example, the process ID of the &sbd; inquisitor is <literal>13831</literal>:
+            </para>
+<screen>&prompt.user;<command>sudo kill -9 13831</command></screen>
+            <para>
+              The node proactively self-fences. The other nodes notice the loss of the node and consider it has self-fenced after the <parameter>stonith-watchdog-timeout</parameter>.
+            </para>
+          </step>
+        </procedure>
+      </listitem>
+    </varlistentry>
+    <!--varlistentry> This needs to be expanded more to be actually useful
+      <term>Triggering fencing through a monitor operation failure</term>
+      <listitem>
+        <para>
+          You can temporarily change the configuration of a resource <emphasis>monitor operation</emphasis> and produce a monitor failure as described below:
+        </para>
+        <procedure>
+          <step>
+            <para>
+              Configure an <literal>on-fail=fence</literal> property for a resource monitor operation:
+            </para>
+<screen>op monitor interval=10 on-fail=fence</screen>
+          </step>
+          <step>
+            <para>
+              Let the monitoring operation fail (for example, by terminating the respective daemon, if the resource relates to a service).
+            </para>
+            <para>
+              This failure triggers a fencing action.
+            </para>
+          </step>
+        </procedure>
+      </listitem>
+    </varlistentry-->
   </variablelist>
 </topic>
