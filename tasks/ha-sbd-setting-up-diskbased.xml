@@ -19,11 +19,28 @@
     <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        TODO
+        To set up disk-based &sbd; in a running cluster, use the &sbd; stage of the cluster setup
+        script. This script handles all the required setup tasks for &sbd; and calculates appropriate
+        timeout settings for the cluster. You can configure up to three &sbd; devices.
       </para>
     </abstract>
   </info>
 
+  <para>
+    This procedure assumes the cluster does not already have either type of &sbd; configured. If the
+    &sbd; service is already running, see <citetitle>Changing &sbd; Configuration</citetitle> instead.
+    <!-- Add link when available -->
+  </para>
+  <important>
+    <title>Cluster restart might be required</title>
+    <para>
+      The &sbd; setup script checks whether a cluster restart is required and whether it is
+      safe to do so automatically. If any non-&stonith; resources are running, the script does
+      <emphasis>not</emphasis> automatically restart the cluster services. Instead, it warns you to
+      restart the cluster services manually. This allows you to put the cluster into maintenance
+      mode first to avoid resource downtime.
+    </para>
+  </important>
   <itemizedlist>
     <title>Requirements</title>
     <listitem>
@@ -33,8 +50,7 @@
     </listitem>
     <listitem>
       <para>
-        The cluster does <emphasis>not</emphasis> already have either type of &sbd; configured.
-        <!--To change diskless &sbd; to disk-based &sbd;, see (an article that doesn't exist yet).-->
+        The &sbd; service is not running.
       </para>
     </listitem>
     <listitem>
@@ -50,7 +66,7 @@
     </listitem>
     <listitem>
       <para>
-        The shared storage <emphasis>must not</emphasis> use host-based RAID, LVM, DRBD, or Cluster MD.
+        The shared storage must <emphasis>not</emphasis> use host-based RAID, LVM, DRBD, or Cluster MD.
       </para>
     </listitem>
     <listitem>
@@ -62,76 +78,100 @@
   <warning>
     <title>Overwriting existing data</title>
     <para>
-      Make sure the device or devices you want to use for &sbd; do not hold any important data. When you execute the <command>sbd create</command> command, roughly the first megabyte of the specified block devices is overwritten without further requests or backup.
+      Make sure any device you want to use for &sbd; does not hold any important data. Configuring
+      a device for use with &sbd; overwrites the existing data.
     </para>
   </warning>
 
   <para>
     Perform this procedure on only one cluster node:
   </para>
-  <procedure><!--Copied from changing-sbd-config, needs to be rearranged a bit-->
+  <procedure>
     <step>
       <para>
-        Put the cluster into maintenance mode:
-      </para>
-<screen>&prompt.root;<command>crm maintenance on</command></screen>
-      <para>
-        In this state, the cluster stops monitoring all resources, so the services managed
-        by the resources can continue to run even if the cluster services stop.
+        Log in either as the &rootuser; user or as a user with <command>sudo</command> privileges.
       </para>
     </step>
     <step>
       <para>
-        Configure the new device:
+        Run the &sbd; stage of the cluster setup script, using the option <option>--sbd-device</option>
+        (or <option>-s</option>) to specify the shared storage device:
       </para>
-<screen>&prompt.root;<command>crm -F cluster init sbd -s /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+<screen>&prompt.user;<command>sudo crm cluster init sbd --sbd-device /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+      <itemizedlist>
+        <title>Additional options</title>
+        <listitem>
+          <para>
+            You can use <option>--sbd-device</option> (or <option>-s</option>) multiple times to
+            configure up to three &sbd; devices.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            If multiple watchdogs are available, you can use the option <option>--watchdog</option>
+            (or <option>-w</option>) to choose which watchdog to use. Specify either the device name
+            (for example, <literal>/dev/watchdog1</literal>) or the driver name (for example,
+            <literal>iTCO_wdt</literal>).
+          </para>
+        </listitem>
+      </itemizedlist>
       <para>
-        The <option>-F</option> option allows &crmsh; to reconfigure &sbd; even if the &sbd; service is
-        already running.
+        The script initializes &sbd; on the shared storage device, creates a &stonith; cluster
+        resource, and updates the &sbd; configuration file and timeout settings. The script also
+        checks whether a cluster restart is required and whether it is safe to do so automatically.
+        If any non-&stonith; resources are running, the script warns you to restart the cluster
+        services manually.
       </para>
     </step>
     <step>
       <para>
-        Check the status of the cluster:
+        If you need to restart the cluster services manually, follow these steps to avoid
+        resource downtime:
       </para>
-<screen>&prompt.root;<command>crm status</command></screen>
-      <para>
-        Initially, the nodes have a status of <literal>UNCLEAN (offline)</literal>,
-        but after a short time they change to <literal>Online</literal>.
-      </para>
+      <substeps>
+      <step>
+        <para>
+          Put the cluster into maintenance mode:
+        </para>
+<screen>&prompt.user;<command>sudo crm maintenance on</command></screen>
+        <para>
+          In this state, the cluster stops monitoring all resources. This allows the services
+          managed by the resources to keep running during the cluster restart.
+        </para>
+      </step>
+      <step>
+        <para>
+          Restart the cluster services on all nodes:
+        </para>
+<screen>&prompt.user;<command>sudo crm cluster restart --all</command></screen>
+      </step>
+      <step>
+        <para>
+          Check the status of the cluster:
+        </para>
+<screen>&prompt.user;<command>sudo crm status</command></screen>
+        <para>
+          The nodes will have the status <literal>UNCLEAN (offline)</literal>, but will soon
+          change to <literal>Online</literal>.
+        </para>
+      </step>
+      <step>
+        <para>
+          When the nodes are back online, put the cluster back into normal operation:
+        </para>
+<screen>&prompt.user;<command>sudo crm maintenance off</command></screen>
+      </step>
+    </substeps>
     </step>
     <step>
       <para>
-        Check the &sbd; configuration. First, check the device metadata:
+        Check the &sbd; configuration:
       </para>
-<screen>&prompt.root;<command>sbd -d /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> dump</command>
+<screen>&prompt.user;<command>sudo crm sbd configure show</command>
 </screen>
       <para>
-        Then check that all nodes in the cluster are assigned to a slot in the device:
+        The output of this command shows the &sbd; device's metadata, the enabled settings in the <filename>/etc/sysconfig/sbd</filename> file, and the &sbd;-related cluster settings.
       </para>
-<screen>&prompt.root;<command>sbd -d /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> list</command></screen>
-    </step>
-    <step>
-      <para>
-        Check the status of the &sbd; service:
-      </para>
-<screen>&prompt.root;<command>systemctl status sbd</command></screen>
-      <para>
-        If you changed diskless &sbd; to disk-based &sbd;, check that the following section
-        includes a device ID:
-      </para>
-<screen>CGroup: /system/.slice/sbd.service
-        |&mdash;23314 "sbd: inquisitor"
-        |&mdash;23315 "sbd: watcher: /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> - slot: 0 - uuid: <replaceable>DEVICE_UUID</replaceable>"
-        |&mdash;23316 "sbd: watcher: Pacemaker"
-        |&mdash;23317 "sbd: watcher: Cluster"</screen>
-    </step>
-    <step>
-      <para>
-        When the nodes are back online, move the cluster out of maintenance mode and back
-        into normal operation:
-      </para>
-<screen>&prompt.root;<command>crm maintenance off</command></screen>
     </step>
   </procedure>
 </topic>
