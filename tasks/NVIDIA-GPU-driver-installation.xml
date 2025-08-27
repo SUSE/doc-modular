@@ -100,15 +100,52 @@
   <section xml:id="nvidia-gpu-pre-install-procedure">
     <title>The installation procedure</title>
     <procedure>
+      <step condition="deployment_airgapped">
+        <para>
+          On the <emphasis>remote</emphasis> host, download the following
+          packages and transfer them safely to the <emphasis>local</emphasis>
+          GPU-enabled host.
+        </para>
+        <itemizedlist>
+          <para>
+            From the
+            <link xlink:href="https://developer.download.nvidia.com/compute/cuda/repos/sles15/x86_64/"/>
+            repository:
+          </para>
+          <listitem>
+            <para>
+              <package>nvidia-open-driver-G06-signed-cuda-kmp-default</package>
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <package>nvidia-compute-utils-G06</package>
+            </para>
+          </listitem>
+        </itemizedlist>
+        <itemizedlist>
+          <para>
+            From the
+            <link xlink:href="https://nvidia.github.io/libnvidia-container/stable/rpm/"/>
+            repository:
+          </para>
+          <listitem>
+            <para>
+              <package>nvidia-container-toolkit</package>
+            </para>
+          </listitem>
+        </itemizedlist>
+      </step>
       <step os="slmicro_ai">
         <para>
-          On &productname; host, open up a &tr-up-shell; session to create a new
-          read/write snapshot of the underlying operating system so that we can
-          make changes to the immutable platform.
+          On each <emphasis>local</emphasis> GPU-enabled host, open up a
+          &tr-up-shell; session to create a new read/write snapshot of the
+          underlying operating system so that we can make changes to the
+          immutable platform.
         </para>
 <screen>&prompt.root;&tr-up-shell;</screen>
       </step>
-      <step os="slmicro_ai">
+      <step os="slmicro_ai" condition="deployment_standard">
         <para>
           When you are in the &tr-up-shell; session, add a package repository
           from &nvidia;. This allows pulling in additional utilities, for
@@ -119,7 +156,7 @@
   cuda-sle15</command>
 &prompt.tr-up;<command>zypper --gpg-auto-import-keys refresh</command></screen>
       </step>
-      <step os="sles_ai">
+      <step os="sles_ai" condition="deployment_standard">
         <para>
           Add a package repository from &nvidia;. This allows pulling in
           additional utilities, for example, <literal>nvidia-smi</literal>.
@@ -129,7 +166,7 @@
   cuda-sle15</command>
 &prompt.root;<command>zypper --gpg-auto-import-keys refresh</command></screen>
       </step>
-      <step os="slmicro_ai">
+      <step os="slmicro_ai" condition="deployment_standard">
         <para>
           Install the Open Kernel driver KMP and detect the driver version.
         </para>
@@ -139,7 +176,15 @@
   nvidia-open-driver-G06-signed-cuda-kmp-default \
   | cut -d "_" -f1 | sort -u | tail -n 1)</command></screen>
       </step>
-      <step os="sles_ai">
+      <step os="slmicro_ai" condition="deployment_airgapped">
+        <para>
+          Install the <literal>nvidia-*-</literal> packages that you have
+          downloaded and transferred to the <emphasis>local</emphasis> host.
+        </para>
+<screen>&prompt.tr-up;<command>rpm -i nvidia-*.rpm</command>
+          </screen>
+      </step>
+      <step os="sles_ai" condition="deployment_standard">
         <para>
           Install the Open Kernel driver KMP and detect the driver version.
         </para>
@@ -147,6 +192,14 @@
   nv-prefer-signed-open-driver</command>
 &prompt.root;<command>version=$(rpm -qa --queryformat '%{VERSION}\n' \
   nv-prefer-signed-open-driver | cut -d "_" -f1 | sort -u | tail -n 1)</command></screen>
+      </step>
+      <step condition="deployment_airgapped">
+        <para>
+          Install the <literal>nvidia-*-</literal> packages that you have
+          downloaded and transferred to the <emphasis>local</emphasis> host.
+        </para>
+<screen os="slmicro_ai">&prompt.tr-up;<command>rpm -i nvidia-*.rpm</command></screen>
+<screen os="sles_ai">&prompt.root;<command>rpm -i nvidia-*.rpm</command></screen>
       </step>
       <step>
         <para>
