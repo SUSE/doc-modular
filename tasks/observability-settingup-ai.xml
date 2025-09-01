@@ -113,11 +113,10 @@
   <section xml:id="ai-observability-2clusters">
     <title>Setup process overview</title>
     <para>
-      The following chart shows the high-level steps in the &sobservability;
-      setup for the &productname; procedure. You will first set up the
-      &sobservability; cluster, then configure the &productname; cluster, and
-      finally instrument your applications. Execute the steps in each column
-      from left to right and top to bottom.
+      The following chart shows the high-level steps for the setup procedure.
+      You will first set up the &sobservability; cluster, then configure the
+      &productname; cluster, and finally instrument your applications. Execute
+      the steps in each column from left to right and top to bottom.
     </para>
     <itemizedlist>
       <listitem>
@@ -239,35 +238,98 @@
   </section>
   <section xml:id="ai-observability-observability-cluster">
     <title>Setting up the &sobservability; cluster</title>
+    <para>
+      This initial step is identical for both single-cluster and multi-cluster
+      deployments.
+    </para>
     <procedure>
       <step>
         <para>
           <emphasis role="bold">Install &sobservability;.</emphasis> You can
           follow the official
           <link
-          xlink:href="https://docs.stackstate.com/get-started/k8s-suse-rancher-prime#installing-suse-observability">&sobservability;
-          documentation</link> for all installation instructions. Remember to
-          <link xlink:href="https://docs.stackstate.com/self-hosted-setup/install-stackstate/kubernetes_openshift/ingress">expose
-          your APIs</link> and collector endpoints to your &productname;
-          cluster.
+          xlink:href="https://documentation.suse.com/cloudnative/suse-observability/latest/en/setup/install-stackstate/kubernetes_openshift/kubernetes_install.html">&sobservability;
+          documentation</link> for installation instructions.
         </para>
+        <important>
+          <title>Multi-cluster setup</title>
+          <para>
+            For multi-cluster setups, you must expose the &sobservability; API
+            and collector endpoints so that the &productname; cluster can reach
+            them. Refer to the guide on
+            <link xlink:href="https://documentation.suse.com/cloudnative/suse-observability/latest/en/setup/install-stackstate/kubernetes_openshift/ingress.html">exposing
+            SUSE Observability outside of the cluster</link>.
+          </para>
+        </important>
       </step>
       <step>
         <para>
-          <emphasis role="bold">Install &sobservability; extension.</emphasis>
-          Create a new &helm; values file named
-          <filename>genai_values.yaml</filename>. The following values are
-          mandatory:
+          <emphasis role="bold">Install the &sobservability;
+          extension.</emphasis> Create a new &helm; values file named
+          <filename>genai_values.yaml</filename>. Before creating the file,
+          review the placeholders below.
         </para>
-<screen>
-global:
+        <variablelist>
+          <varlistentry>
+            <term>SUSE_OBSERVABILITY_API_URL</term>
+            <listitem>
+              <para>
+                The URL of the &sobservability; API. For multi-cluster
+                deployments, this is the external URL. For single-cluster
+                deployments, this can be the internal service URL. Example:
+                <literal>http://suse-observability-api.your-domain.com</literal>
+              </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>SUSE_OBSERVABILITY_API_KEY</term>
+            <listitem>
+              <para>
+                The API key from the <filename>baseConfig_values.yaml</filename>
+                file used during the &sobservability; installation.
+              </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>SUSE_OBSERVABILITY_API_TOKEN_TYPE</term>
+            <listitem>
+              <para>
+                Can be <literal>api</literal> for a token from the Web UI or
+                <literal>service</literal> for a Service Token.
+              </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>SUSE_OBSERVABILITY_TOKEN</term>
+            <listitem>
+              <para>
+                The API or Service token itself.
+              </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>OBSERVED_SERVER_NAME</term>
+            <listitem>
+              <para>
+                The name of the cluster to observe. It must match the name used
+                in the &kube; StackPack configuration. Example:
+                <literal>suse-ai-cluster</literal>.
+              </para>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+        <para>
+          Create the genai_values.yaml<filename></filename> file with the
+          following content:
+        </para>
+<screen>global:
   imagePullSecrets:
   - application-collection <co xml:id="co-obs-appco"/>
 serverUrl: <replaceable>SUSE_OBSERVABILITY_API_URL</replaceable>
-apiKey: <replaceable>SUSE_OBSERVABILITY_API_KEY</replaceable><co xml:id="co-obs-apikey2"/>
-tokenType: <replaceable>SUSE_OBSERVABILITY_API_TOKEN_TYPE</replaceable><co xml:id="co-obs-tokentype"/>
-apiToken: <replaceable>SUSE_OBSERVABILITY_TOKEN</replaceable><co xml:id="co-obs-clitoken2"/>
-clusterName: <replaceable>OBSERVED_SERVER_NAME</replaceable><co xml:id="co-obs-observed-name2"/>
+apiKey: <replaceable>SUSE_OBSERVABILITY_API_KEY</replaceable>
+tokenType: <replaceable>SUSE_OBSERVABILITY_API_TOKEN_TYPE</replaceable>
+apiToken: <replaceable>SUSE_OBSERVABILITY_TOKEN</replaceable>
+clusterName: <replaceable>OBSERVED_SERVER_NAME</replaceable>
 </screen>
         <calloutlist>
           <callout arearefs="co-obs-appco">
@@ -277,34 +339,6 @@ clusterName: <replaceable>OBSERVED_SERVER_NAME</replaceable><co xml:id="co-obs-o
               &sappco;, refer to the
               <link xlink:href="https://docs.apps.rancher.io/get-started/authentication/">official
               documentation</link>.
-            </para>
-          </callout>
-          <callout arearefs="co-obs-apikey2">
-            <para>
-              The API key is included in the
-              <filename>baseConfig_values.yaml</filename> file that is used
-              during the installation of &sobservability;.
-            </para>
-          </callout>
-          <callout arearefs="co-obs-tokentype">
-            <para>
-              The type of the token used for authentication. It can either be an
-              <emphasis>API Token</emphasis> retrieved from the &sobservability;
-              Web UI by navigating the side menu to the CLI page, or a
-              <emphasis>Service Token</emphasis> created for &sobservability;.
-              For the API token, fill this field with <literal>api</literal>.
-              For the Service Token, use <literal>service</literal>.
-            </para>
-          </callout>
-          <callout arearefs="co-obs-clitoken2">
-            <para>
-              The Service token or API token itself.
-            </para>
-          </callout>
-          <callout arearefs="co-obs-observed-name2">
-            <para>
-              Use the same cluster name that you used during the &kube;
-              StackPack configuration.
             </para>
           </callout>
         </calloutlist>
@@ -353,6 +387,71 @@ clusterName: <replaceable>OBSERVED_SERVER_NAME</replaceable><co xml:id="co-obs-o
   </section>
   <section xml:id="ai-observability-ai-cluster">
     <title>Setting up the &productname; cluster</title>
+    <para>
+      Follow the instructions for your deployment scenario.
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>Single-cluster deployment</term>
+        <listitem>
+          <para>
+            In this setup, the &productname; components are installed in the
+            same cluster as &sobservability; and can communicate using internal
+            service DNS.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Multi-cluster deployment</term>
+        <listitem>
+          <para>
+            In this setup, the &productname; cluster is separate. Communication
+            relies on externally exposed endpoints of the &sobservability;
+            cluster.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <para>
+      The difference between deployment scenarios affects the
+      <emphasis role="bold">OTEL Collector exporter configuration</emphasis> and
+      the <emphasis role="bold">SUSE Observability Agent URL</emphasis> as
+      described in the following list.
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>SUSE_OBSERVABILITY_API_URL</term>
+        <listitem>
+          <para>
+            The URL of the &sobservability; API.
+          </para>
+          <para>
+            <emphasis role="bold">Single-cluster example:</emphasis>
+            http://suse-observability-otel-collector.suse-observability.svc.cluster.local:4317
+          </para>
+          <para>
+            <emphasis role="bold">Multi-cluster example:</emphasis>
+            https://suse-observability-api.your-domain.com
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>SUSE_OBSERVABILITY_COLLECTOR_ENDPOINT</term>
+        <listitem>
+          <para>
+            The endpoint of the &sobservability; Collector.
+          </para>
+          <para>
+            <emphasis role="bold">Single-cluster example:</emphasis>
+            http://suse-observability-router.suse-observability.svc.cluster.local:8080/receiver/stsAgent
+          </para>
+          <para>
+            <emphasis role="bold">Multi-cluster example:</emphasis>
+            https://suse-observability-router.your-domain.com/receiver/stsAgent
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
     <procedure>
       <step>
         <para>
@@ -601,7 +700,24 @@ subjects:
     </procedure>
   </section>
   <section xml:id="ai-observability-openlit">
-    <title>Instrument applications with &openlit;</title>
+    <title>Instrument applications</title>
+    <para>
+      Instrumentation is the act of configuring your applications for telemetry
+      data acquisition. Our stack employs &otelemetry; standards as a
+      vendor-neutral and open base for our telemetry. For a comprehensive guide
+      on how to set up your instrumentation, please refer to
+<!-- TODO AI:add
+      link to Notes on Instrumentation -->
+      , in particular, 1.5 Monitoring user-owned applications.
+    </para>
+    <para>
+      By following the instructions in the document r1eferendced above, you will
+      be able to retrieve all relevant telemetry data from &owui;, &ollama; and
+      &milvus; by simply applying specific configuration to their &helm; chart
+      values. You can find links for advanced use cases (auto-instrumentation
+      with OTEL Operator) at the end of the document.
+    </para>
+<!-- TODO coomented, review later
     <para>
       &openlit; offers a Python and a TypeScript SDK available. Below are two
       examples of using these kits, one for each language. Notice that it is
@@ -678,5 +794,6 @@ Openlit.init({ otlpEndpoint: "http://127.0.0.1:4318/v1/traces" })</screen>
         </step>
       </procedure>
     </section>
+  -->
   </section>
 </topic>
