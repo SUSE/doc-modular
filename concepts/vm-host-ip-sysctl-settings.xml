@@ -22,112 +22,104 @@
   </info>
   <section>
     <title>The <command>sysctl</command> command variables</title>
-  <para>The <command>sysctl</command> variables offered by the Linux kernel are documented  <link xlink:href="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">here</link> </para>
-<para>The following <literal>net.ipv4.conf.all.arp_*</literal> variables affects the
+  <para>The <command>sysctl</command> variables offered by the Linux kernel are documented  <link xlink:href="https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt">here</link>.</para>
+<para>The following <literal>net.ipv4.conf.all.arp_*</literal> variables affect the
 <literal>arp</literal> behavior on a multihome host.</para>
 <itemizedlist>
-<listitem><para>arp_announce = 0</para>
-<para> Define different restriction levels for announcing the local
-        source IP address from IP packets in ARP requests sent on
-        interface:
-        0 - (default) Use any local address, configured on any interface
-        1 - Try to avoid local addresses that are not in the target's
-        subnet for this interface. This mode is useful when target
-        hosts reachable via this interface require the source IP
-        address in ARP requests to be part of their logical network
-        configured on the receiving interface. When we generate the
-        request we will check all our subnets that include the
-        target IP and will preserve the source address if it is from
-        such subnet. If there is no such subnet we select source
-        address according to the rules for level 2.
-        2 - Always use the best local address for this target.
-        In this mode we ignore the source address in the IP packet
-        and try to select local address that we prefer for talks with
-        the target host. Such local address is selected by looking
-        for primary IP addresses on all our subnets on the outgoing
-        interface that include the target IP address. If no suitable
-        local address is found we select the first local address
-        we have on the outgoing interface or on all other interfaces,
-        with the hope we will receive reply for our request and
-        even sometimes no matter the source IP address we announce.</para>
-      <para>The max value from conf/{all,interface}/arp_announce is used.</para>
+<para><literal>arp_announce = 0</literal></para>
+<para> Define different restriction levels for announcing the local source IP address 
+from IP packets in ARP requests sent on the interface:</para>
+<orderedlist>
+      <listitem><para><literal>0</literal> (default) Use any local address, configured on any interface.</para></listitem>
+      <listitem><para><literal>1</literal> Try to avoid local addresses that are not in the target's
+        subnet for this interface. This mode is useful when target hosts reachable via this interface 
+        require the source IP address in ARP requests to be part of their logical network configured
+        on the receiving interface. When generating the request, all subnets that include the target 
+        IP are checked. If such a subnet exists, the source address is preserved. Otherwise,
+        the source address is selected according to the rules for level 2.</para></listitem>
+      <listitem><para><literal>2</literal> Always use the best local address for this target.
+        In this mode, the source address in the IP packet is ignored, and the preferred local 
+        address is selected from the outgoing interface that includes the target IP address. 
+        If no suitable address is found, the first local address on the outgoing interface or 
+        other interfaces is used, hoping to receive a reply.</para></listitem>
+    </orderedlist>
+      <para>The max value from <literal>conf/{all,interface}/arp_announce</literal> is used.</para>
       <para>Increasing the restriction level gives more chance for
-        receiving answer from the resolved target while decreasing
-        the level announces more valid sender's information.</para>
+        receiving an answer from the resolved target, while decreasing
+        the level announces more valid sender information.</para>
       </listitem>
-<listitem><para>aarp_ignore = 0</para>
-<para>Define different modes for sending replies in response to
-        received ARP requests that resolve local target IP addresses:
-        0 - (default): reply for any local target IP address, configured
-        on any interface
-        1 - reply only if the target IP address is local address
-        configured on the incoming interface
-        2 - reply only if the target IP address is local address
-        configured on the incoming interface and both with the
-        sender's IP address are part from same subnet on this interface
-        3 - do not reply for local addresses configured with scope host,
-        only resolutions for global and link addresses are replied
-        4-7 - reserved
-        8 - do not reply for all local addresses</para>
-        <para>The max value from conf/{all,interface}/arp_ignore is used
-        when ARP request is received on the {interface}</para>
+<listitem><para><literal>aarp_ignore = 0</literal></para>
+<para>Define different modes for sending replies in response to received ARP requests 
+that resolve local target IP addresses:</para>
+    <orderedlist>
+      <listitem><para><literal>0</literal> (default) Reply for any local target IP address,
+        configured on any interface.</para></listitem>
+      <listitem><para><literal>1</literal> Reply only if the target IP address is configured
+        on the incoming interface.</para></listitem>
+      <listitem><para><literal>2</literal> Reply only if the target IP address is configured
+        on the incoming interface and both it and the sender's IP address are in the same 
+        subnet on this interface.</para></listitem>
+      <listitem><para><literal>3</literal> Do not reply for local addresses configured with
+        scope host; only resolutions for global and link addresses are replied.</para></listitem>
+      <listitem><para><literal>4–7</literal> Reserved.</para></listitem>
+      <listitem><para><literal>8</literal> Do not reply for any local address.</para></listitem>
+    </orderedlist>
+        <para>The max value from <literal>conf/{all,interface}/arp_ignore</literal> is used
+        when ARP requests are received on the {interface}.</para>
       </listitem>
-      <listitem><para>arp_filter = 0</para>
-<para>  1 - Allows you to have multiple network interfaces on the same
-        subnet, and have the ARPs for each interface be answered
-        based on whether or not the kernel would route a packet from
-        the ARP'd IP out that interface (therefore you must use source
-        based routing for this to work). In other words it allows control
-        of which cards (usually 1) will respond to an arp request.
+      <listitem><para><literal>arp_filter = 0</literal></para>
+<para>Controls ARP response behavior for interfaces on the same subnet:</para>
+    <orderedlist>
+      <listitem><para><literal>0</literal> (default) The kernel can respond to ARP requests
+        with addresses from other interfaces. This increases the chance of successful 
+        communication. IP addresses are owned by the complete host on Linux, not by 
+        particular interfaces. In more complex setups like load-balancing, this behavior 
+        can cause problems.</para></listitem>
+      <listitem><para><literal>1</literal> Each interface responds only if the kernel would
+        route the packet through it. Requires source-based routing and ensures ARP replies 
+        are interface-specific.</para></listitem>
+    </orderedlist>
 
-        0 - (default) The kernel can respond to arp requests with addresses
-        from other interfaces. This may seem wrong but it usually makes
-        sense, because it increases the chance of successful communication.
-        IP addresses are owned by the complete host on Linux, not by
-        particular interfaces. Only for more complex setups like load-
-        balancing, does this behavior cause problems.
-
-        arp_filter for the interface will be enabled if at least one of
-        conf/{all,interface}/arp_filter is set to TRUE,
-        it will be disabled otherwise.</para>
+        <para><literal>arp_filter</literal> for the interface will be enabled if at least one of
+      <literal>conf/{all,interface}/arp_filter</literal> is set to TRUE;
+      otherwise it is disabled.</para>
       </listitem>
 </itemizedlist>
-<para>Additionally, the `net.ipv4.conf.all.rp_filter` settings permit to filter
-L3 / IPv4 packets using reverse routing table lookups:</para>
+<para>Additionally, the <literal>net.ipv4.conf.all.rp_filter</literal> settings permit filtering
+of L3 / IPv4 packets using reverse routing table lookups:</para>
 <itemizedlist>
-  <listitem><para>rp_filter = 0</para>
-  <para> 0 - No source validation.
-        1 - Strict mode as defined in RFC3704 Strict Reverse Path
-            Each incoming packet is tested against the FIB and if the interface
-            is not the best reverse path the packet check will fail.
-            By default failed packets are discarded.
-        2 - Loose mode as defined in RFC3704 Loose Reverse Path
-            Each incoming packet's source address is also tested against the FIB
-            and if the source address is not reachable via any interface
-            the packet check will fail.
-
-        Current recommended practice in RFC3704 is to enable strict mode
-        to prevent IP spoofing from DDos attacks. If using asymmetric routing
-        or other complicated routing, then loose mode is recommended.
-
-        The max value from conf/{all,interface}/rp_filter is used
-        when doing source validation on the {interface}.
-
-        Default value is 0. Note that some distributions enable it
-        in startup scripts.</para>
+  <listitem><para><literal>rp_filter = 0</literal></para>
+   <para>Modes for source validation:</para>
+    <orderedlist>
+      <listitem><para><literal>0</literal> No source validation.</para></listitem>
+      <listitem><para><literal>1</literal> Strict mode (RFC3704). Each incoming
+        packet is tested against the FIB. If the interface is not the best reverse path, 
+        the packet check fails and the packet is discarded.</para></listitem>
+      <listitem><para><literal>2</literal> Loose mode (RFC3704). Each incoming
+        packet's source address is tested against the FIB, and if it is not
+        reachable via any interface the packet check fails.</para></listitem>
+    </orderedlist>
+    <para>Current recommended practice in RFC3704 is to enable strict mode
+      to prevent IP spoofing from DDoS attacks. If using asymmetric routing
+      or other complicated routing, loose mode is recommended.</para>
+    <para>The max value from <literal>conf/{all,interface}/rp_filter</literal> is used
+      when doing source validation on the interface.</para>
+    <para>Default value is <literal>0</literal>. Note that some distributions enable it
+      in startup scripts.</para>
   </listitem>
 </itemizedlist>
-<para>On **SUSE systems**, the `net.ipv4.conf.all.rp_filter = 2` (RFC3704 Loose Reverse Path)
-is enabled by default instead of the kernel default to disable it (`rp_filter = 0`).
-Unlike the strict `rp_filter = 1` mode, the `rp_filter = 2` permits asymmetric routing,
-using same subnet on multiple interfaces (considers `arp_announce=0`, `arp_ignore=0`
-and `arp_filter=0` defaults).</para>
-<para>The `net.ipv4.conf.all.log_martians` causes to log the packets filtered/dropped by the
-`rp_filter`:</para>
-<para>log_martians = 0</para>
-<para>Log packets with impossible addresses to kernel log.
-        log_martians for the interface will be enabled if at least one of
-        conf/{all,interface}/log_martians is set to TRUE,
-        it will be disabled otherwise.</para>
+<para>On &suse; systems, <literal>net.ipv4.conf.all.rp_filter = 2</literal> (RFC3704 Loose Reverse Path)
+is enabled by default instead of the kernel default to disable it (<literal>rp_filter = 0</literal>).
+Unlike the strict <literal>rp_filter = 1</literal> mode, <literal>rp_filter = 2</literal> permits asymmetric routing,
+using the same subnet on multiple interfaces (considers <literal>arp_announce=0</literal>, <literal>arp_ignore=0</literal> and <literal>arp_filter=0</literal> defaults).</para>
+<para>The <literal>net.ipv4.conf.all.log_martians</literal> causes to log the packets filtered/dropped by
+<literal>rp_filter</literal>:</para>
+<screen>
+log_martians = 0
+</screen>
+<para>This logs packets with impossible addresses to the kernel log.
+        The <literal>log_martians</literal> setting for an interface will be enabled 
+        if at least one of <literal>conf/{all,interface}/log_martians</literal> is set to
+  <literal>TRUE</literal>. Otherwise, it will be disabled.</para>
 </section>
 </topic>
