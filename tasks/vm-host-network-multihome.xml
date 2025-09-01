@@ -16,52 +16,59 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Multihome Setup</title>
+    <title>Multihome setup</title>
     <meta name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
     <abstract>
-      <para>Add</para>
+      <para>This section shows how to configure a multihome system using 
+      kernel ARP and reverse path filtering settings to control network traffic. 
+    </para>
     </abstract>
   </info> 
   
   <section xml:id="sec-vm-host-network-multihome"> 
-    <title>Setting up Multihome</title>
-    <para>The kernel supports configuring a multihome ARP filtering,
-using the following sysctls, e.g. in a <systemitem>/etc/sysctl.d/90-network.conf</systemitem> config:</para>
+    <title>Setting up multihoming</title>
+    <para>The kernel's multihome ARP filtering is controlled by the
+    following <systemitem>sysctl</systemitem> settings, which are typically 
+    placed in <systemitem>/etc/sysctl.d/90-network.conf</systemitem> config:</para>
     <procedure xml:id="proc-vm-host-network-multihome">
      <title>Multihome setup</title>
    <step>
     <para>Mode for announcing local IP in requests:</para>
         <screen>net.ipv4.conf.all.arp_announce = 2</screen>
    </step>
-   <step><para>Mode for sending replies to ARP request:</para>
+   <step><para>Mode for sending replies to ARP requests:</para>
         <screen>net.ipv4.conf.all.arp_ignore = 1</screen>
           <para>or <literal>higher</literal> filtering levels (<literal>arp_ignore = 2</literal> if desired) an all involved
 machines <literal>vm7</literal>, <literal>vm8</literal>, <literal>vm9</literal>.</para>
-          <para>The <literal>rp_filter = 2</literal> filtering IP packets according to the route table matches
-is already set by SUSE by default to <literal>rp_filter = 2</literal>. When desired, in can be
-"increased" to a more strict filtering using <literal>rp_filter = 1</literal>, but please note
-that his may cause to drop packets, e.g. in asymmetric routing setup.</para>
+          <para>The <literal>rp_filter = 2</literal> filtering of IP packets according to 
+          the route table matches is already set by &suse; by default to
+          <literal>rp_filter = 2</literal>. When desired, in can be <quote>increased</quote>
+           to stricter filtering using <literal>rp_filter = 1</literal>, but please note
+           that this may cause packet drops, for example, in an asymmetric routing setup.</para>
     </step>
     <step>
   <para>The following ping commands illustrate the multihome behavior and difference
 to the default behavior:</para>
                           <substeps>
-                                    <step> <para>vm7</para>
+                                    <step> <title>vm7</title>
             <screen>vm7:~ ping -c 1 192.168.7.108`: reply (regular)</screen>
             <para>Same as Default behavior (#vm7--ping--c-1-1921687108-reply).</para>
               <screen>vm7:~ ping -c 1 192.168.7.109`: reply (regular)</screen>
               <para>Same as Default behavior (#vm7--ping--c-1-1921687108-reply).</para>
               <screen>vm7:~ # ping -c 1 192.168.8.108`: error (regular)</screen>
-              <para>Same as Default behavior (#vm7--ping--c-1-1921688108-error)</para>
+              <para>Same as default behavior (#vm7--ping--c-1-1921688108-error).</para>
               <screen>vm7:~ # ping -c 1 192.168.8.109`: error (regular)</screen>
-              <para>Same as Default behavior (#vm7--ping--c-1-1921688108-error)</para>
+              <para>Same as default behavior (#vm7--ping--c-1-1921688108-error).</para>
               <screen>vm7:~ # ping -c 1 192.168.9.108`: error (regular)</screen>
-              <para>Same as Default behavior (#vm7--ping--c-1-1921688108-error)</para>
+              <para>Same as default behavior (#vm7--ping--c-1-1921688108-error).</para>
               <screen>vm7:~ # ping -c 1 192.168.9.109`: error (regular)</screen>
-              <para>Same as Default behavior (#vm7--ping--c-1-1921688108-error)</para>
+              <para>Same as default behavior (#vm7--ping--c-1-1921688108-error).</para>
               <screen>vm7:~ # ping -I eth7 -c 1 192.168.8.108`: error (filtered) </screen>
-              <para>The multihome arp settings cause to ignore the ARP requests due to not matching subnet and the enforcement via the `-I` interface binding does not work any.</para>
-              <para>Output</para>
+              <para>The multihome ARP settings cause the system to ignore
+              ARP requests due to a subnet mismatch, and as a result, the 
+              enforcement via the <literal>-I</literal> interface binding no 
+              longer works.</para>
+              <para>Output:</para>
               <screen>PING 192.168.8.108 (192.168.8.108) from 192.168.7.107 eth7: 56(84) bytes of data.
 From 192.168.7.107 icmp_seq=1 Destination Host Unreachable
 
@@ -76,8 +83,11 @@ No.     Time           Source                Destination           Protocol Leng
      58 463.844043402  52:54:00:00:07:07     Broadcast             ARP      42     Who has 192.168.8.108? Tell 192.168.7.107
 </screen>
   <screen>vm7:~ # ping -I eth7 -c 1 192.168.8.109`: error (filtered)</screen>
-                <para>The multihome arp settings cause to ignore the ARP requests due to not matching subnet and the enforcement via the `-I` interface binding does not work any.</para>
-                <para>Output</para>
+                <para>The multihome ARP settings cause the system to ignore
+              ARP requests due to a subnet mismatch, and as a result, the 
+              enforcement via the <literal>-I</literal> interface binding no 
+              longer works.</para>
+                <para>Output:</para>
 <screen>PING 192.168.8.109 (192.168.8.109) from 192.168.7.107 eth7: 56(84) bytes of data.
 From 192.168.7.107 icmp_seq=1 Destination Host Unreachable
 
@@ -93,9 +103,11 @@ No.     Time           Source                Destination           Protocol Leng
 
 </screen>
 <screen>vm7:~ ping -I eth7 -c 1 192.168.9.108: error (filtered)</screen>
-<para>The multihome arp settings cause to ignore the ARP requests due to not matching
-subnet and the enforcement via the <literal>-I</literal> interface binding does not work any.</para>
-<para>Output</para>
+<para>The multihome ARP settings cause the system to ignore
+              ARP requests due to a subnet mismatch, and as a result, the 
+              enforcement via the <literal>-I</literal> interface binding no 
+              longer works.</para>
+<para>Output:</para>
 <screen>PING 192.168.9.108 (192.168.9.108) from 192.168.7.107 eth7: 56(84) bytes of data.
 From 192.168.7.107 icmp_seq=1 Destination Host Unreachable
 
@@ -110,8 +122,11 @@ No.     Time           Source                Destination           Protocol Leng
      83 728.586537241  52:54:00:00:07:07     Broadcast             ARP      42     Who has 192.168.9.108? Tell 192.168.7.107
 </screen>
 <screen>vm7:~ ping -I eth7 -c 1 192.168.9.109: error (filtered)</screen>
-<para>The multihome arp settings cause to ignore the ARP requests due to not matching subnet and the enforcement via the `-I` interface binding does not work any.</para>
-  <para>Output</para>
+<para>The multihome ARP settings cause the system to ignore
+              ARP requests due to a subnet mismatch, and as a result, the 
+              enforcement via the <literal>-I</literal> interface binding no 
+              longer works.</para>
+  <para>Output:</para>
   <screen>PING 192.168.9.109 (192.168.9.109) from 192.168.7.107 eth7: 56(84) bytes of data.
 From 192.168.7.107 icmp_seq=1 Destination Host Unreachable
 
@@ -126,21 +141,25 @@ No.     Time           Source                Destination           Protocol Leng
      94 819.309070330  52:54:00:00:07:07     Broadcast             ARP      42     Who has 192.168.9.109? Tell 192.168.7.107
 </screen></step>
                 <step>
-              <para>vm8</para>
-              <para>In our setup, <literal>vm8</literal> and <literal>vm9</literal> behave the same way, see <literal>vm9</literal> (#vm9-1) for more details.</para>
+              <title>vm8</title>
+              <para>In our setup, <literal>vm8</literal> and <literal>vm9</literal> behave 
+              the same way. See <literal>vm9</literal> (#vm9-1) for more details.</para>
                 </step>
-                <step><para>vm9</para>
+                <step><title>vm9</title>
             <screen>vm9:~ # ping -c 1 192.168.7.107: reply (regular)</screen>
-            <para>Same as Default behavior (#vm9--ping--c-1-1921687107-reply-regular)</para>
+            <para>Same as default behavior (#vm9--ping--c-1-1921687107-reply-regular).</para>
             <screen>vm9:~ # ping -c 1 192.168.7.108: reply (regular)</screen>
-            <para>Same as Default behavior (#vm9--ping--c-1-1921687107-reply-regular)</para>
+            <para>Same as default behavior (#vm9--ping--c-1-1921687107-reply-regular).</para>
             <screen>vm9:~ # ping -c 1 192.168.8.108 : reply (regular)</screen>
-            <para>Same as Default behavior (#vm9--ping--c-1-1921688108-reply-regular)</para>
+            <para>Same as default behavior (#vm9--ping--c-1-1921688108-reply-regular).</para>
             <screen>vm9:~ # ping -c 1 192.168.9.108 : reply (regular)</screen>
-            <para>Same as Default behavior (#vm9--ping--c-1-1921689108-reply-regular)</para>
+            <para>Same as default behavior (#vm9--ping--c-1-1921689108-reply-regular).</para>
             <screen>vm9:~ ping -I enp9s0 -c 1 192.168.8.108 : error (filtered)</screen>
-            <para>The multihome arp settings cause to ignore the ARP requests due to not matching subnet and the enforcement via the `-I` interface binding does not work any.</para>
-            <para>Output</para>     
+            <para>The multihome ARP settings cause the system to ignore
+              ARP requests due to a subnet mismatch, and as a result, the 
+              enforcement via the <literal>-I</literal> interface binding no 
+              longer works.</para>
+            <para>Output:</para>     
             <screen>PING 192.168.8.108 (192.168.8.108) from 192.168.9.109 enp9s0: 56(84) bytes of data.
 From 192.168.9.109 icmp_seq=1 Destination Host Unreachable
 
@@ -155,9 +174,11 @@ No.     Time           Source                Destination           Protocol Leng
       3 2.077406483    52:54:00:00:09:09     Broadcast             ARP      42     Who has 192.168.8.108? Tell 192.168.9.109
 </screen>
 <screen>vm9:~ ping -I enp8s0 -c 1 192.168.9.108 : error (filtered)</screen>
-<para>The multihome arp settings cause to ignore the ARP requests due to not matching
-subnet and the enforcement via the <literal>-I</literal> interface binding does not work any.</para>
-<para>Output</para>
+<para>The multihome ARP settings cause the system to ignore
+              ARP requests due to a subnet mismatch, and as a result, the 
+              enforcement via the <literal>-I</literal> interface binding no 
+              longer works.</para>
+<para>Output:</para>
 <screen>PING 192.168.9.108 (192.168.9.108) from 192.168.8.109 enp8s0: 56(84) bytes of data.
 From 192.168.8.109 icmp_seq=1 Destination Host Unreachable
 
@@ -172,7 +193,7 @@ No.     Time           Source                Destination           Protocol Leng
       3 2.054972421    52:54:00:00:08:09     Broadcast             ARP      42     Who has 192.168.9.108? Tell 192.168.8.109
 </screen>
 <screen>vm9:~ ping -I enp7s0 -c 1 192.168.9.108: error (regular)</screen>
-<para>Same as Default behavior (#vm9--ping--c-1-1921689108-reply-regular)</para>
+<para>Same as default behavior (#vm9--ping--c-1-1921689108-reply-regular).</para>
 <screen>vm9:~ ping -I enp7s0 -c 1 192.168.8.108: error (regular)</screen>
 <para>Same as Default behavior (#vm9--ping--c-1-1921689108-reply-regular)</para>
                                                         </step>
