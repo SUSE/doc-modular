@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="saptune-manage-sap-notes"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Managing &sapnote;s</title>
+    <!-- can be changed via merge
+      in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="" its:translate="no"/>
+    <abstract>
+      <!-- can be changed via merge in the assembly -->
+      <para>
+        Learn how to manage &saptune;s.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="task-saptune-manage-sap-notes-introduction">
+    <title>Introduction</title>
+    <para>
+      Before you proceed, make sure that the requirements listed below are met.
+    </para>
+  </section>
+  <section xml:id="task-saptune-manage-sap-notes-requirements">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          A system with &saptune; installed, configured, and enabled.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+
+  <section xml:id="task-saptune-manage-sap-notes-perform">
+  <title>Managing &sapnote;s</title>
+  <para>
+   The following sections provide information on working with &sapnote;s.
+  </para>
+  <para>
+An &sapnote; configuration contains the OS-specific part of the original &sapnote; as complete as possible. A parameter is disabled (it is present in the configuration, but without value) if it does not have a value recommendation, or if &saptune; cannot safely detect the conditions to set the correct value. To set a suitable value, read the corresponding &sapnote; and customize the Note (see <xref linkend="sec-saptune-customize"/>).
+  </para>
+  <sect2 xml:id="sec-saptune-sap-notes-customize">
+   <title>Customizing an &sapnote;</title>
+   <para>
+    Any &sapnote; can be configured using the following command:
+   </para>
+<screen>&prompt.root;<command>saptune note customise <replaceable>NOTE</replaceable></command></screen>
+   <para>
+    The command opens the default editor (defined in the environment variable <literal>EDITOR</literal>) with a copy of the Note configuration. Remove everything, except the parameters you want to change or disable, as well as the header of the section the parameter belongs to.
+    </para>
+    <para>
+    To change or set the parameter value, change or add the value of the parameter. To disable a parameter, remove the value, but leave the parameter and the <literal>=</literal> character. &saptune; lists the parameter, but it does not change it or check it for the compliance status.
+For more information, refer to the <literal>saptune-note(5)</literal> man page.
+   </para>
+   <para>
+   This creates a <filename>/etc/saptune/override/<replaceable>NOTE</replaceable></filename> file. It is possible to create the file elsewhere and place it in <filename>/etc/saptune/override/</filename>.
+   </para>
+   <para>
+   Configuration sections can be conditional. This is called tagging. Refer to the <literal>saptune-note(5)</literal> for further information.
+   </para>
+   <para>
+   When you are done customizing a Note, restart the <literal>saptune</literal> service to apply the changes.
+   </para>
+    <para>
+        Below is an example of an override file for &sapnote; 2382421:
+    </para>
+<screen># Always:
+#  - Changing net.ipv4.tcp_max_syn_backlog from 8192 to 65536
+#  - Disable net.ipv4.tcp_slow_start_after_idle, because the parameter is tuned elsewhere
+#
+# On virtual machines additionally:
+#  - Change net.ipv4.tcp_syn_retries from 8 to 16
+
+[sysctl]
+net.ipv4.tcp_max_syn_backlog = 65536
+net.ipv4.tcp_slow_start_after_idle =
+
+[sysctl:virt=vm]
+net.ipv4.tcp_max_syn_backlog = 65536
+net.ipv4.tcp_slow_start_after_idle =
+net.ipv4.tcp_syn_retries = 16</screen>
+  <para>
+        Run the
+        <command>saptune note verify 2382421</command> command. If the changes
+        have been applied correctly, the output on a virtual machine should be
+        as follows:
+  </para>
+<screen><?dbsuse-fo font-size="0.70em"?>SAPNote, ... | Parameter                          | Expected | Override  | Actual | Compliant
+----------------+------------------------------------+----------+-----------+--------+-----------
+   ...
+   2382421, 47  | net.ipv4.tcp_max_syn_backlog       | 65536    | 65536     | 65536  | yes 
+   ...
+   2382421, 47  | net.ipv4.tcp_slow_start_after_idle | 0        | untouched | 0      | yes
+   2382421, 47  | net.ipv4.tcp_syn_retries           | 16       | 16        | 16     | yes
+   ...</screen>
+      <para>
+        On a bare-metal system, the output should be as shown below:
+      </para>
+<screen><?dbsuse-fo font-size="0.65em"?>SAPNote, ... | Parameter                          | Expected  | Override  | Actual | Compliant
+----------------+------------------------------------+-----------+-----------+--------+-----------
+   ...
+   2382421, 47  | net.ipv4.tcp_max_syn_backlog       | 65536     | 65536     | 65536  | yes 
+   ...
+   2382421, 47  | net.ipv4.tcp_slow_start_after_idle | 0         | untouched | 0      | yes
+   2382421, 47  | net.ipv4.tcp_syn_retries           | 8         |           | 8      | yes 
+   ...</screen>
+      <para>
+        If changes have not been applied correctly, and you don't see any errors
+        due to incorrect config file, the  <literal>Compliant</literal> field in
+        the table will <literal>no</literal>, and the values in the
+        <literal>Actual</literal> and <literal>Expected</literal> fields will
+        differ.
+      </para>
+  </sect2>
+
+  <sect2 xml:id="sec-saptune-sap-notes-create">
+   <title>Creating a new &sapnote;</title>
+   <para>
+    A new &sapnote; can be created using the following command:
+   </para>
+<screen>&prompt.root;<command>saptune note create <replaceable>NOTE</replaceable></command></screen>
+   <para>
+    The command opens the default editor (defined in the environment variable <literal>EDITOR</literal>) with a Note configuration template. All features of &saptune; are available here. For more information, refer to  the  <literal>saptune-note(5)</literal> man page.
+    </para>
+    <para>
+    This creates a <filename>/etc/saptune/extra/<replaceable>NOTE.conf</replaceable></filename> Note configuration file. It is possible to create the file elsewhere and place it in <filename>/etc/saptune/extra/</filename>.
+    </para>
+    <para>
+    Configuration sections can be conditional. This is called tagging. Refer to the <literal>saptune-note(5)</literal> for further information.
+   </para>
+  </sect2>
+
+  <sect2 xml:id="sec-saptune-sap-notes-edit">
+   <title>Editing a custom &sapnote;</title>
+   <para>
+   To edit a custom Note, use the command below:
+   </para>
+<screen>&prompt.root;<command>saptune note edit <replaceable>NOTE</replaceable></command></screen>
+
+<para>
+The command opens the default editor (<literal>EDITOR</literal>) with the Note configuration. When you are done editing a Note, restart the <literal>saptune</literal> service to apply the changes. Custom Notes can be customized like shipped Notes.
+</para>
+   </sect2>
+
+  <sect2 xml:id="sec-saptune-sap-notes-delete">
+   <title>Deleting an &sapnote; or a customization</title>
+   <para>
+    The following command deletes a note, including the corresponding
+    override file, if available:
+   </para>
+<screen>&prompt.root;<command>saptune note delete test</command>
+Note to delete is a customer/vendor specific Note.
+Do you really want to delete this Note (test2)? [y/n]: y</screen>
+   <para>
+    The note may not be applied at the time. Keep in mind the following:
+   </para>
+   <itemizedlist>
+    <listitem>
+     <para>
+      A confirmation is needed to finish the action.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      Internal &sapnote;s shipped by &saptune; cannot be deleted. Instead, the
+      override file is removed when available.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      If the Note is already applied, the command is terminated with the
+      message that the note first needs to be reverted before it can be deleted.
+     </para>
+    </listitem>
+   </itemizedlist>
+  </sect2>
+
+  <sect2 xml:id="sec-saptune-sap-notes-rename">
+   <title>Renaming an &sapnote;</title>
+   <para>
+    This command allows renaming a created Note to a new name. If a
+    corresponding override file is available, this file is renamed as well:
+   </para>
+<screen>&prompt.root;<command>saptune note rename test test2</command>
+Note to rename is a customer/vendor specific Note.
+Do you really want to rename this Note (test) to the new name 'test2'? [y/n]: y</screen>
+   <para>
+    The Note may not be applied at the time. Keep in mind the following points:
+   </para>
+   <itemizedlist>
+    <listitem>
+     <para>
+      A confirmation is needed to finish the action.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      Internal &sapnote;s shipped by &saptune; cannot be renamed.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      If the Note is already applied, the command is terminated with the
+      information that the Note first needs to be reverted before it can be deleted.
+     </para>
+    </listitem>
+   </itemizedlist>
+  </sect2>
+
+  <sect2 xml:id="sec-saptune-sap-notes-show">
+   <title>Showing the configuration of an &sapnote;</title>
+   <para>
+    The configuration of a Note can be listed using the following command:
+   </para>
+<screen>&prompt.root;<command>saptune note show <replaceable>NOTE</replaceable></command></screen>
+  </sect2>
+
+  <sect2 xml:id="sec-saptune-sap-notes-verify">
+   <title>Verifying an &sapnote;</title>
+   <para>
+   To verify the tuning of a Note, use the following command:
+  </para>
+<screen>&prompt.root;<command>saptune note verify <replaceable>NOTE</replaceable></command></screen>
+<para>
+For information about the output of the command and verifying the entire tuning instead of a single Note, refer to <xref linkend="sec-saptune-verify-and-troubleshooting"/>.
+</para>
+  </sect2>
+
+  <sect2 xml:id="sec-saptune-sap-notes-simulate">
+   <title>Performing a dry run of an &sapnote;</title>
+   <para>
+    To show each parameter of a Note, use the following command:
+    </para>
+
+<screen>&prompt.root;<command>saptune note simulate</command></screen>
+
+<para>
+The command lists the current system value and the expected values (default and override).
+</para>
+
+<note>
+<title>Deprecation notice</title>
+<para>
+The <command>simulate</command> command is deprecated since version 3.1 &sles4sap; prior to version 16, and it is removed in all &saptune; versions in &sles4sap; 16 as well as &slea; 16.
+</para>
+</note>
+  </sect2>
+
+  <sect2 xml:id="sec-saptune-sap-notes-revert">
+   <title>Reverting an &sapnote;</title>
+   <para>To revert an &sapnote;, run the following command:</para>
+    <screen>&prompt.root;<command>saptune note revert <replaceable>NOTE</replaceable></command></screen>
+   <para>This restores all parameters of the &sapnote; to their values at the time of application.</para>
+   <para>To revert everything, use the following command:</para>
+   <screen>&prompt.root;<command>saptune note revert all</command></screen>
+  </sect2>
+
+  <sect2 xml:id="sec-saptune-sap-notes-list">
+   <title>Listing all enabled or applied &sapnote;s</title>
+   <para>
+    To list all enabled &sapnote;s, run the following command:
+   </para>
+   <screen>&prompt.root;<command>saptune note enabled</command></screen>
+   <para>To list all applied &sapnote;s, run the command below:</para>
+   <screen>&prompt.root;<command>saptune note applied</command></screen>
+   <para>
+   Both commands are primarily meant for use in scripts.
+   </para>
+  </sect2>
+  </section>
+</topic>
