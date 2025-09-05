@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="vm-network-setup"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Checking the VM network configuration</title>
+    <meta name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        The following procedure outlines how the network of a VM host must be configured.
+      </para>
+    </abstract>
+  </info>
+
+  
+<para>Configuration of the VM network shown in this document uses a so-called tweaked assignment of the IP, MAC and interface names. Every packet uses identical VM identification, just like packet captures. The following list shows the IP addresses for VMs on each network:</para>
+<itemizedlist>
+    <listitem>
+      <para>net1</para>
+      <para>vm7: no relevant uplink</para>
+    </listitem>
+    <listitem><para>net7</para>
+     <itemizedlist>
+        <listitem><para>vm7: 192.168.7.107 52:54:00:00:07:07 (eth7/enp7s0)</para></listitem>
+        <listitem><para>vm8: 192.168.7.108 52:54:00:00:07:08 (eth7/enp7s0)</para></listitem>
+        <listitem><para>vm9: 192.168.7.109 52:54:00:00:07:09 (eth7/enp7s0)</para></listitem>
+     </itemizedlist>
+    </listitem>
+    <listitem>
+      <para>net8</para>
+     <itemizedlist>
+        <listitem><para>vm8: 192.168.8.108 52:54:00:00:08:08 (eth8/enp8s0)</para></listitem>
+        <listitem><para>vm9: 192.168.8.109 52:54:00:00:08:09 (eth8/enp8s0)</para></listitem>
+     </itemizedlist>
+    </listitem>
+    <listitem>
+      <para>net9</para>
+        <itemizedlist>
+        <listitem><para>vm8: 192.168.9.108 52:54:00:00:09:08 (eth9/enp9s0)</para></listitem>
+        <listitem><para>vm9: 192.168.9.109 52:54:00:00:09:09 (eth9/enp9s0)</para></listitem>
+     </itemizedlist>
+    </listitem>
+  </itemizedlist>
+<procedure><title>Configure Virtual Machines</title>
+  <step>
+  <para>Set up vm7.</para>
+  <para>This setup uses <literal>SLES 15 SP7</literal>, with the VM acting as a router: it connects to the external network through the <systemitem>eth1</systemitem> uplink (for example, assigned to an external firewalld zone for masquerading) and to the <systemitem>common</systemitem> test network <systemitem>net7</systemitem>, which serves as the uplink for the other VMs.       
+<systemitem>vm7</systemitem> has no connection to the <systemitem>private</systemitem>, <systemitem>net8</systemitem> and <systemitem>net9</systemitem> networks.</para>
+  <substeps>
+      <step>
+      <para>View the IP address:</para>  
+      <screen>ip a s
+[...]
+2: eth1: &gt;BROADCAST,MULTICAST,UP,LOWER_UP&lt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 52:54:00:00:01:07 brd ff:ff:ff:ff:ff:ff
+    altname enp1s0
+    inet 192.168.1.107/24 brd 192.168.1.255 scope global eth1
+       valid_lft forever preferred_lft forever
+3: eth7: &gt;BROADCAST,MULTICAST,UP,LOWER_UP&lt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 52:54:00:00:07:07 brd ff:ff:ff:ff:ff:ff
+    altname enp7s0
+    inet 192.168.7.107/24 brd 192.168.7.255 scope global eth7
+       valid_lft forever preferred_lft forever
+</screen></step>
+      <step><para>View the routing table:</para>
+  <screen>default via 192.168.1.1 dev eth1
+192.168.1.0/24 dev eth1 proto kernel scope link src 192.168.1.107
+192.168.7.0/24 dev eth7 proto kernel scope link src 192.168.7.107</screen>
+    </step>
+    <step><para>In <filename>/etc/sysctl.d/90-network.conf</filename>, set the following value to <literal>1</literal> to ensure this machine acts as a router:</para>
+    <screen>net.ipv4.conf.all.forwarding = 1</screen>
+    </step>
+  </substeps></step>
+<step><para>Set up <systemitem>vm8</systemitem>.</para>
+    <para>This configuration runs on <literal>SLES 15 SP7</literal>, using <literal>eth7</literal> as the network uplink and including interfaces for two private networks: <systemitem>net8</systemitem> and <systemitem>net9</systemitem>.
+     </para>
+     <substeps>
+      <step><para>View the IP address:</para>
+  <screen>&prompt.user;
+  ip a s
+3: eth7: &gt;BROADCAST,MULTICAST,UP,LOWER_UP&lt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 52:54:00:00:07:08 brd ff:ff:ff:ff:ff:ff
+    altname enp7s0
+    inet 192.168.7.108/24 brd 192.168.7.255 scope global eth7
+       valid_lft forever preferred_lft forever
+4: eth8: &gt;BROADCAST,MULTICAST,UP,LOWER_UP&lt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 52:54:00:00:08:08 brd ff:ff:ff:ff:ff:ff
+    altname enp8s0
+    inet 192.168.8.108/24 brd 192.168.8.255 scope global eth8
+       valid_lft forever preferred_lft forever
+5: eth9: &gt;BROADCAST,MULTICAST,UP,LOWER_UP&lt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 52:54:00:00:09:08 brd ff:ff:ff:ff:ff:ff
+    altname enp9s0
+    inet 192.168.9.108/24 brd 192.168.9.255 scope global eth9
+       valid_lft forever preferred_lft forever</screen>
+      </step>
+      <step><para>View the network routes</para>
+      <screen>&prompt.user;<command>ip r s</command>
+      default via 192.168.7.107 dev eth7
+192.168.7.0/24 dev eth7 proto kernel scope link src 192.168.7.108
+192.168.8.0/24 dev eth8 proto kernel scope link src 192.168.8.108
+192.168.9.0/24 dev eth9 proto kernel scope link src 192.168.9.108
+</screen>
+      </step>
+      <step><para>Set the following value in <filename>/etc/sysctl.d/90-network.conf</filename> to <literal>0</literal> to ensure that the machine acts as a host.</para>
+      <screen>net.ipv4.conf.all.forwarding = 0</screen></step>
+      </substeps>
+</step>
+<step><para>Set up <systemitem>vm9</systemitem>.</para>
+<para>This configuration runs on <literal>SLES 16.0</literal>, using <systemitem>eth7</systemitem> as the network uplink and connecting to two private networks: <systemitem>net8</systemitem> and <systemitem>net9</systemitem>.</para>
+<substeps>
+  <step><para>View the IP address:</para>
+    <screen>&prompt.user;<command>ip a s</command>
+3: enp7s0: &gt;BROADCAST,MULTICAST,UP,LOWER_UP&lt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 52:54:00:00:07:09 brd ff:ff:ff:ff:ff:ff
+    altname enx525400a8076d
+    inet 192.168.7.109/24 brd 192.168.7.255 scope global noprefixroute enp7s0
+       valid_lft forever preferred_lft forever
+4: enp8s0: &gt;BROADCAST,MULTICAST,UP,LOWER_UP&lt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 52:54:00:00:08:09 brd ff:ff:ff:ff:ff:ff
+    altname enx525400a8086d
+    inet 192.168.8.109/24 brd 192.168.8.255 scope global noprefixroute enp8s0
+       valid_lft forever preferred_lft forever
+5: enp9s0: &gt;BROADCAST,MULTICAST,UP,LOWER_UP&lt; mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 52:54:00:00:09:09 brd ff:ff:ff:ff:ff:ff
+    altname enx525400a8096d
+    inet 192.168.9.109/24 brd 192.168.9.255 scope global noprefixroute enp9s0
+       valid_lft forever preferred_lft forever
+</screen></step>
+      <step><para>View the network routes:</para>
+      <screen>&prompt.user;
+ip r s
+
+default via 192.168.7.107 dev enp7s0 proto static metric 100 
+192.168.7.0/24 dev enp7s0 proto kernel scope link src 192.168.7.109 metric 100 
+192.168.8.0/24 dev enp8s0 proto kernel scope link src 192.168.8.109 metric 101 
+192.168.9.0/24 dev enp9s0 proto kernel scope link src 192.168.9.109 metric 102</screen>
+      </step>
+      <step><para>Set the following value in <filename>/etc/sysctl.d/90-network.conf</filename> to <literal>0</literal> to ensure that the machine acts as a host.</para>
+      <screen>net.ipv4.conf.all.forwarding = 0</screen></step>
+      </substeps>
+    </step>
+  </procedure>
+</topic>

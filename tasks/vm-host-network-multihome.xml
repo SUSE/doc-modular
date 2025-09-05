@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="vm-host-network-multihome"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Multihome setup</title>
+    <meta name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
+    <abstract>
+      <para>This section shows how to configure a multihome system using 
+      kernel ARP and reverse path filtering settings to control network traffic. 
+    </para>
+    </abstract>
+  </info> 
+  
+  <section xml:id="sec-vm-host-network-multihome"> 
+    <title>Setting up multihoming</title>
+    <para>The kernel's multihome ARP filtering is controlled by the
+    following <systemitem>sysctl</systemitem> settings, which are typically 
+    placed in <systemitem>/etc/sysctl.d/90-network.conf</systemitem> config:</para>
+    <procedure xml:id="proc-vm-host-network-multihome">
+     <title>Multihome setup</title>
+   <step>
+    <para>Mode for announcing local IP in requests:</para>
+        <screen>net.ipv4.conf.all.arp_announce = 2</screen>
+   </step>
+   <step><para>Mode for sending replies to ARP requests:</para>
+        <screen>net.ipv4.conf.all.arp_ignore = 1</screen>
+          <para>or <literal>higher</literal> filtering levels (<literal>arp_ignore = 2</literal> if desired) on all involved
+machines <literal>vm7</literal>, <literal>vm8</literal>, <literal>vm9</literal>.</para>
+          <para>The <literal>rp_filter = 2</literal> filtering of IP packets according to 
+          the route table matches is already set by &suse; by default to
+          <literal>rp_filter = 2</literal>. When desired, in can be <quote>increased</quote>
+           to stricter filtering using <literal>rp_filter = 1</literal>, but please note
+           that this may cause packet drops, for example, in an asymmetric routing setup.</para>
+    </step>
+    <step>
+  <para>The following ping commands illustrate the multihome behavior and difference
+to the default behavior:</para>
+                          <substeps>
+                                    <step><para>vm7</para>
+            <screen>vm7:~ ping -c 1 192.168.7.108`: reply (regular)</screen>
+            <para>Same as default behavior (#vm7--ping--c-1-1921687108-reply).</para>
+              <screen>vm7:~ ping -c 1 192.168.7.109`: reply (regular)</screen>
+              <para>Same as default behavior (#vm7--ping--c-1-1921687108-reply).</para>
+              <screen>vm7:~ # ping -c 1 192.168.8.108`: error (regular)</screen>
+              <para>Same as default behavior (#vm7--ping--c-1-1921688108-error).</para>
+              <screen>vm7:~ # ping -c 1 192.168.8.109`: error (regular)</screen>
+              <para>Same as default behavior (#vm7--ping--c-1-1921688108-error).</para>
+              <screen>vm7:~ # ping -c 1 192.168.9.108`: error (regular)</screen>
+              <para>Same as default behavior (#vm7--ping--c-1-1921688108-error).</para>
+              <screen>vm7:~ # ping -c 1 192.168.9.109`: error (regular)</screen>
+              <para>Same as default behavior (#vm7--ping--c-1-1921688108-error).</para>
+              <screen>vm7:~ # ping -I eth7 -c 1 192.168.8.108`: error (filtered) </screen>
+              <para>The multihome ARP settings cause the system to ignore
+              ARP requests due to a subnet mismatch, and as a result, the 
+              enforcement via the <literal>-I</literal> interface binding no 
+              longer works.</para>
+              <para>Output:</para>
+              <screen>PING 192.168.8.108 (192.168.8.108) from 192.168.7.107 eth7: 56(84) bytes of data.
+From 192.168.7.107 icmp_seq=1 Destination Host Unreachable
+
+--- 192.168.8.108 ping statistics ---
+1 packets transmitted, 0 received, +1 errors, 100% packet loss, time 0ms
+
+- capture:
+
+No.     Time           Source                Destination           Protocol Length Info
+     56 461.814511760  52:54:00:00:07:07     Broadcast             ARP      42     Who has 192.168.8.108? Tell 192.168.7.107
+     57 462.819873108  52:54:00:00:07:07     Broadcast             ARP      42     Who has 192.168.8.108? Tell 192.168.7.107
+     58 463.844043402  52:54:00:00:07:07     Broadcast             ARP      42     Who has 192.168.8.108? Tell 192.168.7.107
+</screen>
+  <screen>vm7:~ # ping -I eth7 -c 1 192.168.8.109`: error (filtered)</screen>
+                <para>The multihome ARP settings cause the system to ignore
+              ARP requests due to a subnet mismatch, and as a result, the 
+              enforcement via the <literal>-I</literal> interface binding no 
+              longer works.</para>
+                <para>Output:</para>
+<screen>PING 192.168.8.109 (192.168.8.109) from 192.168.7.107 eth7: 56(84) bytes of data.
+From 192.168.7.107 icmp_seq=1 Destination Host Unreachable
+
+--- 192.168.8.109 ping statistics ---
+1 packets transmitted, 0 received, +1 errors, 100% packet loss, time 0ms
+
+- capture:
+
+No.     Time           Source                Destination           Protocol Length Info
+     74 623.897407366  52:54:00:00:07:07     Broadcast             ARP      42     Who has 192.168.8.109? Tell 192.168.7.107
+     75 624.903906694  52:54:00:00:07:07     Broadcast             ARP      42     Who has 192.168.8.109? Tell 192.168.7.107
+     76 625.928060996  52:54:00:00:07:07     Broadcast             ARP      42     Who has 192.168.8.109? Tell 192.168.7.107
+
+</screen>
+<screen>vm7:~ ping -I eth7 -c 1 192.168.9.108: error (filtered)</screen>
+<para>The multihome ARP settings cause the system to ignore
+              ARP requests due to a subnet mismatch, and as a result, the 
+              enforcement via the <literal>-I</literal> interface binding no 
+              longer works.</para>
+<para>Output:</para>
+<screen>PING 192.168.9.108 (192.168.9.108) from 192.168.7.107 eth7: 56(84) bytes of data.
+From 192.168.7.107 icmp_seq=1 Destination Host Unreachable
+
+--- 192.168.9.108 ping statistics ---
+1 packets transmitted, 0 received, +1 errors, 100% packet loss, time 0ms
+
+- capture:
+
+No.     Time           Source                Destination           Protocol Length Info
+     81 726.553781184  52:54:00:00:07:07     Broadcast             ARP      42     Who has 192.168.9.108? Tell 192.168.7.107
+     82 727.562690381  52:54:00:00:07:07     Broadcast             ARP      42     Who has 192.168.9.108? Tell 192.168.7.107
+     83 728.586537241  52:54:00:00:07:07     Broadcast             ARP      42     Who has 192.168.9.108? Tell 192.168.7.107
+</screen>
+<screen>vm7:~ ping -I eth7 -c 1 192.168.9.109: error (filtered)</screen>
+<para>The multihome ARP settings cause the system to ignore
+              ARP requests due to a subnet mismatch, and as a result, the 
+              enforcement via the <literal>-I</literal> interface binding no 
+              longer works.</para>
+  <para>Output:</para>
+  <screen>PING 192.168.9.109 (192.168.9.109) from 192.168.7.107 eth7: 56(84) bytes of data.
+From 192.168.7.107 icmp_seq=1 Destination Host Unreachable
+
+--- 192.168.9.109 ping statistics ---
+1 packets transmitted, 0 received, +1 errors, 100% packet loss, time 0ms
+
+- capture:
+
+No.     Time           Source                Destination           Protocol Length Info
+     92 817.265392026  52:54:00:00:07:07     Broadcast             ARP      42     Who has 192.168.9.109? Tell 192.168.7.107
+     93 818.284912731  52:54:00:00:07:07     Broadcast             ARP      42     Who has 192.168.9.109? Tell 192.168.7.107
+     94 819.309070330  52:54:00:00:07:07     Broadcast             ARP      42     Who has 192.168.9.109? Tell 192.168.7.107
+</screen></step>
+                <step>
+              <para>vm8</para>
+              <para>In our setup, <literal>vm8</literal> and <literal>vm9</literal> behave 
+              the same way. See <literal>vm9</literal> (#vm9-1) for more details.</para>
+                </step>
+                <step><para>vm9</para>
+            <screen>vm9:~ # ping -c 1 192.168.7.107: reply (regular)</screen>
+            <para>Same as default behavior (#vm9--ping--c-1-1921687107-reply-regular).</para>
+            <screen>vm9:~ # ping -c 1 192.168.7.108: reply (regular)</screen>
+            <para>Same as default behavior (#vm9--ping--c-1-1921687107-reply-regular).</para>
+            <screen>vm9:~ # ping -c 1 192.168.8.108 : reply (regular)</screen>
+            <para>Same as default behavior (#vm9--ping--c-1-1921688108-reply-regular).</para>
+            <screen>vm9:~ # ping -c 1 192.168.9.108 : reply (regular)</screen>
+            <para>Same as default behavior (#vm9--ping--c-1-1921689108-reply-regular).</para>
+            <screen>vm9:~ ping -I enp9s0 -c 1 192.168.8.108 : error (filtered)</screen>
+            <para>The multihome ARP settings cause the system to ignore
+              ARP requests due to a subnet mismatch, and as a result, the 
+              enforcement via the <literal>-I</literal> interface binding no 
+              longer works.</para>
+            <para>Output:</para>     
+            <screen>PING 192.168.8.108 (192.168.8.108) from 192.168.9.109 enp9s0: 56(84) bytes of data.
+From 192.168.9.109 icmp_seq=1 Destination Host Unreachable
+
+--- 192.168.8.108 ping statistics ---
+1 packets transmitted, 0 received, +1 errors, 100% packet loss, time 0ms
+
+- capture:
+
+No.     Time           Source                Destination           Protocol Length Info
+      1 0.000000000    52:54:00:00:09:09     Broadcast             ARP      42     Who has 192.168.8.108? Tell 192.168.9.109
+      2 1.053440783    52:54:00:00:09:09     Broadcast             ARP      42     Who has 192.168.8.108? Tell 192.168.9.109
+      3 2.077406483    52:54:00:00:09:09     Broadcast             ARP      42     Who has 192.168.8.108? Tell 192.168.9.109
+</screen>
+<screen>vm9:~ ping -I enp8s0 -c 1 192.168.9.108 : error (filtered)</screen>
+<para>The multihome ARP settings cause the system to ignore
+              ARP requests due to a subnet mismatch, and as a result, the 
+              enforcement via the <literal>-I</literal> interface binding no 
+              longer works.</para>
+<para>Output:</para>
+<screen>PING 192.168.9.108 (192.168.9.108) from 192.168.8.109 enp8s0: 56(84) bytes of data.
+From 192.168.8.109 icmp_seq=1 Destination Host Unreachable
+
+--- 192.168.9.108 ping statistics ---
+1 packets transmitted, 0 received, +1 errors, 100% packet loss, time 0ms
+
+- capture:
+
+No.     Time           Source                Destination           Protocol Length Info
+      1 0.000000000    52:54:00:00:08:09     Broadcast             ARP      42     Who has 192.168.9.108? Tell 192.168.8.109
+      2 1.030989481    52:54:00:00:08:09     Broadcast             ARP      42     Who has 192.168.9.108? Tell 192.168.8.109
+      3 2.054972421    52:54:00:00:08:09     Broadcast             ARP      42     Who has 192.168.9.108? Tell 192.168.8.109
+</screen>
+<screen>vm9:~ ping -I enp7s0 -c 1 192.168.9.108: error (regular)</screen>
+<para>Same as default behavior (#vm9--ping--c-1-1921689108-reply-regular).</para>
+<screen>vm9:~ ping -I enp7s0 -c 1 192.168.8.108: error (regular)</screen>
+<para>Same as default behavior (#vm9--ping--c-1-1921689108-reply-regular).</para>
+                                                        </step>
+                                        </substeps>
+                      </step>
+</procedure>
+</section>
+<section xml:id="sec-multihome-policy-routing">
+<title>Policy routing</title>
+<para>By default, all unicast routing entries are placed in the <literal>main</literal> table
+(and local/broadcast routes <literal>local</literal> table) and the lookups use
+the destination only.</para>
+<para>The direct routes (without a gateway) are created automatically by the
+kernel while adding the address to the interface, e.g. (on <systemitem>vm7</systemitem>). <command>ip addr add 192.168.7.107/24 dev eth7</command> causes to create the following routes.</para>
+<screen>ip route show table main dev eth7
+  192.168.7.0/24 dev eth7 proto kernel scope link src 192.168.7.107</screen>
+  <screen>ip route show table local dev eth7
+    
+    local 192.168.7.107 proto kernel scope host src 192.168.7.107
+    broadcast 192.168.7.255 proto kernel scope link src 192.168.7.107</screen>
+    <para>Using a <systemitem>/32</systemitem> IP address prefix length <command>ip addr add 192.168.7.107/32</command>
+causes the kernel to avoid adding routes automatically in favor of own routes.</para>
+<para>In complex setups involving asynchronous routing or the use of multiple
+interfaces in the same subnet, <systemitem>arp_filter=1</systemitem> may not work properly due
+to the filtering, especially in the strict <systemitem>rp_filter=1</systemitem> mode.</para>
+<para>Policy routing permits adding a rule that matches the source IP 
+and then using a different routing table (for example, one for each interface)
+that has different direct and gateway routes than the standard 
+<literal>main</literal> table, such as its own unique default gateway.</para>
+<para>For more information, see also <link xlink:href="https://lartc.org/lartc.html#AEN267">LARTC HOWTO</link>, the <systemitem>man 5 ifrule</systemitem>,
+<systemitem>man 8 ip-rule</systemitem>, <systemitem>man 5 ifroute</systemitem>, <systemitem>man 8 ip-route</systemitem> man pages and
+the <filename>/etc/iproute2/rt_tables</filename> file, which is used to define names for custom tables.</para>
+</section>
+</topic>
