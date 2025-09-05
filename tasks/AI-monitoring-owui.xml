@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="ai-monitoring-owui"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Monitoring &owui;</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        The preferred way of retrieving relevant telemetry data from &owui; is
+        to use the
+        <link
+        xlink:href="https://github.com/SUSE/suse-ai-observability-extension/blob/main/integrations/oi-filter/suse_ai_filter.py">&productname;
+        Filter</link>. It requires enabling and configuring &owui; Pipelines.
+      </para>
+    </abstract>
+  </info>
+  <procedure xml:id="ai-monitoring-owui-pipelines-cmdline">
+    <title>Configuring pipeline filter during &owui; installation (recommended)</title>
+    <step>
+      <para>
+        Verify that the &owui; installation override file
+        <filename>owui_custom_overrides.yaml</filename> includes the following
+        content.
+      </para>
+<screen>pipelines:
+  enabled: true
+  persistence:
+    storageClass: longhorn <co xml:id="co-storageclass"/>
+  extraEnvVars: <co xml:id="co-extraenvvars"/>
+    - name: PIPELINES_URLS <co xml:id="co-extraenvvars-pipelines-urls"/>
+      value: "https://raw.githubusercontent.com/SUSE/suse-ai-observability-extension/refs/heads/main/integrations/oi-filter/suse_ai_filter.py"
+    - name: OTEL_SERVICE_NAME <co xml:id="co-extraenvvars-otel-service-name"/>
+      value: "Open WebUI"
+    - name: OTEL_EXPORTER_HTTP_OTLP_ENDP&owui;NT <co xml:id="co-extraenvvars-otel-exporter-http-otlp-endpoint"/>
+      value: "http://opentelemetry-collector.suse-observability.svc.cluster.local:4318"
+    - name: PRICING_JSON <co xml:id="co-extraenvvars-pricing-json"/>
+      value: "https://raw.githubusercontent.com/SUSE/suse-ai-observability-extension/refs/heads/main/integrations/oi-filter/pricing.json"
+extraEnvVars:
+- name: OPENAI_API_KEY <co xml:id="co-extraenvvars-openai-api-key"/>
+  value: "0p3n-w3bu!"</screen>
+      <note>
+        <para>
+          In the above example, there are two <literal>extraEnvVars</literal>
+          blocks. One at the root level and another one inside the pipelines
+          configuration. The root-level <literal>extraEnvVars</literal> are fed
+          into &owui; and used to configure the communication between &owui; and
+          &owui; Pipelines. The <literal>extraEnvVars</literal> inside pipelines
+          are injected into the pipelines container that acts as a runtime for
+          the pipelines.
+        </para>
+      </note>
+      <calloutlist>
+        <callout arearefs="co-storageclass">
+          <para>
+            Set it to your preferred storage class, such as
+            <literal>longhorn</literal> or <literal>local-path</literal>
+          </para>
+        </callout>
+        <callout arearefs="co-extraenvvars">
+          <para>
+            The environment variables that you are making available for the
+            pipeline's runtime container.
+          </para>
+        </callout>
+        <callout arearefs="co-extraenvvars-pipelines-urls">
+          <para>
+            A list of pipeline URLs to be downloaded and installed by default.
+            Individual URLs are separated by a semicolon <literal>;</literal>.
+            Be aware that pipelines that require external dependency
+            installation are not currently supported.
+          </para>
+        </callout>
+        <callout arearefs="co-extraenvvars-otel-service-name">
+          <para>
+            The service name that appears in traces and topological
+            representations in &sobservability;.
+          </para>
+        </callout>
+        <callout arearefs="co-extraenvvars-otel-exporter-http-otlp-endpoint">
+          <para>
+            The endpoint for the &otelemetry; collector. Make sure to use the
+            HTTP port of your collector.
+          </para>
+        </callout>
+        <callout arearefs="co-extraenvvars-pricing-json">
+          <para>
+            A file for the model multipliers in cost estimation. You can
+            customize it to match your actual infrastructure experimentally.
+          </para>
+        </callout>
+        <callout arearefs="co-extraenvvars-openai-api-key">
+          <para>
+            The value for the API key between &owui; and &owui; Pipelines. The
+            default value is <quote>0p3n-w3bu!</quote>.
+          </para>
+        </callout>
+      </calloutlist>
+    </step>
+    <step>
+      <para>
+        After you fill the override file with correct values, install or update
+        &owui;.
+      </para>
+<screen>&prompt.user;<command>helm upgrade \
+  --install open-webui oci://dp.apps.rancher.io/charts/open-webui \
+  -n suse-private-ai \
+  --create-namespace \
+  --version 3.3.2 \
+  -f owui_custom_overrides.yaml</command></screen>
+      <tip>
+        <para>
+          Make sure to set the version, namespace and other values to the proper
+          values.
+        </para>
+      </tip>
+      <para>
+        After the installation is successful, you can access tracing data in
+        &sobservability; for each chat.
+      </para>
+    </step>
+  </procedure>
+  <procedure xml:id="ai-monitoring-owui-pipelines-webui">
+    <title>Configuring pipeline filter in &owui; (recommended)</title>
+    <para>
+      If you already have a running instance of &owui; with the pipelines
+      enabled and configured, you can set up the &productname; Filter in its Web
+      user interface.
+    </para>
+    <itemizedlist>
+      <title>Requirements</title>
+      <listitem>
+        <xi:include href="../snippets/openwebui-requirement-admin-privileges.xml"/>
+      </listitem>
+    </itemizedlist>
+    <step>
+      <para>
+        In the bottom left of the &owui; window, click your avatar icon to open
+        the user menu and select <guimenu>Admin Panel</guimenu>.
+      </para>
+    </step>
+    <step>
+      <para>
+        Click the <guimenu>Settings</guimenu> tab and select
+        <guimenu>Pipelines</guimenu> from the left menu.
+      </para>
+    </step>
+    <step>
+      <para>
+        In the <guimenu>Install from Github URL</guimenu> section, enter
+        <literal>https://raw.githubusercontent.com/SUSE/suse-ai-observability-extension/refs/heads/main/integrations/oi-filter/suse_ai_filter.py</literal>
+        and click the upload button on the right to upload the pipeline from the URL.
+      </para>
+    </step>
+    <step>
+      <para>
+        After the upload is finished, you can review the configuration of
+        the pipeline. Confirm with <guimenu>Save</guimenu>.
+      </para>
+    </step>
+  </procedure>
+</topic>
