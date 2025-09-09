@@ -1,0 +1,381 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="ai-monitoring-user-apps"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Monitoring user-managed applications</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        To monitor other applications, you can utilize &otelemetry; SDKs or any
+        other instrumentation provider compatible with &otelemetry;'s semantics,
+        for example, &openlit; SDK. For more details refer to
+        <xref linkend="ai-monitoring-instrument-openlit"/>.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    &otelemetry; offers several instrumentation techniques for different
+    deployment scenarios and applications. You can instrument applications
+    either manually with more detailed control, or automatically for an easier
+    starting point.
+  </para>
+  <tip>
+    <para>
+      One of the most straightforward ways of getting started with &otelemetry;
+      is using the &otelemetry; &kube; Operator which is available in the
+      &sappco;. Find more information in this
+      <link xlink:href="https://docs.apps.rancher.io/reference-guides/opentelemetry-operator/">extensive
+      guide</link> on how to utilize this operator for instrumenting your
+      applications.
+    </para>
+  </tip>
+  <section xml:id="ai-monitoring-telemetry-data-capture">
+    <title>Ensuring that the telemetry data is properly captured by the &sobservability; Extension</title>
+    <para>
+      For the &sobservability; Extension to acknowledge an application as a
+      GenAI application, it needs to have a meter configured. It must provide at
+      least the <literal>RequestsTotal</literal> metric with the following
+      attributes:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <literal>TelemetrySDKLanguage</literal>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>ServiceName</literal>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>ServiceInstanceId</literal>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>ServiceNamespace</literal>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>GenAIEnvironment</literal>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>GenAiApplicationName</literal>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>GenAiSystem</literal>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>GenAiOperationName</literal>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>GenAiRequestModel</literal>
+        </para>
+      </listitem>
+    </itemizedlist>
+    <variablelist>
+      <para>
+        Both the meter and the tracer must contain the following resource
+        attributes:
+      </para>
+      <varlistentry>
+        <term>service.name</term>
+        <listitem>
+          <para>
+            The logical name of the service. Defaults to <literal>"My
+            App"</literal>
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>service.version</term>
+        <listitem>
+          <para>
+            The version of the service. Defaults to <literal>"1.0"</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>deployment.environment</term>
+        <listitem>
+          <para>
+            The name of the deployment environment, such as
+            <literal>"production"</literal> or <literal>"staging"</literal>.
+            Defaults to <literal>"default""</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>telemetry.sdk.name</term>
+        <listitem>
+          <para>
+            The value must be <literal>"openlit"</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <variablelist>
+      <para>
+        The following metrics are utilized in the graphs of the &sobservability;
+        Extension:
+      </para>
+      <varlistentry>
+        <term>gen_ai.client.token.usage</term>
+        <listitem>
+          <para>
+            Measures the number of used input and output tokens.
+          </para>
+          <para>
+            <emphasis role="bold">Type:</emphasis> histogram
+          </para>
+          <para>
+            <emphasis role="bold">Unit:</emphasis> token
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>gen_ai.total.requests</term>
+        <listitem>
+          <para>
+            Number of requests.
+          </para>
+          <para>
+            <emphasis role="bold">Type:</emphasis> counter
+          </para>
+          <para>
+            <emphasis role="bold">Unit:</emphasis> integer
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>gen_ai.usage.cost</term>
+        <listitem>
+          <para>
+            The distribution of GenAI request costs.
+          </para>
+          <para>
+            <emphasis role="bold">Type:</emphasis> histogram
+          </para>
+          <para>
+            <emphasis role="bold">Unit:</emphasis> USD
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>gen_ai.usage.input_tokens</term>
+        <listitem>
+          <para>
+            Number of prompt tokens processed.
+          </para>
+          <para>
+            <emphasis role="bold">Type:</emphasis> counter
+          </para>
+          <para>
+            <emphasis role="bold">Unit:</emphasis> integer
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>gen_ai.usage.output_tokens</term>
+        <listitem>
+          <para>
+            Number of completion tokens processed.
+          </para>
+          <para>
+            <emphasis role="bold">Type:</emphasis> counter
+          </para>
+          <para>
+            <emphasis role="bold">Unit:</emphasis> integer
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>gen_ai.client.token.usage</term>
+        <listitem>
+          <para>
+            Number of tokens processed.
+          </para>
+          <para>
+            <emphasis role="bold">Type:</emphasis> counter
+          </para>
+          <para>
+            <emphasis role="bold">Unit:</emphasis> integer
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="ai-monitoring-troubleshooting">
+    <title>Troubleshooting</title>
+    <qandaset>
+      <qandaentry>
+        <question>
+          <para>
+            No metrics received from any components.
+          </para>
+        </question>
+        <answer>
+          <itemizedlist>
+            <listitem>
+              <para>
+                Verify the &otelemetry; Collector deployment.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Check if the exporter is properly set to the &sobservability;
+                collector and with the correct API Key and endpoint specified.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </answer>
+      </qandaentry>
+      <qandaentry>
+        <question>
+          <para>
+            No metrics received from the GPU.
+          </para>
+        </question>
+        <answer>
+          <itemizedlist>
+            <listitem>
+              <para>
+                Verify if the RBAC rules were applied.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Verify if the metrics receiver scraper is configured.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Check the &nvidia; DCGM Exporter for errors.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </answer>
+      </qandaentry>
+      <qandaentry>
+        <question>
+          <para>
+            No metrics received from &milvus;.
+          </para>
+        </question>
+        <answer>
+          <itemizedlist>
+            <listitem>
+              <para>
+                Verify if &milvus; chart configuration is exposing the metrics
+                endpoint.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Verify if the metrics receiver scraper is configured.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                For usage metrics, confirm that requests were actually made to
+                &milvus;.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </answer>
+      </qandaentry>
+      <qandaentry>
+        <question>
+          <para>
+            No tracing data received from any components.
+          </para>
+        </question>
+        <answer>
+          <itemizedlist>
+            <listitem>
+              <para>
+                Verify the &otelemetry; Collector deployment.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Check if the exporter is properly set to the &sobservability;
+                collector, with the right API Key and endpoint set.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </answer>
+      </qandaentry>
+      <qandaentry>
+        <question>
+          <para>
+            No tracing data received from &owui;.
+          </para>
+        </question>
+        <answer>
+          <itemizedlist>
+            <listitem>
+              <para>
+                Verify if the &suseai; Observability Filter was installed and
+                configured properly.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Verify if chat requests actually happened.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </answer>
+      </qandaentry>
+      <qandaentry>
+        <question>
+          <para>
+            Cost estimation is far from real values.
+          </para>
+        </question>
+        <answer>
+          <para>
+            Recalculate the multipliers for the <literal>PRICING_JSON</literal>
+            in the &suseai; Observability Filter.
+          </para>
+        </answer>
+      </qandaentry>
+      <qandaentry>
+        <question>
+          <para>
+            There is a high demand for storage volume.
+          </para>
+        </question>
+        <answer>
+          <para>
+            Verify if sampling is being applied in the &otelemetry; Collector.
+          </para>
+        </answer>
+      </qandaentry>
+    </qandaset>
+  </section>
+</topic>
