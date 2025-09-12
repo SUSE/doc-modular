@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="ai-monitoring-milvus"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Monitoring &milvus;</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        &milvus; is monitored by scraping its &prometheus;-compatible metrics
+        endpoint. The &sobservability; Extension uses these metrics to visualize
+        &milvus;'s status and activity.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="ai-monitoring-milvus-scraping-metrics">
+    <title>Scraping the metrics (recommended)</title>
+    <para>
+      Add the following job to the <literal>scrape_configs</literal> section of
+      your &otelemetry; Collector's configuration. It instructs the collector to
+      scrape the <literal>/metrics</literal> endpoint of the &milvus; service
+      every 15 seconds.
+    </para>
+<screen>config:
+  receivers:
+    prometheus:
+      config:
+        scrape_configs:
+          - job_name: 'milvus'
+            scrape_interval: 15s
+            metrics_path: '/metrics'
+ 
+            static_configs:
+            - targets: ['milvus.suse-private-ai.svc.cluster.local:9091'] <co xml:id="co-static-configs-targets"/></screen>
+    <calloutlist>
+      <callout arearefs="co-static-configs-targets">
+        <para>
+          Your &milvus; service metrics endpoint. The example
+          <literal>milvus.suse-private-ai.svc.cluster.local:9091</literal> is a
+          common default, but you should verify that it matches your
+          installation service name and namespace.
+        </para>
+      </callout>
+    </calloutlist>
+  </section>
+  <section xml:id="ai-monitoring-milvus-tracing">
+    <title>Tracing (advanced)</title>
+    <para>
+      &milvus; can also export detailed tracing data.
+    </para>
+    <important>
+      <title>High data volume</title>
+      <para>
+        Enabling tracing in &milvus; can generate a large amount of data. We
+        recommend configuring sampling at the collector level to avoid
+        performance issues and high storage costs.
+      </para>
+    </important>
+    <para>
+      To enable tracing, configure the following settings in your &milvus;
+      &helm; chart values:
+    </para>
+<screen>extraConfigFiles:
+  user.yaml: |+
+    trace:
+      exporter: jaeger
+      sampleFraction: 1
+      jaeger: url: "http://opentelemetry-collector.observability.svc.cluster.local:14268/api/traces" <co xml:id="co-jaeger-url"/></screen>
+    <calloutlist>
+      <callout arearefs="co-jaeger-url">
+        <para>
+          The URL of the &otelemetry; Collector installed by the user.
+        </para>
+      </callout>
+    </calloutlist>
+  </section>
+</topic>
