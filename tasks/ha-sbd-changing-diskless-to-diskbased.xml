@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_storage_protection.xml -->
+
+<topic xml:id="ha-sbd-changing-diskless-to-diskbased"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Changing diskless &sbd; to disk-based &sbd;</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Use this procedure to change diskless SBD to disk-based SBD.
+      </para>
+    </abstract>
+  </info>
+
+  <procedure>
+    <step>
+      <para>
+        Put the cluster into maintenance mode:
+      </para>
+<screen>&prompt.root;<command>crm maintenance on</command></screen>
+      <para>
+        In this state, the cluster stops monitoring all resources. This allows the services managed
+        by the resources to keep running during the cluster restart. However, be aware that the
+        resources will not have cluster protection while in maintenance mode.
+      </para>
+    </step>
+    <step>
+      <para>
+        Configure the new device:
+      </para>
+<screen>&prompt.root;<command>crm -F cluster init sbd -s /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+      <para>
+        The <option>-F</option> option allows &crmsh; to reconfigure SBD even if the SBD service is
+        already running.
+      </para>
+    </step>
+    <step>
+      <para>
+        Check the status of the cluster:
+      </para>
+<screen>&prompt.root;<command>crm status</command></screen>
+      <para>
+        The nodes will have the status <literal>UNCLEAN (offline)</literal>, but will soon change
+        to <literal>Online</literal>.
+      </para>
+    </step>
+    <step>
+      <para>
+        Check the SBD configuration. First, check the device metadata:
+      </para>
+<screen>&prompt.root;<command>sbd -d /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> dump</command>
+</screen>
+      <para>
+        Then check that all nodes in the cluster are assigned to a slot in the device:
+      </para>
+<screen>&prompt.root;<command>sbd -d /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> list</command></screen>
+    </step>
+    <step>
+      <para>
+        Check the status of the SBD service:
+      </para>
+<screen>&prompt.root;<command>systemctl status sbd</command></screen>
+      <para>
+        If you changed diskless SBD to disk-based SBD, check that the following section
+        includes a device ID:
+      </para>
+<screen>CGroup: /system/.slice/sbd.service
+        |&mdash;23314 "sbd: inquisitor"
+        |&mdash;23315 "sbd: watcher: /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable> - slot: 0 - uuid: <replaceable>DEVICE_UUID</replaceable>"
+        |&mdash;23316 "sbd: watcher: Pacemaker"
+        |&mdash;23317 "sbd: watcher: Cluster"</screen>
+    </step>
+    <step>
+      <para>
+        When the nodes are back online, put the cluster back into normal operation:
+      </para>
+<screen>&prompt.root;<command>crm maintenance off</command></screen>
+    </step>
+  </procedure>
+</topic>
