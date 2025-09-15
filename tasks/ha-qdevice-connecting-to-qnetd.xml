@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_qdevice-qnetd.xml -->
+
+<topic xml:id="ha-qdevice-connecting-to-qnetd"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Connecting &qdevice; to the &qnet; server</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <xi:include href="../snippets/ha-qdevice.xml"/>
+      <para>
+        This procedure explains how to configure &qdevice; after the cluster is already
+        installed and running, not during the initial cluster setup.
+      </para>
+    </abstract>
+  </info>
+  <important>
+    <title>Cluster restart might be required</title>
+    <para>
+      The &qdevice; setup script checks whether a cluster restart is required and whether it is
+      safe to do so automatically. If any non-&stonith; resources are running, the script does
+      <emphasis>not</emphasis> automatically restart the cluster services. Instead, it warns you to
+      restart the cluster services manually. This allows you to put the cluster into maintenance
+      mode first to avoid resource downtime.
+    </para>
+  </important>
+  <itemizedlist>
+    <title>Requirements</title>
+    <listitem>
+      <para>
+        An existing &ha; cluster is already running.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        The latest <package>corosync-qdevice</package> package is installed on all nodes.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        The latest <package>corosync-qnetd</package> package is installed on the &qnet; server.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <emphasis>To connect to the &qnet; server as a <command>sudo</command> user:</emphasis>
+        The user must have passwordless <command>sudo</command> permission.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <emphasis>To connect to the &qnet; server as the &rootuser; user:</emphasis>
+        Passwordless SSH authentication must be configured between the nodes and the &qnet; server.
+      </para>
+    </listitem>
+  </itemizedlist>
+  <para>
+    Perform this procedure on only one cluster node:
+  </para>
+  <procedure>
+    <step>
+      <para>
+        Log in either as the &rootuser; user or as a user with <command>sudo</command> privileges.
+      </para>
+    </step>
+    <step>
+      <para>
+        Run the &qdevice; stage of the cluster setup script:
+      </para>
+<screen>&prompt.user;<command>sudo crm cluster init qdevice</command></screen>
+    </step>
+    <step>
+      <para>
+        Confirm with <literal>y</literal> that you want to configure &qdevice; and &qnet;.
+      </para>
+    </step>
+    <step>
+      <para>
+        Enter the IP address or host name of the &qnet; server, with or without a user name:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            If you include a non-&rootuser; user name, a later step will prompt you for the user's
+            password and the script will configure passwordless SSH authentication from the nodes
+            to the &qnet; server.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            If you omit a user name, the script defaults to the &rootuser; user, so passwordless
+            SSH authentication must already be configured for the nodes to access the &qnet; server.
+          </para>
+        </listitem>
+      </itemizedlist>
+      <para>
+        For the remaining fields, you can accept the default values or change them as required:
+      </para>
+    </step>
+    <step>
+      <para>
+        Accept the proposed port (<literal>5403</literal>) or enter a different one.
+      </para>
+    </step>
+    <step>
+      <para>
+        Choose the algorithm that determines how votes are assigned. The default is
+        <literal>ffsplit</literal>.
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            <literal>ffsplit</literal> (<quote>fifty-fifty split</quote>): If the cluster splits
+            into two even partitions, one of the partitions gets the vote based on the results of
+            heuristics checks and other factors. This algorithm is helpful for clusters with an
+            even number of nodes.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>lms</literal> (<quote>last man standing</quote>): If only one remaining node
+            can still communicate with the &qnet; server, that node gets the vote. This algorithm
+            is helpful for clusters where only one <emphasis>active</emphasis> node needs to remain
+            quorate.
+          </para>
+        </listitem>
+      </itemizedlist>
+    </step>
+    <step>
+      <para>
+        Choose the method to use when a tie-breaker is required. The default is
+        <literal>lowest</literal>.
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            <literal>lowest</literal>: The node with the lowest node ID gets the vote.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>highest</literal>: The node with the highest node ID gets the vote.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Alternatively, you can enter a specific node ID. The designated node always gets the vote.
+          </para>
+        </listitem>
+      </itemizedlist>
+    </step>
+    <step>
+      <para>
+        Choose whether to enable TLS for client certificate checking. The default is
+        <literal>on</literal>.
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            <literal>off</literal>: TLS is not required and should not be tried.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>on</literal>: Attempt to connect with TLS, but connect without TLS if it is
+            not available.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>required</literal>: TLS is mandatory, so &qdevice; exits with an error if TLS
+            is not available.
+          </para>
+        </listitem>
+      </itemizedlist>
+    </step>
+    <step>
+      <para>
+        Enter heuristics commands to assist in quorum calculation, or leave the field blank to skip
+        this step.
+      </para>
+      <para>
+        You can enter one command, multiple commands separated by semicolons, or the path to a
+        script file. The commands can be written in any programming language.
+      </para>
+      <para>
+        If you enter heuristics commands, you must also select the mode of operation. The default is
+        <literal>sync</literal>.
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            <literal>sync</literal>: &qdevice; runs heuristics when the cluster services start
+            (or restart), when the cluster membership changes, and when nodes connect to the
+            &qnet; server.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>on</literal>: &qdevice; runs heuristics in the same scenarios as
+            <literal>sync</literal> and also at regular intervals.
+          </para>
+        </listitem>
+      </itemizedlist>
+    </step>
+    <step>
+      <para>
+        If required, the script prompts you for the password of the &qnet; server, then configures
+        passwordless SSH authentication between the cluster nodes and the &qnet; server.
+      </para>
+      <para>
+        The script configures &qdevice; on the nodes and completes the &qnet; server's
+        configuration, including generating CA and server certificates and starting the
+        <systemitem>corosync-qnetd</systemitem> service. The script also checks whether a cluster
+        restart is required and whether it is safe to do so automatically. If any non-&stonith;
+        resources are running, the script warns you to restart the cluster services manually.
+      </para>
+    </step>
+    <step>
+      <para>
+        If you need to restart the cluster services manually, follow these steps to avoid
+        resource downtime:
+      </para>
+      <substeps>
+      <step>
+        <para>
+          Put the cluster into maintenance mode:
+        </para>
+<screen>&prompt.user;<command>sudo crm maintenance on</command></screen>
+        <para>
+          In this state, the cluster stops monitoring all resources. This allows the services
+          managed by the resources to keep running during the cluster restart.
+        </para>
+      </step>
+      <step>
+        <para>
+          Restart the cluster services on all nodes to update the cluster's quorum configuration:
+        </para>
+<screen>&prompt.user;<command>sudo crm cluster restart --all</command></screen>
+      </step>
+      <step>
+        <para>
+          Check the status of the cluster:
+        </para>
+<screen>&prompt.user;<command>sudo crm status</command></screen>
+        <para>
+          The nodes will have the status <literal>UNCLEAN (offline)</literal>, but will soon
+          change to <literal>Online</literal>.
+        </para>
+      </step>
+      <step>
+        <para>
+          When the nodes are back online, put the cluster back into normal operation:
+        </para>
+<screen>&prompt.user;<command>sudo crm maintenance off</command></screen>
+      </step>
+    </substeps>
+    </step>
+  </procedure>
+</topic>

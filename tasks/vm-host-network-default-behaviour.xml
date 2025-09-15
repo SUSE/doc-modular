@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="vm-host-network-default"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Default behavior</title>
+    <meta name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
+    <abstract>
+      <para>Linux uses a <link xlink:href="https://en.wikipedia.org/wiki/Host_model">weak host model</link>
+as default, configurable via IP-Sysctl settings offered by the kernel.</para>
+<para>In this model, an IP address belongs to the machine and is not restricted to being
+used only on the interface it is assigned to. The machine can use/associate any
+interface MAC address with any IP address, regardless of the interface.</para>
+    </abstract>
+  </info>
+    <para>The following procedures describe the default behavior using vm7, vm8, and vm9.</para>
+    <procedure xml:id="proc-vm-host-default"> 
+     <title>Default behavior</title>
+   <step>
+    <para>vm7</para>
+    <para>This VM acts as a router in <literal>net7</literal> and even though 
+    it is not connected to <literal>net8</literal> and <literal>net9</literal>, it is still 
+    involved in the ARP resolution process.</para>
+    <para>The following ping commands illustrate the default behavior:</para>
+    <screen>vm7:~ ping -c 1 192.168.7.108: reply (regular)</screen>
+    <para>Regular pinging of an IP on a directly connected network (network route) triggers
+a routing table lookup that selects the <literal>eth7</literal>
+interface and the preferred source from the route (src 192.168.7.107):</para>
+    <screen>192.168.7.0/24 dev eth7 proto kernel scope link src 192.168.7.107</screen>
+    <para>Output:</para>
+    <screen>  PING 192.168.7.108 (192.168.7.108) 56(84) bytes of data.
+  64 bytes from 192.168.7.108: icmp_seq=1 ttl=64 time=0.446 ms
+
+  --- 192.168.7.108 ping statistics ---
+  1 packets transmitted, 1 received, 0% packet loss, time 0ms
+  rtt min/avg/max/mdev = 0.446/0.446/0.446/0.000 ms
+  
+- capture (net7):
+  
+No.     Time           Source                Destination           Protocol Length Info
+        1 0.000000000    52:54:00:00:07:07     Broadcast             ARP      42     Who has 192.168.7.108? Tell 192.168.7.107
+        2 0.000178399    52:54:00:00:07:08     52:54:00:00:07:07     ARP      42     192.168.7.108 is at 52:54:00:00:07:08
+        3 0.000261527    192.168.7.107         192.168.7.108         ICMP     98     Echo (ping) request  id=0x0001, seq=1/256, ttl=64 (reply in 4)
+        4 0.000334225    192.168.7.108         192.168.7.107         ICMP     98     Echo (ping) reply    id=0x0001, seq=1/256, ttl=64 (request in 3)
+        5 5.180898743    52:54:00:00:07:08     52:54:00:00:07:07     ARP      42     Who has 192.168.7.107? Tell 192.168.7.108
+        6 5.181116066    52:54:00:00:07:07     52:54:00:00:07:08     ARP      42     192.168.7.107 is at 52:54:00:00:07:07
+  </screen>
+    <screen>vm7:~ ping -c 1 192.168.7.109: reply (regular)</screen>
+    <para>Same as <literal>vm7:~ ping -c 1 192.168.7.108 (#vm7--ping--c-1-1921687108-reply)</literal>.</para>
+    <screen>vm7:~ ping -c 1 192.168.8.108: error (regular)</screen>
+    <para>Regular pinging of an IP <emphasis>outside</emphasis> of a directly connected
+  network causes the packet to be sent via the gateway (default) route. This
+  uses the <literal>eth1</literal> interface with the source IP
+  (<literal>192.168.1.107</literal>) from the preferred source in the route
+  used to reach the gateway:</para>
+<screen>default via 192.168.1.1 dev eth1 192.168.1.0/24 dev eth1 proto kernel scope link src 192.168.1.107</screen>
+    <para>The result depends on the configuration of the uplink routers.
+If there is a <literal>kind router</literal> sending an <literal>unreachable</literal> ICMP message,
+for example, because of an <literal>unreachable</literal> route (on Linux, to avoid routing the packets
+to the Internet):</para>
+    <screen>ip r s type unreachable
+unreachable 192.168.0.0/16</screen>
+<para>or dropping the packets (because of a <literal>blackhole</literal> route entry or a firewall).</para>
+<para>Output:</para>
+<screen> PING 192.168.8.108 (192.168.8.108) 56(84) bytes of data.
+
+  --- 192.168.8.108 ping statistics ---
+  1 packets transmitted, 0 received, 100% packet loss, time 0ms
+  
+  or:
+  
+  PING 192.168.8.108 (192.168.8.108) 56(84) bytes of data.
+  From 192.168.1.1 icmp_seq=1 Destination Host Unreachable
+
+  --- 192.168.8.108 ping statistics ---
+  1 packets transmitted, 0 received, +1 errors, 100% packet loss, time 0ms
+  
+- capture (net1):
+  - packet capture on net1 incl. unreachable message (if any):
+  
+  No.     Time           Source                Destination           Protocol Length Info
+
+      131 1995.230774    192.168.1.107         192.168.8.108         ICMP     104    Echo (ping) request  id=0x002a, seq=1/256, ttl=64 (no response found!)
+      132 1995.231275    192.168.1.1           192.168.1.107         ICMP     132    Destination unreachable (Host unreachable)
+  </screen>
+  <screen>vm7:~ ping -c 1 192.168.8.109: error (regular)</screen>
+  <para>Same as <literal>vm7:~ # ping -c 1 192.168.8.108 (#vm7--ping--c-1-1921688108-error)</literal>.</para>
+  <screen>vm7:~ ping -c 1 192.168.9.108: error (regular)</screen>
+  <para>Same as <literal>vm7:~ # ping -c 1 192.168.8.108 (#vm7--ping--c-1-1921688108-error)</literal>.</para>
+  <screen>vm7:~ ping -c 1 192.168.9.109: error (regular)</screen>
+<para>Same as <literal>vm7:~ # ping -c 1 192.168.8.108 (#vm7--ping--c-1-1921688108-error)</literal>.</para>
+<screen>vm7:~ ping -I eth7 -c 1 192.168.8.108: reply (enforced)</screen>
+<para>Pinging an IP <emphasis>outside</emphasis> of a directly connected network, 
+while enforcing the use of the specified <literal>eth7</literal> interface, is done instead 
+of looking up the destination in the routing table to select an interface and source IP 
+address. In other words, it ignores the routing table.
+</para>
+<para>This causes the machine to resolve the MAC address of the machine 
+having the IP address via ARP on the <literal>eth7</literal> interface and to use
+the primary IP address on this interface as the source IP. The destination 
+machine has a route back to the source IP network and can deliver the reply.</para>
+<para>Output:</para>
+<screen>
+  PING 192.168.8.108 (192.168.8.108) from 192.168.7.107 eth7: 56(84) bytes of data.
+  64 bytes from 192.168.8.108: icmp_seq=1 ttl=64 time=0.431 ms
+
+  --- 192.168.8.108 ping statistics ---
+  1 packets transmitted, 1 received, 0% packet loss, time 0ms
+  rtt min/avg/max/mdev = 0.431/0.431/0.431/0.000 ms
+  
+- capture:
+  
+  No.     Time           Source                Destination           Protocol Length Info
+       55 1090.280252902 52:54:00:00:07:07     Broadcast             ARP      42     Who has 192.168.8.108? Tell 192.168.7.107
+       56 1090.280444897 52:54:00:00:07:08     52:54:00:00:07:07     ARP      42     192.168.8.108 is at 52:54:00:00:07:08
+       57 1090.280492377 192.168.7.107         192.168.8.108         ICMP     98     Echo (ping) request  id=0x000c, seq=1/256, ttl=64 (reply in 58)
+       58 1090.280553072 192.168.8.108         192.168.7.107         ICMP     98     Echo (ping) reply    id=0x000c, seq=1/256, ttl=64 (request in 57)
+       59 1095.512647002 52:54:00:00:07:08     52:54:00:00:07:07     ARP      42     Who has 192.168.7.107? Tell 192.168.7.108
+       60 1095.512893801 52:54:00:00:07:07     52:54:00:00:07:08     ARP      42     192.168.7.107 is at 52:54:00:00:07:07
+  
+- arp-cache:
+  
+  192.168.8.108 dev eth7 lladdr 52:54:00:00:07:08 REACHABLE
+  192.168.7.108 dev eth7 lladdr 52:54:00:00:07:08 REACHABLE
+  
+- strace:
+  
+  socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP) = 3
+  setsockopt(3, SOL_SOCKET, SO_BINDTODEVICE, "eth7\0", 5) = 0
+  sendto(3, "\10\0\2\371\377\377\0\1J\274sh\0\0\0\0j\16\16\0\0\0\0\0\20\21\22\23\24\25\26\27"..., 64, 0, {sa_family=AF_INET, sin
+  _port=htons(0), sin_addr=inet_addr("192.168.8.108")}, 16) = 64
+  recvmsg(3, {msg_name={sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr("192.168.8.108")}, msg_namelen=128 => 16, msg_i
+  ov=[{iov_base="\0\0\n\346\0\23\0\1J\274sh\0\0\0\0j\16\16\0\0\0\0\0\20\21\22\23\24\25\26\27"..., iov_len=192}], msg_iovlen=1, m
+  sg_control=[{cmsg_len=32, cmsg_level=SOL_SOCKET, cmsg_type=SO_TIMESTAMP_OLD, cmsg_data={tv_sec=1752415306, tv_usec=921573}}, {
+  cmsg_len=20, cmsg_level=SOL_IP, cmsg_type=IP_TTL, cmsg_data=[64]}], msg_controllen=56, msg_flags=0}, 0) = 64
+  write(1, "64 bytes from 192.168.8.108: icm"..., 61) = 61
+  </screen>
+<screen>vm7:~ ping -I eth7 -c 1 192.168.8.109: reply (enforced)</screen>
+<para>Same as <literal>vm7:~ # ping -I eth7 -c 1 192.168.8.108 (#vm7--ping--i-eth7--c-1-1921688108-reply)</literal>.</para>
+<screen>vm7:~ ping -I eth7 -c 1 192.168.9.108: reply (enforced)</screen>
+<para>Same as <literal>vm7:~ # ping -I eth7 -c 1 192.168.8.108 (#vm7--ping--i-eth7--c-1-1921688108-reply)</literal>.</para>
+<screen>vm7:~ # ping -I eth7 -c 1 192.168.9.109: reply (enforced)</screen>
+<para>Same as <literal>vm7:~ # ping -I eth7 -c 1 192.168.8.108 (#vm7--ping--i-eth7--c-1-1921688108-reply)</literal>.</para>
+</step>
+<step><para>vm8</para>
+<para>In our setup, <systemitem>vm8</systemitem> and <systemitem>vm9</systemitem> behave the same way. See <systemitem>vm9</systemitem> (#vm9) for more details.</para></step>
+<step>
+  <para>vm9</para>
+<screen>vm9:~ ping -c 1 192.168.7.107: reply (regular)</screen>
+<para>Regular pinging of an IP on a directly connected network (network route) triggers
+a routing table lookup that selects the <literal>enp7s0</literal>
+interface and the preferred source from the route (src 192.168.7.109):</para>
+<screen>192.168.7.0/24 dev enp7s0 proto kernel scope link src 192.168.7.109 metric 100</screen>
+<para>Output:</para>
+<screen>  PING 192.168.7.107 (192.168.7.107) 56(84) bytes of data.
+  64 bytes from 192.168.7.107: icmp_seq=1 ttl=64 time=0.567 ms
+
+  --- 192.168.7.107 ping statistics ---
+  1 packets transmitted, 1 received, 0% packet loss, time 0ms
+  rtt min/avg/max/mdev = 0.567/0.567/0.567/0.000 ms
+  
+- capture:
+
+  No.     Time           Source                Destination           Protocol Length Info
+        1 0.000000000    52:54:00:00:07:09     Broadcast             ARP      42     Who has 192.168.7.107? Tell 192.168.7.109
+        2 0.000356939    52:54:00:00:07:07     52:54:00:00:07:09     ARP      42     192.168.7.107 is at 52:54:00:00:07:07
+        3 0.000453833    192.168.7.109         192.168.7.107         ICMP     98     Echo (ping) request  id=0x0006, seq=1/256, ttl=64 (reply in 4)
+        4 0.000512905    192.168.7.107         192.168.7.109         ICMP     98     Echo (ping) reply    id=0x0006, seq=1/256, ttl=64 (request in 3)
+        5 23.564217607   52:54:00:00:07:07     52:54:00:00:07:09     ARP      42     Who has 192.168.7.109? Tell 192.168.7.107
+        6 23.564482951   52:54:00:00:07:09     52:54:00:00:07:07     ARP      42     192.168.7.109 is at 52:54:00:00:07:09
+ 
+- arp-cache:
+
+  192.168.7.107 dev enp7s0 lladdr 52:54:00:00:07:07 REACHABLE
+</screen>
+<screen>vm9:~ ping -c 1 192.168.7.108: reply (regular)</screen>
+<para>Same as <literal>vm9:~ # ping -c 1 192.168.7.107(#vm9--ping--c-1-1921687107-reply)</literal>.</para>
+<screen>vm9:~ ping -c 1 192.168.8.108: reply (regular)</screen>
+<para>Regular pinging of an IP on a directly connected network (network route) triggers
+a routing table lookup that selects the <literal>enp8s0</literal>
+interface and the preferred source from the route (src 192.168.8.109):</para>
+<screen>192.168.8.0/24 dev enp8s0 proto kernel scope link src 192.168.8.109 metric 101 </screen>
+<para>Output:</para>
+<screen>PING 192.168.8.108 (192.168.8.108) 56(84) bytes of data.
+  64 bytes from 192.168.8.108: icmp_seq=1 ttl=64 time=0.460 ms
+
+  --- 192.168.8.108 ping statistics ---
+  1 packets transmitted, 1 received, 0% packet loss, time 0ms
+  rtt min/avg/max/mdev = 0.460/0.460/0.460/0.000 ms
+  
+- capture:
+  
+  No.     Time           Source                Destination           Protocol Length Info
+        1 0.000000000    52:54:00:00:08:09     Broadcast             ARP      42     Who has 192.168.8.108? Tell 192.168.8.109
+        2 0.000155876    52:54:00:00:08:08     52:54:00:00:08:09     ARP      42     192.168.8.108 is at 52:54:00:00:08:08
+        3 0.000268681    192.168.8.109         192.168.8.108         ICMP     98     Echo (ping) request  id=0x0008, seq=1/256, ttl=64 (reply in 4)
+        4 0.000336540    192.168.8.108         192.168.8.109         ICMP     98     Echo (ping) reply    id=0x0008, seq=1/256, ttl=64 (request in 3)
+        5 5.109132370    52:54:00:00:08:08     52:54:00:00:08:09     ARP      42     Who has 192.168.8.109? Tell 192.168.8.108
+        6 5.109320257    52:54:00:00:08:09     52:54:00:00:08:08     ARP      42     192.168.8.109 is at 52:54:00:00:08:09
+  
+- arp-cache:
+  
+  192.168.8.108 dev enp8s0 lladdr 52:54:00:00:08:08 REACHABLE
+  </screen>
+  <screen>vm9:~ ping -c 1 192.168.9.108: reply (regular)</screen>
+<screen>Regular pinging of an IP on a directly connected network (network route) and using
+a lookup of the destination IP via routing table causing to select the enp9s0
+interface and the preferred source from the route (src 192.168.9.109):</screen>
+<para>Output:</para>
+<screen> PING 192.168.9.108 (192.168.9.108) 56(84) bytes of data.
+  64 bytes from 192.168.9.108: icmp_seq=1 ttl=64 time=0.488 ms
+
+  --- 192.168.9.108 ping statistics ---
+  1 packets transmitted, 1 received, 0% packet loss, time 0ms
+  rtt min/avg/max/mdev = 0.488/0.488/0.488/0.000 ms
+  
+- capture:
+  
+  No.     Time           Source                Destination           Protocol Length Info
+        1 0.000000000    52:54:00:00:09:09     Broadcast             ARP      42     Who has 192.168.9.108? Tell 192.168.9.109
+        2 0.000212864    52:54:00:00:09:08     52:54:00:00:09:09     ARP      42     192.168.9.108 is at 52:54:00:00:09:08
+        3 0.000302044    192.168.9.109         192.168.9.108         ICMP     98     Echo (ping) request  id=0x0009, seq=1/256, ttl=64 (reply in 4)
+        4 0.000364673    192.168.9.108         192.168.9.109         ICMP     98     Echo (ping) reply    id=0x0009, seq=1/256, ttl=64 (request in 3)
+        5 5.157113256    52:54:00:00:09:08     52:54:00:00:09:09     ARP      42     Who has 192.168.9.109? Tell 192.168.9.108
+        6 5.157392878    52:54:00:00:09:09     52:54:00:00:09:08     ARP      42     192.168.9.109 is at 52:54:00:00:09:09
+  
+- arp-cache:
+  
+  192.168.9.108 dev enp9s0 lladdr 52:54:00:00:09:08 REACHABLE
+  
+</screen>
+<screen>vm9:~ # ping -I enp9s0 -c 1 192.168.8.108: reply (enforced)</screen>
+<para>Pinging an IP address while <emphasis>binding</emphasis> the ping to 
+the specified <literal>enp9s0</literal> interface is done instead of looking up 
+the destination in the routing table. In other words, it ignores the routing table.</para>
+<para>This causes the machine to resolve the MAC address of the machine 
+having the IP address via ARP on the <literal>enp9s0</literal> interface and to
+use the primary IP address (<literal>192.168.9.109</literal>) as the source.
+</para>
+<para>The destination machine answers with the MAC address of <literal>enp8s0</literal> 
+on <literal>enp9s0</literal>, causing an additional MAC and IP ARP association in caches, 
+and sends the ICMP echo reply using the same interface as in the request.</para>
+<para>Output:</para>
+<screen> PING 192.168.8.108 (192.168.8.108) from 192.168.9.109 enp9s0: 56(84) bytes of data.
+    64 bytes from 192.168.8.108: icmp_seq=1 ttl=64 time=0.895 ms
+
+    --- 192.168.8.108 ping statistics ---
+    1 packets transmitted, 1 received, 0% packet loss, time 0ms
+    rtt min/avg/max/mdev = 0.895/0.895/0.895/0.000 ms
+    
+  - capture (net9):
+    
+    No.     Time           Source                Destination           Protocol Length Info
+         13 2139.146557619 52:54:00:00:09:09     Broadcast             ARP      42     Who has 192.168.8.108? Tell 192.168.9.109
+         14 2139.146934545 52:54:00:00:09:08     52:54:00:00:09:09     ARP      42     192.168.8.108 is at 52:54:00:00:09:08
+         15 2139.146993788 192.168.9.109         192.168.8.108         ICMP     98     Echo (ping) request  id=0x0015, seq=1/256, ttl=64 (reply in 16)
+         16 2139.147062178 192.168.8.108         192.168.9.109         ICMP     98     Echo (ping) reply    id=0x0015, seq=1/256, ttl=64 (request in 15)
+         17 2144.347165844 52:54:00:00:09:08     52:54:00:00:09:09     ARP      42     Who has 192.168.9.109? Tell 192.168.9.108
+         18 2144.347432020 52:54:00:00:09:09     52:54:00:00:09:08     ARP      42     192.168.9.109 is at 52:54:00:00:09:09
+    
+  - arp-cache:
+    (when used ping with/without interface binding multiple times)
+    
+    192.168.8.108 dev enp9s0 lladdr 52:54:00:00:09:08 REACHABLE 
+    192.168.8.108 dev enp8s0 lladdr 52:54:00:00:08:08 REACHABLE
+    </screen>
+<screen>vm9:~ ping -I enp8s0 -c 1 192.168.9.108: reply (enforced)</screen>
+<para>Same as <literal>vm9:~ # ping -I enp9s0 -c 1 192.168.8.108 (#vm9--ping--i-enp9s0--c-1-1921688108-reply)</literal>.</para>
+<para>just binding the <literal>enp8s0</literal> interface to ping IP on <literal>enp9s0</literal>.</para>
+<screen>vm9:~ ping -I enp7s0 -c 1 192.168.9.108: error (regular)</screen>
+  <para>Pinging an IP address bound/enforced to the specified <literal>enp7s0</literal>
+   interface is done instead of looking up the destination in the routing table. In
+   other words, it ignores the routing table.</para>
+  <para>Similar to <literal>vm7:~ # ping -c 1 192.168.8.108 (#vm7--ping--c-1-1921688108-error)</literal>,
+failing <emphasis>regardless</emphasis> of the interface binding because the router on the <literal>enp7s0</literal>
+interface does not have routing to the 192.168.9.0/24 network and routes the
+packet to the uplink.</para>
+  <para>Output (incl. unreachable error):</para>
+  <screen>PING 192.168.9.108 (192.168.9.108) from 192.168.7.109 enp7s0: 56(84) bytes of data.
+  From 192.168.1.1 icmp_seq=1 Destination Host Unreachable
+
+  --- 192.168.9.108 ping statistics ---
+  1 packets transmitted, 0 received, +1 errors, 100% packet loss, time 0ms
+  
+- capture (net7):
+  
+  No.     Time           Source                Destination           Protocol Length Info
+       35 468.566259392  192.168.7.109         192.168.9.108         ICMP     98     Echo (ping) request  id=0x000c, seq=1/256, ttl=64 (no response found!)
+       36 471.671403634  192.168.1.1           192.168.7.109         ICMP     126    Destination unreachable (Host unreachable)
+  
+- arp-cache: no entry (on enp7s0)</screen>
+<screen>vm9:~ # ping -I enp7s0 -c 1 192.168.8.108: error (regular)</screen>
+<para>Same as <literal>vm9:~ # ping -I enp7s0 -c 1 192.168.9.108 (#vm9--ping--i-enp7s0--c-1-1921689108-error)</literal>.</para>
+</step>
+</procedure>
+</topic>

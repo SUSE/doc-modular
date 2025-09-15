@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="ai-monitoring-gpu"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Monitoring GPU usage</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        To effectively monitor the performance and utilization of your GPUs,
+        configure the &otelemetry; Collector to scrape metrics from the &nvidia;
+        DCGM Exporter, which is deployed as part of the &nvoperator;.
+      </para>
+    </abstract>
+  </info>
+  <procedure xml:id="ai-monitoring-gpu-metrics">
+    <title>Collect GPU metrics (recommended)</title>
+    <step>
+      <para>
+        <emphasis role="bold">Grant permissions (RBAC).</emphasis> The
+        &otelemetry; Collector requires specific permissions to discover the GPU
+        metrics endpoint within the cluster.
+      </para>
+      <para>
+        Create a file named <filename>otel-rbac.yaml</filename> with the
+        following content. It defines a <literal>Role</literal> with permissions
+        to get services and endpoints, and a <literal>RoleBinding</literal> to
+        grant these permissions to the &otelemetry; Collector's service account.
+      </para>
+<screen>---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: suse-observability-otel-scraper
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - endpoints
+    verbs:
+      - list
+      - watch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: suse-observability-otel-scraper
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: suse-observability-otel-scraper
+subjects:
+  - kind: ServiceAccount
+    name: <replaceable>OPENTELEMETRY-COLLECTOR</replaceable>
+    namespace: <replaceable>OBSERVABILITY</replaceable>
+---</screen>
+      <important>
+        <para>
+          Verify that the <literal>ServiceAccount</literal> name and namespace
+          in the <literal>RoleBinding</literal> match your &otelemetry;
+          Collector's deployment.
+        </para>
+      </important>
+    </step>
+    <step>
+      <para>
+        Apply this configuration to the <literal>gpu-operator</literal>
+        namespace.
+      </para>
+<screen>&prompt.user;<command>kubectl apply -n gpu-operator -f otel-rbac.yaml</command></screen>
+    </step>
+    <step>
+      <para>
+        <emphasis role="bold">Configure the &otelemetry; Collector.</emphasis>
+        Add the following Prometheus receiver configuration to your &otelemetry;
+        Collector's values file. This tells the collector to scrape metrics from
+        any endpoint in the <literal>gpu-operator</literal> namespace every 10
+        seconds.
+      </para>
+<screen>config:
+  receivers:
+    prometheus:
+      config:
+        scrape_configs:
+          - job_name: 'gpu-metrics'
+            scrape_interval: 10s
+            scheme: http
+            kubernetes_sd_configs:
+              - role: endpoints
+                namespaces:
+                  names:
+                    - gpu-operator</screen>
+    </step>
+  </procedure>
+</topic>
