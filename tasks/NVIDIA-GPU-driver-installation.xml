@@ -6,7 +6,7 @@
   <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
     %entities;
 ]>
-<topic xml:id="nvidia-gpu-driver-installation-on-sl-micro"
+<topic xml:id="nvidia-gpu-driver-installation"
  role="task" xml:lang="en"
  xmlns="http://docbook.org/ns/docbook" version="5.2"
  xmlns:its="http://www.w3.org/2005/11/its"
@@ -17,20 +17,6 @@
     <title>Installing &nvidia; GPU drivers on &productname;</title>
     <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
   </info>
-  <section xml:id="nvidia-gpu-introduction">
-    <title>Introduction</title>
-    <para>
-      This guide demonstrates how to implement host-level &nvidia; GPU support
-      via the open-driver on &productname; &productnumber;. The open-driver is
-      part of the core &productname; package repositories. Therefore, there is
-      no need to compile it or download executable packages. This driver is
-      built into the operating system rather than dynamically loaded by the
-      &nvidia; GPU Operator. This configuration is desirable for customers that
-      want to pre-build all artifacts required for deployment into the image,
-      and where the dynamic selection of the driver version via &kube; is not a
-      requirement.
-    </para>
-  </section>
   <section xml:id="nvidia-gpu-requirements">
     <title>Requirements</title>
     <para>
@@ -102,46 +88,25 @@
     <procedure>
       <step condition="deployment_airgap">
         <para>
-          On the <emphasis>remote</emphasis> host, download the following
-          packages and transfer them safely to the <emphasis>local</emphasis>
-          GPU-enabled host.
+          On the <emphasis>remote</emphasis> host, run the script
+          <command>SUSE-AI-mirror-nvidia.sh</command> from the Air-gap stack
+          (see <xref linkend="ai-air-gap-stack"/>) to download all required
+          &nvidia; RPM packages to a local directory, for example:
         </para>
-        <itemizedlist>
-          <para>
-            From the
-            <link xlink:href="https://developer.download.nvidia.com/compute/cuda/repos/sles15/x86_64/"/>
-            repository:
-          </para>
-          <listitem>
-            <para>
-              <package>nvidia-open-driver-G06-signed-cuda-kmp-default</package>
-            </para>
-          </listitem>
-          <listitem>
-            <para>
-              <package>nvidia-compute-utils-G06</package>
-            </para>
-          </listitem>
-        </itemizedlist>
-        <itemizedlist>
-          <para>
-            From the
-            <link xlink:href="https://nvidia.github.io/libnvidia-container/stable/rpm/"/>
-            repository:
-          </para>
-          <listitem>
-            <para>
-              <package>nvidia-container-toolkit</package>
-            </para>
-          </listitem>
-        </itemizedlist>
+<screen>&prompt.user;<command>SUSE-AI-mirror-nvidia.sh \
+  https://developer.download.nvidia.com/compute/cuda/repos/sles15/x86_64/ \
+  <replaceable>/LOCAL_MIRROR_DIRECTORY</replaceable></command></screen>
+        <para>
+          After the download is complete, transfer the downloaded directory with
+          all its content to each GPU-enabled <emphasis>local</emphasis> host.
+        </para>
       </step>
       <step os="slmicro_ai">
         <para>
-          On each <emphasis>local</emphasis> GPU-enabled host, open up a
-          &tr-up-shell; session to create a new read/write snapshot of the
-          underlying operating system so that we can make changes to the
-          immutable platform.
+          On each <emphasis condition="deployment_airgap">local
+          </emphasis>GPU-enabled host, open up a &tr-up-shell; session to create
+          a new read/write snapshot of the underlying operating system so that
+          we can make changes to the immutable platform.
         </para>
 <screen>&prompt.root;&tr-up-shell;</screen>
       </step>
@@ -156,6 +121,20 @@
   cuda-sle15</command>
 &prompt.tr-up;<command>zypper --gpg-auto-import-keys refresh</command></screen>
       </step>
+      <step condition="deployment_airgap">
+        <para>
+          On each GPU-enabled <emphasis condition="deployment_airgap">local
+          </emphasis>host<phrase condition="deployment_airgap"> in its
+          &tr-up-shell; session</phrase>, add a package repository from the
+          safely transfered &nvidia; RPM packages directory. This allows pulling
+          in additional utilities, for example, <literal>nvidia-smi</literal>.
+        </para>
+<screen><phrase os="slmicro_ai">&prompt.tr-up;</phrase><phrase
+os="sles_ai">&prompt.root;</phrase><command>zypper ar --no-gpgcheck \
+file://<replaceable>LOCAL_MIRROR_DIRECTORY</replaceable> \
+nvidia-local-mirror</command>
+&prompt.tr-up;<command>zypper --gpg-auto-import-keys refresh</command></screen>
+      </step>
       <step os="sles_ai" condition="deployment_standard">
         <para>
           Add a package repository from &nvidia;. This allows pulling in
@@ -166,7 +145,7 @@
   cuda-sle15</command>
 &prompt.root;<command>zypper --gpg-auto-import-keys refresh</command></screen>
       </step>
-      <step os="slmicro_ai" condition="deployment_standard">
+      <step os="slmicro_ai">
         <para>
           Install the Open Kernel driver KMP and detect the driver version.
         </para>
@@ -176,15 +155,7 @@
   nvidia-open-driver-G06-signed-cuda-kmp-default \
   | cut -d "_" -f1 | sort -u | tail -n 1)</command></screen>
       </step>
-      <step os="slmicro_ai" condition="deployment_airgap">
-        <para>
-          Install the <literal>nvidia-*-</literal> packages that you have
-          downloaded and transferred to the <emphasis>local</emphasis> host.
-        </para>
-<screen>&prompt.tr-up;<command>rpm -i nvidia-*.rpm</command>
-          </screen>
-      </step>
-      <step os="sles_ai" condition="deployment_standard">
+      <step os="sles_ai">
         <para>
           Install the Open Kernel driver KMP and detect the driver version.
         </para>
@@ -192,14 +163,6 @@
   nv-prefer-signed-open-driver</command>
 &prompt.root;<command>version=$(rpm -qa --queryformat '%{VERSION}\n' \
   nv-prefer-signed-open-driver | cut -d "_" -f1 | sort -u | tail -n 1)</command></screen>
-      </step>
-      <step condition="deployment_airgap">
-        <para>
-          Install the <literal>nvidia-*-</literal> packages that you have
-          downloaded and transferred to the <emphasis>local</emphasis> host.
-        </para>
-<screen os="slmicro_ai">&prompt.tr-up;<command>rpm -i nvidia-*.rpm</command></screen>
-<screen os="sles_ai">&prompt.root;<command>rpm -i nvidia-*.rpm</command></screen>
       </step>
       <step>
         <para>
