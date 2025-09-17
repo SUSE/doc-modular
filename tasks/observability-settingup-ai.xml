@@ -242,8 +242,17 @@
           <emphasis role="bold">Install &sobservability;.</emphasis> You can
           follow the official
           <link
-          xlink:href="https://documentation.suse.com/cloudnative/suse-observability/latest/en/setup/install-stackstate/kubernetes_openshift/kubernetes_install.html">&sobservability;
-          documentation</link> for installation instructions.
+          xlink:href="https://documentation.suse.com/cloudnative/suse-observability/latest/en/classic.html"
+          condition="deployment_standard">
+          &sobservability; installation documentation</link>
+          <link
+          xlink:href="https://documentation.suse.com/cloudnative/suse-observability/latest/en/k8s-suse-rancher-prime-air-gapped.html"
+          condition="deployment_airgap">&sobservability;
+          air-gapped installation documentation</link> for all installation
+          instructions. Remember to
+          <link xlink:href="https://documentation.suse.com/cloudnative/suse-observability/latest/en/setup/install-stackstate/kubernetes_openshift/ingress.html">expose
+          your APIs</link> and collector endpoints to your &productname;
+          cluster.
         </para>
         <important>
           <title>Multi-cluster setup</title>
@@ -313,12 +322,13 @@
           </varlistentry>
         </variablelist>
         <para>
-          Create the genai_values.yaml<filename></filename> file with the
+          Create the <filename>genai_values.yaml</filename> file with the
           following content:
         </para>
 <screen>global:
   imagePullSecrets:
   - application-collection <co xml:id="co-obs-appco"/>
+  <phrase condition="deployment_airgap">imageRegistry: <replaceable>LOCAL_DOCKER_REGISTRY_URL</replaceable>:5043</phrase>
 serverUrl: <replaceable>SUSE_OBSERVABILITY_API_URL</replaceable>
 apiKey: <replaceable>SUSE_OBSERVABILITY_API_KEY</replaceable>
 tokenType: <replaceable>SUSE_OBSERVABILITY_API_TOKEN_TYPE</replaceable>
@@ -339,9 +349,13 @@ clusterName: <replaceable>OBSERVED_SERVER_NAME</replaceable>
         <para>
           Run the install command.
         </para>
-<screen>&prompt.user;<command>helm upgrade --install ai-obs \
+<screen condition="deployment_standard">&prompt.user;<command>helm upgrade --install ai-obs \
   oci://dp.apps.rancher.io/charts/suse-ai-observability-extension \
   -f genai_values.yaml --namespace so-extensions --create-namespace</command></screen>
+<screen condition="deployment_airgap">&prompt.user;<command>helm upgrade --install ai-obs \
+  charts/suse-ai-observability-extension-<replaceable>X.Y.Z</replaceable>.tgz \
+  -f genai_values.yaml --namespace so-extensions --create-namespace</command></screen>
+        <remark>TODO AI: maybe explain the local package ^^^ naming?</remark>
         <note>
           <title>Self-signed certificates not supported</title>
           <para>
@@ -474,6 +488,7 @@ kubectl create secret generic open-telemetry-collector \
 <screen>global:
   imagePullSecrets:
   - application-collection
+<phrase condition="deployment_airgap">repository: <replaceable>LOCAL_DOCKER_REGISTRY_URL</replaceable>:5043/opentelemetry-collector-k8s</phrase>
 extraEnvsFrom:
   - secretRef:
       name: open-telemetry-collector
