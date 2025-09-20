@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="ansible-role-journald"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title><literal>journald</literal></title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+      The role is designed to provide a structured and reusable way to manage the configuration of the <literal>systemd-journald</literal> logging service on target systems.
+     </para>
+    </abstract>
+  </info>
+    <section xml:id="journald-role-variables">
+      <title> <literal>journald</literal> role variables</title>
+      <para>The role provides a set of variables, which serve as its public API, allowing system administrators to configure fundamental <literal>systemd-journald</literal> settings.
+      </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+<literal>journald_persistent</literal>: Is a boolean used to set the  <literal>storage</literal> option in the <literal>systemd-journald</literal> configuration.
+When set to <literal>true</literal>, it makes journald store logs persistently in  <filename>/var/log/journal</filename>, ensuring they are retained across system reboots.
+When set to <literal>false</literal>, it defaults to the auto storage behavior, which stores logs persistently only if the directory already exists.
+        </para>
+      </listitem>
+      </itemizedlist>
+      <para>The following settings apply to both <literal>persistent</literal> and <literal>volatile</literal> modes unless otherwise indicated.</para>
+      <itemizedlist>
+      <listitem>
+        <para>
+     <literal>journald_max_disk_size</literal>: Variable is used to configure the maximum amount of disk space that <literal>journald</literal> can use for log storage.
+     The role does not set an implicit value, so the default sizing calculation defined in <literal>man 5 journald.conf</literal> is used.
+    </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>journald_max_files</literal>: Is an integer that controls the maximum number of journal files retained, while still adhering to the disk size limit.
+          The variable does not set an implicit value, so the default number of files is determined by <literal>systemd-journald</literal> configuration.
+          </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>journald_max_file_size</literal>: Is an integer that specifies the maximum size, in megabytes, of a single journal file.
+          The variable does not set an implicit value, so the default size is governed by <literal>systemd-journald</literal> configuration.
+          </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>journald_per_user</literal>: Is a boolean that controls whether <literal>systemd-journald</literal> maintains separate log files for each user on the system.
+The default is <literal>true</literal>, creates and manages individual journal files for each user. This allows unprivileged users to read and access log entries for their own services and applications without needing root permissions to view system-wide logs.
+When set to <literal>false</literal> false, all log data is collected into the main system journal. Users would need root access to view any log entries.
+Per user journal files are available only when <literal>journald_persistent: true</literal>.
+</para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>journald_compression</literal>: Is a boolean that tells <literal>journald</literal> to apply compression to log data objects larger than the default 512 bytes.
+          This helps reduce the disk space consumed by log files. The default value is <literal>true</literal>.</para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>journald_sync_interval</literal>: Is an integer that sets the time, in minutes, after which <literal>journald</literal> synchronizes the active journal file to disk.
+ This setting only applies when <literal>journald_persistent</literal> is <literal>true</literal>, otherwise a warning is issued.
+          </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>journald_forward_to_syslog</literal>: Is a boolean that controls whether <literal>journald</literal> sends log messages to a traditional syslog daemon.
+          The default value is <literal>false</literal>.
+          </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>journald_rate_limit_interval_sec</literal>: Is an integer that sets the time interval, in seconds, during which <literal>journald</literal> accepts only a burst of messages up to the limit defined by <literal>journald_rate_limit_burst</literal> .
+          This helps prevent a flood of log messages from a single source.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>journald_rate_limit_burst</literal>: Is an integer that sets the maximum number of log messages <literal>journald</literal> accept from a single service within the time interval defined by <literal>journald_rate_limit_interval_seconds</literal>.
+        </para>
+      </listitem>
+       </itemizedlist>
+       <example><title>A <literal>journald</literal> playbook example </title>
+        <para>This example configures persistent logging and sets a maximum disk size.
+        </para>
+      <screen>
+      - name: Configure systemd-journald for persistent logging
+        hosts: all
+        become: true
+        tasks:
+          - name: Include the journald role
+            ansible.builtin.include_role:
+              name: linux-system-roles.journald
+            vars:
+              journald_storage: persistent
+              journald_max_disk_size: 5G</screen>
+             </example>
+       </section>
+    </topic>
