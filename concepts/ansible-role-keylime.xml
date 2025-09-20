@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="ansible-role-keylime"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>keylime_server</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+      This role automates the installation and configuration of the &keylime; attestation server on a managed host.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    The <literal>keylime_server</literal> role simplifies the setup of the Keylime server components, which include:</para>
+<itemizedlist>
+ <listitem>
+  <para><emphasis>Verifier:</emphasis> The core component that verifies the trustworthiness of remote systems (agents).</para>
+ </listitem>
+ <listitem>
+  <para><emphasis>Registrar:</emphasis>Manages the enrollment and registration of agents.</para>
+ </listitem>
+ <listitem>
+  <para><emphasis>Tenant:</emphasis>A utility for managing the attestation process and provisioning secrets to trusted agents.</para>
+ </listitem>
+</itemizedlist>
+<section xml:id="keylime-role-variables">
+<title><literal>keylime_server</literal>role variables</title>
+ <para>The variables that can be used in the role include: </para>
+ <table xml:id="keylime-table">
+  <title><literal>keylime_server</literal>role variables</title>
+  <tgroup cols="3">
+  <colspec colname="c1"/>
+  <colspec colname="c2"/>
+  <colspec colname="c3"/>
+
+  <thead>
+  <row>
+  <entry>Variable</entry>
+  <entry>Description</entry>
+  <entry>Default</entry>
+   </row>
+  </thead>
+  <tbody>
+  <row>
+  <entry><literal>keylime_server_verifier_ip</literal></entry>
+  <entry>The IP address of the verifier.</entry>
+  <entry>127.0.0.1</entry>
+  </row>
+  <row>
+    <entry><literal>keylime_server_verifier_port</literal></entry>
+    <entry>The port of the verifier.</entry>
+    <entry>8881</entry>
+    </row>
+    <row>
+<entry><literal>keylime_server_verifier_database_url</literal></entry>
+<entry>The URL connection for the verifier database. If set to <literal>sqlite</literal>,
+it uses the configuration set by the file located at <filename>/var/lib/keylime/cv_data.sqlite</filename>.</entry>
+<entry><literal>sqlite</literal>/ empty string (legacy Keylime)</entry>
+</row>
+<row>
+<entry><literal>keylime_server_verifier_tls_dir</literal></entry>
+<entry><literal>generate</literal></entry>
+<entry>This option defines the directory where the keys and certificates are stored. If set to <literal>generate</literal>, it automatically
+  generate a CA, keys and certificates for the client and server in the <filename>/var/lib/keylime/cv_ca</filename> directory, if they are not yet present.
+ If set as default, the <filename>/var/lib/keylime/cv_ca</filename> directory is used</entry>
+</row>
+<row>
+  <entry><literal>keylime_server_verifier_server_key_passphrase</literal></entry>
+  <entry>Defines the passphrase for the verifier's private TLS key. This passphrase is required to decrypt the key and start the Keylime Verifier service.
+    If the role is configured to generate the TLS certificate and key  <literal>ime_server_verifier_tls_dir: generate</literal>, this password is also used to encrypt the newly created private key.
+    If this variable is left empty, the private key file will not be password-protected.
+  </entry>
+    </row>
+    <row>
+      <entry><literal>keylime_server_verifier_server_cert</literal></entry>
+      <entry>Specifies the filename for the Keylime verifier's server certificate.
+        This file must be located in the directory defined by <literal>keylime_server_verifier_tls_dir</literal>.
+        If the value is set to <literal>default</literal>, the filename <literal>server-cert.crt</literal> is used.</entry>
+      <entry>Default</entry>
+      </row>
+      <row>
+        <entry><literal>keylime_server_verifier_trusted_client_ca</literal></entry>
+        <entry>is a list of trusted client CA certificate filenames. These files must be located in the directory specified by keylime_server_verifier_tls_dir.
+          If the value is set to <literal>default</literal>, the list defaults to <literal>cacert.crt</literal>.</entry>
+        <entry>Default</entry>
+        </row>
+        <row>
+          <entry><literal>keylime_server_verifier_client_key</literal></entry>
+          <entry>Specifies the file name for the Keylime verifier's private key. This key is used for the verifier to securely connect to other services via TLS,
+            and the file must be located in the directory defined by the <literal> keylime_server_verifier_tls_dir</literal>option.</entry>
+          <entry>Default</entry>
+          </row>
+          <row>
+            <entry><literal>keylime_server_verifier_client_key_passphrase</literal></entry>
+            <entry>If the  <literal>keylime_server_verifier_tls_dir</literal> is set to <literal>generate</literal>, the <literal>keylime_server_verifier_client_key_passphrase</literal> is used to encrypt the newly created client private key.
+              If this variable is left empty, the key is not  protected.</entry>
+            <entry>Default</entry>
+            </row>
+</tbody>
+</tgroup>
+</table>
+<example>
+  <title>A <literal>keylime_server</literal>playbook example</title>
+  <para>An example of an Ansible playbook that uses the <literal>keylime_server</literal>role to
+    install and configure the Keylime verifier on a host:</para>
+<screen>
+- name: Install and configure Keylime Server
+  hosts: your_keylime_server
+  become: yes
+  roles:
+    - keylime_server
+
+  vars:
+    # Set the Keylime server role variables
+    keylime_server_verifier_ip: "192.168.1.100"  # Replace with your server's public IP
+    keylime_server_registrar_ip: "{{ keylime_server_verifier_ip }}"
+    keylime_server_registrar_tls_dir: "/etc/keylime/registrar_tls"
+    keylime_server_verifier_tls_dir: "/etc/keylime/verifier_tls"
+    keylime_server_tenant_cert_dir: "/etc/keylime/tenant_cert"</screen>
+</example>
+</section>
+         </topic>
