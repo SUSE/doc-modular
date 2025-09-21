@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="ansible-role-aide"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>&aide;</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+  This role automates the installation, configuration, and management of the Advanced Intrusion Detection Environment (AIDE) on remote servers using Ansible.
+  It streamlines the process of setting up a critical security tool, ensuring consistency across your infrastructure.
+     </para>
+    </abstract>
+  </info>
+  <para>With this role, you can automate a complex and vital security task, ensuring your servers are continuously monitored for unauthorized file changes with minimal manual effort.
+    </para>
+    <section xml:id="aide-role-variables">
+      <title> &aide; role variables</title>
+      <para>These variables are a set of customizable parameters used to control the behavior of the AIDE setup.
+      </para>
+      <table xml:id="aide-sub-table">
+        <title><literal>&aide; variables</literal></title>
+        <tgroup cols="3">
+        <colspec colname="c1"/>
+        <colspec colname="c2"/>
+        <colspec colname="c3"/>
+         <thead>
+        <row>
+        <entry>Variable</entry>
+        <entry>Description</entry>
+        <entry>Type</entry>
+        <entry>Default</entry>
+        </row>
+        </thead>
+        <tbody>
+        <row>
+        <entry><literal>aide_config_template</literal></entry>
+        <entry>Specifies the path to the  <literal>Jinja2</literal> template for the <literal>aide.conf</literal> file.</entry>
+        <entry><literal>string</literal></entry>
+        <entry><literal>Null</literal></entry>
+        </row>
+       <row>
+      <entry><literal>aide_db_fetch_dir</literal></entry>
+      <entry> Defines the directory on the control node where the AIDE database will be securely stored after being retrieved from the managed host.</entry>
+        <entry><literal>string</literal></entry>
+        <entry><literal>files</literal></entry>
+      </row>
+      <row>
+        <entry><literal>aide_init</literal></entry>
+        <entry>Initializes the AIDE database.</entry>
+          <entry><literal>bool</literal></entry>
+          <entry><literal>false</literal></entry>
+        </row>
+        <row>
+          <entry><literal>aide_fetch_db</literal></entry>
+          <entry>Fetches the database from the remote nodes to store it on the control node.</entry>
+            <entry><literal>bool</literal></entry>
+            <entry><literal>false</literal></entry>
+          </row>
+          <row>
+            <entry><literal>aide_check</literal></entry>
+            <entry>Runs an integrity check on the remote nodes.</entry>
+              <entry><literal>bool</literal></entry>
+              <entry><literal>false</literal></entry>
+            </row>
+            <row>
+              <entry><literal>aide_update</literal></entry>
+              <entry>Updates the AIDE database and stores it on the controller node.</entry>
+                <entry><literal>bool</literal></entry>
+                <entry><literal>false</literal></entry>
+              </row>
+              <row>
+                <entry><literal>aide_cron_check</literal></entry>
+                <entry>If set to <literal>true</literal>, configures periodic cron check for &aide;.
+                  If set to <literal>false</literal>, removes the periodic cron check.</entry>
+                  <entry><literal>bool</literal></entry>
+                  <entry><literal>null</literal></entry>
+                </row>
+                <row>
+                  <entry><literal>aide_cron_interval</literal></entry>
+                  <entry>Set check interval for cron.</entry>
+                    <entry><literal>string</literal></entry>
+                    <entry><literal>0 12 * * *</literal></entry>
+                  </row>
+      </tbody>
+      </tgroup>
+      </table>
+
+       <example><title>An &aide; playbook example </title>
+        <para>This playbook installs and configures AIDE and then initializes its database on a target server.
+          It also fetches the new database and store it securely on your local machine.
+        </para>
+      <screen>
+- name: Deploy and initialize AIDE
+  hosts: your_servers
+  become: true
+  vars:
+    # Path to your custom AIDE configuration file template
+    aide_conf_template: files/my_custom_aide.conf.j2
+
+    # Path where AIDE will store its database on the remote server
+    aide_db_path: /var/lib/aide/aide.db.gz
+
+    # Path on your Ansible control node to store the secure backup
+    aide_db_remote_path: "{{ playbook_dir }}/aide_backups/{{ inventory_hostname }}.db.gz"
+
+  tasks:
+    - name: Run the AIDE role to set up the system and create a baseline database
+      ansible.builtin.include_role:
+        name: aide_role
+      vars:
+        aide_action: init # This variable tells the role to initialize the database
+
+    - name: Securely fetch the initial AIDE database
+      ansible.builtin.fetch:
+        src: "{{ aide_db_path }}"
+        dest: "{{ aide_db_remote_path }}"
+        flat: true
+              </screen>
+          <itemizedlist>
+            <listitem>
+              <para><literal>name</literal>: A descriptive name for the playbook.</para></listitem>
+              <listitem>
+                <para><literal>hosts</literal>: Specifies the target hosts from your Ansible inventory.
+                  In this case, <literal>all</literal> means it runs on every host.</para></listitem>
+                <listitem>
+                  <para><literal>become</literal>: This is equivalent to using &sudo;.
+                    It grants the playbook &rootuser; privileges to install packages and manage services.</para></listitem>
+              <listitem> <para><literal>roles</literal>: This is where you call the <literal>ssh_role</literal>you created.</para></listitem>
+                  </itemizedlist>
+                 </example>
+       </section>
+    </topic>
