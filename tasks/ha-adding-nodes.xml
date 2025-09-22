@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/article_installation.xml
+     and https://github.com/SUSE/doc-sleha/blob/main/xml/ha_bootstrap_install.xml -->
+
+<topic xml:id="ha-adding-nodes"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Adding nodes with <command>crm cluster join</command></title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Add more nodes to the cluster with the <command>crm cluster join</command> script.
+        The script only needs access to an existing cluster node and completes the basic
+        setup on the current machine automatically. For more information, run the
+        <command>crm cluster join --help</command> command.
+      </para>
+    </abstract>
+  </info>
+  <itemizedlist>
+    <title>Requirements</title>
+    <listitem>
+      <para>
+        &sleha; is installed and up to date.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        An existing cluster is already running on at least one node.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        All nodes have at least two network interfaces or a network bond, with static IP addresses
+        listed in the <filename>/etc/hosts</filename> file along with each node's FQDN and short
+        host name.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <emphasis>If you log in as a <command>sudo</command> user:</emphasis> The same user must
+        exist on all nodes<phrase condition="twonode"> and the &qnet; server</phrase>. This user
+        must have passwordless <command>sudo</command> permission.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <emphasis>If you log in as the &rootuser; user:</emphasis> Passwordless SSH authentication
+        must be configured on all nodes<phrase condition="twonode"> and the &qnet; server</phrase>.
+      </para>
+    </listitem>
+  </itemizedlist>
+  <para>
+    Perform this procedure on each additional node:
+  </para>
+  <procedure>
+   <step>
+    <para>
+     Log in to this node as the same user you set up the first node with.
+    </para>
+   </step>
+   <step>
+    <para>
+     Start the <command>crm cluster join</command> script:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          If you set up the first node as &rootuser;, you can start the script with no additional
+          parameters:
+        </para>
+<screen>&prompt.root;<command>crm cluster join</command></screen>
+      </listitem>
+      <listitem>
+        <para>
+          If you set up the first node as a <command>sudo</command> user, you must specify that user with
+     the <option>-c</option> option:
+        </para>
+<screen>&prompt.user;<command>sudo crm cluster join -c <replaceable>USER@NODE1</replaceable></command></screen>
+      </listitem>
+    </itemizedlist>
+    <para>
+      The script checks if &chrony; is running, opens the required firewall ports, and
+      configures &csync;.
+    </para>
+   </step>
+   <step>
+    <para>
+      If you did not already specify the first node with <option>-c</option>, you are prompted for
+      its IP address or host name.
+    </para>
+   </step>
+   <step>
+    <para>
+      If you did not already configure passwordless SSH authentication between the nodes, you are
+      prompted for the <phrase condition="twonode">password of the first node.</phrase>
+      <phrase condition="threenode">passwords of each of the existing nodes.</phrase>
+    </para>
+   </step>
+   <step>
+     <para>
+       Configure &corosync; for cluster communication:
+     </para>
+     <substeps>
+       <step>
+         <para>
+           The script proposes an IP address for <literal>ring0</literal>. This IP address
+           must be on the same subnet as the IP address used for <literal>ring0</literal> on
+           the first node. If it is not, enter the correct IP address.
+         </para>
+       </step>
+       <step>
+         <para>
+           If the cluster has two &corosync; communication channels configured, the script prompts
+           you for an IP address for <literal>ring1</literal>. This IP address must be on the same
+           subnet as the IP address used for <literal>ring1</literal> on the first node.
+         </para>
+       </step>
+     </substeps>
+   </step>
+  </procedure>
+  <para>
+    The script copies the cluster configuration from the first node, adjusts the timeout settings to
+    consider the new node, and brings the new node online.
+    </para>
+  <para>
+    You can check the status of the cluster with the <command>crm status</command> command.
+  </para>
+  <important>
+    <title>Secure password for <systemitem>hacluster</systemitem></title>
+    <para>
+      The <command>crm cluster join</command> script creates a default cluster user and password.
+      On each node, replace the default password with a secure one as soon as possible:
+    </para>
+<screen>&prompt.user;<command>sudo passwd hacluster</command></screen>
+  </important>
+</topic>

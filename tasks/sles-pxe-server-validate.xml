@@ -1,0 +1,627 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refer to README.md for file and id naming conventions -->
+<topic xml:id="sles-pxe-server-validate"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Validating PXE server setup</title>
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        This section describes how to validate and test the complete PXE server setup to ensure all
+        components are working correctly for &productname; &productnumber; network installations.
+        It covers service verification, network connectivity testing, and end-to-end PXE boot
+        validation.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="sles-pxe-server-validate-intro">
+    <title>Introduction</title>
+    <para>
+      After configuring all PXE server components, including TFTP, HTTP, DNS, DHCP, and &grub;
+      bootloader services, it is essential to validate that the complete system functions
+      correctly. This validation ensures that PXE clients can successfully boot into the &agama;
+      installer and perform network-based installations of &productname; &productnumber;.
+    </para>
+  </section>
+  <section xml:id="sles-pxe-server-validate-reqs">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          All PXE server components configured and running
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Test client systems capable of PXE booting
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Network connectivity between the PXE server and clients
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Administrative access to monitor server services
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="sles-pxe-server-validate-services">
+    <title>Validating PXE server services</title>
+    <para>
+      Verify that all essential PXE server services are running and properly configured before
+      testing with PXE clients.
+    </para>
+    <procedure xml:id="proc-validate-services">
+      <title>Checking PXE server service status</title>
+      <step>
+        <para>
+          Verify TFTP service status:
+        </para>
+<screen>&prompt.user;<command>systemctl status tftp.socket</command></screen>
+        <para>
+          Expected result: Service should be active and listening on port 69.
+        </para>
+      </step>
+      <step>
+        <para>
+          Check nginx HTTP service:
+        </para>
+<screen>&prompt.user;<command>systemctl status nginx</command></screen>
+        <para>
+          Expected result: Service should be active and listening on port 80.
+        </para>
+      </step>
+      <step>
+        <para>
+          Verify DNS service (if using dnsmasq):
+        </para>
+<screen>&prompt.user;<command>systemctl status dnsmasq</command></screen>
+        <para>
+          Expected result: Service should be active and listening on port 53.
+        </para>
+      </step>
+      <step>
+        <para>
+          Check DHCP service status (choose appropriate service):
+        </para>
+<screen>&prompt.user;<command>systemctl status dhcpd</command></screen>
+        <para>
+          For dnsmasq DHCP:
+        </para>
+<screen>&prompt.user;<command>systemctl status dnsmasq</command></screen>
+        <para>
+          For Kea DHCP:
+        </para>
+<screen>&prompt.user;<command>systemctl status kea-dhcp4 kea-dhcp6</command></screen>
+        <para>
+          Expected result: DHCP service should be active and listening on appropriate ports.
+        </para>
+      </step>
+      <step>
+        <para>
+          Verify IPv6 router advertisement (if configured):
+        </para>
+<screen>&prompt.user;<command>systemctl status radvd</command></screen>
+        <para>
+          Expected result: Service should be active for IPv6 environments.
+        </para>
+      </step>
+      <step>
+        <para>
+          Check NTP service:
+        </para>
+<screen>&prompt.user;<command>systemctl status chronyd</command></screen>
+        <para>
+          Expected result: Service should be active and synchronized.
+        </para>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sles-pxe-server-validate-network">
+    <title>Testing network connectivity and file access</title>
+    <para>
+      Validate that PXE clients can access boot files and installation content over the network
+      using both TFTP and HTTP protocols.
+    </para>
+    <procedure xml:id="proc-validate-network">
+      <title>Testing network file access</title>
+      <step>
+        <para>
+          Test TFTP access to bootloader files:
+        </para>
+<screen>&prompt.user;<command>tftp localhost -c get /boot/grub2/x86_64-efi/bootx64.efi /tmp/test-bootx64.efi</command></screen>
+        <para>
+          Verify the file was retrieved:
+        </para>
+<screen>&prompt.user;<command>file /tmp/test-bootx64.efi</command></screen>
+        <para>
+          Clean up test file:
+        </para>
+<screen>&prompt.user;<command>rm /tmp/test-bootx64.efi</command></screen>
+      </step>
+      <step>
+        <para>
+          Test HTTP access to &grub; configuration:
+        </para>
+<screen>&prompt.user;<command>curl -I http://localhost/boot/grub2/grub.cfg</command></screen>
+        <para>
+          Expected result: HTTP 200 OK response.
+        </para>
+      </step>
+      <step>
+        <para>
+          Verify HTTP access to installer files:
+        </para>
+<screen>&prompt.user;<command>curl -I http://localhost/boot/images/SLES-16.0/x86_64/liveiso/LiveOS/squashfs.img</command></screen>
+        <para>
+          Expected result: HTTP 200 OK response with appropriate content length.
+        </para>
+      </step>
+      <step>
+        <para>
+          Test DNS resolution (if local DNS configured):
+        </para>
+<screen>&prompt.user;<command>nslookup pxe.example.net localhost</command></screen>
+        <para>
+          Expected result: Proper A and AAAA record resolution.
+        </para>
+      </step>
+      <step>
+        <para>
+          Verify directory browsing for autoindex locations:
+        </para>
+<screen>&prompt.user;<command>curl http://localhost/boot/</command></screen>
+        <para>
+          Expected result: Directory listing showing boot files.
+        </para>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sles-pxe-server-validate-dhcp">
+    <title>Validating DHCP functionality</title>
+    <para>
+      Test DHCP server responses and verify that proper boot information is provided to different
+      client types.
+    </para>
+    <procedure xml:id="proc-validate-dhcp">
+      <title>Testing DHCP server responses</title>
+      <step>
+        <para>
+          Check DHCP port binding:
+        </para>
+<screen>&prompt.user;<command>ss -ulnp | grep -E ":67|:547"</command></screen>
+        <para>
+          Expected result: DHCP services listening on ports 67 (IPv4) and 547 (IPv6).
+        </para>
+      </step>
+      <step>
+        <para>
+          Monitor DHCP requests in real-time:
+        </para>
+<screen>&prompt.user;<command>journalctl -u dhcpd -f</command></screen>
+        <para>
+          Or for dnsmasq:
+        </para>
+<screen>&prompt.user;<command>journalctl -u dnsmasq -f</command></screen>
+        <para>
+          Leave this running to observe DHCP activity during testing.
+        </para>
+      </step>
+      <step>
+        <para>
+          Test DHCP response using dhcping (if available):
+        </para>
+<screen>&prompt.user;<command>dhcping -s 192.168.1.200</command></screen>
+        <para>
+          Expected result: Successful DHCP response from server.
+        </para>
+      </step>
+      <step>
+        <para>
+          Check active DHCP leases:
+        </para>
+<screen>&prompt.user;<command>cat /var/lib/dhcp/dhcpd.leases</command></screen>
+        <para>
+          Or for Kea:
+        </para>
+<screen>&prompt.user;<command>cat /var/lib/kea/dhcp4.leases</command></screen>
+        <para>
+          Expected result: Lease entries for test clients.
+        </para>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sles-pxe-server-validate-pxe-boot">
+    <title>End-to-end PXE boot testing</title>
+    <para>
+      Perform complete PXE boot tests with actual client systems to validate the entire boot
+      process from DHCP to &agama; installer startup.
+    </para>
+    <procedure xml:id="proc-validate-pxe-boot">
+      <title>Testing complete PXE boot process</title>
+      <step>
+        <para>
+          Prepare a test client system:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              Configure BIOS/UEFI to enable network boot
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Set network boot as first boot priority
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Connect the client to the same network as PXE server
+            </para>
+          </listitem>
+        </itemizedlist>
+      </step>
+      <step>
+        <para>
+          Monitor PXE server logs during client boot:
+        </para>
+<screen>&prompt.user;<command>journalctl -f | grep -E "dhcp|tftp|nginx"</command></screen>
+      </step>
+      <step>
+        <para>
+          Boot the test client and observe the following sequence:
+        </para>
+        <orderedlist>
+          <listitem>
+            <para>
+              Client should receive IP address via DHCP
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Client should download bootloader via TFTP
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              &grub; menu should appear with installation options
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Kernel and initrd should load via HTTP
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              &agama; installer should start successfully
+            </para>
+          </listitem>
+        </orderedlist>
+      </step>
+      <step>
+        <para>
+          Verify client architecture detection by testing different client types:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              Legacy BIOS x86_64 systems (should get core.0)
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              UEFI x86_64 systems (should get bootx64.efi)
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              UEFI aarch64 systems (should get bootaa64.efi)
+            </para>
+          </listitem>
+        </itemizedlist>
+      </step>
+      <step>
+        <para>
+          Test IPv6 PXE boot (if IPv6 configured):
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              Enable IPv6-only network configuration on test client
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Verify DHCPv6 address assignment
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Confirm IPv6 bootfile-url delivery
+            </para>
+          </listitem>
+        </itemizedlist>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sles-pxe-server-validate-installation">
+    <title>Validating &agama; installer functionality</title>
+    <para>
+      Verify that the &agama; installer starts correctly and can access installation sources for
+      completing &productname; &productnumber; installations.
+    </para>
+    <procedure xml:id="proc-validate-agama">
+      <title>Testing &agama; installer startup</title>
+      <step>
+        <para>
+          Verify &agama; Web interface accessibility:
+        </para>
+        <para>
+          During client boot, note the IP address assigned and access:
+        </para>
+<screen>http://<replaceable>CLIENT_IP_ADDRESS</replaceable></screen>
+        <para>
+          Expected result: &agama; Web interface should load successfully.
+        </para>
+      </step>
+      <step>
+        <para>
+          Check &agama; installer logs on the client:
+        </para>
+        <para>
+          Switch to the console (Alt+F2) and run:
+        </para>
+<screen>&prompt.root;<command>journalctl -u agama-web-server -f</command></screen>
+        <para>
+          Expected result: No critical errors in &agama; startup.
+        </para>
+      </step>
+      <step>
+        <para>
+          Verify installation source accessibility:
+        </para>
+        <para>
+          For Full ISO installations, check repository access:
+        </para>
+<screen>&prompt.root;<command>curl -I http://192.168.1.200/install/SLES-16.0/x86_64/</command></screen>
+        <para>
+          Expected result: HTTP 200 OK response with directory listing.
+        </para>
+      </step>
+      <step>
+        <para>
+          Test package installation capability:
+        </para>
+        <para>
+          In &agama; interface, verify that:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              The system can detect available disks
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Network configuration is preserved
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Package repository is accessible
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Installation can proceed to completion
+            </para>
+          </listitem>
+        </itemizedlist>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sles-pxe-server-validate-troubleshooting">
+    <title>Troubleshooting validation failures</title>
+    <para>
+      Common issues during PXE server validation and their resolution steps.
+    </para>
+    <section xml:id="sles-pxe-server-validate-troubleshoot-dhcp">
+      <title>DHCP assignment failures</title>
+      <para>
+        Clients fail to receive IP addresses during PXE boot.
+      </para>
+      <procedure xml:id="proc-troubleshoot-dhcp-validation">
+        <title>Resolving DHCP validation issues</title>
+        <step>
+          <para>
+            Check DHCP service conflicts:
+          </para>
+<screen>&prompt.user;<command>ss -ulnp | grep :67</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify network interface is up:
+          </para>
+<screen>&prompt.user;<command>ip addr show eno1</command></screen>
+        </step>
+        <step>
+          <para>
+            Check DHCP range availability:
+          </para>
+<screen>&prompt.user;<command>nmap -sn 192.168.1.100-199</command></screen>
+        </step>
+        <step>
+          <para>
+            Monitor DHCP logs for errors:
+          </para>
+<screen>&prompt.user;<command>journalctl -u dhcpd | tail -50</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-validate-troubleshoot-boot">
+      <title>Boot file delivery failures</title>
+      <para>
+        Clients receive IP addresses but fail to download boot files.
+      </para>
+      <procedure xml:id="proc-troubleshoot-boot-validation">
+        <title>Resolving boot file issues</title>
+        <step>
+          <para>
+            Verify TFTP service accessibility:
+          </para>
+<screen>&prompt.user;<command>tftp 192.168.1.200 -c get /boot/grub2/x86_64-efi/bootx64.efi</command></screen>
+        </step>
+        <step>
+          <para>
+            Check file permissions:
+          </para>
+<screen>&prompt.user;<command>ls -la /srv/tftpboot/boot/grub2/x86_64-efi/</command></screen>
+        </step>
+        <step>
+          <para>
+            Monitor TFTP access logs:
+          </para>
+<screen>&prompt.user;<command>journalctl -u tftp.socket -f</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify client architecture detection:
+          </para>
+<screen>&prompt.user;<command>grep -E "PXEClient|HTTPClient" /var/log/messages</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-validate-troubleshoot-installer">
+      <title>&agama; installer startup failures</title>
+      <para>
+        Boot files load successfully but &agama; installer fails to start.
+      </para>
+      <procedure xml:id="proc-troubleshoot-installer-validation">
+        <title>Resolving &agama; startup issues</title>
+        <step>
+          <para>
+            Check HTTP access to installer files:
+          </para>
+<screen>&prompt.user;<command>curl -I http://192.168.1.200/boot/images/SLES-16.0/x86_64/liveiso/LiveOS/squashfs.img</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify kernel parameter syntax in &grub; configuration:
+          </para>
+<screen>&prompt.user;<command>grep "root=live:" /srv/tftpboot/boot/grub2/menu.cfg</command></screen>
+        </step>
+        <step>
+          <para>
+            Monitor client boot process:
+          </para>
+<screen>&prompt.user;<command>journalctl -f | grep -E "kernel|initrd|agama"</command></screen>
+        </step>
+        <step>
+          <para>
+            Check network configuration persistence:
+          </para>
+<screen>&prompt.root;<command>ip addr show</command></screen>
+        </step>
+      </procedure>
+    </section>
+  </section>
+  <section xml:id="sles-pxe-server-validate-checklist">
+    <title>PXE server validation checklist</title>
+    <para>
+      Use this checklist to systematically verify all aspects of your PXE server configuration.
+    </para>
+    <table xml:id="table-pxe-validation-checklist">
+      <title>PXE Server Validation Checklist</title>
+      <tgroup cols="3">
+        <colspec colnum="1" colname="col1" colwidth="30*"/>
+        <colspec colnum="2" colname="col2" colwidth="50*"/>
+        <colspec colnum="3" colname="col3" colwidth="20*"/>
+        <thead>
+          <row>
+            <entry>Component</entry>
+            <entry>Validation Step</entry>
+            <entry>Status</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry>TFTP Service</entry>
+            <entry>Service active, port 69 listening, files accessible</entry>
+            <entry>☐</entry>
+          </row>
+          <row>
+            <entry>HTTP Service</entry>
+            <entry>nginx active, port 80 listening, installer files accessible</entry>
+            <entry>☐</entry>
+          </row>
+          <row>
+            <entry>DNS Service</entry>
+            <entry>Host name resolution working, port 53 listening</entry>
+            <entry>☐</entry>
+          </row>
+          <row>
+            <entry>DHCP Service</entry>
+            <entry>IP assignment working, boot options delivered</entry>
+            <entry>☐</entry>
+          </row>
+          <row>
+            <entry>&grub; Configuration</entry>
+            <entry>Menu loads, architecture detection working</entry>
+            <entry>☐</entry>
+          </row>
+          <row>
+            <entry>IPv6 Support</entry>
+            <entry>Router advertisement active, DHCPv6 functioning</entry>
+            <entry>☐</entry>
+          </row>
+          <row>
+            <entry>PXE Boot</entry>
+            <entry>Client boots successfully, receives correct bootloader</entry>
+            <entry>☐</entry>
+          </row>
+          <row>
+            <entry>&agama; Installer</entry>
+            <entry>Installer starts; Web interface accessible</entry>
+            <entry>☐</entry>
+          </row>
+          <row>
+            <entry>Installation Source</entry>
+            <entry>Repository accessible, packages installable</entry>
+            <entry>☐</entry>
+          </row>
+          <row>
+            <entry>Network Persistence</entry>
+            <entry>Network configuration maintained during installation</entry>
+            <entry>☐</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+  </section>
+  <section xml:id="sles-pxe-server-validate-conclusion">
+    <title>Validation conclusion</title>
+    <para>
+      A properly validated PXE server should demonstrate successful end-to-end functionality from
+      client network boot through &agama; installer startup. All services should operate without
+      errors, and clients should be able to complete &productname; &productnumber; installations
+      over the network. Regular validation testing ensures the continued reliability of the PXE
+      infrastructure for automated deployments.
+    </para>
+  </section>
+</topic>

@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refer to README.md for file and id naming conventions -->
+<topic xml:id="sles-pxe-server-install-components"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Installing the required PXE server components</title>
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        This section explains how to install the necessary packages to support PXE booting in
+        &productname; &productnumber;, including &grub;, DHCP, TFTP and/or HTTP components.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="sles-pxe-server-install-components-intro">
+    <title>Introduction</title>
+    <para>
+      To configure a PXE boot server on &productname; &productnumber;, you need to install several
+      services and tools. Depending on your setup, you may need the following:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          The <package>dnsmasq</package> package provides a combination of a DNS server, a TFTP server
+          and a DHCP server (DHCPv4 and DHCPv6) with limited IPv6 router advertisement (RA)
+          support. It offers the following:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              dnsmasq DHCP server: Supports conditional delivery of DHCP options depending on request
+              and client architecture for:
+            </para>
+            <itemizedlist>
+              <listitem>
+                <para>
+                  PXE boot requests using DHCPv4 and DHCPv6
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  HTTP boot requests using DHCPv4
+                </para>
+                <note>
+                  <title>Limitations of dnsmasq for HTTP boot over DHCPv6</title>
+                  <para>
+                    Currently, dnsmasq does not support sending the required <literal>vendor-class</literal>
+                    DHCPv6 option.
+                  </para>
+                </note>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+          <listitem>
+            <para>
+              dnsmasq TFTP server: Delivers bootloader files, kernel and initrd over TFTP
+              during PXE boot.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              dnsmasq DNS server: Provides recursive resolution of domain names and IP addresses
+              for client firmware and <filename>/etc/resolv.conf</filename> in the Installer/OS.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              dnsmasq IPv6 RA: Supports sending IPv6 RA when the PXE server is also acting as a router
+              (configurability limited to a <quote>common RA pattern</quote>).
+            </para>
+          </listitem>
+        </itemizedlist>
+      </listitem>
+      <listitem>
+        <para>
+          The <package>kea</package> package is a DHCP server and a successor of the ISC DHCP server.
+          It supports conditional delivery of DHCP options depending on request and client architecture for:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              PXE boot requests using DHCPv4 and DHCPv6
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              HTTP boot requests using DHCPv4
+            </para>
+            <note>
+              <title>Limitations of &kea; for HTTP Boot over DHCPv6</title>
+              <para>
+                Currently, &kea; does not support sending the required <literal>vendor-class</literal>
+                DHCPv6 option. For more information, see
+                <link xlink:href="https://kea.readthedocs.io/en/latest/arm/dhcp6-srv.html#id4"></link>.
+              </para>
+            </note>
+          </listitem>
+        </itemizedlist>
+      </listitem>
+      <listitem>
+        <para>
+          A TFTP server delivers the bootloader files, kernel and initrd over TFTP, while PXE boot
+          with kea is provided by the <package>tftp</package> package and not required for HTTP Boot.
+          If you are using <package>dnsmasq</package>, you do not need the <package>tftp</package>
+          package.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          A Web server such as the <package>nginx</package> package to serve installer images over
+          HTTP.
+        </para>
+        <note>
+          <title>Necessity for HTTP servers</title>
+          <para>
+            An HTTP/HTTPS server like nginx is almost always required. Its use extends beyond just HTTP Boot.
+            In particular, you may need it in the following scenarios:
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                It is a basic requirement for HTTP Boot.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                It is recommended for providing the <filename>squashfs.img</filename>. You can use
+                <literal>root=live:tftp://.../squashfs.img</literal> in the boot command line.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                It is also recommended for providing RPMs to &agama; in the
+                <literal>inst.install_url=http://.../install/</literal> boot command-line parameter
+                on a <filename>SLES-16.0-Full-*.inline.iso</filename>, along with installation
+                profiles and other files for unattended installation.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </note>
+      </listitem>
+      <listitem>
+        <para>
+          The &grub; bootloader packages provide network boot for supported architectures and
+          methods. For example, the &x86-64; architecture offers two methods for network boot:
+          BIOS and UEFI. Additionally, UEFI generally supports PXE (TFTP) and HTTP Boot. Other
+          bootloaders, such as pxelinux, do not support UEFI and HTTP Boot.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Optionally, a router advertisement daemon for IPv6, such as the <package>radvd</package>
+          package. It is required on &productnameshort; if it is also acting as a router for an
+          installer network to perform the following:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              Configure routing on a network for PXE or HTTP Boot clients.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Enable DHCPv6 use on a network for PXE or HTTP Boot clients.
+            </para>
+          </listitem>
+        </itemizedlist>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="sles-pxe-server-install-components-reqs">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          A system running &productname; &productnumber; with administrative privileges, registered
+          to the SUSE Customer Center and configured with access to the appropriate online
+          repositories using SUSEConnect.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Enabled SLE modules: Server Applications Module, Legacy Module and Base System Module.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Access to the SLE module repositories for network services and bootloaders.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          A working internet connection to fetch packages.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="sles-pxe-server-install-components-exec">
+    <title>Installing the packages</title>
+    <para>
+      Use the following steps to install the core packages required for the PXE boot server.
+    </para>
+    <procedure>
+      <title>Installing necessary packages for a PXE boot server</title>
+      <step>
+        <para>
+          Install the &grub; boot loader and the nginx HTTP server as common requirements.
+        </para>
+<screen>&prompt.sudo;<command>zypper install grub2 nginx</command></screen>
+      </step>
+      <step>
+        <para>
+          Run any of the following commands to install the essential packages for your approach:
+        </para>
+        <stepalternatives>
+          <step>
+            <para>
+              <package>kea</package> for the DHCP server, <package>tftp</package> for the TFTP
+              server
+            </para>
+<screen>&prompt.sudo;<command>zypper install kea tftp</command></screen>
+          </step>
+          <step>
+            <para>
+              <package>dnsmasq</package> as the common provider for DHCP, DNS, and TFTP servers
+            </para>
+<screen>&prompt.sudo;<command>zypper install dnsmasq</command></screen>
+          </step>
+        </stepalternatives>
+        <note>
+          <title>Limitations of DHCP servers provided by &kea; and dnsmasq</title>
+          <para>
+            HTTP boot over IPv6 is <emphasis>currently</emphasis> not supported by DHCP servers
+            provided by the <package>kea</package> and <package>dnsmasq</package> packages. It 
+            does not support sending a <literal>vendor-class</literal> option back to the
+            HTTP client, as required by the UEFI specification.
+          </para>
+        </note>
+      </step>
+      <step>
+        <para>
+          Optionally, install additional architecture-specific &grub; targets if you plan to
+          support other platforms.
+        </para>
+        <stepalternatives>
+          <step>
+            <para>
+              For &x86-64; architecture:
+            </para>
+<screen>&prompt.sudo;<command>zypper install grub2-x86_64-efi grub2-i386-pc</command></screen>
+          </step>
+          <step>
+            <para>
+              For &aarch64; architecture:
+            </para>
+<screen>&prompt.sudo;<command>zypper install grub2-aarch64-efi</command></screen>
+          </step>
+          <step>
+            <para>
+              For &ppc64le; architecture:
+            </para>
+<screen>&prompt.sudo;<command>zypper install grub2-ppc64le-ieee1275</command></screen>
+          </step>
+        </stepalternatives>
+        <note>
+          <title>How the PXE server delivers &grub; packages to clients that are different from the server machine's architecture</title>
+          <para>
+            The &grub; architecture-specific <package>noarch.rpm</package> packages are included in
+            the <filename>noarch</filename> subdirectory of the installation media/repository,
+            regardless of the architecture of the machine on which the PXE server is set up. That
+            is, you can install <package>grub2-arm64-efi</package> and
+            <package>grub2-powerpc-ieee1275</package> packages in a PXE server running on an
+            &x86-64; machine, in order to support clients with other architectures.
+          </para>
+        </note>
+      </step>
+      <step>
+        <para>
+          Optionally, you may install the <package>shim</package> package if you need UEFI Secure
+          Boot for &x86-64; or &aarch64;, but do not want to use the files from the installation media ISO.
+        </para>
+<screen>&prompt.sudo;<command>zypper install shim</command></screen>
+      </step>
+      <step>
+        <para>
+          Optionally, install the router advertisement daemon <package>radvd</package> if you want
+          to use the PXE server as a router (not recommended for production networks).
+        </para>
+<screen>&prompt.sudo;<command>zypper install radvd</command></screen>
+      </step>
+      <step>
+        <para>
+          Install the <package>rsync</package> utility to conveniently copy or sync the ISO and
+          directory tree.
+        </para>
+<screen>&prompt.sudo;<command>zypper install rsync</command></screen>
+      </step>
+      <step>
+        <para>
+          Ensure the services are installed but not yet started. Configuration will be covered in
+          later sections.
+        </para>
+      </step>
+    </procedure>
+  </section>
+</topic>

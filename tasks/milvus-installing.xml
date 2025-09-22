@@ -36,13 +36,13 @@
 <screen>helm show values oci://dp.apps.rancher.io/charts/milvus</screen>
     <para>
       Alternatively, you can also refer to the &milvus; &helm; chart page on the
-      &rancherappco; site at
+      &sappco; site at
       <link xlink:href="https://apps.rancher.io/applications/milvus"/>. It
       contains &milvus; dependencies, available versions and the link to pull
       the &milvus; container image.
     </para>
     <figure xml:id="milvus-info-appco">
-      <title>&milvus; page in the &rancherappco;</title>
+      <title>&milvus; page in the &sappco;</title>
       <mediaobject>
         <imageobject role="fo">
           <imagedata fileref="rancher-appco-milvus.png" width="75%"/>
@@ -50,7 +50,7 @@
         <imageobject role="html">
           <imagedata fileref="rancher-appco-milvus.png" width="75%"/>
         </imageobject>
-        <textobject role="description"><phrase >&milvus; page in the &rancherappco;</phrase>
+        <textobject role="description"><phrase >&milvus; page in the &sappco;</phrase>
         </textobject>
       </mediaobject>
     </figure>
@@ -58,57 +58,7 @@
   <section xml:id="milvus-installing-procedure">
     <title>&milvus; installation procedure</title>
     <procedure>
-      <itemizedlist>
-        <title>Requirements</title>
-        <para>
-          To install &milvus;, you need to have the following:
-        </para>
-        <listitem>
-          <para>
-            The <command>helm</command> command properly installed.
-          </para>
-        </listitem>
-        <listitem>
-          <para>
-            A running &kube; cluster, such as &k3s;.
-          </para>
-        </listitem>
-      </itemizedlist>
-      <step>
-        <para>
-          Visit the &rancherappco;, sign in and get the user access token as
-          described in
-          <link
-        xlink:href="https://docs.apps.rancher.io/get-started/authentication/"/>.
-        </para>
-      </step>
-      <step performance="optional">
-        <para>
-          Create a &kube; namespace if it does not already exist. The steps in
-          this procedure assume that all containers are deployed into the same
-          namespace referred to as <replaceable>SUSE_AI_NAMESPACE</replaceable>.
-          Replace its name to match your preferences.
-        </para>
-<screen>&prompt.user;<command>kubectl create namespace <replaceable>SUSE_AI_NAMESPACE</replaceable></command></screen>
-      </step>
-      <step>
-        <para>
-          Create the &rancherappco; secret.
-        </para>
-<screen>&prompt.user;<command>kubectl create secret docker-registry application-collection \
-  --docker-server=dp.apps.rancher.io \
-  --docker-username=<replaceable>APPCO_USERNAME</replaceable> \
-  --docker-password=<replaceable>APPCO_USER_TOKEN</replaceable> \
-  -n <replaceable>SUSE_AI_NAMESPACE</replaceable></command></screen>
-      </step>
-      <step>
-        <para>
-          Log in to the &helm; registry.
-        </para>
-<screen>&prompt.user;<command>helm registry login dp.apps.rancher.io/charts \
-  -u <replaceable>APPCO_USERNAME</replaceable> \
-  -p <replaceable>APPCO_USER_TOKEN</replaceable></command></screen>
-      </step>
+      <xi:include href="../snippets/ai-library-requirement.xml"/>
       <step>
         <para>
           When installed as part of &productname;, &milvus; depends on &etcd;,
@@ -133,18 +83,18 @@ cluster:
 standalone:
   persistence:
     persistentVolumeClaim:
-      storageClass: local-path
+      storageClassName: "local-path"
 etcd:
   replicaCount: 1
   persistence:
-    storageClassName: local-path
+    storageClassName: "local-path"
 minio:
   mode: distributed
   replicas: 4
   rootUser: "admin"
   rootPassword: "adminminio"
   persistence:
-    storageClass: local-path
+    storageClass: "local-path"
   resources:
     requests:
       memory: 1024Mi
@@ -170,7 +120,27 @@ kafka:
     resources:
       requests:
         storage: 8Gi
-    storageClassName: "local-path"</screen>
+    storageClassName: "local-path"
+extraConfigFiles:<co xml:id="co-llama-otel-extra"/>
+  user.yaml: |+
+    trace:
+      exporter: jaeger
+      sampleFraction: 1
+      jaeger:
+        url: "http://opentelemetry-collector.observability.svc.cluster.local:14268/api/traces"<co xml:id="co-milvus-otel"/></screen>
+        <calloutlist>
+          <callout arearefs="co-llama-otel-extra">
+        <para>
+          These <option>extraConfigFiles</option> section is optional, required
+          only if you want to receive telemetry data from &owui;.
+        </para>
+      </callout>
+          <callout arearefs="co-milvus-otel">
+            <para>
+              The URL of the &otelemetry; Collector installed by the user.
+            </para>
+          </callout>
+        </calloutlist>
         <tip>
           <para>
             The above example uses local storage. For production environments,
@@ -191,6 +161,64 @@ kafka:
   --version 4.2.2 -f <replaceable>milvus_custom_overrides.yaml</replaceable></command></screen>
       </step>
     </procedure>
+    <section xml:id="milvus-kafka-limitation">
+      <title>Using &akafka; with &sstorage;</title>
+      <para>
+        When &milvus; is deployed in cluster mode, it uses &akafka; as a message
+        queue. If &akafka; uses &sstorage; as a storage back-end, you need to
+        create an XFS storage class and make it available for the &akafka;
+        deployment. Otherwise deploying &akafka; with a storage class of an Ext4
+        file system fails with the following error:
+      </para>
+<screen>"Found directory /mnt/kafka/logs/lost+found, 'lost+found' is not
+  in the form of topic-partition or topic-partition.uniqueId-delete
+  (if marked for deletion)"</screen>
+      <para>
+        To introduce the XFS storage class, follow these steps:
+      </para>
+      <procedure>
+        <step>
+          <para>
+            Create a file named <filename>longhorn-xfs.yaml</filename> with the
+            following content:
+          </para>
+<screen>apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: longhorn-xfs
+provisioner: driver.longhorn.io
+allowVolumeExpansion: true
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+parameters:
+  numberOfReplicas: "3"
+  staleReplicaTimeout: "30"
+  fromBackup: ""
+  fsType: "xfs"
+  dataLocality: "disabled"
+  unmapMarkSnapChainRemoved: "ignored"</screen>
+        </step>
+        <step>
+          <para>
+            Create the new storage class using the <command>kubectl</command>
+            command.
+          </para>
+<screen>&prompt.user;<command>kubectl apply -f longhorn-xfs.yaml</command></screen>
+        </step>
+        <step>
+          <para>
+            Update the &milvus; overrides YAML file to reference the &akafka;
+            storage class, as in the following example:
+          </para>
+<screen>
+  [...]
+    kafka:
+    enabled: true
+    persistence:
+      storageClassName: longhorn-xfs</screen>
+        </step>
+      </procedure>
+    </section>
   </section>
   <section xml:id="milvus-upgrading">
     <title>Upgrading &milvus;</title>

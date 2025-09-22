@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refer to README.md for file and id naming conventions -->
+<topic xml:id="sles-pxe-server-configure-tftp"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring TFTP for PXE booting</title>
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        This section explains how to configure TFTP services to serve &grub; bootloaders and PXE
+        boot content for &productname; &productnumber; installations. It covers the traditional
+        <systemitem>in.tftpd</systemitem> server and the integrated TFTP functionality provided by
+        <systemitem>dnsmasq</systemitem>.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="sles-pxe-server-configure-tftp-intro">
+    <title>Introduction</title>
+    <para>
+      TFTP serves bootloader files to PXE clients during the network boot process. &productname;
+      &productnumber; supports two TFTP server implementations: the traditional
+      <systemitem>in.tftpd</systemitem> server from the <package>tftp</package> package, and the
+      integrated TFTP functionality within <systemitem>dnsmasq</systemitem>.
+    </para>
+  </section>
+  <section xml:id="sles-pxe-server-configure-tftp-reqs">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Either the <package>tftp</package> package or the <package>dnsmasq</package> package
+          installed
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          PXE boot files organized under <filename>/srv/tftpboot</filename>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Administrative privileges to configure services
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="sles-pxe-server-configure-tftp-intftpd">
+    <title>Configuring in.tftpd server</title>
+    <para>
+      The <systemitem>in.tftpd</systemitem> server uses the configuration file
+      <filename>/etc/sysconfig/tftp</filename> to define the TFTP root directory and server
+      options.
+    </para>
+    <procedure xml:id="proc-configure-intftpd">
+      <title>Setting up in.tftpd TFTP server</title>
+      <step>
+        <para>
+          Optionally, enable verbose logging by setting TFTP options:
+        </para>
+<screen>&prompt.sudo;<command>sed -i 's/^TFTP_OPTIONS=.*/TFTP_OPTIONS="-v"/' /etc/sysconfig/tftp</command></screen>
+        <para>
+          The <option>-v</option> option enables verbose logging to see the file names fetched via
+          TFTP.
+        </para>
+      </step>
+      <step>
+        <para>
+          Enable and start the TFTP service:
+        </para>
+<screen>&prompt.sudo;<command>systemctl enable --now tftp.service</command></screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sles-pxe-server-configure-tftp-dnsmasq">
+    <title>Configuring dnsmasq TFTP server</title>
+    <para>
+      <systemitem>dnsmasq</systemitem> provides a built-in TFTP server that can be enabled and
+      configured to use the <filename>/srv/tftpboot</filename> directory.
+    </para>
+    <procedure xml:id="proc-configure-dnsmasq-tftp">
+      <title>Setting up dnsmasq TFTP functionality</title>
+      <step>
+        <para>
+          Create the TFTP configuration file:
+        </para>
+<screen>&prompt.sudo;<command>cat &gt; /etc/dnsmasq.d/tftp.conf &lt;&lt; 'EOF'</command>
+enable-tftp
+tftp-root=/srv/tftpboot
+EOF
+</screen>
+      </step>
+      <step>
+        <para>
+          Enable and start the dnsmasq service:
+        </para>
+<screen>&prompt.sudo;<command>systemctl enable --now dnsmasq</command></screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sles-pxe-server-configure-tftp-verify">
+    <title>Verifying TFTP configuration</title>
+    <para>
+      Test the TFTP server functionality to ensure it can serve files to PXE clients.
+    </para>
+    <procedure xml:id="proc-verify-tftp">
+      <title>Testing TFTP server functionality</title>
+      <step>
+        <para>
+          Create a test file:
+        </para>
+<screen>&prompt.user;<command>echo "test file" | sudo tee /srv/tftpboot/test.txt</command></screen>
+      </step>
+      <step>
+        <para>
+          Retrieve the test file via TFTP:
+        </para>
+<screen>&prompt.user;<command>tftp localhost -c get test.txt /tmp/tftp-test.txt</command></screen>
+      </step>
+      <step>
+        <para>
+          Verify the file was retrieved successfully:
+        </para>
+<screen>&prompt.user;<command>cat /tmp/tftp-test.txt</command></screen>
+      </step>
+      <step>
+        <para>
+          Clean up test files:
+        </para>
+<screen>&prompt.sudo;<command>rm /srv/tftpboot/test.txt /tmp/tftp-test.txt</command></screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sles-pxe-server-configure-tftp-troubleshooting">
+    <title>Troubleshooting TFTP configuration</title>
+    <para>
+      Common issues when configuring TFTP services for PXE boot environments.
+    </para>
+    <section xml:id="sles-pxe-server-tftp-troubleshoot-service-conflicts">
+      <title>Service conflicts on port 69</title>
+      <para>
+        Both <systemitem>in.tftpd</systemitem> and <systemitem>dnsmasq</systemitem> use UDP port 69
+        for TFTP services and cannot run simultaneously.
+      </para>
+      <procedure xml:id="proc-resolve-tftp-conflicts">
+        <title>Resolving TFTP service conflicts</title>
+        <step>
+          <para>
+            Check which services are running:
+          </para>
+<screen>&prompt.user;<command>systemctl status tftp.service dnsmasq</command></screen>
+        </step>
+        <step>
+          <para>
+            Check what is using port 69:
+          </para>
+<screen>&prompt.user;<command>ss -ulnp | grep :69</command></screen>
+        </step>
+        <step>
+          <para>
+            Stop the conflicting service (example for dnsmasq):
+          </para>
+<screen>&prompt.sudo;<command>systemctl stop dnsmasq</command></screen>
+        </step>
+        <step>
+          <para>
+            Start your preferred TFTP service:
+          </para>
+<screen>&prompt.sudo;<command>systemctl start tftp.service</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-tftp-troubleshoot-directory">
+      <title>TFTP directory issues</title>
+      <para>
+        Problems accessing the TFTP root directory can prevent file serving.
+      </para>
+      <procedure xml:id="proc-debug-tftp-directory">
+        <title>Verifying TFTP directory configuration</title>
+        <step>
+          <para>
+            Verify the TFTP directory setting for in.tftpd:
+          </para>
+<screen>&prompt.user;<command>grep TFTP_DIRECTORY /etc/sysconfig/tftp</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify the TFTP directory setting for dnsmasq:
+          </para>
+<screen>&prompt.user;<command>grep tftp-root /etc/dnsmasq.d/tftp.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Check if the directory exists:
+          </para>
+<screen>&prompt.user;<command>ls -la /srv/tftpboot/</command></screen>
+        </step>
+        <step>
+          <para>
+            Create the directory if missing:
+          </para>
+<screen>&prompt.sudo;<command>mkdir -p /srv/tftpboot</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-tftp-troubleshoot-verbose">
+      <title>Enabling TFTP logging</title>
+      <para>
+        Verbose logging helps identify file access issues with TFTP transfers.
+      </para>
+      <procedure xml:id="proc-enable-tftp-verbose">
+        <title>Enabling verbose TFTP logging</title>
+        <step>
+          <para>
+            Check the current TFTP options:
+          </para>
+<screen>&prompt.user;<command>grep TFTP_OPTIONS /etc/sysconfig/tftp</command></screen>
+        </step>
+        <step>
+          <para>
+            Enable verbose logging:
+          </para>
+<screen>&prompt.sudo;<command>sed -i 's/^TFTP_OPTIONS=.*/TFTP_OPTIONS="-v"/' /etc/sysconfig/tftp</command></screen>
+        </step>
+        <step>
+          <para>
+            Restart the TFTP service:
+          </para>
+<screen>&prompt.sudo;<command>systemctl restart tftp.service</command></screen>
+        </step>
+        <step>
+          <para>
+            Monitor TFTP logs:
+          </para>
+<screen>&prompt.user;<command>journalctl -u tftp.service -f</command></screen>
+        </step>
+      </procedure>
+    </section>
+  </section>
+  <section xml:id="sles-pxe-server-configure-tftp-next-steps">
+    <title>Next steps</title>
+    <para>
+      With TFTP configured, you can proceed to configure HTTP services for serving installer files
+      and DHCP services for directing PXE clients to the appropriate bootloaders.
+    </para>
+  </section>
+</topic>

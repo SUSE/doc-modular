@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/article_installation.xml
+     and https://github.com/SUSE/doc-sleha/blob/main/xml/ha_bootstrap_install.xml -->
+
+<topic xml:id="ha-initializing-cluster"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Initializing the cluster with <command>crm cluster init</command></title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Configure the cluster on the first node with the <command>crm cluster init</command>
+        script. The script prompts you for basic information about the cluster and configures
+        the required settings and services. For more information, run the
+        <command>crm cluster init --help</command> command.
+      </para>
+    </abstract>
+  </info>
+  <itemizedlist>
+    <title>Requirements</title>
+    <listitem>
+      <para>
+        &sleha; is installed and up to date.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        All nodes have at least two network interfaces or a network bond, with static IP addresses
+        listed in the <filename>/etc/hosts</filename> file along with each node's FQDN and short
+        host name.
+      </para>
+    </listitem>
+    <listitem condition="twonode">
+      <para>
+        The &qnet; server is installed. If you log in to the &qnet; server as the &rootuser; user,
+        passwordless SSH authentication must be enabled.
+      </para>
+    </listitem>
+  </itemizedlist>
+  <para>
+    Perform this procedure on only one node:
+  </para>
+  <procedure>
+    <step>
+      <para>
+        Log in to the first node either as the &rootuser; user or as a user with
+        <command>sudo</command> privileges.
+      </para>
+    </step>
+    <step>
+      <para>
+        Start the <command>crm cluster init</command> script:
+      </para>
+<screen>&prompt.user;<command>sudo crm cluster init</command></screen>
+      <para>
+        The script checks whether &chrony; is running, opens the required firewall ports, configures
+        &csync;, and checks for SSH keys. If no SSH keys are available, the script generates them.
+      </para>
+    </step>
+    <step>
+      <para>
+        Configure &corosync; for cluster communication:
+      </para>
+      <substeps>
+        <step>
+          <para>
+            Enter an IP address for the first communication channel (<literal>ring0</literal>).
+            By default, the script proposes the address of the first available network interface.
+            This could be either an individual interface or a bonded device. Accept this address
+            or enter a different one.
+          </para>
+        </step>
+        <step>
+          <para>
+            If the script detects multiple network interfaces, it asks whether you want to configure
+            a second communication channel (<literal>ring1</literal>). If you configured the first
+            channel with a bonded device, you can decline with <literal>n</literal>. If you need to
+            configure a second channel, confirm with <literal>y</literal> and enter the IP address
+            of another network interface. The two interfaces must be on different subnets.
+          </para>
+        </step>
+      </substeps>
+      <para>
+        The script configures the default firewall ports for &corosync; communication.
+      </para>
+    </step>
+    <step>
+      <para>
+        Choose whether to set up &sbd; as the node fencing mechanism:
+      </para>
+      <substeps>
+        <step>
+          <para>
+            Confirm with <literal>y</literal> that you want to use &sbd;.</para>
+        </step>
+        <step>
+          <para>
+            When prompted for a path to a block device, enter <literal>none</literal> to
+            configure diskless &sbd;.</para>
+        </step>
+      </substeps>
+      <para>
+        The script configures &sbd;, including the relevant timeout settings<!--and a &stonith;
+        cluster resource-->. Unlike disk-based &sbd;, diskless &sbd; does not require a &stonith;
+        cluster resource.
+      </para>
+      <para>
+        If no hardware watchdog is available, the script configures the software watchdog
+        <systemitem>softdog</systemitem>.
+      </para>
+    </step>
+    <step>
+      <para>
+        Configure a virtual IP address for cluster administration with the &hawk; Web interface:
+      </para>
+      <substeps>
+        <step>
+          <para>
+            Confirm with <literal>y</literal> that you want to configure a virtual IP address.
+          </para>
+        </step>
+        <step>
+          <para>
+            Enter an unused IP address to use as the administration IP for &hawk;.
+          </para>
+        </step>
+      </substeps>
+      <para>
+        Instead of logging in to &hawk; on an individual cluster node, you can connect to the
+        virtual IP address.
+      </para>
+    </step>
+    <step>
+      <para>
+        Choose whether to configure &qdevice; and &qnet;:
+      </para>
+      <para condition="threenode">
+        For the minimal setup described in this document, decline with <literal>n</literal>.
+      </para>
+      <substeps condition="twonode">
+        <step>
+          <para>
+            Confirm with <literal>y</literal> that you want to configure &qdevice; and &qnet;.
+          </para>
+        </step>
+        <step>
+          <para>
+            Enter the IP address or host name of the &qnet; server, with or without a user name.
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                If you include a non-&rootuser; user name, you are prompted for the password, and the
+                script configures passwordless SSH authentication from the node to the &qnet; server.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                If you omit a user name, the script defaults to the &rootuser; user, so passwordless
+                SSH authentication must already be configured for the node to access the &qnet; server.
+              </para>
+            </listitem>
+          </itemizedlist>
+          <para>
+            For the remaining fields, accept the default values<!--or change them as required-->:
+          </para>
+        </step>
+        <step>
+          <para>
+            Accept the proposed port (<literal>5403</literal>) or enter a different one.
+          </para>
+        </step>
+        <step>
+          <para>
+            Choose the algorithm that determines how votes are assigned. The default is
+            <literal>ffsplit</literal>.
+          </para>
+        </step>
+        <step>
+          <para>
+            Choose the method to use when a tie-breaker is required. The default is
+            <literal>lowest</literal>.
+          </para>
+        </step>
+        <step>
+          <para>
+            Choose whether to enable TLS for client certificate checking. The default is
+            <literal>on</literal> (attempt to connect with TLS, but connect without TLS
+            if it is not available).
+          </para>
+          <!--itemizedlist> IMO only needed for the full install guide, not the quick start
+            <listitem>
+              <para>
+                <literal>off</literal>: TLS is not required and should not be tried.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>on</literal>: Attempt to connect with TLS, but connect without TLS
+                if it is not available.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>required</literal>: TLS is mandatory. &qdevice; will exit with an
+                error if TLS is not available.
+              </para>
+            </listitem>
+          </itemizedlist-->
+        </step>
+        <step>
+          <para>
+            Enter heuristics commands to assist in quorum calculation, or leave the field blank to
+            skip this step.
+          </para>
+        </step>
+      </substeps>
+      <para condition="twonode">
+        The script configures &qdevice; and &qnet;, including SSH keys, the CA and server
+        certificates, and the firewall port. It also enables the required services on the
+        cluster nodes and on the &qnet; server.
+      </para>
+    </step>
+  </procedure>
+  <para>
+    The script starts the cluster services to bring the cluster online and enable &hawk;. The URL to
+    use for &hawk; is displayed on the screen. You can also check the status of the cluster with the
+    <command>crm status</command> command.
+  </para>
+  <important>
+    <title>Secure password for <systemitem>hacluster</systemitem></title>
+    <para>
+      The <command>crm cluster init</command> script creates a default cluster user and password.
+      Replace the default password with a secure one as soon as possible:
+    </para>
+<screen>&prompt.user;<command>sudo passwd hacluster</command></screen>
+  </important>
+</topic>

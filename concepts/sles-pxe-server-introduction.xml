@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refer to README.md for file and id naming conventions -->
+<topic xml:id="sles-pxe-server-introduction"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Overview of PXE booting with &productname; &productnumber;</title>
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        PXE booting enables machines to boot over the network into an installation or runtime
+        environment without local storage. This section explains how PXE works in &productname;
+        &productnumber; &agama; and live installer images with a focus on &grub;.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="sles-pxe-server-what-is">
+    <title>What is PXE booting?</title>
+    <para>
+      PXE (Preboot Execution Environment) is a method that allows systems to retrieve bootloaders
+      and OS installers from a network server using DHCP and TFTP or HTTP. It is widely used for
+      provisioning machines without physical media or preinstalled operating systems.
+    </para>
+  </section>
+  <section xml:id="sles-pxe-server-benefits">
+    <title>Benefits of PXE booting</title>
+    <para>
+      PXE booting simplifies provisioning by removing the need for local installation media or
+      manual setup. It enables:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Unattended installation of many systems over the network
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Centralized management of installer versions and boot configurations
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Support for diverse architectures and firmware types, including &uefisecboot;
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Dynamic selection of installers or installation parameters using &grub; menus
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="sles-pxe-server-how-it-works">
+    <title>How PXE booting works in &productname; &productnumber;</title>
+    <para>
+      PXE booting in &productname; &productnumber; uses &grub; as the bootloader and the &agama;
+      installer as the installation interface. Boot loaders and installer files are provided over
+      the network using HTTP or TFTP, with &grub; fetching the kernel, initrd and live image. PXE
+      clients can use a variety of firmware (including the most common ones such as BIOS or UEFI),
+      bootloader executable or image formats, as required by their architectures such as &x86-64;,
+      &aarch64;, &ppc64le; and s390x. In addition, they must work in both IPv4 and IPv6 networks.
+    </para>
+    <para>
+      The bootloader passes kernel parameters such as <literal>root=live:</literal> to load the
+      squashfs-based root file system from a live ISO image, starting the &agama; interface either
+      locally or as a Web service for a remote Web UI.
+    </para>
+    <section xml:id="sles-pxe-server-backward-compatibility-with-sle-15">
+      <title>Backward compatibility with &productnameshort; 15.x</title>
+      <para>
+        The information in this article applies primarily to &productname; 16.0 and later. It
+        focuses on PXE booting workflows that integrate with the &agama; installer and rely on live
+        installation images. In the context and scope of this article, &productnameshort; 16.0 and
+        later versions differ from &productnameshort; 15.x in the following ways:
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term>Installer</term>
+          <listitem>
+            <para>
+              Uses <literal>dracut</literal> and &agama; instead of <literal>linuxrc</literal> and
+              &yast;.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>DHCP server</term>
+          <listitem>
+            <para>
+              Use of ISC DHCP is discontinued (EOL 2022). For a DHCP server, use either &kea; or
+              dnsmasq instead.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Boot parameters</term>
+          <listitem>
+            <para>
+              Uses <literal>root=live:</literal> parameter to load the agama installer image and
+              the optional <literal>inst.install_url=</literal> for the non-default installation
+              repository, instead of the <literal>install=</literal> parameter.
+            </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+      <para>
+        The bootloader choice (&grub;, pxelinux, etc.) remains flexible and is not
+        version-dependent.
+      </para>
+    </section>
+    <section xml:id="sles-pxe-server-different-possible-setups">
+      <title>Different possible setups and steps</title>
+      <para>
+        This article consists of mandatory setup steps and optional or alternative configurations.
+        Follow only the sections relevant to your deployment and skip any alternatives that do not
+        apply to your deployment.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term>Mandatory</term>
+          <listitem>
+            <para>
+              Tasks like installing components, preparing the installer image, configuring &grub;,
+              and validating the server must be completed in all setups.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>File delivery method</term>
+          <listitem>
+            <para>
+              An HTTP server (recommended with &agama;) like <literal>nginx</literal> and/or
+              a TFTP server like <literal>tftp</literal> or <literal>dnsmasq</literal>.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>DHCP server</term>
+          <listitem>
+            <para>
+              Choose either &kea; or dnsmasq.
+            </para>
+            <note>
+              <title>Limitations and features of your chosen method</title>
+              <itemizedlist>
+                <listitem>
+                  <para>
+                    Use <emphasis role="strong">&kea;</emphasis>&mdash;the new DHCP server from
+                    ISC&mdash;as a modern replacement for ISC DHCP. For more information on &kea;,
+                    refer to <link xlink:href="https://www.isc.org/kea/"></link>. For the ISC DHCP EOL
+                    notice, see <link xlink:href="https://www.isc.org/dhcp/"></link>.
+                    
+                    &kea; is a DHCP server and requires separate TFTP server software.
+
+                    The &kea; DHCP server supports options for TFTP/PXE boot over IPv4 and IPv6
+                    as well as for HTTP boot via IPv4. The HTTP boot via IPv6 requires, that the
+                    DHCPv6 server can send the <literal>Vendor Class Option</literal> (see
+                    <literal>RFC3315, Section 22.16</literal>), supposed to be used <quote>by a client
+                    to identify the vendor,</quote> back to the client and is currently not supported.
+                  </para>
+                </listitem>
+                <listitem>
+                  <para>
+                    <emphasis role="strong">dnsmasq</emphasis> as a combination of a DNS server,
+                    a DHCP server, and a TFTP server. You can use it to serve the bootloader,
+                    kernel, initrd (and other files) over TFTP. For more information on dnsmasq,
+                    refer to <link xlink:href="https://thekelleys.org.uk/dnsmasq/doc.html"></link>.
+
+                    The dnsmasq DHCP server supports options for TFTP/PXE boot over IPv4 and IPv6
+                    as well as for HTTP boot via IPv4. The HTTP boot via IPv6 requires that the
+                    DHCPv6 server can send the <literal>Vendor Class Option</literal> (see
+                    <literal>RFC3315, Section 22.16</literal>), supposed to be used <quote>by a client
+                    to identify the vendor,</quote> back to the client and is currently not supported.
+                  </para>
+                </listitem>
+              </itemizedlist>
+            </note>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+      <figure xml:id="sles-pxe-server-setup-workflow">
+        <title>Sample PXE server setup workflow</title>
+        <mediaobject>
+          <imageobject role="html">
+            <imagedata fileref="sles-pxe-server-setup-workflow.svg"/>
+          </imageobject>
+          <imageobject role="fo">
+            <imagedata fileref="sles-pxe-server-setup-workflow.svg" width="85%"/>
+          </imageobject>
+          <textobject role="description">
+            <phrase>Workflow diagram of setting up a PXE boot server</phrase>
+          </textobject>
+        </mediaobject>
+      </figure>
+    </section>
+  </section>
+</topic>

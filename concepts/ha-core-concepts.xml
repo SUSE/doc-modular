@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_concepts.xml -->
+
+<topic xml:id="ha-core-concepts"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Core concepts</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+       This section explains the core concepts of &sleha;.
+      </para>
+    </abstract>
+  </info>
+
+  <section xml:id="ha-core-concepts-cluster-nodes">
+    <title>Clusters and nodes</title>
+    <para>
+      A <emphasis>high-availability</emphasis> cluster is a group of servers that work together to
+      ensure the availability of applications or services. Servers that are configured as members of
+      the cluster are called <emphasis>nodes</emphasis>. If one node fails, the resources running on
+      it can move to another node in the cluster. &sleha; supports clusters with up to 32 nodes.
+      However, clusters usually fall into one of two categories: two-node clusters, or clusters with
+      an odd number of nodes (typically three or five).
+    </para>
+  </section>
+
+  <section xml:id="ha-core-concepts-communication-channels">
+    <title>Communication channels</title>
+    <para>
+      Internal cluster communication is handled by <emphasis>&corosync;</emphasis>. The &corosync;
+      Cluster Engine is a group communication system that provides messaging, membership and quorum
+      information about the cluster. In &sleha; 16, &corosync; uses kronosnet (<literal>knet</literal>)
+      as the default transport protocol.
+    </para>
+    <para>
+      We highly recommend configuring at least two communication channels for the cluster. The preferred
+      method is to use network device bonding. If you cannot use a network bond, you can set up a
+      redundant communication channel in &corosync; (also known as a second <quote>ring</quote>).
+    </para>
+  </section>
+
+  <section xml:id="ha-core-concepts-resource-management">
+    <title>Resource management</title>
+    <para>
+      In a High Availability cluster, the applications and services that need to be highly available
+      are called <emphasis>resources</emphasis>. Cluster resources can include Web sites, e-mail
+      servers, databases, file systems, virtual machines and any other server-based applications or
+      services you want to make available to users at all times. You can start, stop, monitor and
+      move resources as needed. You can also specify whether specific resources should run
+      together on the same node, or start and stop in sequential order. If a cluster node fails,
+      the resources running on it <emphasis>fail over</emphasis> (move) to another node instead of
+      being lost.
+    </para>
+    <para>
+      In &sleha;, the <emphasis>cluster resource manager</emphasis> (CRM) is
+      <emphasis>&pace;</emphasis>, which manages and coordinates all cluster services. &pace; uses
+      <emphasis>resource agents</emphasis> (RAs) to start, stop and monitor resources. A resource
+      agent abstracts the resource it manages and presents its status to the cluster. &sleha;
+      supports many different resource agents that are designed to manage specific types of
+      applications or services.
+    </para>
+  </section>
+
+  <section xml:id="ha-core-concepts-node-fencing">
+    <title>Node fencing</title>
+    <para>
+      In a <emphasis>split-brain scenario</emphasis>, cluster nodes are divided into two or more
+      groups (or <emphasis>partitions</emphasis>) that do not know about each other. This might be
+      because of a hardware or software failure, or a failed network connection, for example. A
+      split-brain scenario can be resolved by <emphasis>fencing</emphasis> (resetting or powering off)
+      one or more of the nodes. Node-level fencing prevents a failed node from accessing shared
+      resources and prevents cluster resources from running on a node with an uncertain status.
+    </para>
+    <para>
+      &sleha; uses &stonith; as the node fencing mechanism. To be supported, all &sleha; clusters
+      <emphasis>must</emphasis> have at least one &stonith; device. For critical workloads, we
+      recommend using two or three &stonith; devices. A &stonith; device can be either a physical
+      device (a power switch) or a software mechanism (&sbd; in combination with a watchdog).
+    </para>
+  </section>
+
+ <section xml:id="ha-core-concepts-quorum-calculation">
+    <title>Quorum calculation</title>
+    <xi:include href="../snippets/ha-quorum.xml"/>
+    <para>
+      &corosync; calculates quorum based on the following formula:
+    </para>
+<screen>N ≥ C/2 + 1
+
+N = minimum number of operational nodes
+C = number of cluster nodes</screen>
+    <para>
+      For example, a five-node cluster needs a minimum of three operational nodes to maintain quorum.
+    </para>
+    <para>
+      Clusters with an even number of nodes, especially two-node clusters, might have equal
+      numbers of nodes in each partition and therefore no majority. To avoid this situation,
+      you can configure the cluster to use &qdevice; in combination with &qnet;. &qnet; is an
+      <emphasis>arbitrator</emphasis> running outside the cluster. It communicates with the
+      &qdevice; daemon running on the cluster nodes to provide a configurable number of votes for
+      quorum calculation. This lets a cluster sustain more node failures than the standard quorum
+      rules allow.
+    </para>
+  </section>
+
+  <section xml:id="ha-core-concepts-storage-data-replication">
+    <title>Storage and data replication</title>
+    <para>
+      &ha; clusters might include a shared disk subsystem connected via Fibre Channel or iSCSI. If
+      a node fails, another node in the cluster automatically mounts the shared disk directories
+      that were previously mounted on the failed node. This gives users continuous access to the
+      directories on the shared disk subsystem. Content stored on the shared disk might include
+      data, applications and services.
+    </para>
+    <para>
+       The following figure shows what a typical Fibre Channel cluster configuration might look like.
+       The green lines depict connections to an Ethernet power switch, which can reboot a node if a
+       ping request fails.
+    </para>
+    <figure xml:id="ha-example-shared-storage-fibre-channel">
+      <title>Typical Fibre Channel cluster configuration</title>
+      <mediaobject>
+        <imageobject role="fo">
+        <imagedata fileref="ha-example-shared-storage-fibre-channel.svg" width="100%"/>
+        </imageobject>
+        <imageobject role="html">
+        <imagedata fileref="ha-example-shared-storage-fibre-channel.svg" width="80%"/>
+        </imageobject>
+        <textobject role="description">
+          <phrase>
+            This diagram shows shared storage connected to a Fibre Channel switch. The switch is
+            then connected to six servers. Each of the six servers is also connected to a network
+            hub, which is then connected to an Ethernet power switch.
+          </phrase>
+        </textobject>
+      </mediaobject>
+    </figure>
+    <para>
+      The following figure shows what a typical iSCSI cluster configuration might look like.
+    </para>
+    <figure xml:id="ha-example-shared-storage-iscsi">
+      <title>Typical iSCSI cluster configuration</title>
+      <mediaobject>
+        <imageobject role="fo">
+        <imagedata fileref="ha-example-shared-storage-iscsi.svg" width="100%"/>
+        </imageobject>
+        <imageobject role="html">
+        <imagedata fileref="ha-example-shared-storage-iscsi.svg" width="80%"/>
+        </imageobject>
+        <textobject role="description">
+          <phrase>
+            This diagram shows shared storage connected to an Ethernet switch. The switch is
+            then connected to six servers. Each of the six servers is also connected to a network
+            hub, which is then connected to an Ethernet power switch and backed by a network backbone.
+          </phrase>
+        </textobject>
+      </mediaobject>
+    </figure>
+    <para>
+      Although most clusters include a shared disk subsystem, you can also create a cluster without
+      a shared disk subsystem. The following figure shows what a cluster without a shared disk
+      subsystem might look like.
+    </para>
+    <figure xml:id="ha-example-no-shared-storage">
+      <title>Typical cluster configuration without shared storage</title>
+      <mediaobject>
+        <imageobject role="fo">
+        <imagedata fileref="ha-example-no-shared-storage.svg" width="90%"/>
+        </imageobject>
+        <imageobject role="html">
+        <imagedata fileref="ha-example-no-shared-storage.svg" width="80%"/>
+        </imageobject>
+        <textobject role="description">
+          <phrase>
+            This diagram shows an Ethernet power switch connected to a network hub. The hub is
+            then connected to six servers.
+          </phrase>
+        </textobject>
+      </mediaobject>
+    </figure>
+  </section>
+</topic>

@@ -43,19 +43,27 @@ in the assembly -->
     </para>
   </note>
   <para>
-    &productname; encrypted images are delivered with a default LUKS passphrase. To secure your
-    system, make sure that you change it after the system is deployed. To do so, proceed as
-    described below. Perform the steps in the same shell session.
+    &productname; encrypted images are delivered with a default LUKS passphrase. On the first boot,
+    the system attempts to reencrypt the disk. If the reencryption does not take place or fails,
+    reencrypt the disk and set a new phrase or enroll a key with TPM after the deployment. If the reencryption succeeds, just
+    set a new passphrase or enroll a key with TPM. In both cases, proceed as described below. Perform the steps in the same shell session.  
+     
   </para>
   
   <procedure>
+    <step>
+      <para>
+        Remove the file <filename>/root/.root_keyfile</filename>:
+      </para>
+      <screen>&prompt.root;<command>rm /root/.root_keyfile</command></screen>
+    </step>
     <step>
       <para>
         Import the needed functions to your shell:
       </para>
       <screen>&prompt.root;source /usr/share/fde/luks</screen>
     </step>
-    <step>
+        <step>
       <para>
         Identify the underlying LUKS device and define further used variables:
       </para>
@@ -65,23 +73,56 @@ in the assembly -->
         and:
       </para>
       <screen>&prompt.root;luks_dev=$(luks_get_underlying_device "$luks_name")</screen>
+    </step>    
+    <step>
+      <para>
+        Check if the image is already reencrypted.
+      </para>
+      <substeps>
+        <step>
+      <para> Check whether the file <filename>root/.luks.header</filename> is in initramfs:</para>    
+      <screen>&prompt.root;<command>lsinitrd --file root/.luks.header</command></screen> 
+      <para>
+        If the file does not exist, the disk is not reencrypted and you can directly proceed to
+        <xref linkend="reencrypting-the-disk"/>.
+      </para>
+      </step>
+      <step>
+      <para>
+        If the file exists, compare its
+        content with the output of the following command:
+      </para>
+      <screen>&prompt.root;<command>cryptsetup luksHeaderBackup "$luks_dev" --header-backup-file current_header
+sha256sum current_header | cut -f1 -d" "; rm -f current_header</command></screen>
+<para>
+  If the output of the two commands differs, the disk has been reencrypted and you can proceed to
+  <xref linkend="setting-new-passhprase"/>. If the output is the same, proceed according to <xref linkend="reencrypting-the-disk"/>.
+</para>
     </step>
-    <step xml:id="creating-key-files">
+    </substeps>
+    </step>
+  </procedure>
+  <para>
+    The following procedure is specific to cases where reencryption on the first boot did not succeed.
+  </para>
+<procedure xml:id="reencrypting-the-disk">
+  <title>Reencrypting the disk and setting a new passphrase</title>
+  <step>
       <para>
         Create a key file that stores the default passphrase <emphasis>1234</emphasis> 
-        and a key file with the new passphrase.
+        and a key file with the new passphrase. Use a strong passphrase with at least 10 characters.
       </para>
     </step>
     <step>
       <para>
-        Change the recovery password:
+        Change the recovery password.
       </para>
-      <screen>&prompt.root;cryptsetup --key-file
-      <replaceable>PATH_TO_DEFAULT</replaceable> luksChangeKey --pbkdf pbkdf2 "${luks_dev}"
+      <screen>&prompt.root;cryptsetup luksChangeKey --key-file
+      <replaceable>PATH_TO_DEFAULT</replaceable> --pbkdf pbkdf2 "${luks_dev}"
       <replaceable>PATH_TO_NEW</replaceable></screen>
    <para>
     <replaceable>PATH_TO_DEFAULT</replaceable> is a path to the key file with the default
-    passphrase. <replaceable>PATH_TO_NEW</replaceable> is a path to the key file with your new passphrase.
+    passphrase <emphasis>1234</emphasis>. <replaceable>PATH_TO_NEW</replaceable> is a path to the key file with your new passphrase.
    </para>
     </step>
     <step>
@@ -94,22 +135,67 @@ in the assembly -->
       <para>
         Create a new random key and seal it with TPM:
       </para>
-      <screen>&prompt.sudo;fdectl regenerate-key --passfile <replaceable>PATH_TO_NEW</replaceable></screen>
+      <screen>&prompt.root;fdectl regenerate-key --passfile <replaceable>PATH_TO_NEW</replaceable></screen>
+    </step>    
+    <step>
+      <para>Update the <filename>grub.cfg</filename> file by running:</para>
+      <screen>&prompt.root;transactional-update grub.cfg</screen>
+    </step>  
+    <step>
+      <para>
+        Remove the key file with the default passphrase.
+      </para>
+    </step>  
+    <step>
+      <para>
+        Reboot the system.
+      </para>
+    </step>
+</procedure>
+
+<para>
+  The following procedure describes only setting a new passphrase and enrolling a key with TPM.
+</para>
+<procedure xml:id="setting-new-passhprase">
+  <title>Setting a new passphrase and enrolling a key with TPM</title>
+  <step>
+      <para>
+        Create a key file with a new passphrase. Use a strong passphrase with at least 10 characters.
+      </para>
+    </step> 
+    <step>
+      <para>
+        Change the recovery password.
+      </para>
+      <screen>&prompt.root;cryptsetup luksChangeKey --key-file
+      <replaceable>PATH_TO_DEFAULT</replaceable> --pbkdf pbkdf2 "${luks_dev}"
+      <replaceable>PATH_TO_NEW</replaceable></screen>
+   <para>
+    <replaceable>PATH_TO_DEFAULT</replaceable> is a path to the
+    <filename>/run/.kiwi_reencrypt.keyfile</filename> key file with the passphrase generated during
+  the disk reencryption. <replaceable>PATH_TO_NEW</replaceable> is a path to the key file with
+    your new passphrase.
+   </para>
     </step>
     <step>
       <para>
-        Remove both key files you created in <xref linkend="creating-key-files"
-        xrefstyle="template:step 3"/>.
+        Create a new random key and seal it with TPM:
       </para>
-    </step>
+      <screen>&prompt.root;fdectl regenerate-key --passfile <replaceable>PATH_TO_NEW</replaceable></screen>
+    </step>    
     <step>
       <para>Update the <filename>grub.cfg</filename> file by running:</para>
-      <screen>&prompt.sudo;transactional-update grub.cfg</screen>
+      <screen>&prompt.root;transactional-update grub.cfg</screen>
+    </step>
+    <step>
+      <para>
+        Remove the <filename>/run/.kiwi_reencrypt.keyfile</filename> file.
+      </para>
     </step>
     <step>
       <para>
         Reboot the system.
       </para>
     </step>
-  </procedure>
+</procedure>    
 </topic>

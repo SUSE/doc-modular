@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="task-configuring-gnome-remote-desktop"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring &gnome; remote desktop</title>
+    <meta name="maintainer" content="cwickert@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+        This section describes how to configure &gnome; Remote Desktop for integration with the
+        &gnome; Display Manager (GDM).
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="task-example-introduction">
+    <title>Introduction</title>
+    <para>
+      GNOME Remote Desktop supports integrating with the GNOME Display Manager to achieve
+      remote login functionality.
+      <!-- cwickert 2025-07-10: FIXME next sentence out until we describe VNC as well. -->
+      <!-- This feature is only available via the RDP protocol. -->
+      It works by having the remote user first authenticate with system-wide credentials
+      to access the graphical login screen, where they can then log in using their user-specific
+      credentials.
+    </para>
+  </section>
+  <section xml:id="task-example-requirements">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          A &sle; system with the &gnome; desktop environment that acts as a server. You can select
+          &gnome; during installation with <menuchoice><guilabel>Software</guilabel>
+            <guilabel>Change selection</guilabel> <guilabel>&gnome; Desktop Environment
+            (Wayland)</guilabel></menuchoice>. On a running system, install &gnome; with
+            <command>zypper in -t pattern gnome</command>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          One or more client(s) with <command>gnome-connections</command>,
+          <command>remmina</command> or any other viewer that supports the RDP protocol.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="task-configure-gnome-remote-desktop">
+    <title>Configuration</title>
+    <para>
+      The following procedure describes how to configure &gnome; Remote Desktop for integration
+      with &gnome; Display Manager.
+    </para>
+    <procedure>
+      <title>Configure &gnome; remote desktop </title>
+      <!-- <para>
+        A short introduction to the procedure.
+      </para> -->
+      <step xml:id="st-gnome-remote-desktop-create-directory">
+        <para>
+          Create a directory for the TLS encryption key and certificate:
+        </para>
+<screen>&prompt.sudo;-u gnome-remote-desktop <command>mkdir</command> -p <filename>~/.local/share/gnome-remote-desktop/</filename></screen>
+        <para>
+          The <systemitem class="username">gnome-remote-desktop</systemitem> user is created
+          automatically when the <package>gnome-remote-desktop</package> package is installed. Its
+          <filename>home</filename> directory is <filename>/var/lib/gnome-remote-desktop</filename>.
+        </para>
+      </step>
+      <step xml:id="st-grd-tls">
+        <para>
+          Generate a TLS key and certificate for encryption. There are different ways to do this:
+        </para>
+        <stepalternatives>
+          <step xml:id="st-gnome-remote-desktopopenssl">
+            <para>
+              With <command>openssl</command>. To generate a 4096 bit RSA key with a validity of
+              365 days, run:
+            </para>
+<screen>&prompt.sudo;-u gnome-remote-desktop <command>openssl</command> req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj \
+  /C=<replaceable>COUNTRY_CODE</replaceable>/ST=<replaceable>STATE</replaceable>/L=<replaceable>LOCALITY</replaceable>/O=<replaceable>ORGANIZATION</replaceable>/CN=&exampledomain1; \
+  -out <filename>~/.local/share/gnome-remote-desktop/tls.crt</filename> \
+  -keyout <filename>~/.local/share/gnome-remote-desktop/tls.key</filename></screen>
+            <para>
+              Replace the country code, state, locality, organization, and common name or omit
+              parameters you do not need. For the country code, use a two-letter <citetitle>ISO
+                3166-1 alpha-2</citetitle> code from <link
+                xlink:href="https://www.iso.org/obp/ui/#search/code/"/>.
+            </para>
+          </step>
+          <step xml:id="st-gnome-remote-desktop-certificate-gnutls">
+            <para>
+              If you prefer an interactive command to guide you through the certificate generation,
+              use <command>certtool</command> from the <package>gnutls</package> package:
+            </para>
+<screen>&prompt.sudo;zypper in gnutls
+&prompt.sudo;-u gnome-remote-desktop <command>certtool</command> --generate-privkey --outfile <filename>~/.local/share/gnome-remote-desktop/tls.key</filename>
+&prompt.sudo;-u gnome-remote-desktop <command>certtool</command> --generate-self-signed --load-privkey  <filename>~/.local/share/gnome-remote-desktop/tls.key</filename></screen>            
+          </step>
+        </stepalternatives>
+      </step>
+      <step xml:id="st-gnome-remote-desktop-configure">
+        <para>
+          Configure GNOME Remote Desktop with <command>grdctl</command>.
+        </para>
+        <substeps>
+          <step xml:id="st-gnome-remote-desktop-configure-encryption">
+            <para>
+              Configure encryption for &gnome; Remote Desktop:
+            </para>
+<screen>&prompt.sudo;<command>grdctl</command> --system rdp set-tls-key <filename>~gnome-remote-desktop/.local/share/gnome-remote-desktop/tls.key</filename>
+&prompt.sudo;<command>grdctl</command> --system rdp set-tls-cert <filename>~gnome-remote-desktop/.local/share/gnome-remote-desktop/tls.crt</filename></screen>
+          </step>
+          <step xml:base="st-gnome-remote-desktop-configure-system-credentials">
+            <para>
+              Set the system credentials for accessing the login manager via RDP:
+            </para>
+<screen>&prompt.sudo;<command>grdctl</command> --system rdp set-credentials</screen>
+            <para>
+              This combination of user name and password is not to be confused with the individual
+              user credentials. The RDP system credentials are used by all users to access the
+              &gnome; Display Manager, where they can log in with their user credentials.
+            </para>
+          </step>
+          <step xml:id="st-gnome-remote-desktop-enable-rdp">
+            <para>
+              Enable the RDP protocol:
+            </para>
+<screen>&prompt.sudo;<command>grdctl</command> --system rdp enable</screen>
+          </step>
+        </substeps>
+      </step>
+      <step xml:id="st-enable-gnome-remote-desktop-service">
+        <para>
+          Enable and start the &gnome; Remote Desktop service:
+        </para>
+<screen>&prompt.sudo;<command>systemctl</command> enable --now gnome-remote-desktop.service</screen>
+      </step>
+      <step xml:id="st-open-firewall-gnome-remote-desktop">
+        <para>
+          Open the firewall for connections on the default RDP port:
+        </para>
+<screen>&prompt.sudo;<command>firewall-cmd</command> --permanent --add-service=rdp
+&prompt.sudo;<command>firewall-cmd</command> --reload</screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="task-gnome-remote-desktop-summary">
+    <title>Summary</title>
+    <para>
+      You have now configured a &gnome; Remote Desktop server. Connect to the system with
+      <command>gnome-connections</command>, <command>remmina</command> or any other viewer that
+      supports the RDP protocol.
+    </para>
+  </section>
+  <section xml:id="task-gnome-remote-desktop-troubleshooting">
+    <title>Troubleshooting</title>
+    <para>
+      If you have problems connecting to the remote desktop server, please follow these steps for
+      troubleshooting.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          If you can connect to the &gnome; Display Manager but have problems logging in as a user,
+          try connecting with <command>ssh</command> to verify your user password.
+        </para>
+      </step>
+      <step>
+        <para>
+          If you can connect to the remote desktop server but &gnome; Remote Desktop does not
+          accept the system credentials for the RDP connection, you may have configured them while
+          the service was already running. Restart it to pick up the changes:
+        </para>
+<screen>&prompt.sudo;<command>systemctl</command> restart gnome-remote-desktop.service</screen>
+      </step>
+      <step>
+        <para>
+          If the RDP system credentials are still not accepted, reset them:
+        </para>    
+<screen>&prompt.sudo;<command>grdctl</command> --system rdp clear-credentials
+&prompt.sudo;<command>grdctl</command> --system rdp set-credentials
+&prompt.sudo;<command>systemctl</command> restart gnome-remote-desktop.service</screen>
+      </step>
+      <step>
+        <para>
+          If you cannot reach the remote desktop server with your RDP viewer, check if the
+          gnome-remote-desktop service is running:
+        </para>
+<screen>&prompt.sudo;<command>systemctl</command> status gnome-remote-desktop</screen>
+        <stepalternatives>
+          <step>
+            <para>
+              If the service is not running, start it:
+            </para>
+<screen>&prompt.sudo;<command>systemctl</command> start gnome-remote-desktop.service</screen>
+          </step>
+          <step>
+            <para>
+              If &systemd; warns you that the configuration of <systemitem
+              class="daemon">gnome-remote-desktop.service</systemitem> was changed, make &systemd;
+              reload its configuration and restart the service:
+            </para>
+<screen>&prompt.sudo;<command>systemctl</command> daemon-reload
+&prompt.sudo;<command>systemctl</command> restart gnome-remote-desktop.service</screen>
+          </step>
+        </stepalternatives>
+      </step>
+      <step>
+        <para>
+          Check if the &gnome; Display Manager is running:
+        </para>
+<screen>&prompt.sudo;<command>systemctl</command> status display-manager.service</screen>
+        <para>
+          If you see any warnings, restart the display manager:
+        </para>
+<screen>&prompt.sudo;<command>systemctl</command> restart display-manager.service</screen>
+      </step>
+      <step>
+        <para>
+          Check that <systemitem class="daemon">gnome-remote-desktop</systemitem> is listening on
+          the default RDP port 3389:
+        </para>
+<screen>&prompt.sudo;<command>ss</command> -tulnp | grep :3389</screen>
+      </step>
+      <step>
+        <para>
+          Check that the firewall ports are open:
+        </para>
+<screen>&prompt.sudo;<command>firewall-cmd</command> --query-service=rdp</screen>   
+      </step>
+      <step>
+        <para>
+          Check that the client can reach the remote desktop server.
+        </para>
+        <substeps>
+          <step>
+            <para>
+              If you are connecting to the server by host name, check if it is resolved
+              correctly from the client:
+            </para>
+<screen>&prompt.user;<command>host</command> <replaceable>SERVER_HOST_NAME</replaceable></screen>
+            <para>
+              If the name of the server is not resolved, try connecting to the IP address instead.
+            </para>
+          </step>
+          <step>
+            <para>
+              If the RDP viewer cannot reach the remote desktop server by IP, try pinging the
+              server:
+            </para>
+<screen>&prompt.user;<command>ping</command> -c 5 <replaceable>SERVER_IP</replaceable></screen>
+            <para>
+              If you can ping the IP address, try connecting to the remote desktop server by IP.
+              If you cannot ping the IP address, check your network setup.
+            </para>
+          </step>
+        </substeps>
+      </step>
+    </procedure>
+  </section>
+</topic>

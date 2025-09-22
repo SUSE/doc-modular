@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_qdevice-qnetd.xml -->
+
+<topic xml:id="ha-qdevice-checking-setup"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Checking the &qdevice; and &qnet; setup</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+       Use the <command>crm corosync status</command> command to check the cluster's quorum status
+       and the status of &qdevice; and &qnet;. You can run this command from any node in the cluster.
+      </para>
+    </abstract>
+  </info>
+
+  <para>
+    The following examples show a cluster with two nodes (<systemitem>&node1;</systemitem> and
+    <systemitem>&node2;</systemitem>) and a &qnet; server (<systemitem>&node3;</systemitem>).
+  </para>
+  <example xml:id="ex-quorum-status">
+    <title>Showing the cluster's quorum status</title>
+<screen>&prompt.user;<command>sudo crm corosync status quorum</command>
+1 &node1; member
+2 &node2; member
+
+Quorum information
+------------------
+Date:             [...]
+Quorum provider:  corosync_votequorum
+Nodes:            2
+Node ID:          2
+Ring ID:          1.e
+Quorate:          Yes
+
+Votequorum information
+----------------------
+Expected votes:   3
+Highest expected: 3
+Total votes:      3
+Quorum:           2
+Flags:            Quorate Qdevice
+
+Membership information
+----------------------
+    Nodeid      Votes    Qdevice Name
+         1          1    A,V,NMW &node1;
+         2          1    A,V,NMW &node2; (local)
+         0          1            Qdevice</screen>
+  </example>
+  <para>
+    The <literal>Membership information</literal> section shows the following status codes:
+  </para>
+  <variablelist>
+    <varlistentry>
+      <term><literal>A</literal> (alive) or <literal>NA</literal> (not alive)</term>
+      <listitem>
+        <para>
+          Shows the connectivity status between &qdevice; and &corosync;.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><literal>V</literal> (vote) or <literal>NV</literal> (non vote)</term>
+      <listitem>
+        <para>
+          Shows if the node has a vote. <literal>V</literal> means that both nodes can communicate
+          with each other. In a split-brain scenario, one node would be set to <literal>V</literal>
+          and the other node would be set to <literal>NV</literal>.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><literal>MW</literal> (master wins) or <literal>NMW</literal> (not master wins)</term>
+      <listitem>
+        <para>
+          Shows if the <parameter>master_wins</parameter> flag is set. By default, the flag is not
+          set, so the status is <literal>NMW</literal>.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><literal>NR</literal> (not registered)</term>
+      <listitem>
+        <para>
+          Shows that the cluster is not using a quorum device.
+        </para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+
+  <example xml:id="ex-qdevice-status">
+    <title>Showing the status of &qdevice;</title>
+<screen>&prompt.user;<command>sudo crm corosync status qdevice</command>
+1 &node1; member
+2 &node2; member
+
+Qdevice information
+-------------------
+Model:                  Net
+Node ID:                1
+HB interval:            10000ms
+Sync HB interval:       30000ms
+Configured node list:
+    0   Node ID = 1
+    1   Node ID = 2
+Heuristics:             Disabled
+Ring ID:                1.e
+Membership node list:   1, 2
+Quorate:                Yes
+Quorum node list:
+    0   Node ID = 2, State = member
+    1   Node ID = 1, State = member
+Expected votes:         3
+Last poll call:         [...]
+
+Qdevice-net information
+----------------------
+Cluster name:           hacluster
+QNetd host:             &node3;:5403
+Connect timeout:        8000ms
+HB interval:            8000ms
+VQ vote timer interval: 5000ms
+TLS:                    Supported
+Algorithm:              Fifty-Fifty split
+Tie-breaker:            Node with lowest node ID
+KAP Tie-breaker:        Enabled
+Poll timer running:     Yes (cast vote)
+State:                  Connected
+TLS active:             Yes (client certificate sent)
+Connected since:        [...]
+Echo reply received:    [...]</screen>
+  </example>
+
+  <example xml:id="ex-qnetd-status">
+    <title>Showing the status of &qnet;</title>
+<screen>&prompt.user;<command>sudo crm corosync status qnetd</command>
+1 &node1; member
+2 &node2; member
+
+Cluster "hacluster":
+    Algorithm:          Fifty-Fifty split (KAP Tie-breaker)
+    Tie-breaker:        Node with lowest node ID
+    Node ID 1:
+        Client address:         ::ffff:&subnetI;.185:45676
+        HB interval:            8000ms
+        Configured node list:   1, 2
+        Ring ID:                1.e
+        Membership node list:   1, 2
+        Heuristics:             Undefined (membership: Undefined, regular: Undefined)
+        TLS active:             Yes (client certificate verified)
+        Vote:                   ACK (ACK)
+    Node ID 2:
+        Client address:         ::ffff:&subnetI;.168:55034
+        HB interval:            8000ms
+        Configured node list:   1, 2
+        Ring ID:                1.e
+        Membership node list:   1, 2
+        Heuristics:             Undefined (membership: Undefined, regular: Undefined)
+        TLS active:             Yes (client certificate verified)
+        Vote:                   No change (ACK)</screen>
+  </example>
+</topic>

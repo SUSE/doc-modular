@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refer to README.md for file and id naming conventions -->
+<topic xml:id="sles-pxe-server-ipv6-router"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring IPv6 router advertisement</title>
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        This section describes how to configure IPv6 router advertisement functionality to provide
+        adequate router advertisements for PXE clients. IPv6 RA enables IPv6 routing configuration
+        and stateful DHCPv6 address automatic configuration for &productname; &productnumber;
+        installations.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="sles-pxe-server-ipv6-router-intro">
+    <title>Introduction</title>
+    <para>
+      IPv6 router advertisement (RA) provides essential network configuration information to PXE
+      clients, including IPv6 routing and DHCPv6 address automatic configuration settings. This
+      section assumes that an IPv6 router is configured to provide adequate router advertisements
+      to configure IPv6 routing to the network and default route, and enable stateful DHCPv6
+      address automatic configuration using <literal>AdvManagedFlag on</literal>.
+    </para>
+  </section>
+  <section xml:id="sles-pxe-server-ipv6-router-reqs">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          The <package>radvd</package> package installed
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          IPv6 network configuration on the server interface
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Administrative privileges to configure router advertisement services
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="sles-pxe-server-ipv6-router-setup">
+    <title>Configuring <systemitem>radvd</systemitem> for IPv6 router advertisement</title>
+    <para>
+      The <systemitem>radvd</systemitem> service provides IPv6 router advertisement functionality
+      using configuration defined in <filename>/etc/radvd.conf</filename>.
+    </para>
+    <procedure xml:id="proc-configure-radvd">
+      <title>Setting up <systemitem>radvd</systemitem> IPv6 router advertisement</title>
+      <step>
+        <para>
+          Configure the <systemitem>radvd</systemitem> service:
+        </para>
+<screen>&prompt.sudo;<command>cat &gt; /etc/radvd.conf &lt;&lt; 'EOF'</command>
+interface eno1
+{
+    # radvd options
+    IgnoreIfMissing on;                 # Do not fail and exit when interface is missed
+    AdvSendAdvert on;                   # Sending RAs on the interface is not disabled
+
+    # Configuration settings
+
+    AdvManagedFlag on;                  # Request IPv6 address and dns options via DHCPv6
+    AdvOtherConfigFlag off;             # Request only dns info via DHCPv6, IP via SLAAC
+
+    AdvDefaultLifetime 1800;            # Add default route via this router for 1800sec
+
+    prefix 2001:db8:0:1::/64            # Add direct route for this local network/prefix
+    {
+        AdvAutonomous           off;    # Assign IPv6 address via SLAAC
+        AdvValidLifetime        7200;
+        AdvPreferredLifetime    3600;
+    };
+};
+EOF
+</screen>
+      </step>
+      <step>
+        <para>
+          Enable and start the <systemitem>radvd</systemitem> service:
+        </para>
+<screen>&prompt.sudo;<command>systemctl enable --now radvd</command></screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sles-pxe-server-ipv6-router-verify">
+    <title>Verifying IPv6 router advertisement</title>
+    <para>
+      Test the IPv6 RA functionality to ensure proper configuration and operation.
+    </para>
+    <procedure xml:id="proc-verify-radvd">
+      <title>Testing IPv6 router advertisement</title>
+      <step>
+        <para>
+          Check <systemitem>radvd</systemitem> service status:
+        </para>
+<screen>&prompt.user;<command>systemctl status radvd</command></screen>
+      </step>
+      <step>
+        <para>
+          Review and verify IPv6 RA settings using <command>ravdump</command>
+        </para>
+<screen>&prompt.user;<command>radvdump</command></screen>
+        <para>
+          The <command>radvdump</command> utility displays IPv6 RA settings sent by the IPv6 router
+          every few minutes.
+        </para>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sles-pxe-server-ipv6-router-forwarding">
+    <title>Configuring IP forwarding for router functionality</title>
+    <para>
+      If the PXE server also acts as a router, IP forwarding must be enabled to allow the system to
+      function in a router role.
+    </para>
+    <procedure xml:id="proc-enable-ip-forwarding">
+      <title>Enabling IP forwarding on the PXE server</title>
+      <step>
+        <para>
+          Create the network configuration file:
+        </para>
+<screen>&prompt.sudo;<command>cat &gt; /etc/sysctl.d/90-network.conf &lt;&lt; 'EOF'</command>
+# This machine is a router
+net.ipv4.conf.all.forwarding = 1
+net.ipv6.conf.all.forwarding = 1
+
+# Accept host autoconf on router uplink
+net.ipv6.conf.uplink.accept_ra = 2
+EOF
+</screen>
+      </step>
+      <step>
+        <para>
+          Apply the network configuration settings:
+        </para>
+<screen>&prompt.sudo;<command>sysctl -p /etc/sysctl.d/90-network.conf</command></screen>
+      </step>
+    </procedure>
+    <note>
+      <title>Router configuration considerations</title>
+      <para>
+        A router does not process IPv6 RAs for host automatic configuration by default. To accept
+        IPv6 RA on a router uplink interface, the <literal>accept_ra = 2</literal> sysctl setting
+        is required. Consult the Network Configuration section in the Administration Guide for
+        further details on router configuration, including firewall adjustments and other required
+        steps.
+      </para>
+    </note>
+  </section>
+  <section xml:id="sles-pxe-server-ipv6-router-troubleshooting">
+    <title>Troubleshooting IPv6 router advertisement</title>
+    <para>
+      Common issues when configuring IPv6 router advertisement for PXE environments.
+    </para>
+    <section xml:id="sles-pxe-server-ipv6-troubleshoot-service">
+      <title><systemitem>radvd</systemitem> service issues</title>
+      <para>
+        The <systemitem>radvd</systemitem> service may fail to start due to configuration errors or
+        interface problems.
+      </para>
+      <procedure xml:id="proc-debug-radvd-service">
+        <title>Resolving <systemitem>radvd</systemitem> service problems</title>
+        <step>
+          <para>
+            Check <systemitem>radvd</systemitem> service status and logs:
+          </para>
+<screen>&prompt.user;<command>systemctl status radvd</command></screen>
+        </step>
+        <step>
+          <para>
+            View detailed service logs:
+          </para>
+<screen>&prompt.user;<command>journalctl -u radvd -f</command></screen>
+        </step>
+        <step>
+          <para>
+            Test <systemitem>radvd</systemitem> configuration syntax:
+          </para>
+<screen>&prompt.sudo;<command>radvd -C /etc/radvd.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Check if the specified interface exists:
+          </para>
+<screen>&prompt.user;<command>ip link show eno1</command></screen>
+        </step>
+        <step>
+          <para>
+            Restart the service after fixing configuration:
+          </para>
+<screen>&prompt.sudo;<command>systemctl restart radvd</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-ipv6-troubleshoot-forwarding">
+      <title>IP forwarding configuration issues</title>
+      <para>
+        Incorrect IP forwarding settings can prevent proper router functionality.
+      </para>
+      <procedure xml:id="proc-debug-ip-forwarding">
+        <title>Diagnosing IP forwarding problems</title>
+        <step>
+          <para>
+            Check current IP forwarding status:
+          </para>
+<screen>&prompt.user;<command>sysctl net.ipv4.conf.all.forwarding</command></screen>
+        </step>
+        <step>
+          <para>
+            Check IPv6 forwarding status:
+          </para>
+<screen>&prompt.user;<command>sysctl net.ipv6.conf.all.forwarding</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify sysctl configuration file:
+          </para>
+<screen>&prompt.user;<command>cat /etc/sysctl.d/90-network.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Apply configuration if values are incorrect:
+          </para>
+<screen>&prompt.sudo;<command>sysctl -p /etc/sysctl.d/90-network.conf</command></screen>
+        </step>
+        <step>
+          <para>
+            Check accept_ra setting on uplink interface:
+          </para>
+<screen>&prompt.user;<command>sysctl net.ipv6.conf.uplink.accept_ra</command></screen>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="sles-pxe-server-ipv6-troubleshoot-ra">
+      <title>Router advertisement reception issues</title>
+      <para>
+        Clients may not receive or process IPv6 router advertisements correctly.
+      </para>
+      <procedure xml:id="proc-debug-ra-reception">
+        <title>Troubleshooting RA reception problems</title>
+        <step>
+          <para>
+            Monitor router advertisements using <command>ravdump</command>:
+          </para>
+<screen>&prompt.user;<command>radvdump -d</command></screen>
+        </step>
+        <step>
+          <para>
+            Check IPv6 interface configuration on clients:
+          </para>
+<screen>&prompt.user;<command>ip -6 addr show</command></screen>
+        </step>
+        <step>
+          <para>
+            Verify IPv6 routing table on clients:
+          </para>
+<screen>&prompt.user;<command>ip -6 route show</command></screen>
+        </step>
+        <step>
+          <para>
+            Test IPv6 connectivity to the router:
+          </para>
+<screen>&prompt.user;<command>ping6 2001:db8:0:1::1</command></screen>
+        </step>
+        <step>
+          <para>
+            Check firewall rules for ICMPv6:
+          </para>
+<screen>&prompt.user;<command>firewall-cmd --list-protocols | grep ipv6-icmp</command></screen>
+        </step>
+      </procedure>
+    </section>
+  </section>
+  <section xml:id="sles-pxe-server-ipv6-router-next-steps">
+    <title>Next steps</title>
+    <para>
+      With IPv6 router advertisement configured, PXE clients can receive a proper IPv6 network
+      configuration. This enables DHCPv6 functionality and IPv6 connectivity for network-based
+      installations.
+    </para>
+  </section>
+</topic>

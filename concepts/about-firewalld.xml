@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="about-firewalld"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>About &firewalld;</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+&firewalld; is a dynamic firewall management service that provides a flexible and efficient way to control network traffic on Linux systems.
+It allows modifications without interrupting existing connections. The benefits of using &firewalld; are:
+      </para>
+    </abstract>
+  </info>
+  <itemizedlist>
+  <listitem>
+    <para>
+   <emphasis>Dynamic configuration:</emphasis> Apply changes instantly without breaking existing connections.</para>
+  </listitem>
+  <listitem>
+    <para>
+    <emphasis>User-friendly interface:</emphasis> Zones and services simplify complex firewall rules.</para>
+  </listitem>
+  <listitem>
+    <para>
+    <emphasis>Abstraction:</emphasis> There is no need to directly manipulate <literal>nftables</literal> rules for common scenarios.</para>
+  </listitem>
+  <listitem>
+    <para>
+    <emphasis>Persistent configuration:</emphasis> Easy management of rules that survive reboots.</para>
+    </listitem>
+    <listitem>
+    <para>
+    <emphasis>Persistent configuration:</emphasis> By default, &firewalld; operates on a <literal>deny-all</literal> principle
+    by blocking all incoming traffic unless explicitly allowed.</para>
+     </listitem>
+</itemizedlist>
+<section  xml:id="firewall-zones">
+<title>&firewalld; zones</title>
+<para>
+  A firewall zone is a predefined set of rules that dictate how incoming and outgoing network traffic is handled for a specific network interface or source IP address.
+  Each zone represents a different level of trust for the network it is associated with. You can apply different security policies based on where the network connection originates.
+   </para>
+  <para>
+  Zones are like security profiles. For example, you would want to apply different firewall rules for a public Wi-Fi connection and your secure home network.
+  &firewalld; zones allow you to define these distinct sets of rules and apply them accordingly.
+  A network connection is subject to the rules of only one &firewalld; zone. A &firewalld; zone can have many network interfaces or source IP addresses.
+   </para>
+   <para>The <filename>/usr/lib/firewalld/zones/ </filename> directory stores the predefined zones. For example:</para>
+<screen>&prompt.user; /usr/lib/firewalld/zones ls
+block.xml  dmz.xml  docker.xml  drop.xml  external.xml  home.xml  internal.xml  nm-shared.xml  public.xml  trusted.xml  work.xml
+</screen>
+   <para>Some of the default settings of the predefined zones are as follows:</para>
+   <variablelist>
+    <varlistentry>
+       <term><literal>drop</literal></term>
+       <listitem>
+         <itemizedlist>
+           <listitem>
+             <para>
+               <emphasis>Trust level:</emphasis> Completely untrusted.
+             </para>
+           </listitem>
+           <listitem>
+             <para>
+               <emphasis>Behavior:</emphasis> All incoming network packets are dropped without any reply. Only outgoing connections initiated from the system are allowed.
+                This provides a <quote>stealth</quote> mode where the system appears nonexistent to external attackers.
+             </para>
+           </listitem>
+           <listitem>
+             <para>
+               <emphasis>Use Case:</emphasis> Used for maximum stealth and security, completely ignoring unwanted traffic.
+               Suitable as a strict default for a server that should never accept incoming connections.
+             </para>
+           </listitem>
+         </itemizedlist>
+       </listitem>
+     </varlistentry>
+     <varlistentry>
+       <term><literal>block</literal></term>
+       <listitem>
+         <itemizedlist>
+           <listitem>
+             <para>
+               <emphasis>Trust level:</emphasis> Very low.
+             </para>
+           </listitem>
+           <listitem>
+             <para>
+               <emphasis>Behavior:</emphasis> All incoming network connections are rejected with an <literal>icmp-host-prohibited</literal> message for IPv4 and <literal>cmp6-adm-prohibited</literal>i for IPv6.
+               This informs the sender that their connection was explicitly rejected. Only outgoing connections initiated from the system are possible.
+             </para>
+           </listitem>
+           <listitem>
+             <para>
+               <emphasis>Use Case:</emphasis> Applied when you want to explicitly signal to senders that their connection attempts are being blocked.
+             </para>
+           </listitem>
+         </itemizedlist>
+       </listitem>
+     </varlistentry>
+     <varlistentry>
+       <term><literal>public</literal></term>
+       <listitem>
+         <itemizedlist>
+           <listitem>
+             <para>
+               <emphasis>Trust level:</emphasis> Untrusted or public.
+             </para>
+           </listitem>
+           <listitem>
+             <para>
+               <emphasis>Behavior:</emphasis> Represents public, untrusted networks where you do not trust other systems.
+               Only selected incoming connections are accepted by default for example, SSH, DHCPv6 client, etc.
+               </para>
+           </listitem>
+           <listitem>
+             <para>
+               <emphasis>Use Case:</emphasis> Common default zone for interfaces connected directly to the Internet, such as your router's WAN interface. Also includes
+              being connected to a network where you have no control over other devices.
+             </para>
+           </listitem>
+         </itemizedlist>
+       </listitem>
+     </varlistentry>
+     <varlistentry>
+       <term><literal>external</literal></term>
+       <listitem>
+         <itemizedlist>
+           <listitem>
+             <para>
+               <emphasis>Trust level:</emphasis> External with masquerading.
+             </para>
+           </listitem>
+           <listitem>
+             <para>
+               <emphasis>Behavior:</emphasis> Intended for external networks when the firewall acts as a gateway or router.
+               Usually, NAT masquerading is enabled by default.Only selected incoming connections are accepted, under the assumption that you do not trust other systems on this network.
+               </para>
+           </listitem>
+           <listitem>
+             <para>
+               <emphasis>Use Case:</emphasis> Used when your Linux machine acts as a router, connecting an internal private network to the public Internet.
+               The external interface is placed in this zone to hide internal network topology while allowing internal clients to access external resources such as the Internet.
+             </para>
+           </listitem>
+         </itemizedlist>
+       </listitem>
+     </varlistentry>
+     <varlistentry>
+       <term><literal>dmz (Demilitarized Zone)</literal></term>
+       <listitem>
+         <itemizedlist>
+           <listitem>
+             <para>
+               <emphasis>Trust level:</emphasis> Limited public access.
+             </para>
+           </listitem>
+           <listitem>
+             <para>
+               <emphasis>Behavior:</emphasis> For systems in a DMZ zone that are publicly accessible but with limited access to the internal network.
+               Only selected incoming connections are accepted. The default usually includes SSH and other services you expose.
+               </para>
+           </listitem>
+           <listitem>
+             <para>
+               <emphasis>Use Case:</emphasis> Suitable for public-facing servers such as Web, mail and DNS servers. These servers are intentionally exposed to the Internet but are isolated from your internal, more trusted networks.
+               Useful when you want to host services that need to be Internet-accessible while minimizing the risk to your core internal infrastructure.
+             </para>
+           </listitem>
+         </itemizedlist>
+       </listitem>
+     </varlistentry>
+     <varlistentry>
+       <term><literal>work</literal></term>
+       <listitem>
+         <itemizedlist>
+           <listitem>
+             <para>
+               <emphasis>Trust level:</emphasis> Mostly trusted (work environment).
+             </para>
+           </listitem>
+           <listitem>
+             <para>
+               <emphasis>Behavior:</emphasis> In a work environment, you usually trust other computers on the network.
+               Allows selected incoming connections that are common in a work environment, such as SSH and DHCPv6 client.
+               </para>
+           </listitem>
+           <listitem>
+             <para>
+               <emphasis>Use Case:</emphasis> Suitable for office networks and systems on a corporate LAN.
+               </para>
+           </listitem>
+         </itemizedlist>
+       </listitem>
+     </varlistentry>
+     <varlistentry>
+       <term><literal>home</literal></term>
+       <listitem>
+         <itemizedlist>
+           <listitem>
+             <para>
+               <emphasis>Trust level:</emphasis> Mostly trusted (home environment).
+             </para>
+           </listitem>
+           <listitem>
+             <para>
+               <emphasis>Behavior:</emphasis> In a home environment, you mostly trust the other systems on the network.
+               Allows more services than public or external zones, often including common home network services like file sharing, media servers, and printers, along with SSH and DHCPv6 client.
+               </para>
+           </listitem>
+           <listitem>
+             <para>
+               <emphasis>Use case:</emphasis> Best for home networks and small home office setups.
+               </para>
+           </listitem>
+         </itemizedlist>
+       </listitem>
+     </varlistentry>
+     <varlistentry>
+       <term><literal>trusted</literal></term>
+       <listitem>
+         <itemizedlist>
+           <listitem>
+             <para>
+               <emphasis>Trust level:</emphasis> Highest.
+             </para>
+           </listitem>
+           <listitem>
+             <para>
+               <emphasis>Behavior:</emphasis>  All network connections are accepted without any filtering.
+               Firewalling is not implemented for connections assigned to this zone.
+               </para>
+           </listitem>
+           <listitem>
+             <para>
+               <emphasis>Use Case:</emphasis> Reserved for highly trusted connections.
+               </para>
+           </listitem>
+         </itemizedlist>
+       </listitem>
+     </varlistentry>
+   </variablelist>
+</section>
+<section  xml:id="firewall-policies-rules">
+ <title>&firewalld; policies and rules </title>
+  <para>
+  &firewalld; policies provide a more advanced and flexible way to manage network traffic compared to traditional zones.
+  They allow you to define rich rules that specify the source and destination of traffic, services, ports and actions such as accept, reject and drop.
+  These policies are useful for setting up complex routing, port forwarding or creating isolated network segments within a single host.
+  </para>
+<para>
+&firewalld; policies leverage zones to define rule sets. They apply rules statefully and in one direction, which means you define traffic flow in one direction,
+and &firewalld; implicitly permits the return path. These policies link an ingress zone (where traffic enters) with an egress zone (where traffic exits).
+This defines the specific path and direction a policy's rules apply to. You can view the policies, for example:
+</para>
+<screen>&prompt.user; /usr/lib/firewalld/policies ls
+allow-host-ipv6.xml
+</screen>
+<para>Firewall rules let you precisely control network traffic, allowing or blocking it to protect your system from security threats.
+Firewall rules define certain criteria based on various attributes such as, source and destination IP addresses, ports and network interfaces.
+&firewalld; segregates firewall rules into zones and policies. Each zone in &firewalld; has a unique set of rules that dictates the traffic permissions for its associated network interfaces.
+</para>
+</section>
+<section  xml:id="services-and-ports">
+  <title>Services and ports </title>
+  <para>
+    Services are recommended when a predefined service is available. For example, instead of remembering that
+    HTTP uses TCP port 80, you can simply add the <literal>http</literal> service. This is less error-prone and easier to manage.
+    Use ports when a service is not predefined or when you are using a custom port for a service. You can view the active
+    services and ports for the default zones with the following: </para>
+    <screen>&prompt.sudo; <command>firewall-cmd --list-services</command></screen>
+    <screen>&prompt.sudo; <command>firewall-cmd --list-ports</command></screen>
+ </section>
+</topic>
