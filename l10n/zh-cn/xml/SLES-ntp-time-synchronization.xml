@@ -1,0 +1,1238 @@
+<?xml version='1.0' encoding='UTF-8'?><article xmlns="http://docbook.org/ns/docbook" version="5.2" xml:id="ntp-time-synchronization" xml:lang="zh-cn">
+  <info>
+    <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">使用 NTP/NTS 同步时间</title>
+    <revhistory xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" xml:id="rh-ntp-time-synchronization">
+      <revision>
+        <date>2025-11-04</date>
+        <revdescription>
+          <para>
+              初始版本
+            </para>
+        </revdescription>
+      </revision>
+    </revhistory>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/> <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="architecture" its:translate="no">
+      <phrase>AMD64/Intel 64</phrase>
+      <phrase>AArch64</phrase>
+      <phrase>IBM Z</phrase>
+      <phrase>POWER</phrase>
+    </meta> <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="productname" its:translate="no">
+      <productname os="sles" version="16.0">SUSE Linux Enterprise Server</productname>
+    </meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="title" its:translate="yes">使用 NTP/NTS 同步时间</meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="description" its:translate="yes">使用 NTP/NTS 同步时间以及如何配置该功能</meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="social-descr" its:translate="yes">使用 NTP 同步时间</meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="category" its:translate="no">
+      <phrase>Configuration</phrase>
+    </meta> <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="task" its:translate="no">
+      <phrase>Configuration</phrase>
+    </meta> <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="series" its:translate="no">Products &amp; Solutions</meta>
+    <dm:docmanager xmlns:dm="urn:x-suse:ns:docmanager" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+      <dm:bugtracker>
+        <dm:url>https://bugzilla.suse.com/enter_bug.cgi</dm:url>
+        <dm:component>Documentation</dm:component>
+        <dm:product os="sles">SUSE Linux Enterprise Server 16.0</dm:product>
+        <dm:assignee>amrita.sakthivel@suse.com</dm:assignee>
+      </dm:bugtracker>
+      <dm:translation>yes</dm:translation>
+    </dm:docmanager>
+    <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+      <variablelist>
+        <varlistentry>
+          <term>内容</term>
+          <listitem>
+            <para>
+                本文介绍什么是时间同步，以及如何配置时间同步。
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>原因</term>
+          <listitem>
+            <para>
+                通过网络与其他团队成员共享任务和资源时，保持系统时间同步至关重要。
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>工作量</term>
+          <listitem>
+            <para>
+                阅读本文并在计算机上执行时间同步基本配置最多需要 60 分钟。
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>要求</term>
+          <listitem>
+            <itemizedlist>
+              <listitem>
+                <para>
+                    需要具备 Linux 系统管理方面的基本知识。特定任务需要 <systemitem class="username">root</systemitem> 特权。
+                  </para>
+              </listitem>
+              <listitem>
+                <para>
+                    与内部网络或互联网建立了有效网络连接，以便能够访问源时间服务器。
+                  </para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </abstract>
+  </info>
+  <section role="concept" xml:lang="zh-cn" version="5.2" xml:id="ntp-time-synchronization-concept">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">简介</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="tbazant@suse.com"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+        在计算机上保持系统时间准确且同步对于团队协作至关重要。应用程序规划和日程安排依赖于准确且同步的时间来正确跟踪时间，并及时通知用户有关约会的安排。对于群集应用程序，各个主机通常依赖于同步的系统时间来实现相互通讯。
+      </para>
+        <para>
+        内置硬件时钟并不是可靠的时间源。手动校正系统时间可能会因突然的时间跳跃而导致关键应用程序出现故障。因此，需要通过网络对照外部可靠时间源来同步系统时间。
+      </para>
+      </abstract>
+    </info>
+    <section xml:id="what-is-ntp">
+      <title>什么是 NTP？</title>
+      <para>
+      网络时间协议 (NTP) 旨在通过网络同步系统时间。它的目标是维护绝对时间，并使用绝对时间来同步网络中所有计算机的系统时间。
+    </para>
+    </section>
+    <section xml:id="what-is-nts">
+      <title>什么是 NTS？</title>
+      <para>
+      网络时间安全 (NTS) 是 NTP 的安全扩展。NTS 提供了对 NTP 消息进行身份验证和加密的机制，从而确保接收到的时间数据安全且真实。NTS 设计为向后兼容现有的 NTP 基础架构。这样，您便可以进行逐步部署，而无需更改不支持 NTS 的现有 NTP 服务器。
+    </para>
+    </section>
+    <section xml:id="ntp-time-synchronization-how-it-works">
+      <title>NTP 的工作原理是怎样的？</title>
+      <para>
+      正确配置 NTP 服务后，它会不断地向可靠时间服务器查询时间并调整系统时间。通常，连接到互联网的家用计算机和其他设备配置为向互联网上的公共时间服务器发出查询。
+    </para>
+      <figure>
+        <title>向公共时间服务器发出查询的各个设备</title>
+        <mediaobject>
+          <imageobject role="fo">
+            <imagedata fileref="desktop-machine-ntp.svg" width="50%"/>
+          </imageobject>
+          <imageobject role="html">
+            <imagedata fileref="desktop-machine-ntp.svg" width="50%"/>
+          </imageobject>
+          <textobject role="description">
+            <phrase>向公共时间服务器发出查询的各个设备</phrase>
+          </textobject>
+        </mediaobject>
+      </figure>
+      <para>
+      相反，位于企业子网内的台式计算机和服务器则是配置为向本地网络内的专用时间服务器发出查询。时间服务器本身将其时间与公共时间服务器同步。
+    </para>
+      <figure>
+        <title>向内部时间服务器发出查询的多个主机</title>
+        <mediaobject>
+          <imageobject role="fo">
+            <imagedata fileref="multiple-machines-ntp.svg" width="50%"/>
+          </imageobject>
+          <imageobject role="html">
+            <imagedata fileref="multiple-machines-ntp.svg" width="50%"/>
+          </imageobject>
+          <textobject role="description">
+            <phrase>向内部时间服务器发出查询的多个主机</phrase>
+          </textobject>
+        </mediaobject>
+      </figure>
+      <section xml:id="time-synchronization-ntp-implementation">
+        <title>实现</title>
+        <para><phrase><phrase os="sles">SUSE Linux Enterprise Server</phrase></phrase> 中使用 <systemitem class="resource">chrony</systemitem> 作为 NTP 的默认实现。<systemitem class="resource">chrony</systemitem> 包含以下两个组件：
+      </para>
+        <itemizedlist>
+          <listitem>
+            <para><systemitem class="daemon">chronyd</systemitem> 是可以在引导时启动的 <systemitem class="daemon">systemd</systemitem> 服务。
+          </para>
+          </listitem>
+          <listitem>
+            <para><command>chronyc</command> 是一个命令行界面程序，用于监控 <systemitem class="daemon">chronyd</systemitem> 的性能，并在运行时更改特定的操作参数。
+          </para>
+          </listitem>
+        </itemizedlist>
+      </section>
+    </section>
+    <section xml:id="time-synchronization-ntp-benefits">
+      <title>优势</title>
+      <para>
+      使用 NTP 维护准确的时间可获得以下好处：
+    </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+          用户可以依赖于自己的时钟来遵循安排的日程。
+        </para>
+        </listitem>
+        <listitem>
+          <para>
+          应用程序可以准确地触发已安排好的桌面或系统操作。
+        </para>
+        </listitem>
+        <listitem>
+          <para>
+          群集节点可以将其数据保持同步和最新状态。
+        </para>
+        </listitem>
+        <listitem>
+          <para>
+          在互联网访问受限的网络中，使用内部时间服务器有助于保持系统时间同步。
+        </para>
+        </listitem>
+        <listitem>
+          <para>
+          该协议通过 NTS 将安全措施集成到 NTP 中，增强了 NTP 的稳健性，并解决了与不安全的时间同步相关的漏洞。
+        </para>
+        </listitem>
+      </itemizedlist>
+    </section>
+  </section>
+  <section role="task" xml:lang="zh-cn" version="5.2" xml:id="ntp-configure-configuration-file">
+    <info>
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <para>
+            <systemitem class="daemon">chronyd</systemitem> 在启动时，将从 <filename>/etc/chrony.conf</filename> 文件读取其配置。以下部分列出了可能影响 <systemitem class="daemon">chronyd</systemitem> 行为的重要参数。
+          </para>
+      </abstract>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">通过调整 <filename>/etc/chrony.conf</filename> 来配置 NTP</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="tbazant@suse.com"/>
+    </info>
+    <section xml:id="configure-ntp-command-line-time-sources-">
+      <title>指定时间源</title>
+      <para>
+      要让计算机时钟保持同步，您需要告知 <systemitem class="daemon">chronyd</systemitem> 使用哪些时间源。为此，请使用 <literal>server</literal>、<literal>pool</literal> 和 <literal>peer</literal> 指令。可以多次使用其中的每个指令。
+    </para>
+      <para>
+      <literal>server</literal> 指令告知 <systemitem class="daemon">chronyd</systemitem> 按照名称或 IP 地址使用特定的主机作为时间服务器。
+    </para>
+      <screen>
+server 0.europe.pool.ntp.org offline<co xml:id="co-ntp-offline"/>
+server 1.europe.pool.ntp.org offline prefer<co xml:id="co-ntp-prefer"/>
+server 192.168.2.254
+</screen>
+      <calloutlist>
+        <callout arearefs="co-ntp-offline">
+          <para>
+          <option>offline</option> 选项阻止 <systemitem class="daemon">chronyd</systemitem> 向时间服务器发出查询。如果启动 <systemitem class="daemon">chronyd</systemitem> 时无法访问该服务器，则此选项非常有用。当时间服务器可访问时，您需要使用 <command>chronyc</command> 将其联机。有关更多详细信息，请参见<xref linkend="ntp-manage-with-chronyc"/>。
+        </para>
+        </callout>
+        <callout arearefs="co-ntp-prefer">
+          <para>
+          <option>prefer</option> 选项告知 <systemitem class="daemon">chronyd</systemitem> 优先使用该时间源，而不是不包含此类选项的其他时间源。
+        </para>
+        </callout>
+      </calloutlist>
+      <para>
+      <literal>pool</literal> 指令可让您指定一个网络名称，该名称解析为随时间变化的多个 IP 地址。
+    </para>
+      <screen>pool pool.ntp.org iburst<co xml:id="co-ntp-iburst"/> maxsources 3<co xml:id="co-ntp-maxsources"/></screen>
+      <calloutlist>
+        <callout arearefs="co-ntp-iburst">
+          <para>
+          <option>iburst</option> 选项表示 <systemitem class="daemon">chronyd</systemitem> 以 4 到 8 的突发请求数启动，以便更快地完成首次时钟更新。
+        </para>
+        </callout>
+        <callout arearefs="co-ntp-maxsources">
+          <para>
+          <option>maxsources</option> 选项告知 <systemitem class="daemon">chronyd</systemitem> 使用池中的最多三个源。
+        </para>
+        </callout>
+      </calloutlist>
+      <para>
+      <literal>peer</literal> 指令指定 NTP 对等主机而不是时间服务器。<emphasis>对等节点</emphasis>之间的系统时间同步使用对称体系结构，而不是 <literal>server</literal> 和 <literal>pool</literal> 选项调用的客户端/服务器模式。您可以多次使用 <literal>peer</literal> 来指定多个对等节点。
+    </para>
+      <screen>
+peer 192.168.1.116
+peer ntp.example.com
+</screen>
+    </section>
+    <section xml:id="configure-ntp-server">
+      <title>将 <systemitem class="daemon">chronyd</systemitem> 作为 NTP 服务器运行</title>
+      <para>
+      默认情况下，<systemitem class="daemon">chronyd</systemitem> 作为指定的 NTP 服务器的客户端运行。要使其同时作为 NTP 服务器运行，请将 <literal>allow</literal> 指令添加到 <filename>/etc/chrony.conf</filename> 文件中。该指令会打开 NTP 服务器端口（默认为 123）并响应客户端请求。
+    </para>
+      <para>
+      您可以指定 NTP 客户端的单个 IP，也可以指定子网以包含多个客户端。您可以多次使用 <literal>allow</literal> 指令：
+    </para>
+      <screen>
+allow 1.2.3.4
+allow 3.4.5.0/24
+</screen>
+      <tip>
+        <para>
+        如果您不指定 IP 地址或子网，则独立的 <literal>allow</literal> 指令会允许来自所有 IPv4 和 IPv6 地址的访问请求。
+      </para>
+      </tip>
+      <para>
+      要限制上述 <literal>allow</literal> 指令的访问权限，请使用 <literal>deny</literal> 指令：
+    </para>
+      <screen>
+allow 1.2.3.4
+deny 1.2.3.0/24
+allow 1.2.0.0/16
+</screen>
+      <para>
+      在上面的示例中，无论三个指令的顺序如何，效果都是相同的。在此示例中，允许访问 <literal>1.2.0.0/16</literal> 子网，但拒绝访问 <literal>1.2.3.0/24</literal> 子网。但是，允许访问主机 <literal>1.2.3.4</literal>。
+    </para>
+    </section>
+    <section xml:id="configure-ntp-server-reference-clock">
+      <title>配置本地参考时钟</title>
+      <para><systemitem class="daemon">chronyd</systemitem> 依赖使用其他程序（例如 <systemitem>gpsd</systemitem>）通过特定驱动程序来访问计时数据。在 <filename>/etc/chrony.conf</filename> 中使用 <option>refclock</option> 指令可指定要用作时间源的硬件参考时钟。它有两个必填参数：驱动程序名称和驱动程序特定的参数。这两个参数后面跟着零个或多个 <option>refclock</option> 选项。<systemitem class="daemon">chronyd</systemitem> 包含以下驱动程序：
+    </para>
+      <variablelist>
+        <varlistentry>
+          <term>PPS</term>
+          <listitem>
+            <para>
+            内核 <emphasis>pulse per second</emphasis> API 的驱动程序。例如：
+          </para>
+            <screen>refclock PPS /dev/pps0 lock NMEA refid GPS</screen>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>SHM</term>
+          <listitem>
+            <para>
+            NTP 共享内存驱动程序。例如：
+          </para>
+            <screen>refclock SHM 0 poll 3 refid GPS1
+refclock SHM 1:perm=0644 refid GPS2</screen>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>SOCK</term>
+          <listitem>
+            <para>
+            Unix 域套接字驱动程序。例如：
+          </para>
+            <screen>refclock SOCK /var/run/chrony.ttyS0.sock</screen>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>PHC</term>
+          <listitem>
+            <para>
+            PTP 硬件时钟驱动程序。例如：
+          </para>
+            <screen>refclock PHC /dev/ptp0 poll 0 dpoll -2 offset -37
+refclock PHC /dev/ptp1:nocrossts poll 3 pps</screen>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+      <tip>
+        <para>
+        有关各个驱动程序的选项的详细信息，请参见 <command>man 8
+        chrony.conf</command>。
+      </para>
+      </tip>
+    </section>
+    <section xml:id="configure-ntp-command-line-chronyc-online">
+      <title>激活脱机时间源</title>
+      <para>
+      尽管 <systemitem class="daemon">chronyd</systemitem> 在引导时没有网络连接的系统上可以正常启动，但它无法访问 <filename>/etc/chrony.conf</filename> 中指定的时间服务器。要防止 <systemitem class="daemon">chronyd</systemitem> 尝试向不可访问的时间服务器发出查询，请在时间源指令的旁边使用 <option>offline</option> 选项，例如：
+    </para>
+      <screen>server ntp.example.org offline</screen>
+      <para>这样，<systemitem class="daemon">chronyd</systemitem> 将不会尝试轮询服务器，除非使用以下命令启用这种轮询：
+    </para>
+      <screen><prompt role="root"># </prompt>chronyc online ntp.example.org</screen>
+      <tip>
+        <para>
+        如果设置了 <option>auto_offline</option> 选项而不是 <option>offline</option> 选项，在向时间服务器发送了两个请求，但未接收到任何响应时，<systemitem class="daemon">chronyd</systemitem> 会假设时间服务器已脱机。如果使用此选项，在网络链接断开时，无需从 <command>chronyc</command> 运行 <command>offline</command> 命令。
+      </para>
+      </tip>
+    </section>
+  </section>
+  <section role="concept" xml:lang="zh-cn" version="5.2" xml:id="ntp-manage-with-chronyc">
+    <info>
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <para/>
+      </abstract>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">管理 <systemitem class="daemon">chronyd</systemitem> 在运行时的行为</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="tbazant@suse.com"/>
+    </info>
+    <section xml:id="ntp-chronyc-concept">
+      <title>什么是 <command>chronyc</command>？</title>
+      <para><command>chronyc</command> 是 <systemitem class="resource">chrony</systemitem> NTP 实现的客户端部分。您可以使用 <command>chronyc</command> 命令来更改 <systemitem class="daemon">chronyd</systemitem> 服务在运行时的行为。它会生成有关 <systemitem class="daemon">chronyd</systemitem> 的操作的状态报告。
+    </para>
+      <note>
+        <title>临时更改</title>
+        <para>
+        使用 <command>chronyc</command> 进行的更改不是永久性的。在 <systemitem class="daemon">chronyd</systemitem> 下次重启动后，这些更改将会丢失。要进行永久性更改，请按照<xref linkend="ntp-configure-configuration-file"/>中所述修改 <filename>/etc/chrony.conf</filename>。
+      </para>
+      </note>
+    </section>
+    <section xml:id="ntp-chronyc-how-it-works">
+      <title><command>chronyc</command> 的工作原理</title>
+      <para>
+      您可以在交互模式或非交互模式下运行 <command>chronyc</command>。要以交互方式运行 <command>chronyc</command>，请在命令行中输入 <command>chronyc</command> 并按 <keycap function="enter"></keycap> 键。如此会显示提示符并等待您输入命令。例如，要检查有多少个 NTP 源联机或脱机，请运行 <command>activity</command> 命令：
+    </para>
+      <screen><prompt role="root"># </prompt><command>chronyc</command>
+chronyc&gt; activity
+200 OK
+4 sources online
+2 sources offline
+1 sources doing burst (return to online)
+1 sources doing burst (return to offline)
+0 sources with unknown address
+</screen>
+      <para>
+      要退出 <command>chronyc</command> 的提示符，请输入 <command>quit</command> 或 <command>exit</command>。
+    </para>
+      <para>
+      如果您不需要使用交互提示符，请直接输入命令，例如：
+    </para>
+      <screen><prompt role="root"># </prompt><command>chronyc</command> activity</screen>
+    </section>
+  </section>
+  <section role="task" xml:lang="zh-cn" version="5.2" xml:id="ntp-configure-nts">
+    <info>
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <para/>
+      </abstract>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">配置 NTS</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="tbazant@suse.com"/>
+    </info>
+    <para>
+    NTP 协议未引入相关安全机制，来对时间服务器与客户端之间的通信进行身份验证和加密。网络时间安全 (NTS) 是一种提高 NTP 安全性的扩展。<systemitem class="resource">chrony</systemitem> 支持 NTS，可以验证时间源并防御某些网络攻击。
+  </para>
+    <para>
+    以下过程概述了如何配置时间服务器和客户端计算机，以实现安全的时间同步。
+  </para>
+    <procedure xml:id="configure-nts-procedure">
+      <title>配置 NTS 时间服务器</title>
+      <step performance="optional">
+        <para>
+        建议将时间服务器配置为通过 NTS 更新时间。这样可以确保从同步链的一开始就实现安全的时间同步。注释掉 <filename>/etc/chrony.conf</filename> 中所有不支持 NTS 的现有时间源，并添加至少一个支持 NTS 的时间源，例如：
+      </para>
+        <screen>server time.cloudflare.com iburst nts</screen>
+        <tip>
+          <para>
+          该 <option>nts</option> 选项会请求 NTS 连接（如果可用），如果 NTS 不可用，则会回退到 NTP。
+        </para>
+        </tip>
+      </step>
+      <step>
+        <para>
+        重启 <systemitem class="daemon">chronyd</systemitem> 服务。
+      </para>
+        <screen>
+          <prompt>&gt; </prompt>
+          <command>sudo</command>
+          <command>systemctl restart chronyd.service</command>
+        </screen>
+      </step>
+      <step>
+        <para>
+        校验配置的时间源。
+      </para>
+        <screen><prompt>&gt; </prompt><command>chronyc sources -v</command>
+MS Name/IP address         Stratum Poll Reach LastRx Last sample
+===============================================================================
+^? time.cloudflare.com           3   6     1     2   -947ms[ -947ms] +/-   12ms
+^? pyrrha.fi.muni.cz             2   6     1     1   -948ms[ -948ms] +/-   39ms
+^* whitesoft-intex16.c.cbsn&gt;     1   6     1     2   -948ms[ -948ms] +/- 5444us
+^? mail.combatostrich.dev        2   6     1     1   -948ms[ -948ms] +/-   28ms</screen>
+        <note>
+          <para>
+          以 <literal>^*</literal> 开头的行包括被选为最佳选择的时间源。
+        </para>
+        </note>
+        <para>
+        校验配置的时间源是否使用 NTS 模式。
+      </para>
+        <screen><prompt>&gt; </prompt><command>chronyc -N authdata</command>
+Name/IP address             Mode KeyID Type KLen Last Atmp  NAK Cook CLen
+=========================================================================
+[...]
+time.cloudflare.com          NTS     1   15  256    3    0    0    8   96</screen>
+      </step>
+      <step>
+        <para>
+        校验服务器配置是否包含指定哪些客户端可以与时间服务器同步时间的 <option>allow</option> 选项，例如：
+      </para>
+        <screen>allow 192.168.1.0/24</screen>
+      </step>
+      <step performance="optional">
+        <para>
+        如果时间服务器在防火墙之后运行，则允许 NTP 和 NTS 所用端口的通信。默认端口为 123 和 4460。
+      </para>
+      </step>
+      <step>
+        <para>
+        获取 TLS 证书和相应的私用密钥并将其复制到 <filename>/var/lib/chrony/</filename>。校验 <systemitem class="resource">chrony</systemitem> 是否可读取它们，例如：
+      </para>
+        <screen><prompt>&gt; </prompt><command>sudo</command> install -m 0440 -o chrony -g chrony <replaceable>nts.key</replaceable> /var/lib/chrony/
+<prompt>&gt; </prompt><command>sudo</command> install -m 0440 -o chrony -g chrony <replaceable>nts.crt</replaceable> /var/lib/chrony/</screen>
+        <tip>
+          <para>
+          有关 TLS 证书的详细信息，可参见<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/security/html/tls-certificates/index.html">专门的文章</link>。
+        </para>
+        </tip>
+      </step>
+      <step>
+        <para>
+        编辑 <filename>/etc/chrony.conf</filename> 并验证该 <option>ntsdumpdir /var/lib/chrony</option> 选项是否处于活动状态。然后添加 TLS 密钥和证书的路径。
+      </para>
+        <screen>ntsdumpdir /var/lib/chrony
+ntsserverkey /var/lib/chrony/nts.key
+ntsservercert /var/lib/chrony/nts.crt</screen>
+      </step>
+      <step>
+        <para>
+        重启 <systemitem class="daemon">chronyd</systemitem> 服务。
+      </para>
+        <screen><prompt>&gt; </prompt><command>sudo</command> systemctl restart chronyd.service </screen>
+      </step>
+    </procedure>
+    <procedure>
+      <title>配置 NTS 客户端</title>
+      <step>
+        <para>
+        禁用现有的 NTP 源，例如：
+      </para>
+        <screen>#server 192.168.1.1 iburst</screen>
+        <para>
+        源配置包含在 <filename>/etc/chrony.conf</filename> 中或 <filename>/etc/chrony.d/</filename> 下的文件中。
+      </para>
+      </step>
+      <step>
+        <para>
+        客户端主机需要信任签署 TLS 证书的根 CA。有关如何管理 CA 证书存储区的详细信息，可参见<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/security/html/tls-certificates/index.html#tls-certificates-store">专门的文章</link>。
+      </para>
+      </step>
+      <step>
+        <para>
+        将您在<xref linkend="configure-nts-procedure"/>中配置的 NTS 时间服务器源添加到 <filename>/etc/chrony.conf</filename> 的客户端 <systemitem class="resource">chrony</systemitem> 配置中，例如：
+      </para>
+        <screen>server <replaceable>nts1.example.com</replaceable> iburst nts</screen>
+      </step>
+      <step>
+        <para>
+        重启 <systemitem class="daemon">chronyd</systemitem> 服务。
+      </para>
+        <screen><prompt>&gt; </prompt><command>sudo</command> systemctl restart chronyd.service</screen>
+      </step>
+      <step>
+        <para>
+        校验客户端上配置的时间源并确认连接已通过身份验证。
+      </para>
+        <screen><prompt>&gt; </prompt><command>sudo</command> chronyc sources -v
+<prompt>&gt; </prompt><command>sudo</command> chronyc -N authdata</screen>
+      </step>
+      <step>
+        <para>
+        在 NTS 时间服务器上，校验每个客户端有关 NTS 连接的统计信息。
+      </para>
+        <screen><prompt>&gt; </prompt><command>sudo</command> chronyc -N clients -k</screen>
+      </step>
+    </procedure>
+  </section>
+  <section role="reference" xml:lang="zh-cn" version="5.2" xml:id="ntp-operate-chronyd-service">
+    <info>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="tbazant@suse.com"/>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion"><systemitem class="daemon">chronyd</systemitem> <systemitem class="daemon">systemd</systemitem> 服务</title>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+        <systemitem class="resource">chrony</systemitem> 的主要组件是 <systemitem class="daemon">chronyd</systemitem> <systemitem class="daemon">systemd</systemitem> 服务，它在后台运行，可将系统时间与选定时间服务器保持同步。您可以使用以下 <systemitem class="daemon">systemd</systemitem> 命令来操作 <systemitem class="daemon">chronyd</systemitem> 服务：
+      </para>
+      </abstract>
+    </info>
+    <variablelist>
+      <varlistentry>
+        <term>
+          <command>systemctl status chronyd.service</command>
+        </term>
+        <listitem>
+          <para>
+          列显有关 <systemitem class="daemon">chronyd</systemitem> 服务当前状态的扩展信息。
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <command>systemctl is-enabled chronyd.service</command>
+        </term>
+        <listitem>
+          <para>
+          检查是否启用了在系统引导时自动启动 <systemitem class="daemon">chronyd</systemitem> 服务的设置。
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <command>systemctl enabled chronyd.service</command>
+        </term>
+        <listitem>
+          <para>
+          启用在系统引导时自动启动 <systemitem class="daemon">chronyd</systemitem> 服务的设置。
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <command>systemctl disable chronyd.service</command>
+        </term>
+        <listitem>
+          <para>
+          禁用在系统引导时自动启动 <systemitem class="daemon">chronyd</systemitem> 服务的设置。
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <command>systemctl is-active chronyd.service</command>
+        </term>
+        <listitem>
+          <para>
+          检查 <systemitem class="daemon">chronyd</systemitem> 服务是否已启动并正在运行。
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <command>systemctl start chronyd.service</command>
+        </term>
+        <listitem>
+          <para>
+          启动 <systemitem class="daemon">chronyd</systemitem> 服务。
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <command>systemctl stop chronyd.service</command>
+        </term>
+        <listitem>
+          <para>
+          停止 <systemitem class="daemon">chronyd</systemitem> 服务。
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <command>systemctl restart chronyd.service</command>
+        </term>
+        <listitem>
+          <para>
+          重启动 <systemitem class="daemon">chronyd</systemitem> 服务并重新加载 <filename>/etc/chronyd.conf</filename>。
+        </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section role="glue" xml:lang="zh-cn" version="5.2" xml:id="ntp-troubleshooting">
+    <info>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">查错</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="tbazant@suse.com"/>
+    </info>
+    <para>
+    如果出现错误，请检查以下事项。
+  </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+        校验您的计算机是否已连接到网络并且已正确配置该网络：
+      </para>
+        <screen><prompt>&gt; </prompt><command>sudo</command> systemctl status network.service
+● NetworkManager.service - Network Manager
+     Loaded: loaded (/usr/lib/systemd/system/NetworkManager.service; enabled; vendor preset: disabled)
+     Active: active (running) since Sat 2021-08-07 20:09:44 CEST; 4 days ago
+[...]
+</screen>
+      </listitem>
+      <listitem>
+        <para>
+        校验您作为时间源输入的时间服务器是否存在，并且可通过网络访问它们。例如：
+      </para>
+        <screen><prompt>&gt; </prompt>ping pool.ntp.org
+PING pool.ntp.org (85.199.214.101) 56(84) bytes of data.
+64 bytes from 85.199.214.101 (85.199.214.101): icmp_seq=1 ttl=37 time=29.9 ms
+[...]
+</screen>
+      </listitem>
+      <listitem>
+        <para>
+        如果您计算机上的 <systemitem class="daemon">firewalld</systemitem> 服务处于活动状态，请校验是否允许 NTP 服务。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        校验 <systemitem class="daemon">chronyd</systemitem> 服务是否正在运行：
+      </para>
+        <screen><prompt>&gt; </prompt><command>sudo</command> systemctl status chronyd.service
+● chronyd.service - NTP client/server
+     Loaded: loaded (/usr/lib/systemd/system/chronyd.service; enabled; vendor preset: disabled)
+     Active: active (running) since Sat 2021-08-07 20:09:44 CEST; 4 days ago
+ [...]
+</screen>
+      </listitem>
+      <listitem>
+        <para>
+        如果虚拟化 Guest 上的系统时间与确切时间有偏差，请确保 VM 主机服务器系统时间与有效的时间服务器同步，并且 Guest 与主机使用相同的时间源进行同步。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        如果 NTP 服务在系统引导期间无法正常启动，则原因可能是网络交换机配置为使用 <literal>Spanning
+        Tree Protocol</literal>，但端口未配置为 <literal>Edge
+        Ports</literal>，而是配置为 <literal>Portfast</literal>。在这种情况下，最多可能需要等待一分钟才能建立网络连接。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        如果在使用 NetworkManager 的情况下，NTP 服务在系统引导期间无法启动，请编辑 <filename>/etc/sysconfig/network/config</filename> 文件并将 <option>NM_ONLINE_TIMEOUT</option> 值更改为 30。如果问题仍然存在，请将超时值增加 15，然后重试。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        如果无法访问 NTP 源，请使用以下命令识别这些源：
+      </para>
+        <screen><prompt>&gt; </prompt>chronyc sources -v
+[...]
+MS Name/IP address         Stratum Poll Reach LastRx Last sample
+===============================================================================
+^* time.mydomain.com             3  10   377    81  -5354us[-8257us] +/-  191ms
+^? ntp1.example.com              0  10     0     -     +0ns[   +0ns] +/-    0ns
+^? 77.177.77.177                 0  10     0     -     +0ns[   +0ns] +/-    0ns
+^? ntp3.example.com              0  10     0     -     +0ns[   +0ns] +/-    0ns
+^? ntp4.example.net              0  10     0     -     +0ns[   +0ns] +/-    0ns
+^? 2a02:3d8:1::1:1               0   6     0     -     +0ns[   +0ns] +/-    0ns
+^? ntp2.example.org              0  10     0     -     +0ns[   +0ns] +/-    0ns
+</screen>
+        <para>
+        在本例中，只有 <literal>time.mydomain.com</literal> 服务器在真正提供时间。有必要对无法访问的远程 NTP 时间源的网络连接进行一般性查错。
+      </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section role="glue" xml:lang="zh-cn" version="5.2" xml:id="ntp-more-info">
+    <info>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">更多信息</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="tbazant@suse.com"/>
+    </info>
+    <itemizedlist>
+      <listitem>
+        <para>
+        <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/sles/html/SLES-all/cha-security-firewall.html#sec-security-firewall-firewalld"></link> 中介绍了如何使用 <systemitem class="daemon">firewalld</systemitem> 保护您的计算机。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://susedoc.github.io/doc-modular/main/html/reference-systemctl-enable-disable-services/"></link> 中列出了用于操作 <systemitem class="daemon">systemd</systemitem> 服务的命令。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        有关完整参考，请参见相关的手册页：
+      </para>
+        <para>
+        如需配置指令的完整列表，请运行 <command>man 1
+        chrony.conf</command>。
+      </para>
+        <para>
+        如需 <command>chronyc</command> 命令的完整列表，请运行 <command>man 1
+        chronyc</command>。
+      </para>
+        <para>
+        如需 <systemitem class="daemon">chronyd</systemitem> 命令行选项的完整列表，请运行 <command>man 8 chronyd</command>。
+      </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section version="5.2" xml:id="legal-disclaimer">
+    <info>
+      <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">法律声明</title>
+    </info>
+    <para> 版权所有© 2006– <?dbtimestamp format="Y"?> SUSE LLC 和撰稿人。保留所有权利。</para>
+    <para>
+    根据 GNU 自由文档许可证 (GNU Free Documentation License) 版本 1.2 或（根据您的选择）版本 1.3 中的条款，在此授予您复制、分发和/或修改本文档的权限；本版权声明和许可证附带不可变部分。许可版本 1.2 的副本包含在<quote>GNU Free Documentation License</quote>部分。
+  </para>
+    <para>
+    有关 SUSE 商标，请参见 <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.suse.com/company/legal/"></link>。所有其他第三方商标分别为相应所有者的财产。商标符号（®、™ 等）代表 SUSE 及其关联公司的商标。星号 (*) 代表第三方商标。
+  </para>
+    <para>
+    本指南力求涵盖所有细节，但这不能确保本指南准确无误。SUSE LLC 及其关联公司、作者和译者对于可能出现的错误或由此造成的后果皆不承担责任。
+  </para>
+  </section>
+  <appendix xmlns:its="http://www.w3.org/2005/11/its" version="5.2" role="legal" its:translate="no" xml:id="doc-gfdl-license">
+    <info>
+      <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">GNU Free Documentation License</title>
+    </info>
+    <para>
+  Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc. 51 Franklin St,
+  Fifth Floor, Boston, MA 02110-1301 USA. Everyone is permitted to copy and
+  distribute verbatim copies of this license document, but changing it is not
+  allowed.
+ </para>
+    <bridgehead renderas="sect4">
+    0. PREAMBLE
+  </bridgehead>
+    <para>
+  The purpose of this License is to make a manual, textbook, or other
+  functional and useful document "free" in the sense of freedom: to assure
+  everyone the effective freedom to copy and redistribute it, with or without
+  modifying it, either commercially or non-commercially. Secondarily, this
+  License preserves for the author and publisher a way to get credit for their
+  work, while not being considered responsible for modifications made by
+  others.
+ </para>
+    <para>
+  This License is a kind of "copyleft", which means that derivative works of
+  the document must themselves be free in the same sense. It complements the
+  GNU General Public License, which is a copyleft license designed for free
+  software.
+ </para>
+    <para>
+  We have designed this License to use it for manuals for free software,
+  because free software needs free documentation: a free program should come
+  with manuals providing the same freedoms that the software does. But this
+  License is not limited to software manuals; it can be used for any textual
+  work, regardless of subject matter or whether it is published as a printed
+  book. We recommend this License principally for works whose purpose is
+  instruction or reference.
+ </para>
+    <bridgehead renderas="sect4">
+    1. APPLICABILITY AND DEFINITIONS
+  </bridgehead>
+    <para>
+  This License applies to any manual or other work, in any medium, that
+  contains a notice placed by the copyright holder saying it can be distributed
+  under the terms of this License. Such a notice grants a world-wide,
+  royalty-free license, unlimited in duration, to use that work under the
+  conditions stated herein. The "Document", below, refers to any such manual or
+  work. Any member of the public is a licensee, and is addressed as "you". You
+  accept the license if you copy, modify or distribute the work in a way
+  requiring permission under copyright law.
+ </para>
+    <para>
+  A "Modified Version" of the Document means any work containing the Document
+  or a portion of it, either copied verbatim, or with modifications and/or
+  translated into another language.
+ </para>
+    <para>
+  A "Secondary Section" is a named appendix or a front-matter section of the
+  Document that deals exclusively with the relationship of the publishers or
+  authors of the Document to the Document's overall subject (or to related
+  matters) and contains nothing that could fall directly within that overall
+  subject. (Thus, if the Document is in part a textbook of mathematics, a
+  Secondary Section may not explain any mathematics.) The relationship could be
+  a matter of historical connection with the subject or with related matters,
+  or of legal, commercial, philosophical, ethical or political position
+  regarding them.
+ </para>
+    <para>
+  The "Invariant Sections" are certain Secondary Sections whose titles are
+  designated, as being those of Invariant Sections, in the notice that says
+  that the Document is released under this License. If a section does not fit
+  the above definition of Secondary then it is not allowed to be designated as
+  Invariant. The Document may contain zero Invariant Sections. If the Document
+  does not identify any Invariant Sections then there are none.
+ </para>
+    <para>
+  The "Cover Texts" are certain short passages of text that are listed, as
+  Front-Cover Texts or Back-Cover Texts, in the notice that says that the
+  Document is released under this License. A Front-Cover Text may be at most 5
+  words, and a Back-Cover Text may be at most 25 words.
+ </para>
+    <para>
+  A "Transparent" copy of the Document means a machine-readable copy,
+  represented in a format whose specification is available to the general
+  public, that is suitable for revising the document straightforwardly with
+  generic text editors or (for images composed of pixels) generic paint
+  programs or (for drawings) some widely available drawing editor, and that is
+  suitable for input to text formatters or for automatic translation to a
+  variety of formats suitable for input to text formatters. A copy made in an
+  otherwise Transparent file format whose markup, or absence of markup, has
+  been arranged to thwart or discourage subsequent modification by readers is
+  not Transparent. An image format is not Transparent if used for any
+  substantial amount of text. A copy that is not "Transparent" is called
+  "Opaque".
+ </para>
+    <para>
+  Examples of suitable formats for Transparent copies include plain ASCII
+  without markup, Texinfo input format, LaTeX input format, SGML or XML using a
+  publicly available DTD, and standard-conforming simple HTML, PostScript or
+  PDF designed for human modification. Examples of transparent image formats
+  include PNG, XCF and JPG. Opaque formats include proprietary formats that can
+  be read and edited only by proprietary word processors, SGML or XML for which
+  the DTD and/or processing tools are not generally available, and the
+  machine-generated HTML, PostScript or PDF produced by some word processors
+  for output purposes only.
+ </para>
+    <para>
+  The "Title Page" means, for a printed book, the title page itself, plus such
+  following pages as are needed to hold, legibly, the material this License
+  requires to appear in the title page. For works in formats which do not have
+  any title page as such, "Title Page" means the text near the most prominent
+  appearance of the work's title, preceding the beginning of the body of the
+  text.
+ </para>
+    <para>
+  A section "Entitled XYZ" means a named subunit of the Document whose title
+  either is precisely XYZ or contains XYZ in parentheses following text that
+  translates XYZ in another language. (Here XYZ stands for a specific section
+  name mentioned below, such as "Acknowledgements", "Dedications",
+  "Endorsements", or "History".) To "Preserve the Title" of such a section when
+  you modify the Document means that it remains a section "Entitled XYZ"
+  according to this definition.
+ </para>
+    <para>
+  The Document may include Warranty Disclaimers next to the notice which states
+  that this License applies to the Document. These Warranty Disclaimers are
+  considered to be included by reference in this License, but only as regards
+  disclaiming warranties: any other implication that these Warranty Disclaimers
+  may have is void and has no effect on the meaning of this License.
+ </para>
+    <bridgehead renderas="sect4">
+    2. VERBATIM COPYING
+  </bridgehead>
+    <para>
+  You may copy and distribute the Document in any medium, either commercially
+  or non-commercially, provided that this License, the copyright notices, and
+  the license notice saying this License applies to the Document are reproduced
+  in all copies, and that you add no other conditions whatsoever to those of
+  this License. You may not use technical measures to obstruct or control the
+  reading or further copying of the copies you make or distribute. However, you
+  may accept compensation in exchange for copies. If you distribute a large
+  enough number of copies you must also follow the conditions in section 3.
+ </para>
+    <para>
+  You may also lend copies, under the same conditions stated above, and you may
+  publicly display copies.
+ </para>
+    <bridgehead renderas="sect4">
+    3. COPYING IN QUANTITY
+  </bridgehead>
+    <para>
+  If you publish printed copies (or copies in media that commonly have printed
+  covers) of the Document, numbering more than 100, and the Document's license
+  notice requires Cover Texts, you must enclose the copies in covers that
+  carry, clearly and legibly, all these Cover Texts: Front-Cover Texts on the
+  front cover, and Back-Cover Texts on the back cover. Both covers must also
+  clearly and legibly identify you as the publisher of these copies. The front
+  cover must present the full title with all words of the title equally
+  prominent and visible. You may add other material on the covers in addition.
+  Copying with changes limited to the covers, as long as they preserve the
+  title of the Document and satisfy these conditions, can be treated as
+  verbatim copying in other respects.
+ </para>
+    <para>
+  If the required texts for either cover are too voluminous to fit legibly, you
+  should put the first ones listed (as many as fit reasonably) on the actual
+  cover, and continue the rest onto adjacent pages.
+ </para>
+    <para>
+  If you publish or distribute Opaque copies of the Document numbering more
+  than 100, you must either include a machine-readable Transparent copy along
+  with each Opaque copy, or state in or with each Opaque copy a
+  computer-network location from which the general network-using public has
+  access to download using public-standard network protocols a complete
+  Transparent copy of the Document, free of added material. If you use the
+  latter option, you must take reasonably prudent steps, when you begin
+  distribution of Opaque copies in quantity, to ensure that this Transparent
+  copy will remain thus accessible at the stated location until at least one
+  year after the last time you distribute an Opaque copy (directly or through
+  your agents or retailers) of that edition to the public.
+ </para>
+    <para>
+  It is requested, but not required, that you contact the authors of the
+  Document well before redistributing any large number of copies, to give them
+  a chance to provide you with an updated version of the Document.
+ </para>
+    <bridgehead renderas="sect4">
+    4. MODIFICATIONS
+  </bridgehead>
+    <para>
+  You may copy and distribute a Modified Version of the Document under the
+  conditions of sections 2 and 3 above, provided that you release the Modified
+  Version under precisely this License, with the Modified Version filling the
+  role of the Document, thus licensing distribution and modification of the
+  Modified Version to whoever possesses a copy of it. In addition, you must do
+  these things in the Modified Version:
+ </para>
+    <orderedlist numeration="upperalpha" spacing="normal">
+      <listitem>
+        <para>
+    Use in the Title Page (and on the covers, if any) a title distinct from
+    that of the Document, and from those of previous versions (which should, if
+    there were any, be listed in the History section of the Document). You may
+    use the same title as a previous version if the original publisher of that
+    version gives permission.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    List on the Title Page, as authors, one or more persons or entities
+    responsible for authorship of the modifications in the Modified Version,
+    together with at least five of the principal authors of the Document (all
+    of its principal authors, if it has fewer than five), unless they release
+    you from this requirement.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    State on the Title page the name of the publisher of the Modified Version,
+    as the publisher.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve all the copyright notices of the Document.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Add an appropriate copyright notice for your modifications adjacent to the
+    other copyright notices.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Include, immediately after the copyright notices, a license notice giving
+    the public permission to use the Modified Version under the terms of this
+    License, in the form shown in the Addendum below.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve in that license notice the full lists of Invariant Sections and
+    required Cover Texts given in the Document's license notice.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Include an unaltered copy of this License.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve the section Entitled "History", Preserve its Title, and add to it
+    an item stating at least the title, year, new authors, and publisher of the
+    Modified Version as given on the Title Page. If there is no section
+    Entitled "History" in the Document, create one stating the title, year,
+    authors, and publisher of the Document as given on its Title Page, then add
+    an item describing the Modified Version as stated in the previous sentence.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve the network location, if any, given in the Document for public
+    access to a Transparent copy of the Document, and likewise the network
+    locations given in the Document for previous versions it was based on.
+    These may be placed in the "History" section. You may omit a network
+    location for a work that was published at least four years before the
+    Document itself, or if the original publisher of the version it refers to
+    gives permission.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    For any section Entitled "Acknowledgements" or "Dedications", Preserve the
+    Title of the section, and preserve in the section all the substance and
+    tone of each of the contributor acknowledgements and/or dedications given
+    therein.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve all the Invariant Sections of the Document, unaltered in their
+    text and in their titles. Section numbers or the equivalent are not
+    considered part of the section titles.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Delete any section Entitled "Endorsements". Such a section may not be
+    included in the Modified Version.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Do not retitle any existing section to be Entitled "Endorsements" or to
+    conflict in title with any Invariant Section.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve any Warranty Disclaimers.
+   </para>
+      </listitem>
+    </orderedlist>
+    <para>
+  If the Modified Version includes new front-matter sections or appendices that
+  qualify as Secondary Sections and contain no material copied from the
+  Document, you may at your option designate some or all of these sections as
+  invariant. To do this, add their titles to the list of Invariant Sections in
+  the Modified Version's license notice. These titles must be distinct from any
+  other section titles.
+ </para>
+    <para>
+  You may add a section Entitled "Endorsements", provided it contains nothing
+  but endorsements of your Modified Version by various parties--for example,
+  statements of peer review or that the text has been approved by an
+  organization as the authoritative definition of a standard.
+ </para>
+    <para>
+  You may add a passage of up to five words as a Front-Cover Text, and a
+  passage of up to 25 words as a Back-Cover Text, to the end of the list of
+  Cover Texts in the Modified Version. Only one passage of Front-Cover Text and
+  one of Back-Cover Text may be added by (or through arrangements made by) any
+  one entity. If the Document already includes a cover text for the same cover,
+  previously added by you or by arrangement made by the same entity you are
+  acting on behalf of, you may not add another; but you may replace the old
+  one, on explicit permission from the previous publisher that added the old
+  one.
+ </para>
+    <para>
+  The author(s) and publisher(s) of the Document do not by this License give
+  permission to use their names for publicity for or to assert or imply
+  endorsement of any Modified Version.
+ </para>
+    <bridgehead renderas="sect4">
+    5. COMBINING DOCUMENTS
+  </bridgehead>
+    <para>
+  You may combine the Document with other documents released under this
+  License, under the terms defined in section 4 above for modified versions,
+  provided that you include in the combination all of the Invariant Sections of
+  all of the original documents, unmodified, and list them all as Invariant
+  Sections of your combined work in its license notice, and that you preserve
+  all their Warranty Disclaimers.
+ </para>
+    <para>
+  The combined work need only contain one copy of this License, and multiple
+  identical Invariant Sections may be replaced with a single copy. If there are
+  multiple Invariant Sections with the same name but different contents, make
+  the title of each such section unique by adding at the end of it, in
+  parentheses, the name of the original author or publisher of that section if
+  known, or else a unique number. Make the same adjustment to the section
+  titles in the list of Invariant Sections in the license notice of the
+  combined work.
+ </para>
+    <para>
+  In the combination, you must combine any sections Entitled "History" in the
+  various original documents, forming one section Entitled "History"; likewise
+  combine any sections Entitled "Acknowledgements", and any sections Entitled
+  "Dedications". You must delete all sections Entitled "Endorsements".
+ </para>
+    <bridgehead renderas="sect4">
+    6. COLLECTIONS OF DOCUMENTS
+  </bridgehead>
+    <para>
+  You may make a collection consisting of the Document and other documents
+  released under this License, and replace the individual copies of this
+  License in the various documents with a single copy that is included in the
+  collection, provided that you follow the rules of this License for verbatim
+  copying of each of the documents in all other respects.
+ </para>
+    <para>
+  You may extract a single document from such a collection, and distribute it
+  individually under this License, provided you insert a copy of this License
+  into the extracted document, and follow this License in all other respects
+  regarding verbatim copying of that document.
+ </para>
+    <bridgehead renderas="sect4">
+    7. AGGREGATION WITH INDEPENDENT WORKS
+  </bridgehead>
+    <para>
+  A compilation of the Document or its derivatives with other separate and
+  independent documents or works, in or on a volume of a storage or
+  distribution medium, is called an "aggregate" if the copyright resulting from
+  the compilation is not used to limit the legal rights of the compilation's
+  users beyond what the individual works permit. When the Document is included
+  in an aggregate, this License does not apply to the other works in the
+  aggregate which are not themselves derivative works of the Document.
+ </para>
+    <para>
+  If the Cover Text requirement of section 3 is applicable to these copies of
+  the Document, then if the Document is less than one half of the entire
+  aggregate, the Document's Cover Texts may be placed on covers that bracket
+  the Document within the aggregate, or the electronic equivalent of covers if
+  the Document is in electronic form. Otherwise they must appear on printed
+  covers that bracket the whole aggregate.
+ </para>
+    <bridgehead renderas="sect4">
+    8. TRANSLATION
+  </bridgehead>
+    <para>
+  Translation is considered a kind of modification, so you may distribute
+  translations of the Document under the terms of section 4. Replacing
+  Invariant Sections with translations requires special permission from their
+  copyright holders, but you may include translations of some or all Invariant
+  Sections in addition to the original versions of these Invariant Sections.
+  You may include a translation of this License, and all the license notices in
+  the Document, and any Warranty Disclaimers, provided that you also include
+  the original English version of this License and the original versions of
+  those notices and disclaimers. In case of a disagreement between the
+  translation and the original version of this License or a notice or
+  disclaimer, the original version will prevail.
+ </para>
+    <para>
+  If a section in the Document is Entitled "Acknowledgements", "Dedications",
+  or "History", the requirement (section 4) to Preserve its Title (section 1)
+  will typically require changing the actual title.
+ </para>
+    <bridgehead renderas="sect4">
+    9. TERMINATION
+  </bridgehead>
+    <para>
+  You may not copy, modify, sublicense, or distribute the Document except as
+  expressly provided for under this License. Any other attempt to copy, modify,
+  sublicense or distribute the Document is void, and will automatically
+  terminate your rights under this License. However, parties who have received
+  copies, or rights, from you under this License will not have their licenses
+  terminated so long as such parties remain in full compliance.
+ </para>
+    <bridgehead renderas="sect4">
+    10. FUTURE REVISIONS OF THIS LICENSE
+  </bridgehead>
+    <para>
+  The Free Software Foundation may publish new, revised versions of the GNU
+  Free Documentation License from time to time. Such new versions will be
+  similar in spirit to the present version, but may differ in detail to address
+  new problems or concerns. See
+  <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.gnu.org/copyleft/"></link>.
+ </para>
+    <para>
+  Each version of the License is given a distinguishing version number. If the
+  Document specifies that a particular numbered version of this License "or any
+  later version" applies to it, you have the option of following the terms and
+  conditions either of that specified version or of any later version that has
+  been published (not as a draft) by the Free Software Foundation. If the
+  Document does not specify a version number of this License, you may choose
+  any version ever published (not as a draft) by the Free Software Foundation.
+ </para>
+    <bridgehead renderas="sect4">
+    ADDENDUM: How to use this License for your documents
+  </bridgehead>
+    <screen>Copyright (c) YEAR YOUR NAME.
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2
+or any later version published by the Free Software Foundation;
+with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+A copy of the license is included in the section entitled “GNU
+Free Documentation License”.</screen>
+    <para>
+  If you have Invariant Sections, Front-Cover Texts and Back-Cover Texts,
+  replace the &#x201C;with...Texts.&#x201D; line with this:
+ </para>
+    <screen>with the Invariant Sections being LIST THEIR TITLES, with the
+Front-Cover Texts being LIST, and with the Back-Cover Texts being LIST.</screen>
+    <para>
+  If you have Invariant Sections without Cover Texts, or some other combination
+  of the three, merge those two alternatives to suit the situation.
+ </para>
+    <para>
+  If your document contains nontrivial examples of program code, we recommend
+  releasing these examples in parallel under your choice of free software
+  license, such as the GNU General Public License, to permit their use in free
+  software.
+</para>
+  </appendix>
+</article>
