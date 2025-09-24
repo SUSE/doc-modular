@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="selinux-permissive-domains"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Setting permissive domains</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+      The topic covers how to identify and switch specific &selnx; process types (domains) to <literal>permissive</literal> mode for troubleshooting while the rest of the system remains in <literal>enforcing</literal> mode.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    When troubleshooting an issue with a specific service, it can be useful to disable &selnx; enforcement for that specific service.
+    Making a domain permissive means that &selnx; logs policy violations for that domain but does not block any actions.
+    This is a more targeted and secure alternative to switching the entire system to <literal>permissive</literal> mode with <command>setenforce 0</command> command.
+  </para>
+  <para>
+    The <command>semanage permissive</command> command allows you to manage a list of domains that operate permissively even while the system is enforcing the policy globally.
+    This change is persistent across reboots.
+  </para>
+  <section xml:id="finding-permissive-domain">
+    <title>Finding the appropriate domain</title>
+    <para>
+      Before you can make a service permissive, you must find the correct domain name associated with its process. You can do this by listing running processes with their security contexts using the <command>ps -eZ</command> command
+      and filtering for the process name.
+    </para>
+    <para>
+      For example, to find the domain for the HAProxy service:
+    </para>
+<screen>&prompt.root;<command>ps -eZ | grep haproxy</command>
+system_u:system_r:haproxy_t:s0    45248 ?        00:00:00 haproxy
+</screen>
+    <para>
+      The first column of the output shows the context, and the type component (ending in <literal>_t</literal>) is the domain.
+      In this example, the domain for HAProxy is <literal>haproxy_t</literal>.
+    </para>
+  </section>
+  <section xml:id="setting-permissive-domain">
+    <title>Setting a domain to permissive mode</title>
+    <para>
+      Once you know the domain, you can add it to the permissive list using the <command>semanage permissive -a</command> command.
+      This command makes the specific domain permissive without affecting the global enforcing mode.
+    </para>
+<screen>&prompt.root;<command>semanage permissive -a haproxy_t</command></screen>
+    <para>
+      Verify that the domain has been added to the list of custom permissive domains:
+    </para>
+<screen>&prompt.root;<command>semanage permissive -l</command>
+
+Builtin Permissive Types
+...
+
+Customized Permissive Types
+
+haproxy_t
+</screen>
+    <para>
+      With the <literal>haproxy_t</literal> domain now permissive, the HAProxy service can perform any action, even those that violate the &selnx; policy.
+      Instead of being blocked, these violations are recorded as AVC denials in the audit log <filename>/var/log/audit/audit.log</filename> with a <literal>permissive=1</literal> flag.
+      This allows you to gather data on what rules might be missing from your policy without interrupting the service's operation.
+    </para>
+    <para>
+      After you have finished troubleshooting, you must return the domain to <literal>enforcing</literal> mode to ensure the system is secure.
+      To do this, delete the domain from the permissive list using the <option>-d</option> flag:
+    </para>
+<screen>&prompt.root;<command>semanage permissive -d haproxy_t</command></screen>
+    <para>
+      The <literal>haproxy_t</literal> domain is now fully protected by the &selnx; policy again.
+    </para>
+  </section>
+</topic>

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="selinux-creating-custom-module"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Creating a custom module (advanced)</title>
+    <!-- can be changed via merge
+      in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract>
+     <para>The topic covers how to create a custom module</para> <!-- can be changed via merge in the assembly -->
+    </abstract>
+  </info>
+  <para>
+    If the diagnosis indicates a rule is genuinely missing from the policy and there is no
+    policy module available for the specific workload, you can generate a custom module.
+    Many open source projects provide their own &selnx; module, which can be
+    used to enhance the existing policy, so check for the specific workload.
+    This workflow includes a critical review step.
+  </para>
+<procedure>
+    <step>
+      <para>Use the <command>ausearch</command> command to fetch all the AVCs in the time frame.
+        Then, optionally, isolate the specific denials related to your issue with <command>grep</command>.
+        Pipe the results to <command>audit2allow</command>.
+        For example, to generate a module only for denials that have occurred recently, use:</para>
+      <screen>&prompt.root;<command>ausearch -m avc -ts recent | audit2allow -M my-fix</command></screen>
+      <para>This command creates two files: <filename>my-fix.te</filename> (human-readable source) and <filename>my-fix.pp</filename> (installable module).</para>
+    </step>
+    <step>
+      <para>Critically review the contents of the human-readable <filename>.te</filename> file to ensure the proposed rules are appropriate and expected.</para>
+      <screen>&prompt.user;<command>cat my-fix.te</command></screen>
+      <warning>
+          <title>Security analysis of generated rules</title>
+          <para>The <command>audit2allow</command> tool translates denials into allow rules mechanically. It does not understand context or intent.
+             Only proceed with installing a module if you fully understand the rule and are certain it does not violate your security principles.</para>
+      </warning>
+    </step>
+    <step>
+      <para><emphasis>Optional</emphasis>. Modify and rebuild the module: If the generated rules need to be adjusted, edit the <filename>.te</filename> file.
+        Save your changes and you can then manually recompile the module.</para>
+      <orderedlist>
+          <listitem><para>Use a text editor to modify <filename>my-fix.te</filename>.</para></listitem>
+          <listitem><para>Recreate <filename>my-fix.pp</filename>:</para>
+          <screen>&prompt.root;<command>make -f /usr/share/selinux/devel/Makefile my-fix.pp</command></screen>
+          </listitem>
+       </orderedlist>
+    </step>
+    <step>
+      <para>After a review, the generated rules are deemed safe and necessary for a legitimate application function. Install the compiled module package.</para>
+      <screen>&prompt.root;<command>semodule -i my-fix.pp</command></screen>
+    </step>
+  </procedure>
+
+</topic>

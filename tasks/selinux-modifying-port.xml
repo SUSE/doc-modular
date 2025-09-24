@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="selinux-modify-port"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Managing &selnx; port contexts</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+        The topic covers the modification of &selnx; port contexts to allow services to run on non-standard ports.</para>
+    </abstract>
+  </info>
+  <para>
+    By default, an &selnx;-confined service can only bind to network ports that are defined in the policy with the correct port type.
+    If you configure a service to listen on a non-standard port, &selnx; will prevent it from starting.
+  </para>
+  <para>
+    For example, if you configure the SSH daemon to listen on port 2222, &selnx; blocks it because only ports with the <literal>ssh_port_t</literal> type are accessible to the SSH service.
+    To allow this, you must add the new port number to the &selnx; policy.
+  </para>
+  <para>
+    To add a custom port definition permanently, you can use the <command>semanage port</command> command. This command writes the new port definition directly
+    into the active &selnx; policy. Unlike file contexts, you do not need to run a separate command like the <command>restorecon</command> command; the changes take effect immediately.
+    However, you may need to restart the affected service.
+  </para>
+  <para>
+    To identify the correct port type for your service, list all existing port definitions:
+  </para>
+<screen>&prompt.root;<command>semanage port -l</command></screen>
+  <para>
+    This shows a list of port types, protocols and the port numbers or ranges assigned to them. You can search this list or consult the service's &selnx; man page. For example,
+    use the <command>man sshd_selinux</command> command to find the appropriate port type.
+  </para>
+  <example xml:id="ex-selnx-semanage-port">
+    <title>Viewing default port contexts</title>
+<screen>&prompt.root;<command>semanage port -l | less</command>
+SELinux Port                          Proto    Port Number
+
+...
+ssh_port_t                     tcp      22
+...
+</screen>
+  </example>
+  <para>
+    Once you have identified the correct port type, you can add your custom port using <command>semanage port</command> with the port type <literal>TYPE</literal>, protocol <literal>PROTO</literal>, and port number <literal>PORT</literal>:
+  </para>
+<screen>
+&prompt.root;<command>semanage port -a -t TYPE -p PROTO PORT</command>
+</screen>
+  <para>
+    For example, to allow the SSH daemon to bind to the custom TCP port 2222, use:
+  </para>
+<screen>
+&prompt.root;<command>semanage port -a -t ssh_port_t -p tcp 2222</command>
+</screen>
+  <para>
+    You can then verify your modification was added to the policy by listing the ports again and filtering for the type:
+  </para>
+<screen>&prompt.root;<command>semanage port -l | grep ssh_port_t</command>
+ssh_port_t                     tcp      2222, 22
+</screen>
+  <para>
+  After adding the port definition and modifying the port on the actual SSH daemon side,
+  restart the SSH service and the daemon should be accessible on the custom port 2222.
+  </para>
+  <para>
+    If you need to remove the customization, use the <option>-d</option>flag:
+  </para>
+<screen>
+&prompt.root;<command>semanage port -d -t ssh_port_t -p tcp 2222</command>
+</screen>
+</topic>
