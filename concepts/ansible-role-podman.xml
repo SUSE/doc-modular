@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="ansible-role-podman"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>&podman;</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+      This role automates the entire lifecycle of TLS or SSL certificates, including both issuance and renewal.
+        </para>
+    </abstract>
+  </info>
+  <section xml:id="podman-role-variables">
+  <title> certificate role variables</title>
+  <para>Instead of a single and a standardized set of variables, the role uses several distinct variable groups to handle different aspects of certificate management. </para>
+<itemizedlist>
+  <listitem>
+    <para>
+<literal>certificate_requests</literal>: is the most important variable group. It is a list of dictionaries, where each dictionary defines the details for a single certificate you want to create or manage.
+This is where you specify the domain, subject alternative names, key size, and other core certificate details.
+The default is <literal>[]</literal>.
+</para>
+  </listitem>
+  <listitem>
+    <para>
+ <literal>certificate_wait</literal>: controls whether an Ansible task should pause and wait for a certificate to be successfully issued by a Certificate Authority (CA) before proceeding.
+  The default value is <literal>true</literal>, which means that that subsequent tasks in your playbook like configuring a web server does not run until the certificate is available, preventing errors caused by missing files.
+</para>
+  </listitem>
+    </itemizedlist>
+   <example><title>A &podman; playbook example </title>
+    <para> This playbook:</para>
+    <itemizedlist>
+     <listitem>
+      <para>Pulls a specified container image.</para>
+     </listitem>
+     <listitem>
+      <para>Runs a container from that image, maps a port and gives it a name.</para>
+     </listitem>
+     <listitem>
+      <para>Ensures the container runs and restarts automatically.</para>
+     </listitem>
+     <listitem>
+      <para>Removes the container afterward to clean up.</para>
+     </listitem>
+    </itemizedlist>
+  <screen>
+    - name: Manage Podman container
+      hosts: localhost
+      gather_facts: false
+
+      vars:
+        container_image: docker.io/library/nginx:latest
+        container_name: my_nginx_container
+        container_port: 8080
+
+      tasks:
+        - name: Ensure Podman is running
+          ansible.builtin.systemd_service:
+            name: podman
+            state: started
+            enabled: true
+          become: true
+
+        - name: Pull the container image
+          containers.podman.podman_image:
+            name: "{{ container_image }}"
+            state: present
+
+        - name: Run a new container
+          containers.podman.podman_container:
+            name: "{{ container_name }}"
+            image: "{{ container_image }}"
+            state: started
+            ports:
+              - "{{ container_port }}:80"
+            restart_policy: always
+
+        - name: Stop and remove the container
+          containers.podman.podman_container:
+            name: "{{ container_name }}"
+            state: absent
+            force: true
+          when: ansible_check_mode
+  </screen>
+</example>
+</section>
+</topic>
