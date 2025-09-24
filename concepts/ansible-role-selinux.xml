@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="ansible-role-selinux"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>&selnx;</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+     This role manages local &selnx; customizations involves a set of mechanisms for configuring and applying policy changes to a system.
+        </para>
+    </abstract>
+  </info>
+  <section xml:id="selinux-role-variables">
+  <title> &selnx; role variables</title>
+  <para>&selnx; variables, more accurately known as &selnx; booleans, are a crucial part of the SELinux policy that allow you to modify its behavior without
+    having to write or compile new policy rules.This role includes <literal>selinux_modules_facts</literal>: which is a module that gathers information about the state of &selnx; policy modules
+    on a target system and exposes it as facts. An Ansible fact is a piece of information gathered about a target system during a playbook run. </para>
+<itemizedlist>
+  <listitem>
+    <para>
+<literal>selinux_all_purge</literal>: is a variable that automatically remove all local &selnx; customizations on a system.
+The default value is <literal>false</literal>, which means that it does not remove any pre-existing local &selnx; customizations.
+It applies applies the new configurations you define in your playbook on top of the existing ones.
+</para>
+  </listitem>
+  <listitem>
+    <para>
+ <literal>selinux_policy</literal>: is used to manage &selnx; policy files on a target system.
+ If <literal>selinux_policy</literal> is not set and &selnx; is to be enabled, it defaults to <literal>targeted</literal>. If &selnx; is already enabled, the policy is not changed.
+</para>
+  </listitem>
+  <listitem>
+    <para>
+ <literal>selinux_state</literal>: controls the overall operating mode of &selnx; on a target system.
+ Allowed values for <literal>selinux_state</literal>are <literal>disabled</literal>, <literal>enforcing</literal> and <literal>permissive</literal>.
+This uses the <literal>selinux</literal> module.
+</para>
+  </listitem>
+  <listitem>
+    <para>
+ <literal>selinux_booleans</literal>: a list of dictionaries. Each dictionary in the list represents a single &selnx; boolean you want to configure.
+ By using a list, you can define multiple boolean settings in a single, organized variable.
+ This uses the <literal>seboolean</literal> module.
+</para>
+  </listitem>
+  <listitem>
+    <para>
+ <literal>selinux_fcontexts</literal>: manages a list of &selnx; file context rules, ensuring specific files and directories are correctly labeled for policy enforcement.
+ This uses the <literal>sefcontext</literal> module
+</para>
+  </listitem>
+  <listitem>
+    <para>
+ <literal>selinux_ports</literal>: manages a list of network port labels, ensuring services can listen on specific ports in accordance with the &selnx; policy.
+</para>
+  </listitem>
+  <listitem>
+    <para>
+ <literal>selinux_restore_dirs </literal>: is a list of dictionaries and manages the restoration of &selnx; file contexts on specific directories.
+ It is a key part of the role that ensures files and directories are correctly labeled after configuration changes.
+</para>
+  </listitem>
+  <listitem>
+    <para>
+ <literal>selinux_logins </literal>: manages a list of mappings between Linux user accounts and &selnx; users.
+ This is a critical component for enforcing Role-Based Access Control (RBAC) in SELinux.
+</para>
+  </listitem>
+  <listitem>
+    <para>
+ <literal>selinux_modules</literal>: is a list of dictionaries and manage the installation and removal of &selnx; policy modules.
+ It provides a declarative way to ensure specific &selnx; modules are present or absent on a target system.
+</para>
+  </listitem>
+  <listitem>
+    <para>
+ <literal>selinux_transactional_update_reboot_ok</literal>: manages reboots in transactional update environments.
+ Setting it to <literal>true</literal> allows the role to reboot automatically after an &selnx; change.
+ If set to <literal>false</literal> or leaving it unset prevents an automatic reboot, with the role either notifying the user or
+ failing to ensure the reboot requirement is handled explicitly.
+</para>
+  </listitem>
+  </itemizedlist>
+   <example><title>A &selnx; playbook example </title>
+    <para> This playbook sets the &selnx; type for a web content directory <literal>/srv/www</literal> to <literal>httpd_sys_content_t</literal>.
+
+      Restore the SELinux security context for all files and directories within that path.
+    </para>
+  <screen>
+    - name: Configure SELinux for web content
+    hosts: webservers  # Target the 'webservers' group in your inventory
+    become: true       # Required for managing system settings
+
+    tasks:
+      - name: Create the web content directory
+        ansible.builtin.file:
+          path: /srv/www
+          state: directory
+          mode: '0755'
+
+      - name: Define SELinux file context for the web directory
+        ansible.posix.sefcontext:
+          target: '/srv/www(/.*)?'
+          setype: httpd_sys_content_t
+          state: present
+
+      - name: Apply the SELinux context to the directory and its contents
+        ansible.posix.selinux_fcontext:
+          path: '/srv/www'
+          state: present
+          reload: true
+  </screen>
+      </example>
+             </section>
+</topic>
