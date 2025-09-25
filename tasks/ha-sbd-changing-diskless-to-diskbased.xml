@@ -19,7 +19,8 @@
     <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
     <abstract>
       <para>
-         TODO: Use this procedure to change diskless &sbd; to disk-based &sbd;.
+        Use this procedure to change diskless &sbd; to disk-based &sbd;. This might be needed if
+        the cluster's workload changes and now needs multiple &stonith; devices.
       </para>
     </abstract>
   </info>
@@ -34,11 +35,29 @@
       while in maintenance mode.
     </para>
   </important>
+  <warning>
+    <title>Overwriting existing data</title>
+    <para>
+      Make sure any device you want to use for &sbd; does not hold any important data. Configuring
+      a device for use with &sbd; overwrites the existing data.
+    </para>
+  </warning>
   <itemizedlist>
     <title>Requirements</title>
     <listitem>
       <para>
         Diskless &sbd; is configured and running.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        All nodes can access shared storage.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        The path to the shared storage device is consistent across all nodes. Use stable device
+        names such as <filename>/dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></filename>.
       </para>
     </listitem>
   </itemizedlist>
@@ -61,15 +80,22 @@ Diskless &sbd; configured</screen>
     </step>
     <step>
       <para>
-        Configure disk-based &sbd;, using <option>-F</option> to allow you to reconfigure &sbd;
-        even when it is already running:
+        Configure disk-based &sbd;. Use <option>--force</option> (or <option>-F</option>) to allow
+        you to reconfigure &sbd; even when it is already running, and <option>--sbd-device</option>
+        (or <option>-s</option>) to specify the shared storage device:
       </para>
-<screen>&prompt.user;<command>sudo crm -F cluster init sbd -s /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+<screen>&prompt.user;<command>sudo crm --force cluster init sbd --sbd-device /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+      <tip role="compact">
+        <para>
+          You can use <option>--sbd-device</option> (or <option>-s</option>) multiple times to
+          configure up to three &sbd; devices.
+        </para>
+      </tip>
       <para>
-        The script creates an &sbd; resource, updates the &sbd; configuration file, and adjusts
-        the timeout settings to be appropriate for disk-based &sbd;. The script also puts the
-        cluster into maintenance mode, restarts the cluster services, then puts the cluster back
-        into normal operation.
+        The script initializes &sbd; on the shared storage device, creates a &stonith; cluster
+        resource, and updates the &sbd; configuration file and timeout settings. The script also
+        puts the cluster into maintenance mode, restarts the cluster services, then puts the
+        cluster back into normal operation.
       </para>
     </step>
     <step>

@@ -17,8 +17,25 @@
     <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        TODO: If you need to replace an &sbd; device, you can use <command>crm sbd device add</command> to add a new device, and <command>crm sbd device remove</command> to remove the old device. The order of these commands depends on how many &sbd; devices the cluster currently has.
+        If you need to replace an &sbd; device, you can use <command>crm sbd device add</command>
+        to add the new device and <command>crm sbd device remove</command> to remove the old device.
+        If the cluster has two &sbd; devices, you can run these commands in any order. However, if
+        the cluster has one or three &sbd; devices, you must run these commands in a specific order:
       </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            One device: <command>crm sbd device remove</command> cannot remove the only device,
+            so you must add the new device before you can remove the old device.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Three devices: <command>crm sbd device add</command> cannot add a fourth device,
+            so you must remove the old device before you can add the new device.
+          </para>
+        </listitem>
+      </itemizedlist>
     </abstract>
   </info>
 
@@ -47,37 +64,71 @@
         Log in either as the &rootuser; user or as a user with <command>sudo</command> privileges.
       </para>
     </step>
-    <step>
+    <step xml:id="ha-sbd-replacing-check-sbd-devices">
       <para>
-        Check which device or devices are already configured for use with &sbd;:
+        Check how many devices are already configured for use with &sbd;:
       </para>
 <screen>&prompt.user;<command>sudo crm sbd configure show sysconfig</command></screen>
       <para>
         The output shows one or more device IDs in the <literal>SBD_DEVICE</literal> line.
+        The number of devices determines the order of the next steps.
       </para>
-      <tip>
-        <title>Order of next steps </title>
-        <para>
-          The cluster cannot have more than three &sbd; devices. If the cluster already has three
-          devices, you must remove the old device before you can add the new device.
-        </para>
-      </tip>
     </step>
     <step>
       <para>
-        Add the new device to the existing &sbd; configuration:
+        Add or remove a device, depending on the number of devices shown in
+        <xref linkend="ha-sbd-replacing-check-sbd-devices"/>:
       </para>
+      <variablelist>
+        <varlistentry>
+          <term>One device:</term>
+          <listitem>
+            <para>
+              Add the new device to the existing &sbd; configuration:
+            </para>
 <screen>&prompt.user;<command>sudo crm sbd device add /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Two or three devices:</term>
+          <listitem>
+            <para>
+              Remove the old device from the &sbd; configuration:
+            </para>
+<screen>&prompt.user;<command>sudo crm sbd device remove /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+          </listitem>
+        </varlistentry>
+      </variablelist>
       <para>
         The script might warn you to manually restart the cluster services, but you do not need to
-        do this until after you remove the old device.
+        do this until after the next step.
       </para>
     </step>
     <step>
       <para>
-        Remove the old device from the &sbd; configuration:
+        Add or remove a device, depending on the number of devices shown in
+        <xref linkend="ha-sbd-replacing-check-sbd-devices"/>:
       </para>
+      <variablelist>
+        <varlistentry>
+          <term>One device:</term>
+          <listitem>
+            <para>
+              Remove the old device from the &sbd; configuration:
+            </para>
 <screen>&prompt.user;<command>sudo crm sbd device remove /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Two or three devices:</term>
+          <listitem>
+            <para>
+              Add the new device to the existing &sbd; configuration:
+            </para>
+<screen>&prompt.user;<command>sudo crm sbd device add /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+          </listitem>
+        </varlistentry>
+      </variablelist>
       <para>
         The script updates the &sbd; configuration file and checks whether it is safe to restart
         the cluster services automatically. If any non-&stonith; resources are running, the script
