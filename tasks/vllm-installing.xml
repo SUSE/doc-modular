@@ -24,229 +24,142 @@
         handles dynamic batching and streaming outputs. In short, &vllm; makes
         running LLMs cheaper and faster in production.
       </para>
-      <para>
-        
-      </para>
     </abstract>
+<!-- TODO AI: udate apps in #ai-intro-how-works-->
   </info>
-  <section xml:id="milvus-installing-app-details">
-    <title>Details about the &milvus; application</title>
+  <para>
+    Deploying &vllm; on &k8s; is a scalable and efficient way to serve machine
+    learning models. This guide walks you through deploying &vllm; using the its
+    &helm; chart which is part of &ailibrary;. The &helm; chart deploys the full
+    &vllm; production stack and enables you to run optimized LLM inference
+    workloads on &nvidia; GPU in your &k8s; cluster. It consists of the
+    following components:
+  </para>
+  <itemizedlist>
+    <listitem>
+      <para>
+        <emphasis role="bold">Serving Engine</emphasis> runs the model
+        inference.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <emphasis role="bold">Router</emphasis> handles OpenAI-compatible API
+        requests.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <emphasis role="bold">&lmcache;</emphasis> (optional) improves caching
+        efficiency.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <emphasis role="bold">CacheServer </emphasis> (optional) is a
+        distributed KV cache back-end.
+      </para>
+    </listitem>
+  </itemizedlist>
+  <section xml:id="vllm-installing-app-details">
+    <title>Details about the &vllm; application</title>
     <para>
-      Before deploying &milvus;, it is important to know more about the
-      supported configurations and documentation. The following command provides
-      the corresponding details:
+      Before deploying &vllm;, it is important to know more about the supported
+      configurations and documentation. The following command provides the
+      corresponding details:
     </para>
-<screen>helm show values oci://dp.apps.rancher.io/charts/milvus</screen>
+<screen>helm show values oci://dp.apps.rancher.io/charts/vllm</screen>
     <para>
-      Alternatively, you can also refer to the &milvus; &helm; chart page on the
+      Alternatively, you can also refer to the &vllm; &helm; chart page on the
       &sappco; site at
-      <link xlink:href="https://apps.rancher.io/applications/milvus"/>. It
-      contains &milvus; dependencies, available versions and the link to pull
-      the &milvus; container image.
+      <link xlink:href="https://apps.rancher.io/applications/vllm"/>. It
+      contains &vllm; dependencies, available versions and the link to pull the
+      &vllm; container image.
     </para>
-    <figure xml:id="milvus-info-appco">
-      <title>&milvus; page in the &sappco;</title>
-      <mediaobject>
-        <imageobject role="fo">
-          <imagedata fileref="rancher-appco-milvus.png" width="75%"/>
-        </imageobject>
-        <imageobject role="html">
-          <imagedata fileref="rancher-appco-milvus.png" width="75%"/>
-        </imageobject>
-        <textobject role="description"><phrase >&milvus; page in the &sappco;</phrase>
-        </textobject>
-      </mediaobject>
-    </figure>
   </section>
-  <section xml:id="milvus-installing-procedure">
-    <title>&milvus; installation procedure</title>
+  <section xml:id="vllm-installing-procedure">
+    <title>&vllm; installation procedure</title>
     <procedure>
       <xi:include href="../snippets/ai-library-requirement.xml"/>
+      <warning>
+        <title>&nvidia; GPUs required</title>
+        <para>
+          &nvidia; GPUs must be available in your &k8s; cluster to successfully
+          deploy and run &vllm;.
+        </para>
+      </warning>
+      <important>
+        <title>Limitation</title>
+        <para>
+          The current release of &productname; &vllm; does not support Ray and
+          LoraController.
+        </para>
+      </important>
       <step>
         <para>
-          When installed as part of &productname;, &milvus; depends on &etcd;,
-          &minio; and Apache Kafka. Because the &milvus; chart uses a
-          non-default configuration, create an override file
-          <filename>milvus_custom_overrides.yaml</filename> with the following
-          content.
+          Create the <filename>vllm_custom_overrides.yaml</filename> file to
+          override the default values of the &helm; chart. The following minimal
+          example includes a model that is publicly accessible.
         </para>
-        <tip>
-          <para>
-            As a template, you can download the &milvus; &helm; chart that
-            includes the <filename>values.yaml</filename> file with the default
-            configuration by running the following command:
-          </para>
-<screen>&prompt.user;<command>helm pull oci://dp.apps.rancher.io/charts/milvus --version 4.2.2</command></screen>
-        </tip>
 <screen>global:
   imagePullSecrets:
   - application-collection
-cluster:
-  enabled: True
-standalone:
-  persistence:
-    persistentVolumeClaim:
-      storageClassName: "local-path"
-etcd:
-  replicaCount: 1
-  persistence:
-    storageClassName: "local-path"
-minio:
-  mode: distributed
-  replicas: 4
-  rootUser: "admin"
-  rootPassword: "adminminio"
-  persistence:
-    storageClass: "local-path"
-  resources:
-    requests:
-      memory: 1024Mi
-kafka:
-  enabled: true
-  name: kafka
-  replicaCount: 3
-  broker:
-    enabled: true
-  cluster:
-    listeners:
-      client:
-        protocol: 'PLAINTEXT'
-      controller:
-        protocol: 'PLAINTEXT'
-  persistence:
-    enabled: true
-    annotations: {}
-    labels: {}
-    existingClaim: ""
-    accessModes:
-      - ReadWriteOnce
-    resources:
-      requests:
-        storage: 8Gi
-    storageClassName: "local-path"
-extraConfigFiles:<co xml:id="co-llama-otel-extra"/>
-  user.yaml: |+
-    trace:
-      exporter: jaeger
-      sampleFraction: 1
-      jaeger:
-        url: "http://opentelemetry-collector.observability.svc.cluster.local:14268/api/traces"<co xml:id="co-milvus-otel"/></screen>
-        <calloutlist>
-          <callout arearefs="co-llama-otel-extra">
-            <para>
-              These <option>extraConfigFiles</option> section is optional,
-              required only if you want to receive telemetry data from &owui;.
-            </para>
-          </callout>
-          <callout arearefs="co-milvus-otel">
-            <para>
-              The URL of the &otelemetry; Collector installed by the user.
-            </para>
-          </callout>
-        </calloutlist>
-        <tip>
-          <para>
-            The above example uses local storage. For production environments,
-            we recommend using an enterprise class storage solution such as
-            &sstorage; in which case the <option>storageClassName</option>
-            option must be set to <literal>longhorn</literal>.
-          </para>
-        </tip>
+servingEngineSpec:
+  modelSpec:
+  - name: "phi3-mini-4k"
+    registry: "dp.apps.rancher.io"
+    repository: "containers/vllm-openai"
+    tag: "0.9.1"
+    imagePullPolicy: "IfNotPresent"
+    modelURL: "microsoft/Phi-3-mini-4k-instruct"
+    replicaCount: 1
+    requestCPU: 6
+    requestMemory: "16Gi"
+    requestGPU: 1
+</screen>
       </step>
       <step>
         <para>
-          Install the &milvus; &helm; chart using the
-          <filename>milvus_custom_overrides.yaml</filename> override file.
+          Install the &vllm; &helm; chart using the
+          <filename>vllm_custom_overrides.yaml</filename> override file.
         </para>
 <screen>&prompt.user;<command>helm upgrade --install \
-  milvus oci://dp.apps.rancher.io/charts/milvus \
+  vllm oci://dp.apps.rancher.io/charts/vllm \
   -n <replaceable>SUSE_AI_NAMESPACE</replaceable> \
-  --version 4.2.2 -f <replaceable>milvus_custom_overrides.yaml</replaceable></command></screen>
+  -f <replaceable>vllm_custom_overrides.yaml</replaceable></command></screen>
       </step>
     </procedure>
-    <section xml:id="milvus-kafka-limitation">
-      <title>Using &akafka; with &sstorage;</title>
-      <para>
-        When &milvus; is deployed in cluster mode, it uses &akafka; as a message
-        queue. If &akafka; uses &sstorage; as a storage back-end, you need to
-        create an XFS storage class and make it available for the &akafka;
-        deployment. Otherwise deploying &akafka; with a storage class of an Ext4
-        file system fails with the following error:
-      </para>
-<screen>"Found directory /mnt/kafka/logs/lost+found, 'lost+found' is not
-  in the form of topic-partition or topic-partition.uniqueId-delete
-  (if marked for deletion)"</screen>
-      <para>
-        To introduce the XFS storage class, follow these steps:
-      </para>
-      <procedure>
-        <step>
-          <para>
-            Create a file named <filename>longhorn-xfs.yaml</filename> with the
-            following content:
-          </para>
-<screen>apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: longhorn-xfs
-provisioner: driver.longhorn.io
-allowVolumeExpansion: true
-reclaimPolicy: Delete
-volumeBindingMode: Immediate
-parameters:
-  numberOfReplicas: "3"
-  staleReplicaTimeout: "30"
-  fromBackup: ""
-  fsType: "xfs"
-  dataLocality: "disabled"
-  unmapMarkSnapChainRemoved: "ignored"</screen>
-        </step>
-        <step>
-          <para>
-            Create the new storage class using the <command>kubectl</command>
-            command.
-          </para>
-<screen>&prompt.user;<command>kubectl apply -f longhorn-xfs.yaml</command></screen>
-        </step>
-        <step>
-          <para>
-            Update the &milvus; overrides YAML file to reference the &akafka;
-            storage class, as in the following example:
-          </para>
-<screen>
-  [...]
-    kafka:
-    enabled: true
-    persistence:
-      storageClassName: longhorn-xfs</screen>
-        </step>
-      </procedure>
-    </section>
   </section>
-  <section xml:id="milvus-upgrading">
-    <title>Upgrading &milvus;</title>
+  <section xml:id="vllm-upgrading">
+    <title>Upgrading &vllm;</title>
     <para>
-      The &milvus; chart receives application updates and updates of the &helm;
+      The &vllm; chart receives application updates and updates of the &helm;
       chart templates. New versions may include changes that require manual
       steps. These steps are listed in the corresponding
-      <filename>README</filename> file. All &milvus; dependencies are updated
-      automatically during &milvus; upgrade.
+      <filename>README</filename> file. All &vllm; dependencies are updated
+      automatically during &vllm; upgrade.
     </para>
     <para>
-      To upgrade &milvus;, identify the new version number and run the following
+      To upgrade &vllm;, identify the new version number and run the following
       command below:
     </para>
 <screen>&prompt.user;<command>helm upgrade --install \
-  milvus oci://dp.apps.rancher.io/charts/milvus \
+  vllm oci://dp.apps.rancher.io/charts/vllm \
   -n <replaceable>SUSE_AI_NAMESPACE</replaceable> \
   --version <replaceable>VERSION_NUMBER</replaceable> \
-  -f <replaceable>milvus_custom_overrides.yaml</replaceable></command></screen>
+  -f <replaceable>vllm_custom_overrides.yaml</replaceable></command></screen>
+    <tip>
+      <para>
+        If you omit the <option>--version</option> option, &vllm; gets upgraded
+        to the latest available version.
+      </para>
+    </tip>
   </section>
-  <section xml:id="milvus-uninstalling">
-    <title>Uninstalling &milvus;</title>
+  <section xml:id="vllm-uninstalling">
+    <title>Uninstalling &vllm;</title>
     <para>
-      To uninstall &milvus;, run the following command:
+      To uninstall &vllm;, run the following command:
     </para>
-<screen>&prompt.user;<command>helm uninstall milvus -n <replaceable>SUSE_AI_NAMESPACE</replaceable></command></screen>
+<screen>&prompt.user;<command>helm uninstall vllm -n <replaceable>SUSE_AI_NAMESPACE</replaceable></command></screen>
   </section>
 </topic>
