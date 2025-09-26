@@ -43,27 +43,32 @@ such as <literal>iptables</literal>, <literal>nftables</literal> or <literal>ufw
       </listitem>
     </itemizedlist>
        <example><title>A firewall playbook example </title>
-        <para>This example demonstrates a basic playbook that ensures a firewall is running and allows incoming web traffic while blocking everything else.
+        <para>This playbook ensures &firewalld; is running and permanently allows incoming SSH and HTTP traffic on all managed nodes.
         </para>
-      <screen>
-      - name: Configure Web Server Firewall
-        hosts: webservers  # This targets a group named 'webservers' in your inventory
-        become: true       # This is needed for elevated privileges (sudo)
+<screen>
+- name: Apply basic firewall configuration with services
+  hosts: all
+  become: yes
 
-        tasks:
-          - name: Ensure firewalld is installed and running
-            ansible.builtin.service:
-              name: firewalld
-              state: started
-              enabled: true
+  # 1. Define variables for the firewall role
+  vars:
+    # This structure is specific to the linux-system-roles.firewall role
+    firewall:
+      - zone: public
+        service:
+          - name: ssh    # Allows SSH traffic (port 22)
+            state: present
+          - name: http   # Allows HTTP traffic (port 80)
+            state: present
 
-          - name: Set the default zone to 'drop' to deny all traffic by default
-            ansible.posix.firewalld:
-              zone: public
-              permanent: true
-              target: DROP
-              state: present
-              immediate: true</screen>
+        # Optional: Set the default zone (useful for security)
+        set_default: true
+        state: present
+
+  # 2. Include the firewall role
+  roles:
+    - linux-system-roles.firewall
+</screen>
           </example>
                  </section>
     </topic>

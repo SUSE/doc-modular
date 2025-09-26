@@ -78,60 +78,39 @@ The default is an empty list <literal>[]</literal>.
   </listitem>
     </itemizedlist>
    <example><title>A &podman; playbook example </title>
-    <para> This playbook:</para>
-    <itemizedlist>
-     <listitem>
-      <para>Pulls a specified container image.</para>
-     </listitem>
-     <listitem>
-      <para>Runs a container from that image, maps a port and gives it a name.</para>
-     </listitem>
-     <listitem>
-      <para>Ensures the container runs and restarts automatically.</para>
-     </listitem>
-     <listitem>
-      <para>Removes the container afterward to clean up.</para>
-     </listitem>
-    </itemizedlist>
-  <screen>
-    - name: Manage Podman container
-      hosts: localhost
-      gather_facts: false
+    <para> This playbook creates a container running as&rootuser;root with Podman volume.</para>
 
-      vars:
-        container_image: docker.io/library/nginx:latest
-        container_name: my_nginx_container
-        container_port: 8080
-
-      tasks:
-        - name: Ensure Podman is running
-          ansible.builtin.systemd_service:
-            name: podman
-            state: started
-            enabled: true
-          become: true
-
-        - name: Pull the container image
-          containers.podman.podman_image:
-            name: "{{ container_image }}"
-            state: present
-
-        - name: Run a new container
-          containers.podman.podman_container:
-            name: "{{ container_name }}"
-            image: "{{ container_image }}"
-            state: started
-            ports:
-              - "{{ container_port }}:80"
-            restart_policy: always
-
-        - name: Stop and remove the container
-          containers.podman.podman_container:
-            name: "{{ container_name }}"
-            state: absent
-            force: true
-          when: ansible_check_mode
-  </screen>
+<screen>
+- name: Manage podman root containers and services
+  hosts: all
+  vars:
+    podman_firewall:
+      - port: 8080/tcp
+        state: enabled
+    podman_kube_specs:
+      - state: started
+        kube_file_content:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: ubi8-httpd
+          spec:
+            containers:
+              - name: ubi8-httpd
+                image: registry.access.redhat.com/ubi8/httpd-24
+                ports:
+                  - containerPort: 8080
+                    hostPort: 8080
+                volumeMounts:
+                  - mountPath: /var/www/html:Z
+                    name: ubi8-html
+            volumes:
+              - name: ubi8-html
+                persistentVolumeClaim:
+                  claimName: ubi8-html-volume
+  roles:
+    - linux-system-roles.podman
+</screen>
 </example>
 </section>
 </topic>
