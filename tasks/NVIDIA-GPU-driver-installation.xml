@@ -6,7 +6,7 @@
   <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
     %entities;
 ]>
-<topic xml:id="nvidia-gpu-driver-installation-on-sl-micro"
+<topic xml:id="nvidia-gpu-driver-installation"
  role="task" xml:lang="en"
  xmlns="http://docbook.org/ns/docbook" version="5.2"
  xmlns:its="http://www.w3.org/2005/11/its"
@@ -17,20 +17,6 @@
     <title>Installing &nvidia; GPU drivers on &productname;</title>
     <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
   </info>
-  <section xml:id="nvidia-gpu-introduction">
-    <title>Introduction</title>
-    <para>
-      This guide demonstrates how to implement host-level &nvidia; GPU support
-      via the open-driver on &productname; &productnumber;. The open-driver is
-      part of the core &productname; package repositories. Therefore, there is
-      no need to compile it or download executable packages. This driver is
-      built into the operating system rather than dynamically loaded by the
-      &nvidia; GPU Operator. This configuration is desirable for customers that
-      want to pre-build all artifacts required for deployment into the image,
-      and where the dynamic selection of the driver version via &kube; is not a
-      requirement.
-    </para>
-  </section>
   <section xml:id="nvidia-gpu-requirements">
     <title>Requirements</title>
     <para>
@@ -87,7 +73,7 @@
       <para>
         Besides the &nvidia; open-driver provided by &suse; as part of
         &productname;, you might also need additional &nvidia; components. These
-        could include OpenGL libraries, CUDA toolkits, command-line utilities
+        could include OpenGL libraries, &cuda; toolkits, command-line utilities
         such as <command>nvidia-smi</command>, and container-integration
         components such as nvidia-container-toolkit. Many of these components
         are not shipped by &suse; as they are proprietary &nvidia; software.
@@ -100,34 +86,86 @@
   <section xml:id="nvidia-gpu-pre-install-procedure">
     <title>The installation procedure</title>
     <procedure>
+      <step condition="deployment_airgap">
+        <para>
+          On the <emphasis>remote</emphasis> host, run the script
+          <command>SUSE-AI-mirror-nvidia.sh</command> from the
+          air-gapped stack (see <xref linkend="ai-air-gap-stack"/>) to download
+          all required &nvidia; RPM packages to a local directory, for example:
+        </para>
+<screen>&prompt.user;<command>SUSE-AI-mirror-nvidia.sh \
+  -p <replaceable>/LOCAL_MIRROR_DIRECTORY</replaceable> \
+  -l https://nvidia.github.io/libnvidia-container/stable/rpm/x86_64 \
+  https://developer.download.nvidia.com/compute/cuda/repos/sles15/x86_64/</command></screen>
+        <para>
+          After the download is complete, transfer the downloaded directory with
+          all its content to each GPU-enabled <emphasis>local</emphasis> host.
+        </para>
+      </step>
       <step os="slmicro_ai">
         <para>
-          On &productname; host, open up a &tr-up-shell; session to create a new
-          read/write snapshot of the underlying operating system so that we can
-          make changes to the immutable platform.
+          On each <emphasis condition="deployment_airgap">local
+          </emphasis>GPU-enabled host, open up a &tr-up-shell; session to create
+          a new read/write snapshot of the underlying operating system so that
+          we can make changes to the immutable platform.
         </para>
 <screen>&prompt.root;&tr-up-shell;</screen>
       </step>
-      <step os="slmicro_ai">
+      <step os="slmicro_ai" condition="deployment_standard">
         <para>
           When you are in the &tr-up-shell; session, add a package repository
           from &nvidia;. This allows pulling in additional utilities, for
           example, <literal>nvidia-smi</literal>.
         </para>
+        <para>
+          For the &x86-64; architecture, run:
+        </para>
 <screen>&prompt.tr-up;<command>zypper ar \
   https://developer.download.nvidia.com/compute/cuda/repos/sles15/x86_64/ \
   cuda-sle15</command>
 &prompt.tr-up;<command>zypper --gpg-auto-import-keys refresh</command></screen>
+        <para>
+          For the &arm64; architecture, run:
+        </para>
+<screen>&prompt.tr-up;<command>zypper ar \
+  https://developer.download.nvidia.com/compute/cuda/repos/sles15/sbsa/ \
+  cuda-sle15</command>
+&prompt.tr-up;<command>zypper --gpg-auto-import-keys refresh</command></screen>
       </step>
-      <step os="sles_ai">
+      <step condition="deployment_airgap">
+        <para>
+          On each GPU-enabled <emphasis condition="deployment_airgap">local
+          </emphasis>host<phrase condition="deployment_airgap"> in its
+          &tr-up-shell; session</phrase>, add a package repository from the
+          safely transferred &nvidia; RPM packages directory. This allows
+          pulling in additional utilities, for example,
+          <literal>nvidia-smi</literal>.
+        </para>
+<screen><phrase os="slmicro_ai">&prompt.tr-up;</phrase><phrase
+os="sles_ai">&prompt.root;</phrase><command>zypper ar --no-gpgcheck \
+file://<replaceable>LOCAL_MIRROR_DIRECTORY</replaceable> \
+nvidia-local-mirror</command>
+&prompt.tr-up;<command>zypper --gpg-auto-import-keys refresh</command></screen>
+      </step>
+      <step os="sles_ai" condition="deployment_standard">
         <para>
           Add a package repository from &nvidia;. This allows pulling in
           additional utilities, for example, <literal>nvidia-smi</literal>.
+        </para>
+        <para>
+          For the &x86-64; architecture, run:
         </para>
 <screen>&prompt.root;<command>zypper ar \
   https://developer.download.nvidia.com/compute/cuda/repos/sles15/x86_64/ \
   cuda-sle15</command>
 &prompt.root;<command>zypper --gpg-auto-import-keys refresh</command></screen>
+        <para>
+          For the &arm64; architecture, run:
+        </para>
+<screen>&prompt.root;<command>zypper ar \
+  https://developer.download.nvidia.com/compute/cuda/repos/sles15/sbsa/ \
+  cuda-sle15</command>
+&prompt.tr-up;<command>zypper --gpg-auto-import-keys refresh</command></screen>
       </step>
       <step os="slmicro_ai">
         <para>
@@ -234,8 +272,8 @@ nvidia-persistenced=${version}</command></screen>
       the host level, the &nvidia; device can be accessed and that the drivers
       are loading successfully. To validate that it is functioning, you need to
       validate that the GPU can take instructions from a user-space application,
-      ideally via a container and through the CUDA library, as that is typically
-      what a real workload would use. For this, we can make a further
+      ideally via a container and through the &cuda; library, as that is
+      typically what a real workload would use. For this, we can make a further
       modification to the host OS by installing
       <package>nvidia-container-toolkit</package>.
     </para>
@@ -312,9 +350,9 @@ os="sles_ai">&prompt.root;</phrase>zypper --gpg-auto-import-keys install \
       </step>
       <step>
         <para>
-          Inside the container, install the required CUDA libraries. Identify
+          Inside the container, install the required &cuda; libraries. Identify
           their version from the output of the <command>nvidia-smi</command>
-          command. From the above example, we are installing CUDA version
+          command. From the above example, we are installing &cuda; version
           <phrase os="slmicro_ai">12.8</phrase><phrase os="sles_ai">12.9</phrase>
           with many examples, demos and development kits to fully validate the
           GPU.
@@ -329,9 +367,9 @@ os="sles_ai">&prompt.root;</phrase>zypper --gpg-auto-import-keys install \
       </step>
       <step>
         <para>
-          Inside the container, run the <command>deviceQuery</command> CUDA
+          Inside the container, run the <command>deviceQuery</command> &cuda;
           example of the same version, which comprehensively validates GPU
-          access via CUDA and from within the container itself.
+          access via &cuda; and from within the container itself.
         </para>
 <screen os="slmicro_ai">&prompt.root;<command>/usr/local/cuda-12.8/extras/demo_suite/deviceQuery</command> Starting...
 
@@ -422,7 +460,7 @@ Device 0: "Tesla T4"
 deviceQuery, CUDA Driver = CUDART, CUDA Driver Version = 12.9, CUDA Runtime Version = 12.9, NumDevs = 1, Device0 = Tesla T4
 Result = PASS</screen>
         <para>
-          From inside the container, you can continue to run any other CUDA
+          From inside the container, you can continue to run any other &cuda;
           workload&mdash;such as compilers&mdash;to run further tests. When
           finished, you can exit the container.
         </para>

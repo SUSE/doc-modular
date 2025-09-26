@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="selinux-troubleshooting"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>&selnx; troubleshooting</title>
+    <!-- can be changed via merge in the assembly -->
+    <!--add author's email address-->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+  </info>
+    <para>
+    An &selnx; issue occurs when the security policy blocks a legitimate action that an application needs to perform its function.
+    This topic provides a systematic workflow for resolving these issues. The process involves confirming that &selnx; is the cause, gathering evidence from logs, diagnosing the underlying problem and implementing the correct solution.
+  </para>
+
+  <section xml:id="workflow-step1-triage">
+    <title>Confirm the issue is &selnx; related</title>
+    <para>
+      The initial diagnostic step is to determine if &selnx; is the cause of the unexpected behavior. This is done by temporarily placing the system into <emphasis role="bold">permissive mode</emphasis>, where denials are logged but not enforced.
+    </para>
+    <procedure>
+      <step>
+        <para>Switch to permissive mode:</para>
+        <screen>&prompt.root;<command>setenforce 0</command></screen>
+      </step>
+      <step>
+        <para>Retry the action that was previously failing.</para>
+      </step>
+      <step>
+        <para>Analyze the result:</para>
+        <itemizedlist>
+          <listitem>
+            <para>If the application <emphasis role="bold">succeeds</emphasis>, the problem is confirmed to be related to the &selnx; policy. Proceed to the next step.</para>
+          </listitem>
+          <listitem>
+            <para>If the application <emphasis role="bold">still fails</emphasis>, the root cause is likely unrelated to &selnx; and may involve other factors such as standard file permissions, firewall rules, or application configuration.</para>
+          </listitem>
+        </itemizedlist>
+      </step>
+    </procedure>
+    <important>
+      <para>It is important to return the system back to enforcing mode once the test is completed:</para>
+      <screen>&prompt.root;<command>setenforce 1</command></screen>
+    </important>
+  </section>
+
+  <section xml:id="workflow-step2-evidence">
+    <title>Gather evidence to find the denial</title>
+    <para>
+        Once &selnx; is confirmed as the cause, the next step is to find the specific denial message in the audit logs. The primary log file is located in <filename>/var/log/audit/audit.log</filename>.
+       Use the <command>ausearch</command> utility to query these logs for recent Access Vector Cache (AVC) denials.
+    </para>
+<screen>&prompt.root;<command>ausearch -m avc -ts recent</command>
+ type=AVC msg=audit(1753703741.779:1779): avc:  denied  { getattr } for  pid=22212 comm="httpd-prefork" path="/srv/wwwcustom/vhosts/example.com/index.html" dev="vda3" ino=278 scontext=system_u:system_r:httpd_t:s0 tcontext=system_u:object_r:var_t:s0 tclass=file permissive=0
+</screen>
+    <para>
+        This log entry contains the essential details: the source process context (<literal>scontext</literal>), the target object's context (<literal>tcontext</literal>) and the permission denied.
+        More information on interpreting the log file can be found in <xref linkend="selinux-logs"/>.
+    </para>
+  </section>
+
+  <section xml:id="workflow-step3-diagnosis">
+    <title>Understanding the cause of the denial</title>
+    <para>After reviewing the log, the denial is likely caused by one of the following common issues:</para>
+    <variablelist>
+      <varlistentry>
+        <term>Incorrect file label</term>
+        <listitem>
+         <para>This denial typically occurs in one of two scenarios: a file has an incorrect label for its current location or the file is in a non-standard location and needs to be assigned a correct label in the policy.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Service using a non-standard port</term>
+        <listitem>
+          <para>A denial occurs if a service attempts to bind to a network port that is not assigned the correct port type in the &selnx; policy.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Missing policy rule</term>
+        <listitem>
+          <para>The system's &selnx; policy may lack a specific rule required for an application's operation. This happens when the application is not shipped by default with the distribution.
+           In this case, the resulting AVC denial is valid and indicates the policy needs to be extended.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+
+  <section xml:id="workflow-step4-solution">
+    <title>Applying the correct fix</title>
+    <para>Based on the diagnosis, apply the appropriate solution.</para>
+    <variablelist>
+        <varlistentry>
+            <term>For incorrect file labels</term>
+            <listitem>
+              <para>The solution depends on the cause of the mislabeling:</para>
+              <itemizedlist>
+                <listitem>
+                 <para>
+                   <emphasis role="bold">Case 1: Incorrectly labeled file in the file system.</emphasis> If files in a standard location have the wrong labels, for example, after using <command>mv</command> or <command>cp</command> without the <command>-Z</command> flag,
+                   use the <command>restorecon</command> command to reset them to the policy default.
+                   For example, to restore the context of <filename>/srv/www/vhosts/example.com</filename>, use:
+                </para>
+                  <screen>&prompt.root;<command>restorecon -Rv /srv/www/vhosts/example.com</command></screen>
+                </listitem>
+                <listitem>
+                 <para><emphasis role="bold">Case 2: Tell &selnx; about a custom path.</emphasis> If you intentionally chose a non-standard location for your files, for example, serving Web content from <filename>/srv/wwwcustom</filename>,
+                   you must add a new rule to the &selnx; policy with the<command>semanage fcontext</command>command.
+                  Then, use the <command>restorecon</command> command to apply the new rule.</para>
+<screen>
+&prompt.root;<command>semanage fcontext -a -t httpd_sys_content_t "/srv/wwwcustom(/.*)?"</command>
+&prompt.root;<command>restorecon -Rv /srv/wwwcustom</command>
+</screen>
+                  <para>For more information on adding custom file paths, see <xref linkend="modify-context-type"/>.</para>
+                </listitem>
+              </itemizedlist>
+            </listitem>
+        </varlistentry>
+        <varlistentry>
+            <term>For non-standard ports</term>
+            <listitem>
+              <para>
+                Use the <command>semanage port</command> command to add the custom port to the policy with the correct type.
+                For example:
+              </para>
+              <screen>&prompt.root;<command>semanage port -a -t ssh_port_t -p tcp 2222</command></screen>
+              <para>For more information on adding custom file paths, see <xref linkend="selinux-modify-port"/>.</para>
+            </listitem>
+        </varlistentry>
+        <varlistentry>
+            <term>For missing policy rules</term>
+            <listitem>
+              <para>
+                If the issue is that policy rules are missing, ensure to
+                check if the corresponding module is loaded and enabled:
+              </para>
+              <screen>&prompt.root;<command>semanage module -l | less</command></screen>
+              <para>
+                If that is the case, or there is no corresponding module as the
+                workload is highly customized, you can consider writing and including
+                a custom policy module with your own rules as described in <xref linkend="selinux-creating-custom-module"/>.
+              </para>
+              <para>
+                To unblock the workload while working on the custom module, you can
+                set the domains blocking the access into <literal>permissive</literal> mode, as described
+                in <xref linkend="selinux-permissive-domains"/>.
+              </para>
+            </listitem>
+        </varlistentry>
+    </variablelist>
+  </section>
+
+  <section xml:id="workflow-advanced">
+    <title>Advanced Scenarios and Recovery</title>
+    <section xml:id="ts-dontaudit">
+        <title>Handling missing log entries</title>
+        <para>If an application fails but no denial is logged, a <literal>dontaudit</literal> rule may be silently suppressing it.
+          You can temporarily disable these rules to make all denials visible.</para>
+        <procedure>
+          <step><para>Disable all <literal>dontaudit</literal> rules:</para>
+            <screen>&prompt.root;<command>semodule -DB</command></screen>
+          </step>
+          <step><para>Retry the failing action to generate the denial log.</para></step>
+          <step><para>Reenable the rules to restore normal logging behavior:</para>
+            <screen>&prompt.root;<command>semanage -B</command></screen>
+          </step>
+        </procedure>
+    </section>
+    <section xml:id="ts-boot-recovery">
+        <title>Recovering from an &selnx;-related boot failure</title>
+        <para>If an &selnx; policy or labeling issue prevents the system from booting, the primary goal is to regain access to a shell to diagnose and fix the problem.
+          This is achieved by booting the system in <literal>permissive</literal> mode.</para>
+        <orderedlist>
+          <listitem><para>Restart the machine and interrupt the boot sequence to access the GRUB menu.</para></listitem>
+          <listitem><para>Select the desired kernel and press <keycap>e</keycap> to edit its boot parameters.</para></listitem>
+          <listitem><para>Locate the line beginning with the keyword <literal>linux</literal>.</para></listitem>
+          <listitem><para>Append the parameter <literal>enforcing=0</literal> to the end of this line. This instructs the kernel to boot in <literal>permissive</literal> mode for this session only.</para></listitem>
+          <listitem><para>Press <keycombo><keycap>Ctrl</keycap><keycap>X</keycap></keycombo> or <keycap>F10</keycap> to proceed with booting.</para></listitem>
+          <listitem><para>Once the system has booted successfully, log in and use the standard troubleshooting tools described in this chapter to find the denial and apply the correct fix.</para></listitem>
+        </orderedlist>
+        <note>
+            <title>Fixing widespread labeling issues at boot</title>
+            <para>In the specific case where the boot failure is caused by incorrect file labels across the entire system, the most effective solution is to schedule a full relabel.
+              After booting into <literal>permissive</literal> mode using the steps above, execute the following commands before rebooting:</para>
+            <screen>&prompt.root;<command>touch /etc/selinux/.autorelabel</command>
+&prompt.root;<command>reboot</command></screen>
+            <para>The system now reboots and begins a comprehensive relabeling of the file system.</para>
+        </note>
+    </section>
+  </section>
+</topic>
