@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="vllm-helm-overrides"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Examples of &vllm; &helm; chart override files</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <xi:include href="../snippets/helm-chart-overrides-intro.xml"/>
+    </abstract>
+  </info>
+  <example xml:id="vllm-helm-overrides-minimal">
+    <title>Minimal configuration</title>
+    <para>
+      The following override file installs &vllm; using a model that is publicly
+      available.
+    </para>
+<screen>global:
+  imagePullSecrets:
+  - application-collection
+servingEngineSpec:
+  modelSpec:
+  - name: "phi3-mini-4k"
+    registry: "dp.apps.rancher.io"
+    repository: "containers/vllm-openai"
+    tag: "0.9.1"
+    imagePullPolicy: "IfNotPresent"
+    modelURL: "microsoft/Phi-3-mini-4k-instruct"
+    replicaCount: 1
+    requestCPU: 6
+    requestMemory: "16Gi"
+    requestGPU: 1</screen>
+    <procedure>
+      <title>Validating the installation</title>
+      <step>
+        <para>
+          Pulling the images can take a long time. You can monitor the status of
+          &vllm; installation by running the following command:
+        </para>
+<screen>&prompt.user;<command>kubectl get pods -n <replaceable>SUSE_AI_NAMESPACE</replaceable></command>
+  
+NAME                                           READY   STATUS    RESTARTS   AGE
+[...]
+vllm-deployment-router-7588bf995c-5jbkf        1/1     Running   0          8m9s
+vllm-phi3-mini-4k-deployment-vllm-79d6fdc-tx7  1/1     Running   0          8m9s</screen>
+        <para>
+          Pods for the &vllm; deployment should transition to states
+          <literal>Ready</literal> and <literal>Running</literal>.
+        </para>
+      </step>
+    </procedure>
+    <procedure>
+      <title>Validating the stack</title>
+      <step>
+        <para>
+          Expose the <literal>vllm-router-service</literal> port to the host
+          machine:
+        </para>
+<screen>&prompt.user;<command>kubectl port-forward svc/vllm-router-service \
+  -n <replaceable>SUSE_AI_NAMESPACE</replaceable> 30080:80</command>
+        </screen>
+      </step>
+      <step>
+        <para>
+          Query the &openai;-compatible API to list the available models:
+        </para>
+<screen>&prompt.user;<command>curl -o- http://localhost:30080/v1/models</command>
+        </screen>
+      </step>
+      <step>
+        <para>
+          Send a query to the &openai; <filename>/completion</filename> endpoint
+          to generate a completion for a prompt:
+        </para>
+<screen>&prompt.user;<command>curl -X POST http://localhost:30080/v1/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "microsoft/Phi-3-mini-4k-instruct",
+    "prompt": "Once upon a time,",
+    "max_tokens": 10
+  }'</command>
+
+# example output of generated completions
+{
+    "id": "cmpl-3dd11a3624654629a3828c37bac3edd2",
+    "object": "text_completion",
+    "created": 1757530703,
+    "model": "microsoft/Phi-3-mini-4k-instruct",
+    "choices": [
+        {
+            "index": 0,
+            "text": " in a bustling city full of concrete and",
+            "logprobs": null,
+            "finish_reason": "length",
+            "stop_reason": null,
+            "prompt_logprobs": null
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 5,
+        "total_tokens": 15,
+        "completion_tokens": 10,
+        "prompt_tokens_details": null
+    },
+    "kv_transfer_params": null
+}</screen>
+      </step>
+    </procedure>
+  </example>
+  <example xml:id="vllm-helm-overrides-basic">
+    <title>Basic configuration</title>
+    <para>
+      The following &vllmm; override file include basic configuration options.
+    </para>
+<screen>global:
+  imagePullSecrets:
+  - application-collection
+servingEngineSpec:
+  runtimeClassName: "nvidia"
+  modelSpec:
+  - name: "llama3" <co xml:id="co-vllm-basic-name"/>
+    registry: "dp.apps.rancher.io" <co xml:id="co-vllm-basic-registry"/>
+    repository: "containers/vllm-openai" <co xml:id="co-vllm-basic-repository"/>
+    tag: "0.9.1" <co xml:id="co-vllm-basic-tag"/>
+    imagePullPolicy: "IfNotPresent"
+    modelURL: "meta-llama/Llama-3.1-8B-Instruct" <co xml:id="co-vllm-basic-modelURL"/>
+    replicaCount: 1 <co xml:id="co-vllm-basic-replicaCount"/>
+    requestCPU: 10 <co xml:id="co-vllm-basic-requestCPU"/>
+    requestMemory: "16Gi" <co xml:id="co-vllm-basic-requestMemory"/>
+    requestGPU: 1 <co xml:id="co-vllm-basic-requestGPU"/>
+    pvcStorage: "50Gi" <co xml:id="co-vllm-basic-pvcStorage"/>
+    pvcAccessMode:
+      - ReadWriteOnce
+
+    vllmConfig:
+      enableChunkedPrefill: false <co xml:id="co-vllm-basic-enableChunkedPrefill"/>
+      enablePrefixCaching: false <co xml:id="co-vllm-basic-enablePrefixCaching"/>
+      maxModelLen: 4096 <co xml:id="co-vllm-basic-maxModelLen"/>
+      dtype: "bfloat16" <co xml:id="co-vllm-basic-dtype"/>
+      extraArgs: ["--disable-log-requests", "--gpu-memory-utilization", "0.8"] <co xml:id="co-vllm-basic-extraArgs"/>
+
+    hf_token: <replaceable>HF_TOKEN</replaceable> <co xml:id="co-vllm-basic-hfToken"/></screen>
+    <calloutlist>
+      <callout arearefs="co-vllm-basic-name">
+        <para>
+          The unique identifier for your model deployment.
+        </para>
+      </callout>
+      <callout arearefs="co-vllm-basic-registry">
+        <para>
+          The &docker; image registry containing the model's serving engine
+          image.
+        </para>
+      </callout>
+      <callout arearefs="co-vllm-basic-repository">
+        <para>
+          The &docker; image repository containing the model's serving engine
+          image.
+        </para>
+      </callout>
+      <callout arearefs="co-vllm-basic-tag">
+        <para>
+          The version of the model image to use.
+        </para>
+      </callout>
+      <callout arearefs="co-vllm-basic-modelURL">
+        <para>
+          The URL pointing to the model on &huggingface; or another hosting
+          service.
+        </para>
+      </callout>
+      <callout arearefs="co-vllm-basic-replicaCount">
+        <para>
+          The number of replicas for the deployment which allows scaling for
+          load.
+        </para>
+      </callout>
+    </calloutlist>
+  </example>
+</topic>
