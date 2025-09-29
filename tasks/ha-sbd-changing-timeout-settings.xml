@@ -20,13 +20,9 @@
     <abstract>
       <para>
         &sbd; relies on multiple different timeout settings to manage node fencing. When you
-        configure &sbd; using the &crmshell;, these timeouts and their relationships to one another
-        are automatically calculated and adjusted.
-      </para>
-      <para>
-        Use the <command>crm sbd configure</command> command if you need to change the timeout
-        values. This command adjusts related timeouts automatically. It also warns you if you
-        try to change related timeouts to inappropriate values, and displays the required formula.
+        configure &sbd; using the &crmshell;, these timeouts are automatically calculated and
+        adjusted. The automatic values are sufficient for most use cases, but if you need to
+        change them you can use the <command>crm sbd configure</command> command.
     </para>
     </abstract>
   </info>
@@ -66,38 +62,37 @@
     </step>
     <step>
       <para>
-        Change one or more of the following timeout settings as needed:
+        Change one or both of the following timeout values as needed:
       </para>
 <screen>&prompt.user;<command>sudo crm sbd configure \</command>
   <command>watchdog-timeout=<replaceable>INTEGER_IN_SECONDS</replaceable> \</command><co xml:id="co-sbd-watchdog-timeout"/>
-  <command>msgwait-timeout=<replaceable>INTEGER_IN_SECONDS</replaceable> \</command><co xml:id="co-sbd-msgwait-timeout"/>
-  <command>allocate-timeout=<replaceable>INTEGER_IN_SECONDS</replaceable> \</command><co xml:id="co-sbd-allocate-timeout"/>
-  <command>loop-timeout=<replaceable>INTEGER_IN_SECONDS</replaceable></command><co xml:id="co-sbd-loop-timeout"/></screen>
+  <command>msgwait-timeout=<replaceable>INTEGER_IN_SECONDS</replaceable> \</command><co xml:id="co-sbd-msgwait-timeout"/></screen>
+      <para>
+        This command automatically adjusts any related timeouts within the cluster.
+      </para>
       <calloutlist>
         <callout arearefs="co-sbd-watchdog-timeout">
           <para>
-            If the watchdog is not <quote>fed</quote> by &sbd; within this time, it fences the node. For diskless &sbd;, this timeout is set in the <filename>/etc/sysconfig/sbd</filename> file. For disk-based &sbd;, it is set in the device metadata, which takes precedence over the settings in <filename>/etc/sysconfig/sbd</filename>.
+            If the watchdog is not <quote>fed</quote> by &sbd; within this time, it fences the node.
+            For diskless &sbd;, this timeout is set in the <filename>/etc/sysconfig/sbd</filename>
+            file. For disk-based &sbd;, it is set in the device metadata, which takes precedence
+            over the settings in <filename>/etc/sysconfig/sbd</filename>. Time interval where at least one response from the sbd device has to be received.
           </para>
           <para>
-            If the &sbd; devices are on a multipath setup or iSCSI, the timeout must be long enough to detect a path failure and switch to the next path. In <filename>/etc/multipath.conf</filename>, the value of <literal>max_polling_interval</literal> must be less than the <literal>watchdog-timeout</literal>.
+            If the &sbd; devices are on a multipath setup or iSCSI, the timeout must be long enough to detect a path failure and switch to the next path. In <filename>/etc/multipath.conf</filename>, make sure <literal>max_polling_interval</literal> is smaller than the <literal>watchdog-timeout</literal>.
          </para>
         </callout>
         <callout arearefs="co-sbd-msgwait-timeout">
           <para>
-            <emphasis>Disk-based &sbd; only.</emphasis> This defines the time after which a message written to a node's slot on the &sbd; device is considered delivered. It should be long enough for the node to detect that it needs to self-fence. This must be at least double the <literal>watchdog-timeout</literal>.
-          </para>
-        </callout>
-        <callout arearefs="co-sbd-allocate-timeout">
-          <para>
-            <emphasis>Disk-based &sbd; only.</emphasis> OK but what actually is it though?? The default setting is sufficient for most use cases.
-          </para>
-        </callout>
-        <callout arearefs="co-sbd-loop-timeout">
-          <para>
-            <emphasis>Disk-based &sbd; only.</emphasis> And what is this?? The default setting is sufficient for most use cases.
+            <emphasis>Disk-based &sbd; only.</emphasis> This defines the time after which a message written to a node's slot on the &sbd; device is considered delivered. It should be long enough for the node to detect that it needs to self-fence. This must be at least double the <literal>watchdog-timeout</literal>. Specifies the time delay incurred when another node sends the poison pill. If you try to change both of these at once with incompatible values you get a warning telling you to git gud at maths.
           </para>
         </callout>
       </calloutlist>
+      <tip role="compact">
+        <para>
+          You should not need to change the <literal>allocate-timeout</literal> or the <literal>loop-timeout</literal>.
+        </para>
+      </tip>
     </step>
     <step><!-- Replace with snippet when available -->
       <para>
@@ -142,10 +137,17 @@
     </step>
     <step>
       <para>
-        The global cluster properties <literal>stonith-timeout</literal> and <literal>stonith-watchdog-timeout</literal> are automatically adjusted when you change the <literal>watchdog-timeout</literal> or <literal>msgwait-timeout</literal>. If you need to change the values for these properties, you can use the following commands. However, be aware that <command>crm configure property</command> does <emphasis>not</emphasis> warn you if you set these timeouts too low for the related &sbd; timeouts.
+        When you change a timeout with <command>crm sbd configure</command>, the relevant
+        global cluster properties are also adjusted automatically. The automatic values are
+        sufficient for most use cases, but if you need to change them you can use the
+        <command>crm configure property</command> command:
       </para>
 <screen>&prompt.user;<command>sudo crm configure property stonith-timeout=<replaceable>INTEGER_IN_SECONDS</replaceable></command><co xml:id="co-stonith-timeout"/>
 &prompt.user;<command>sudo crm configure property stonith-watchdog-timeout=<replaceable>INTEGER_IN_SECONDS</replaceable></command><co xml:id="co-stonith-watchdog-timeout"/></screen>
+      <para>
+        This command does <emphasis>not</emphasis> automatically adjust any other timeouts,
+        and these settings might be overwritten if you change the &sbd; configuration again.
+      </para>
       <calloutlist>
         <callout arearefs="co-stonith-timeout">
           <para>
@@ -168,25 +170,33 @@
     </step>
   </procedure>
 
-  <variablelist xml:id="ha-sbd-calculating-timeouts">
-    <title>Manually calculating timeouts</title>
     <para>
       If you need to manually calculate any timeouts, you can use these basic formulas for most
       use cases:
     </para>
-    <varlistentry>
-      <term>Disk-based &sbd;</term>
-      <listitem>
-<screen>msgwait-timeout &gt;= (watchdog-timeout * 2)
-stonith-timeout &gt;= msgwait-timeout + 20%</screen>
-      </listitem>
-    </varlistentry>
-    <varlistentry>
-      <term>Diskless &sbd;</term>
-      <listitem>
-<screen>stonith-watchdog-timeout &gt;= (watchdog-timeout * 2)
-stonith-timeout &gt;= stonith-watchdog-timeout + 20%</screen>
-      </listitem>
-    </varlistentry>
-  </variablelist>
+  <table xml:id="ha-sbd-calculating-timeouts">
+    <title>Manually calculating timeouts</title>
+    <tgroup cols="2">
+    <colspec colwidth="30*"/>
+    <colspec colwidth="70*"/>
+      <thead>
+        <row>
+          <entry>&sbd; type</entry>
+          <entry>Calculation formulas</entry>
+        </row>
+      </thead>
+      <tbody>
+        <row>
+          <entry>Disk-based &sbd;</entry>
+          <entry><screen>msgwait-timeout &gt;= (watchdog-timeout * 2)
+stonith-timeout &gt;= msgwait-timeout + 20%</screen></entry>
+        </row>
+        <row>
+          <entry>Diskless &sbd;</entry>
+          <entry><screen>stonith-watchdog-timeout &gt;= (watchdog-timeout * 2)
+stonith-timeout &gt;= stonith-watchdog-timeout + 20%</screen></entry>
+        </row>
+      </tbody>
+    </tgroup>
+  </table>
 </topic>
