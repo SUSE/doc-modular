@@ -68,37 +68,52 @@
   <command>watchdog-timeout=<replaceable>INTEGER_IN_SECONDS</replaceable> \</command><co xml:id="co-sbd-watchdog-timeout"/>
   <command>msgwait-timeout=<replaceable>INTEGER_IN_SECONDS</replaceable> \</command><co xml:id="co-sbd-msgwait-timeout"/></screen>
       <para>
-        This command automatically adjusts any related timeouts within the cluster.
+        If you change one timeout, the other is automatically adjusted so that the
+        <literal>msgwait-timeout</literal> is double the <literal>watchdog-timeout</literal>. You
+        only need to change both timeouts manually if you want the <literal>msgwait-timeout</literal>
+        to be <emphasis>more</emphasis> than double the <literal>watchdog-timeout</literal>.
+        If you try to make the <literal>msgwait-timeout</literal> <emphasis>less</emphasis> than
+        double the <literal>watchdog-timeout</literal>, the command fails with a warning.
       </para>
       <calloutlist>
         <callout arearefs="co-sbd-watchdog-timeout">
           <para>
             This defines how long the watchdog waits for a response from &sbd; before fencing the
-            node. Diskless &sbd; reads this timeout from <filename>/etc/sysconfig/sbd</filename>. Disk-based &sbd; reads it from the device metadata, which takes precedence over the settings in <filename>/etc/sysconfig/sbd</filename>.
+            node. Diskless &sbd; reads this timeout from <filename>/etc/sysconfig/sbd</filename>.
+            Disk-based &sbd; reads it from the device metadata, which takes precedence over the
+            settings in <filename>/etc/sysconfig/sbd</filename>.
           </para>
           <para>
-            For disk-based &sbd; on a multipath setup, this timeout must be longer than the <literal>max_polling_interval</literal> in <filename>/etc/multipath.conf</filename>, to allow enough time to detect a path failure and switch to the next path.
+            For disk-based &sbd; on a multipath setup, this timeout must be longer than the
+            <literal>max_polling_interval</literal> in <filename>/etc/multipath.conf</filename>,
+            to allow enough time to detect a path failure and switch to the next path.
          </para>
         </callout>
         <callout arearefs="co-sbd-msgwait-timeout">
           <para>
-            <emphasis>Disk-based &sbd; only.</emphasis> This defines the time after which a message written to a node's slot on the &sbd; device is considered delivered. Specifies the time delay incurred when another node sends the poison pill. Defines the duration after which a message sent by a node to its slot on the SBD device is considered successfully delivered.
-
-            It should be long enough for the node to detect that it needs to self-fence. This must be at least double the <literal>watchdog-timeout</literal>. If you try to change both of these at once with incompatible values you get a warning telling you to git gud at maths.
-
-            If msgwait is too long, a node might be able to rejoin the cluster before the fencing action completes, leading to potential split-brain. This can be mitigated by setting the SBD_DELAY_START parameter in the SBD configuration.
+            <emphasis>Disk-based &sbd; only.</emphasis> After this timeout, &sbd; assumes that a
+            message written to the node's slot on the &sbd; device was delivered successfully.
+            The timeout should be long enough for the node to detect that it needs to self-fence.
+          </para>
+          <para>
+            When you increase this timeout, the script also automatically adjusts the
+            <literal>SBD_DELAY_START</literal> setting. This helps to avoid a situation where
+            a node reboots too quickly and rejoins the cluster before the fencing action is
+            considered complete, which can cause a split-brain scenario.
           </para>
         </callout>
       </calloutlist>
       <tip role="compact">
         <para>
-          You should not need to change the <literal>allocate-timeout</literal> or the <literal>loop-timeout</literal>.
+          You should not need to change the <literal>allocate-timeout</literal> or the
+          <literal>loop-timeout</literal>.
         </para>
       </tip>
       <para>
-        The script checks whether it is safe to restart the cluster services automatically.
-        If any non-&stonith; resources are running, the script warns you to restart the cluster
-        services manually.
+        The script automatically adjusts any other related timeouts in the cluster and displays
+        the new values. The script also checks whether it is safe to restart the cluster services
+        automatically. If any non-&stonith; resources are running, the script warns you to restart
+        the cluster services manually.
       </para>
     </step>
     <step><!-- Replace with snippet when available -->
@@ -144,8 +159,8 @@
     </step>
     <step>
       <para>
-        When you change a timeout with <command>crm sbd configure</command>, the relevant
-        global cluster properties are also adjusted automatically. The automatic values are
+        When you change a timeout with <command>crm sbd configure</command>, the global
+        &stonith; timeouts are also adjusted automatically. The automatic values are
         sufficient for most use cases, but if you need to change them you can use the
         <command>crm configure property</command> command:
       </para>
@@ -182,7 +197,7 @@
       use cases:
     </para>
   <table xml:id="ha-sbd-calculating-timeouts">
-    <title>Manually calculating timeouts</title>
+    <title>Manually calculating &sbd; timeouts</title>
     <tgroup cols="2">
     <colspec colwidth="30*"/>
     <colspec colwidth="70*"/>
