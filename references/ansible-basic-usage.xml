@@ -232,11 +232,23 @@ encryption/decryption utility for Ansible data files
       <para>It is recommended to use a dedicated SSH key and clearly defined in the variable <literal>ansible_ssh_private_key_file</literal>.</para>
        </step>
       <step><para>Copy the public key to the managed node.</para>
-      <screen></screen>
+      <screen>&prompt.user; ssh-copy-id -i <replaceable>PATH_TO_PUBLIC_KEY</replaceable> <replaceable>TARGET_USER</replaceable>@<replaceable>IP_ADDRESS/HOSTNAME</replaceable></screen>
       <para>This one-time setup allows Ansible to connect securely without prompting for credentials during automation.</para>
       </step>
-      <step><para>Define an inventory file. For example:</para>
-    <screen></screen>
+      <step><para>Start the <literal>ssh-agent</literal>. </para>
+        <screen> &prompt.user; eval "$(ssh-agent -s)"
+          Agent pid 1523
+        </screen>
+         </step>
+         <step><para>Add the private key to the control node.</para>
+          <screen>&prompt.user; ssh-add <replaceable>PATH_TO_PRIVATE_KEY</replaceable>
+                  </screen>
+           </step>
+      <step><para>Define an inventory file, for example:</para>
+    <screen>
+      [all]
+      192.168.122.154 ansible_user=user1
+    </screen>
     <para>Although Ansible uses <filename>etc/ansible/hosts</filename>/ by default, it is a
       best practice to maintain a separate inventory file and specify it using the<literal>-i</literal> flag.</para>
       </step>
@@ -247,16 +259,33 @@ encryption/decryption utility for Ansible data files
       <step><para>Test the connection between the control node and managed nodes with the Ansible ad-hoc command:</para>
       <screen>&prompt.user;<command>ansible all -i test.ini -m ping</command></screen>
       <para>If the configuration is correct, the following message is displayed:</para>
-      <screen></screen>
+      <screen>
+        [WARNING]: Platform linux on host 192.168.122.73 is using the discovered Python interpreter at /usr/bin/python3.13, but future installation of another Python interpreter could change
+        the meaning of that path. See https://docs.ansible.com/ansible-core/2.18/reference_appendices/interpreter_discovery.html for more information.
+        192.168.122.73 | SUCCESS => {
+            "ansible_facts": {
+                "discovered_interpreter_python": "/usr/bin/python3.13"
+            },</screen>
       <para>This confirms Ansible can reach the managed nodes securely via SSH. </para>
       </step>
       <step><para>Playbooks are <literal>YAML</literal> files that define the tasks Ansible should perform.
       For example, create a file named <literal>install.yml</literal> to define a task to install common packages on all managed &suse; systems:</para>
-    <screen></screen>
+    <screen>
+    - name: Ensure essential packages are present
+      hosts: all
+      become: true
+      tasks:
+        - name: Install vim and curl
+          ansible.builtin.package:
+            name:
+              - suseconnect
+              - curl
+            state: present
+    </screen>
     </step>
     <step><para>Run the playbook:</para>
-    <screen>ansible-playbook -i hosts.ini install.yml</screen>
-    <para>Ansible connects to each host in your inventory and executes the defined tasks using the system’s package manager.</para>
+    <screen>&prompt.user; ansible-playbook -i hosts.ini install.yml</screen>
+    <para>Ansible connects to each host in your inventory and executes the defined tasks using the &systemd; package manager.</para>
     </step>
     </procedure>
         </section>
