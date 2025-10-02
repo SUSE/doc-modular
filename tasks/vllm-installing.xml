@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="vllm-installing"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Installing &vllm;</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        &vllm; is an open-source high-performance inference and serving engine
+        for large language models (LLMs). It is designed to maximize throughput
+        and reduce latency by using an efficient memory management system that
+        handles dynamic batching and streaming outputs. In short, &vllm; makes
+        running LLMs cheaper and faster in production.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    Deploying &vllm; on &k8s; is a scalable and efficient way to serve machine
+    learning models. This guide walks you through deploying &vllm; using its
+    &helm; chart, which is part of &ailibrary;. The &helm; chart deploys the full
+    &vllm; production stack and enables you to run optimized LLM inference
+    workloads on &nvidia; GPU in your &k8s; cluster. It consists of the
+    following components:
+  </para>
+  <itemizedlist>
+    <listitem>
+      <para>
+        <emphasis role="bold">Serving Engine</emphasis> runs the model
+        inference.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <emphasis role="bold">Router</emphasis> handles OpenAI-compatible API
+        requests.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <emphasis role="bold">&lmcache;</emphasis> (optional) improves caching
+        efficiency.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <emphasis role="bold">CacheServer </emphasis> (optional) is a
+        distributed KV cache back-end.
+      </para>
+    </listitem>
+  </itemizedlist>
+  <section xml:id="vllm-installing-app-details">
+    <title>Details about the &vllm; application</title>
+    <para>
+      Before deploying &vllm;, it is important to know more about the supported
+      configurations and documentation. The following command provides the
+      corresponding details:
+    </para>
+<screen>helm show values oci://dp.apps.rancher.io/charts/vllm</screen>
+    <para>
+      Alternatively, you can also refer to the &vllm; &helm; chart page on the
+      &sappco; site at
+      <link xlink:href="https://apps.rancher.io/applications/vllm"/>. It
+      contains &vllm; dependencies, available versions and the link to pull the
+      &vllm; container image.
+    </para>
+  </section>
+  <section xml:id="vllm-installing-procedure">
+    <title>&vllm; installation procedure</title>
+    <procedure>
+      <xi:include href="../snippets/ai-library-requirement.xml"/>
+      <warning>
+        <title>&nvidia; GPUs required</title>
+        <para>
+          &nvidia; GPUs must be available in your &k8s; cluster to successfully
+          deploy and run &vllm;.
+        </para>
+      </warning>
+      <important>
+        <title>Limitation</title>
+        <para>
+          The current release of &productname; &vllm; does not support Ray and
+          LoraController.
+        </para>
+      </important>
+      <step>
+        <para>
+          Create a <filename>vllm_custom_overrides.yaml</filename> file to
+          override the default values of the &helm; chart. Find examples of
+          override files in <xref linkend="vllm-helm-overrides"/>.
+        </para>
+      </step>
+      <step>
+        <para>
+          After saving the override file as
+          <filename>vllm_custom_overrides.yaml</filename>, apply its
+          configuration with the following command.
+        </para>
+<screen>&prompt.user;<command>helm upgrade --install \
+  vllm oci://dp.apps.rancher.io/charts/vllm \
+  -n <replaceable>SUSE_AI_NAMESPACE</replaceable> \
+  -f <replaceable>vllm_custom_overrides.yaml</replaceable></command></screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="vllm-owui-integration">
+    <title>Integrating &vllm; with &owui;</title>
+    <para>
+      You can integrate &vllm; in &owui; either using the &owui; Web user interface,
+      or updating &owui; override file during &owui; deployment (see
+      <xref linkend="owui-ollama-deploy-vllm"/>).
+    </para>
+    <procedure>
+      <title>Integrating &vllm; with &owui; via the Web user interface</title>
+      <itemizedlist>
+        <title>Requirements</title>
+        <listitem>
+          <xi:include href="../snippets/openwebui-requirement-admin-privileges.xml"/>
+        </listitem>
+      </itemizedlist>
+      <step>
+        <para>
+          In the bottom left of the &owui; window, click your avatar icon to
+          open the user menu and select <guimenu>Admin Panel</guimenu>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Click the <guimenu>Settings</guimenu> tab and select
+          <guimenu>Connections</guimenu> from the left menu.
+        </para>
+      </step>
+      <step>
+        <para>
+          In the <guimenu>Manage OpenAI API Connections</guimenu> section, add a
+          new connection URL to the &vllm; router service, for example
+          <literal>http://vllm-router-service.<replaceable>SUSE_AI_NAMESPACE</replaceable>.svc.cluster.local:80/v1</literal>.
+          Confirm with <guimenu>Save</guimenu>.
+        </para>
+        <figure xml:id="vllm-owui-integration-figure">
+          <title>Adding a &vllm; connection to &owui;</title>
+          <mediaobject>
+            <imageobject role="fo">
+              <imagedata fileref="ai-vllm-integrate-owui.png" width="100%"/>
+            </imageobject>
+            <imageobject role="html">
+              <imagedata fileref="ai-vllm-integrate-owui.png" width="100%"/>
+            </imageobject>
+            <textobject role="description"><phrase>A screenshot of the &owui; user interface for adding a new
+                connection to &vllm;</phrase>
+            </textobject>
+          </mediaobject>
+        </figure>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="vllm-upgrading" condition="deployment_standard">
+    <title>Upgrading &vllm;</title>
+    <para>
+      The &vllm; chart receives application updates and updates of the &helm;
+      chart templates. New versions may include changes that require manual
+      steps. These steps are listed in the corresponding
+      <filename>README</filename> file. All &vllm; dependencies are updated
+      automatically during a &vllm; upgrade.
+    </para>
+    <para>
+      To upgrade &vllm;, identify the new version number and run the following
+      command below:
+    </para>
+<screen>&prompt.user;<command>helm upgrade --install \
+  vllm oci://dp.apps.rancher.io/charts/vllm \
+  -n <replaceable>SUSE_AI_NAMESPACE</replaceable> \
+  --version <replaceable>VERSION_NUMBER</replaceable> \
+  -f <replaceable>vllm_custom_overrides.yaml</replaceable></command></screen>
+    <tip>
+      <para>
+        If you omit the <option>--version</option> option, &vllm; gets upgraded
+        to the latest available version.
+      </para>
+    </tip>
+    <note>
+      <title>Rolling update</title>
+      <para>
+        The <command>helm upgrade</command> command performs a rolling update on
+        Deployments or StatefulSets with the following conditions:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            The <emphasis>old</emphasis> pod stays running until the
+            <emphasis>new</emphasis> pod passes readiness checks.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            If the cluster is already at GPU capacity, the new pod cannot start
+            because there is no GPU left to schedule it. This requires patching
+            the deployment using the <emphasis>Recreate</emphasis> update
+            strategy. The following commands identify the &vllm; deployment name
+            and patch its deployment.
+          </para>
+<screen>&prompt.user;<command>kubectl get deployments -n <replaceable>SUSE_AI_NAMESPACE</replaceable></command>
+&prompt.user;<command>kubectl patch deployment <replaceable>VLLM_DEPLOYMENT_NAME</replaceable> \
+  -n <replaceable>SUSE_AI_NAMESPACE</replaceable> \
+  -p '{"spec": {"strategy": {"type": "Recreate", "rollingUpdate": null}}}'</command></screen>
+        </listitem>
+      </itemizedlist>
+    </note>
+  </section>
+  <section xml:id="vllm-uninstalling">
+    <title>Uninstalling &vllm;</title>
+    <para>
+      To uninstall &vllm;, run the following command:
+    </para>
+<screen>&prompt.user;<command>helm uninstall vllm -n <replaceable>SUSE_AI_NAMESPACE</replaceable></command></screen>
+  </section>
+</topic>
