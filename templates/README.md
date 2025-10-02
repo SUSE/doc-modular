@@ -177,7 +177,7 @@ you keep both docs in sync. This is done using a plain XML comment.
 
 Add some search engine-related information to your file:
 1. `title`- 29-55 characters
-1. `description` - max. 150 characters
+1. `description` - max. 155 characters
 
 ### Search
 
