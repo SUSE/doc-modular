@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_storage_protection.xml -->
+
+<topic xml:id="ha-sbd-setting-up-diskbased"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Setting up disk-based &sbd;</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Disk-based &sbd; fences nodes by exchanging messages via shared block storage. It works
+        together with a watchdog on each node to ensure that misbehaving nodes are really stopped.
+        You can configure up to three &sbd; devices.
+      </para>
+      <para>
+        This procedure explains how to configure &sbd; after the cluster is already installed and
+        running, not during the initial cluster setup.
+      </para>
+    </abstract>
+  </info>
+
+  <xi:include href="../snippets/ha-cluster-restart-warning.xml"/>
+    <warning>
+    <title>Overwriting existing data</title>
+    <para>
+      Make sure any device you want to use for &sbd; does not hold any important data. Configuring
+      a device for use with &sbd; overwrites the existing data.
+    </para>
+  </warning>
+
+  <itemizedlist>
+    <title>Requirements</title>
+    <listitem>
+      <para>
+        An existing &ha; cluster is already running.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        The &sbd; service is not running.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        Shared storage is configured and accessible on all nodes.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        The path to the shared storage device is consistent across all nodes. Use stable device
+        names such as <filename>/dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></filename>.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        All nodes have a watchdog device, and the correct watchdog kernel module is loaded.
+      </para>
+    </listitem>
+  </itemizedlist>
+  <para>
+    Perform this procedure on only one cluster node:
+  </para>
+  <procedure>
+    <step>
+      <para>
+        Log in either as the &rootuser; user or as a user with <command>sudo</command> privileges.
+      </para>
+    </step>
+    <step>
+      <para>
+        Run the &sbd; stage of the cluster setup script, using the option <option>--sbd-device</option>
+        (or <option>-s</option>) to specify the shared storage device:
+      </para>
+<screen>&prompt.user;<command>sudo crm cluster init sbd --sbd-device /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+      <itemizedlist>
+        <title>Additional options</title>
+        <listitem>
+          <para>
+            You can use <option>--sbd-device</option> (or <option>-s</option>) multiple times to
+            configure up to three &sbd; devices. Each &sbd; device must use a different shared
+            storage device.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            If multiple watchdogs are available, you can use the option <option>--watchdog</option>
+            (or <option>-w</option>) to choose which watchdog to use. Specify either the device name
+            (for example, <literal>/dev/watchdog1</literal>) or the driver name (for example,
+            <literal>iTCO_wdt</literal>).
+          </para>
+        </listitem>
+      </itemizedlist>
+      <para>
+        The script initializes &sbd; on the shared storage device, creates a
+        <literal>stonith:fence_sbd</literal> cluster resource, and updates the &sbd; configuration
+        file and timeout settings. The script also checks whether it is safe to restart the cluster
+        services automatically. If any non-&stonith; resources are running, the script warns you to
+        restart the cluster services manually.
+      </para>
+    </step>
+    <xi:include href="../snippets/ha-cluster-restart-steps.xml"/>
+    <step>
+      <para>
+        Check the &sbd; configuration:
+      </para>
+<screen>&prompt.user;<command>sudo crm sbd configure show</command>
+</screen>
+      <para>
+        The output of this command shows the &sbd; device's metadata, the enabled settings in the
+        <filename>/etc/sysconfig/sbd</filename> file, and the &sbd;-related cluster settings.
+      </para>
+    </step>
+    <step>
+      <para>
+        Check the status of SBD:
+      </para>
+<screen>&prompt.user;<command>sudo crm sbd status</command></screen>
+      <para>
+        The output of this command shows the type of &sbd; configured, information about the &sbd;
+        watchdog, and the statuses of the &sbd; service, disk, and cluster resource.
+      </para>
+    </step>
+  </procedure>
+</topic>

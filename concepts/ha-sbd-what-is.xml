@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_storage_protection.xml -->
+
+<topic xml:id="ha-sbd-what-is"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>What is &sbd;?</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        &sbd; (&sbd.long;) provides a node fencing mechanism without using an external power-off
+        device. The software component (the &sbd; daemon) works together with a watchdog device to
+        ensure that misbehaving nodes are fenced. &sbd; can be used in disk-based mode with shared
+        block storage, or in diskless mode using only the watchdog.
+      </para>
+      <para>
+        Disk-based &sbd; uses shared block storage to exchange fencing messages between the nodes.
+        It can be used with one to three devices. One device is appropriate for simple cluster setups,
+        but two or three devices are recommended for more complex setups or critical workloads.
+      </para>
+      <para>
+        Diskless &sbd; fences nodes by using only the watchdog, without relying on a shared storage
+        device. A node is fenced if it loses quorum, if any monitored daemon is lost and cannot be
+        recovered, or if &pace; determines that the node requires fencing.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="ha-sbd-what-is-components">
+    <title>Components</title>
+    <variablelist>
+      <varlistentry>
+        <term>&sbd; daemon</term>
+        <listitem>
+          <para>
+            The &sbd; daemon starts on each node before the rest of the cluster stack and stops
+            in the reverse order. This ensures that cluster resources are never active without
+            &sbd; supervision.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>&sbd; device (disk-based &sbd;)</term>
+        <listitem>
+          <para>
+            A small logical unit (or a small partition on a logical unit) is formatted for use with
+            &sbd;. A message layout is created on the device with slots for up to 255 nodes.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Messages (disk-based &sbd;)</term>
+        <listitem>
+          <para>
+            The message layout on the &sbd; device is used to send fencing messages to nodes.
+            The &sbd; daemon on each node monitors the message slot and immediately complies with
+            any requests. To avoid becoming disconnected from fencing messages, the &sbd; daemon
+            also fences the node if it loses its connection to the &sbd; device.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Watchdog</term>
+        <listitem>
+          <xi:include href="../snippets/ha-watchdog.xml"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="ha-sbd-limitations-recommendations">
+    <title>Limitations and recommendations</title>
+    <variablelist>
+      <varlistentry>
+        <term>Disk-based &sbd;</term>
+        <listitem>
+          <itemizedlist>
+            <listitem>
+              <para>
+                The shared storage can be Fibre Channel (FC), Fibre Channel over Ethernet (FCoE),
+                or iSCSI.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                The shared storage must <emphasis>not</emphasis> use host-based RAID, LVM,
+                &clustermd;, or &drbd;.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Using storage-based RAID and multipathing is recommended for increased reliability.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                If a shared storage device has different <filename>/dev/sdX</filename> names on
+                different nodes, &sbd; communication will fail. To avoid this, always use stable
+                device names, such as <filename>/dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></filename>.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                An &sbd; device can be shared between different clusters, up to a limit of 255 nodes.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                When using more than one &sbd; device, all devices must have the same configuration.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Diskless &sbd;</term>
+        <listitem>
+          <itemizedlist>
+            <listitem>
+              <para>
+                Diskless &sbd; cannot handle a split-brain scenario for a two-node cluster. This
+                configuration should only be used for clusters with more than two nodes, or in
+                combination with &qdevice; to help handle split-brain scenarios.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+  </section>
+  <section xml:id="ha-sbd-what-is-more-info">
+    <title>For more information</title>
+    <para>
+      For more information, see the man page <literal>sbd</literal> or run the
+      <command>crm sbd help</command> command.
+    </para>
+  </section>
+</topic>
