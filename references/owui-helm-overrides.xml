@@ -24,8 +24,7 @@
     <title>&owui; override file with &ollama; included</title>
     <para>
       The following override file installs &ollama; during the &owui;
-      installation. Replace <replaceable>SUSE_AI_NAMESPACE</replaceable> with
-      your &kube; namespace.
+      installation.
     </para>
 <screen>global:
   imagePullSecrets:
@@ -137,8 +136,7 @@ extraEnvVars:
     <title>&owui; override file with &ollama; installed separately</title>
     <para>
       The following override file installs &ollama; separately from the &owui;
-      installation. Replace <replaceable>SUSE_AI_NAMESPACE</replaceable> with
-      your &kube; namespace.
+      installation.
     </para>
 <screen>global:
   imagePullSecrets:
@@ -180,8 +178,7 @@ extraEnvVars:
 - name: ENABLE_OTEL<co xml:id="co-owui-otel1"/>
   value: "true"
 - name: OTEL_EXPORTER_OTLP_ENDPOINT<co xml:id="co-owui-otel2"/>
-value: http://opentelemetry-collector.observability.svc.cluster.local:4317<co
-xml:id="co-llama-otel"/>
+  value: http://opentelemetry-collector.observability.svc.cluster.local:4317<co xml:id="co-llama-otel"/>
 - name: OMP_NUM_THREADS
   value: "1"</screen>
     <calloutlist>
@@ -199,8 +196,8 @@ xml:id="co-llama-otel"/>
       </callout>
       <callout arearefs="co-owui-otel1 co-owui-otel2">
         <para>
-          These values are optional, required only if you want to receive
-          telemetry data from &owui;.
+          These values are optional, required only to receive telemetry data
+          from &owui;.
         </para>
       </callout>
       <callout arearefs="co-llama-otel">
@@ -209,5 +206,45 @@ xml:id="co-llama-otel"/>
         </para>
       </callout>
     </calloutlist>
+  </example>
+  <example xml:id="owui-ollama-deploy-pipelines">
+    <title>&owui; override file with pipelines enabled</title>
+    <para>
+      The following override file installs &ollama; separately and enables
+      &owui; pipelines. This simple filter adds a limit to the number of
+      question and answer turns during the LLM chat.
+    </para>
+    <tip>
+      <para>
+        Pipelines normally require additional configuration provided either via
+        environment variables or specified in the &owui; Web UI.
+      </para>
+    </tip>
+<screen>global:
+  imagePullSecrets:
+  - application-collection
+  <phrase condition="deployment_airgap">imageRegistry: <replaceable>LOCAL_DOCKER_REGISTRY_URL</replaceable>:5043</phrase>
+ollamaUrls:
+- http://ollama.<replaceable>SUSE_AI_NAMESPACE</replaceable>.svc.cluster.local:11434
+persistence:
+  enabled: true
+  storageClass: local-path
+ollama:
+  enabled: false
+pipelines:
+  enabled: true
+  persistence:
+    storageClass: local-path
+  extraEnvVars:
+  - name: PIPELINES_URLS
+    value: "https://raw.githubusercontent.com/SUSE/suse-ai-observability-extension/refs/heads/main/integrations/oi-filter/conversation_turn_limit_filter.py"
+ingress:
+  enabled: true
+  class: ""
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  host: suse-ollama-webui
+  tls: true
+[...]</screen>
   </example>
 </topic>
