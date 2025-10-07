@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_fencing.xml -->
+
+<topic xml:id="ha-stonith-preventing-node-fencing-during-kernel-dump"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Preventing node fencing during a kernel dump</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        The <literal>stonith:fence_kdump</literal> plug-in checks if a kernel dump (<systemitem>kdump</systemitem>) is in progress on a node. If so, it returns true and acts <emphasis>as if</emphasis> the node has been fenced, because the node will reboot after the <systemitem>kdump</systemitem> is complete. If not, it returns a failure and the next fencing device is triggered.
+      </para>
+      <para>
+        The Kdump plug-in must be used together with another, real &stonith; device, for example, <literal>external/ipmi</literal>. It does <emphasis>not</emphasis> work with &sbd; as the &stonith; device. For the fencing mechanism to work properly, you must specify the order of the fencing devices so that <systemitem>kdump</systemitem> is checked before a real &stonith; device is triggered, as shown in the following procedure.
+      </para>
+    </abstract>
+  </info>
+
+  <itemizedlist>
+    <title>Requirements</title>
+    <listitem>
+      <para>
+        The cluster uses a physical &stonith; device for node fencing.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        Cluster resources for the &stonith; device are already configured.
+      </para>
+    </listitem>
+  </itemizedlist>
+  <para>
+    Perform this procedure on only one node in the cluster:
+  </para>
+  <procedure>
+    <step>
+      <para>
+        Log in either as the &rootuser; user or as a user with <command>sudo</command> privileges.
+      </para>
+    </step>
+    <step>
+      <para>
+        Start the <command>crm</command> interactive shell:
+      </para>
+<screen>&prompt.root;<command>sudo crm configure</command></screen>
+    </step>
+    <step>
+      <para>
+        Use the <literal>stonith:fence_kdump</literal> fence agent. A configuration example is shown below. For more information, see <command>crm ra info stonith:fence_kdump</command>.
+      </para>
+<screen>&prompt.crm.conf;<command>primitive st-kdump stonith:fence_kdump \
+  params nodename="&node1; "\</command><co xml:id="co-ha-fence-kdump-nodename"/>
+  <command>pcmk_host_list="&node1;" \
+  pcmk_host_check="static-list" \
+  pcmk_reboot_action="off" \
+  pcmk_monitor_action="metadata" \
+  pcmk_reboot_retries="1" \
+  timeout="60"</command><co xml:id="co-ha-fence-kdump-timeout"/></screen>
+      <calloutlist>
+        <callout arearefs="co-ha-fence-kdump-nodename">
+          <para>
+            Name of the node to listen for a message from <literal>fence_kdump_send</literal>. Configure more &stonith; resources for other nodes if needed.
+          </para>
+        </callout>
+        <callout arearefs="co-ha-fence-kdump-timeout">
+          <para>
+            Defines how long to wait for a message from <literal>fence_kdump_send</literal>. If a message is received, then a <systemitem>kdump</systemitem> is in progress and the fencing mechanism considers the node to be fenced. If no message is received, <literal>fence_kdump</literal> times out, which indicates that the fence operation failed. The next &stonith; device in the <literal>fencing_topology</literal> eventually fences the node.
+          </para>
+        </callout>
+      </calloutlist>
+    </step>
+    <step>
+      <para>
+        Do you need location constraints?
+      </para>
+    </step>
+    <step>
+      <para>
+        To have <systemitem>kdump</systemitem> checked before triggering a real fencing mechanism (like <literal>external/ipmi</literal>), use a configuration similar to the following:
+      </para>
+<screen>&prompt.crm.conf;<command>fencing_topology \
+  &node1;: kdump-node1 ipmi-node1 \
+  &node2;: kdump-node2 ipmi-node2</command></screen>
+    </step>
+    <step>
+      <para><!--Do you still need to do this or is it automatic when you quit?-->
+        Commit your changes:
+      </para>
+<screen>&prompt.crm.conf;<command>commit</command></screen>
+    </step>
+    <step>
+      <para>
+        Exit the <command>crm</command> interactive shell:
+      </para>
+<screen>&prompt.crm.conf;<command>quit</command></screen>
+    </step>
+    <step>
+      <para>
+        Configure <literal>fence_kdump_send</literal> to send a message to all nodes when the <systemitem>kdump</systemitem> process is finished. In the <filename>/etc/sysconfig/kdump</filename> file, edit the <literal>KDUMP_POSTSCRIPT</literal> line. For example:
+      </para>
+<screen>KDUMP_POSTSCRIPT="/usr/lib/fence_kdump_send -i 10 -p 7410 -c 1 <replaceable>NODELIST</replaceable>"</screen>
+      <para>
+        Replace <replaceable>NODELIST</replaceable> with the host names of all the cluster nodes.
+      </para>
+    </step>
+    <step>
+      <para>
+        Add the <filename>/etc/sysconfig/kdump</filename> file to the &csync; config
+      </para>
+    </step>
+    <step>
+      <para>
+        Copy the configuration to all nodes:
+      </para>
+<screen>&prompt.root;<command>sudo csync2 -xv</command></screen>
+    </step>
+    <step>
+      <para><!--On all nodes?-->
+        Restart the <systemitem>kdump</systemitem> service:
+      </para>
+<screen>&prompt.root;<command>sudo systemctl restart kdump.service</command></screen>
+      <para>
+        This regenerates <filename>initrd</filename> so that it includes the library <literal>fence_kdump_send</literal> with network enabled.
+      </para>
+    </step>
+    <step>
+      <para><!--Might not need this anymore?? Need to check-->
+        Open a port in the firewall for the <literal>fence_kdump</literal> resource. The default port is <literal>7410</literal>.
+      </para>
+    </step>
+  </procedure>
+</topic>
