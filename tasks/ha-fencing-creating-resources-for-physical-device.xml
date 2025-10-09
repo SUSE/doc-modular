@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_fencing.xml -->
+
+<topic xml:id="ha-fencing-creating-resources-for-physical-device"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Creating resources for a physical &stonith; device</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        To set up fencing, you need to configure one or more &stonith;
+        resources&mdash;the <systemitem class="daemon">pacemaker-fenced</systemitem> daemon requires no configuration. All
+        configuration is stored in the CIB. A &stonith; resource is a resource of
+        class <literal>stonith</literal>. &stonith; resources
+        are a representation of &stonith; plug-ins in the CIB. Apart from the
+        fencing operations, the &stonith; resources can be started, stopped and
+        monitored, like any other resource. Starting or stopping &stonith;
+        resources means loading and unloading the &stonith; device driver on a
+        node. Starting and stopping are thus only administrative operations and
+        do not translate to any operation on the fencing device itself. However,
+        monitoring does translate to logging in to the device (to verify that the
+        device will work in case it is needed). When a &stonith; resource fails
+        over to another node it enables the current node to talk to the &stonith;
+        device by loading the respective driver.
+        </para>
+    </abstract>
+  </info>
+
+   <example>
+    <title>Configuration of an IBM RSA lights-out device</title>
+    <para>
+     An IBM RSA lights-out device might be configured like this:
+    </para>
+<screen>&prompt.root;<command>crm configure</command>
+&prompt.crm.conf;<command>primitive st-ibmrsa-1 stonith:external/ibmrsa-telnet \
+  params nodename=&node1; ip_address=192.168.0.101 \
+  username=USERNAME password=PASSW0RD</command>
+&prompt.crm.conf;<command>primitive st-ibmrsa-2 stonith:external/ibmrsa-telnet \
+  params nodename=&node2; ip_address=192.168.0.102 \
+  username=USERNAME password=PASSW0RD</command>
+&prompt.crm.conf;<command>location l-st-&node1; st-ibmrsa-1 -inf: &node1;</command>
+&prompt.crm.conf;<command>location l-st-&node2; st-ibmrsa-2 -inf: &node2;</command>
+&prompt.crm.conf;<command>commit</command></screen>
+    <para>
+     In this example, location constraints are used for the following
+     reason: there is always a certain probability that the &stonith;
+     operation is going to fail. Therefore, a &stonith; operation on the
+     node which is the executioner as well is not reliable. If the node is
+     reset, it cannot send the notification about the fencing operation
+     outcome. The only way to do that is to assume that the operation is
+     going to succeed and send the notification beforehand. But if the
+     operation fails, problems could arise. Therefore, by convention,
+     <systemitem class="daemon">pacemaker-fenced</systemitem> refuses to terminate its host.
+    </para>
+   </example>
+   <example>
+    <title>Configuration of a UPS fencing device</title>
+    <para>
+     The configuration of a UPS type fencing device is similar to the
+     examples above. The details are not covered here. All UPS devices
+     employ the same mechanics for fencing. How the device is accessed
+     varies. Old UPS devices only had a serial port, usually connected at
+     1200baud using a special serial cable. Many new ones still have a
+     serial port, but often they also use a USB or Ethernet interface. The
+     kind of connection you can use depends on what the plug-in supports.
+    </para>
+    <para>
+     For example, compare the <literal>apcmaster</literal> with the
+     <literal>apcsmart</literal> device by using the <command>stonith
+     -t <replaceable>stonith-device-type</replaceable> -n</command> command:
+    </para>
+<screen>&prompt.root;<command>stonith -t apcmaster -h</command></screen>
+    <para>
+     returns the following information:
+    </para>
+<screen>STONITH Device: apcmaster - APC MasterSwitch (via telnet)
+NOTE: The APC MasterSwitch accepts only one (telnet)
+connection/session a time. When one session is active,
+subsequent attempts to connect to the MasterSwitch will fail.
+For more information see http://www.apc.com/
+List of valid parameter names for apcmaster STONITH device:
+        ipaddr
+        login
+        password
+For Config info [-p] syntax, give each of the above parameters in order as
+the -p value.
+Arguments are separated by white space.
+Config file [-F] syntax is the same as -p, except # at the start of a line
+denotes a comment</screen>
+    <para>
+     With
+    </para>
+<screen>&prompt.root;<command>stonith -t apcsmart -h</command></screen>
+    <para>
+     you get the following output:
+    </para>
+<screen>STONITH Device: apcsmart - APC Smart UPS
+(via serial port - NOT USB!).
+Works with higher-end APC UPSes, like
+Back-UPS Pro, Smart-UPS, Matrix-UPS, etc.
+(Smart-UPS may have to be &gt;= Smart-UPS 700?).
+See http://www.networkupstools.org/protocols/apcsmart.html
+for protocol compatibility details.
+For more information see http://www.apc.com/
+List of valid parameter names for apcsmart STONITH device:
+ttydev
+hostlist</screen>
+    <para>
+     The first plug-in supports APC UPS with a network port and telnet
+     protocol. The second plug-in uses the APC SMART protocol over the
+     serial line, which is supported by many APC UPS product
+     lines.
+    </para>
+   </example>
+
+
+</topic>
