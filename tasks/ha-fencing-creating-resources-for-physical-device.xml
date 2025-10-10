@@ -15,43 +15,86 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Creating resources for a physical &stonith; device</title>
+    <title>Adding cluster resources for a physical &stonith; device</title>
     <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        To set up fencing, you need to configure one or more &stonith;
-        resources&mdash;the <systemitem class="daemon">pacemaker-fenced</systemitem> daemon requires no configuration. All
-        configuration is stored in the CIB. A &stonith; resource is a resource of
-        class <literal>stonith</literal>. &stonith; resources
-        are a representation of &stonith; plug-ins in the CIB. Apart from the
-        fencing operations, the &stonith; resources can be started, stopped and
-        monitored, like any other resource. Starting or stopping &stonith;
-        resources means loading and unloading the &stonith; device driver on a
-        node. Starting and stopping are thus only administrative operations and
-        do not translate to any operation on the fencing device itself. However,
-        monitoring does translate to logging in to the device (to verify that the
-        device will work in case it is needed). When a &stonith; resource fails
-        over to another node it enables the current node to talk to the &stonith;
-        device by loading the respective driver.
+        To set up fencing, you need to configure one or more &stonith; resources&mdash;the <systemitem class="daemon">pacemaker-fenced</systemitem> daemon requires no configuration. All configuration is stored in the CIB. A &stonith; resource is a resource of class <literal>stonith</literal>. &stonith; resources are a representation of &stonith; plug-ins in the CIB. Apart from the fencing operations, the &stonith; resources can be started, stopped and monitored, like any other resource. Starting or stopping &stonith; resources means loading and unloading the &stonith; device driver on a node. Starting and stopping are thus only administrative operations and do not translate to any operation on the fencing device itself. However, monitoring does translate to logging in to the device (to verify that the device will work if it is needed). When a &stonith; resource fails over to another node it enables the current node to talk to the &stonith; device by loading the respective driver.
         </para>
     </abstract>
   </info>
 
-   <example>
-    <title>Configuration of an IBM RSA lights-out device</title>
+  <para>
+    Do not configure several power switches in parallel.
+  </para>
+
+  <itemizedlist>
+    <title>Requirements</title>
+    <listitem>
+      <para>
+        An existing &ha; cluster is already running.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        A physical &stonith; device is accessible from all cluster nodes.
+      </para>
+    </listitem>
+  </itemizedlist>
+  <para>
+    Perform this procedure on only one node in the cluster:
+  </para>
+  <procedure>
+    <step>
+      <para>
+        Log in either as the &rootuser; user or as a user with <command>sudo</command> privileges.
+      </para>
+    </step>
+    <step>
+      <para>
+        Show a list of all the supported &stonith; types:
+      </para>
+  <screen>&prompt.user;<command>sudo crm ra list stonith</command></screen>
+    </step>
+    <step>
+      <para>
+        Show the list of parameters for a specific &stonith; device:
+      </para>
+  <screen>&prompt.user;<command>sudo crm ra info stonith:<replaceable>DEVICE</replaceable></command></screen>
+    </step>
+    <step>
+      <para>
+        Start the <command>crm</command> interactive shell:
+      </para>
+<screen>&prompt.user;<command>sudo crm configure</command></screen>
+    </step>
+    <step>
+      <para>
+      Create the &stonith; resource with the <literal>stonith</literal>
+      class, the type you have chosen,
+      and the respective parameters if needed, for example:
+      </para>
+<screen>&prompt.crm.conf;<command>primitive my-stonith stonith:external/ipmi \
+  params hostname="&node1;" \
+  ipaddr="&subnetI;.221" \
+  userid="admin" passwd="secret" \
+  op monitor interval=60m timeout=120s</command></screen>
     <para>
      An IBM RSA lights-out device might be configured like this:
     </para>
-<screen>&prompt.root;<command>crm configure</command>
-&prompt.crm.conf;<command>primitive st-ibmrsa-1 stonith:external/ibmrsa-telnet \
+<screen>&prompt.crm.conf;<command>primitive st-ibmrsa-1 stonith:external/ibmrsa-telnet \
   params nodename=&node1; ip_address=192.168.0.101 \
   username=USERNAME password=PASSW0RD</command>
 &prompt.crm.conf;<command>primitive st-ibmrsa-2 stonith:external/ibmrsa-telnet \
   params nodename=&node2; ip_address=192.168.0.102 \
-  username=USERNAME password=PASSW0RD</command>
-&prompt.crm.conf;<command>location l-st-&node1; st-ibmrsa-1 -inf: &node1;</command>
-&prompt.crm.conf;<command>location l-st-&node2; st-ibmrsa-2 -inf: &node2;</command>
-&prompt.crm.conf;<command>commit</command></screen>
+  username=USERNAME password=PASSW0RD</command></screen>
+    </step>
+    <step>
+      <para>
+        Add location constraints:
+      </para>
+<screen>&prompt.crm.conf;<command>location l-st-&node1; st-ibmrsa-1 -inf: &node1;</command>
+&prompt.crm.conf;<command>location l-st-&node2; st-ibmrsa-2 -inf: &node2;</command></screen>
     <para>
      In this example, location constraints are used for the following
      reason: there is always a certain probability that the &stonith;
@@ -63,66 +106,28 @@
      operation fails, problems could arise. Therefore, by convention,
      <systemitem class="daemon">pacemaker-fenced</systemitem> refuses to terminate its host.
     </para>
-   </example>
-   <example>
-    <title>Configuration of a UPS fencing device</title>
-    <para>
-     The configuration of a UPS type fencing device is similar to the
-     examples above. The details are not covered here. All UPS devices
-     employ the same mechanics for fencing. How the device is accessed
-     varies. Old UPS devices only had a serial port, usually connected at
-     1200baud using a special serial cable. Many new ones still have a
-     serial port, but often they also use a USB or Ethernet interface. The
-     kind of connection you can use depends on what the plug-in supports.
-    </para>
-    <para>
-     For example, compare the <literal>apcmaster</literal> with the
-     <literal>apcsmart</literal> device by using the <command>stonith
-     -t <replaceable>stonith-device-type</replaceable> -n</command> command:
-    </para>
-<screen>&prompt.root;<command>stonith -t apcmaster -h</command></screen>
-    <para>
-     returns the following information:
-    </para>
-<screen>STONITH Device: apcmaster - APC MasterSwitch (via telnet)
-NOTE: The APC MasterSwitch accepts only one (telnet)
-connection/session a time. When one session is active,
-subsequent attempts to connect to the MasterSwitch will fail.
-For more information see http://www.apc.com/
-List of valid parameter names for apcmaster STONITH device:
-        ipaddr
-        login
-        password
-For Config info [-p] syntax, give each of the above parameters in order as
-the -p value.
-Arguments are separated by white space.
-Config file [-F] syntax is the same as -p, except # at the start of a line
-denotes a comment</screen>
-    <para>
-     With
-    </para>
-<screen>&prompt.root;<command>stonith -t apcsmart -h</command></screen>
-    <para>
-     you get the following output:
-    </para>
-<screen>STONITH Device: apcsmart - APC Smart UPS
-(via serial port - NOT USB!).
-Works with higher-end APC UPSes, like
-Back-UPS Pro, Smart-UPS, Matrix-UPS, etc.
-(Smart-UPS may have to be &gt;= Smart-UPS 700?).
-See http://www.networkupstools.org/protocols/apcsmart.html
-for protocol compatibility details.
-For more information see http://www.apc.com/
-List of valid parameter names for apcsmart STONITH device:
-ttydev
-hostlist</screen>
-    <para>
-     The first plug-in supports APC UPS with a network port and telnet
-     protocol. The second plug-in uses the APC SMART protocol over the
-     serial line, which is supported by many APC UPS product
-     lines.
-    </para>
-   </example>
-
-
+    </step>
+    <step>
+      <para>
+        Add stonith-enabled, stonith-timeout, etc.?
+      </para>
+    </step>
+    <step>
+      <para><!--Do you still need to do this or is it automatic when you quit?-->
+        Commit your changes:
+      </para>
+<screen>&prompt.crm.conf;<command>commit</command></screen>
+    </step>
+    <step>
+      <para>
+        Exit the <command>crm</command> interactive shell:
+      </para>
+<screen>&prompt.crm.conf;<command>quit</command></screen>
+    </step>
+    <step>
+      <para>
+        Check something somehow, maybe <command>crm configure show</command>
+      </para>
+    </step>
+  </procedure>
 </topic>
