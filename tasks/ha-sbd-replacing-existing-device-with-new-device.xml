@@ -39,7 +39,15 @@
     </abstract>
   </info>
 
-  <xi:include href="../snippets/ha-cluster-restart-warning.xml"/>
+  <important>
+    <title>Cluster restart required</title>
+    <para>
+      In this procedure, the cluster services must be restarted twice: once after adding the new
+      device <emphasis>and</emphasis> once after removing the old device. We recommend putting the
+      cluster into maintenance mode first to avoid resource downtime. However, be aware that the
+      resources will not have cluster protection while in maintenance mode.
+    </para>
+  </important>
 
   <itemizedlist>
     <title>Requirements</title>
@@ -61,6 +69,17 @@
     <step>
       <para>
         Log in either as the &rootuser; user or as a user with <command>sudo</command> privileges.
+      </para>
+    </step>
+    <step>
+      <para>
+        Put the cluster into maintenance mode:
+      </para>
+<screen>&prompt.user;<command>sudo crm maintenance on</command></screen>
+      <para>
+        In this state, the cluster stops monitoring all resources. This allows the services
+        managed by the resources to keep running while the cluster restarts. However, be aware
+        that the resources will not have cluster protection while in maintenance mode.
       </para>
     </step>
     <step xml:id="ha-sbd-replacing-check-sbd-devices">
@@ -86,6 +105,9 @@
               Add the new device to the existing &sbd; configuration:
             </para>
 <screen>&prompt.user;<command>sudo crm sbd device add /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+            <para>
+              The script restarts the cluster services automatically.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -95,12 +117,25 @@
               Remove the old device from the &sbd; configuration:
             </para>
 <screen>&prompt.user;<command>sudo crm sbd device remove /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+            <para>
+              The script warns you to restart the cluster services manually.
+            </para>
           </listitem>
         </varlistentry>
       </variablelist>
+    </step>
+    <step>
       <para>
-        The script might warn you to manually restart the cluster services, but you do not need to
-        do this until after the next step.
+        If you need to restart the cluster services manually, run the following command:
+      </para>
+<screen>&prompt.user;<command>sudo crm cluster restart --all</command></screen>
+      <para>
+        Check the status of the cluster:
+      </para>
+<screen>&prompt.user;<command>sudo crm status</command></screen>
+      <para>
+        The nodes will have the status <literal>UNCLEAN (offline)</literal>, but will soon
+        change to <literal>Online</literal>.
       </para>
     </step>
     <step>
@@ -116,6 +151,9 @@
               Remove the old device from the &sbd; configuration:
             </para>
 <screen>&prompt.user;<command>sudo crm sbd device remove /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+            <para>
+              The script warns you to restart the cluster services manually.
+            </para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -125,16 +163,33 @@
               Add the new device to the existing &sbd; configuration:
             </para>
 <screen>&prompt.user;<command>sudo crm sbd device add /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+            <para>
+              The script restarts the cluster services automatically.
+            </para>
           </listitem>
         </varlistentry>
       </variablelist>
+    </step>
+    <step>
       <para>
-        The script updates the &sbd; configuration file and checks whether it is safe to restart
-        the cluster services automatically. If any non-&stonith; resources are running, the script
-        warns you to restart the cluster services manually.
+        If you need to restart the cluster services manually, run the following command:
+      </para>
+<screen>&prompt.user;<command>sudo crm cluster restart --all</command></screen>
+      <para>
+        Check the status of the cluster:
+      </para>
+<screen>&prompt.user;<command>sudo crm status</command></screen>
+      <para>
+        The nodes will have the status <literal>UNCLEAN (offline)</literal>, but will soon
+        change to <literal>Online</literal>.
       </para>
     </step>
-    <xi:include href="../snippets/ha-cluster-restart-steps.xml"/>
+    <step>
+      <para>
+        When the nodes are back online, put the cluster back into normal operation:
+      </para>
+<screen>&prompt.user;<command>sudo crm maintenance off</command></screen>
+    </step>
     <step>
       <para>
         Check the &sbd; configuration again:
