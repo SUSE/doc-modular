@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="rke2-installation-airgapped"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Installing &rke2; in air-gapped environments</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        This guide will help you quickly launch a cluster with default options.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    &rke2; can be installed in an air-gapped environment with two different
+    methods. You can either deploy via the <literal>rke2-airgap-images</literal>
+    Tarball artifact or by using a private registry.
+  </para>
+  <important>
+    <para>
+      You can use any &rke2a; Prime version listed on the Prime Artifacts URL
+      for the assets mentioned in these steps. To learn more about the Prime
+      Artifacts URL, see our
+      <link
+      xlink:href="https://scc.suse.com/rancher-docs/rancherprime/latest/en/reference-guide.html#prime-artifacts-url">Prime-only
+      documentation</link>. Authentication is required. Use your
+      <link xlink:href="https://scc.suse.com/home">&scc; (SCC)</link>
+      credentials to log in.
+    </para>
+  </important>
+  <section xml:id="rke2-airgapped-prerequisites">
+    <title>Prerequisites</title>
+    <para>
+      Verify you meet the following prerequisites based on your environment
+      before proceeding. All the steps listed on this page must be run as the
+      &rootuser; user or through <command>sudo</command>.
+    </para>
+    <important>
+      <para>
+        If your node has &nm; installed and enabled, ensure you configure &nm;
+        to ignore
+        <link xlink:href="https://documentation.suse.com/cloudnative/rke2/latest/en/known_issues.html#_networkmanager">CNI-managed
+        interfaces</link>.
+      </para>
+    </important>
+    <itemizedlist>
+      <listitem>
+        <para>
+          If running on an air-gapped node with &selnx; enabled, you must
+          manually install the necessary &selnx; policy RPM before performing
+          these steps. See our
+          <link xlink:href="https://documentation.suse.com/cloudnative/rke2/latest/en/install/methods.html#_rpm">RPM
+          Documentation</link> to determine what you need.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          If running on an air-gapped node with &selnx; enabled, the following
+          are required dependencies for &sles;, &centos; or &rhel; 8 when doing
+          an
+          <link xlink:href="https://documentation.suse.com/cloudnative/rke2/latest/en/install/methods.html#_rpm">RPM
+          install</link>: <package>container-selinux</package>
+          <package>iptables</package> <package>libnetfilter_conntrack</package>
+          <package>libnfnetlink</package> <package>libnftnl</package>
+          <package>policycoreutils-python-utils</package>
+          <package>rke2-common</package> <package>rke2-selinux</package>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          If your nodes do not have an interface with a default route, a default
+          route must be configured. Even a black-hole route via a dummy
+          interface will suffice. &rke2; requires a default route to auto-detect
+          the node's primary IP and for kube-proxy ClusterIP routing to function
+          correctly. To add a dummy route, do the following:
+        </para>
+<screen>&prompt.sudo;ip link add dummy0 type dummy
+&prompt.sudo;ip link set dummy0 up
+&prompt.sudo;ip addr add 203.0.113.254/31 dev dummy0
+&prompt.sudo;ip route add default via 203.0.113.255 dev dummy0 metric 1000</screen>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="rke2-airgapped-tarball-method">
+    <title>Tarball method</title>
+    <procedure>
+      <step>
+        <para>
+          Download the air-gap images tarballs from the
+          <link xlink:href="https://scc.suse.com/rancher-docs/rancherprime/latest/en/reference-guide.html#prime-artifacts-url">Prime
+          Artifacts URL</link> for the &rke2; version, CNI and platform you are
+          using.
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              <filename>rke2-images.linux-<replaceable>ARCH</replaceable>.tar.zst</filename>,
+              or
+              <filename>rke2-images-core.linux-<replaceable>ARCH</replaceable>.tar.gz</filename>.
+              This Tarball contains the core container images required for
+              &rke2a; Prime to function. Zstandard offers better compression
+              ratios and faster decompression speeds compared to gzip.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <filename>rke2-images-<replaceable>CNI</replaceable>.linux-<replaceable>ARCH</replaceable>.tar.gz</filename>.
+              This Tarball specifically contains the container images for your
+              Container Network Interface (CNI). The default CNI in &rke2; is
+              Canal.
+            </para>
+            <itemizedlist>
+              <listitem>
+                <para>
+                  If you are using the default CNI, Canal
+                  (<option>--cni=canal</option>), you can use either the
+                  <filename>rke2-image</filename> legacy archive as described
+                  above or the <filename>rke2-images-core</filename> and
+                  <filename>rke2-images-canal</filename> archives.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  If you are using the alternative CNI, Cilium
+                  (<option>--cni=cilium</option>), you must download the
+                  <filename>rke2-images-core</filename> and
+                  <filename>rke2-images-cilium</filename> archives.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  If using your own CNI (<option>--cni=none</option>), download
+                  only the <filename>rke2-images-core</filename> archive.
+                </para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+          <listitem>
+            <para>
+              If enabling the vSphere CPI/CSI charts
+              (<option>--cloud-provider-name=rancher-vsphere</option>), you must
+              also download the <filename>rke2-images-vsphere</filename>
+              archive.
+            </para>
+          </listitem>
+        </itemizedlist>
+      </step>
+      <step>
+        <para>
+          Create a directory named <filename>/rke2-artifacts</filename> on the
+          node and save the previously downloaded files there.
+        </para>
+      </step>
+      <step>
+        <para>
+          Continue with <xref linkend="rke2-airgapped-install-rke2"/>.
+        </para>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="rke2-airgapped-private-registry-method">
+    <title>Private registry method</title>
+    <para>
+      Private registry support honors all settings from the
+      <link
+      xlink:href="https://documentation.suse.com/cloudnative/rke2/latest/en/install/containerd_registry_configuration.html">&containerd;
+      registry configuration</link>, including endpoint override, transport
+      protocol (HTTP/HTTPS), authentication, certificate verification and more.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Add all the required system images to your private registry. A list of
+          images can be obtained from the <filename>.txt</filename> file
+          corresponding to each Tarball referenced above. Alternatively, you can
+          <command>docker load</command> the air-gap image Tarballs, then tag
+          and push the loaded images.
+        </para>
+      </step>
+      <step>
+        <para>
+          <xref linkend="rke2-airgapped-install-rke2">Install &rke2a;</xref>
+          using the <parameter>system-default-registry</parameter> parameter, or
+          use the
+          <link xlink:href="https://documentation.suse.com/cloudnative/rke2/latest/en/install/containerd_registry_configuration.html">&containerd;
+          registry configuration</link> to use your registry as a mirror for
+          docker.io.
+        </para>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="rke2-airgapped-install-rke2">
+    <title>Install &rke2;</title>
+    <para>
+      The following options to install &rke2; should only be performed after
+      completing either the
+      <xref linkend="rke2-airgapped-tarball-method" xrefstyle="select: title"/>
+      or
+      <xref linkend="rke2-airgapped-private-registry-method" xrefstyle="select: title"/>.
+    </para>
+    <para>
+      &rke2; can be installed either by running the
+      <xref linkend="rke2-airgapped-binary-install" xrefstyle="select: binary"/> directly
+      or by using the
+      <link linkend="rke2-airgapped-script-install">install.sh
+      script</link>.
+    </para>
+    <section xml:id="rke2-airgapped-binary-install">
+      <title>&rke2; binary install</title>
+      <procedure>
+        <step>
+          <para>
+            Obtain the &rke2; binary file
+            <filename>rke2.linux-<replaceable>ARCH</replaceable>.tar.gz</filename>.
+          </para>
+        </step>
+        <step>
+          <para>
+            Ensure the binary is named <filename>rke2</filename> and place it in
+            <filename>/usr/local/bin</filename>. Ensure it is executable.
+          </para>
+        </step>
+        <step>
+          <para>
+            Run the binary with the desired parameters.
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                If you are using the Rancher Prime registry, set the following
+                values in <filename>config.yaml</filename>:
+              </para>
+              <substeps>
+                <step>
+                  <para>
+                    Set <literal>system-default-registry:
+                    registry.rancher.com</literal>.
+                  </para>
+                </step>
+                <step>
+                  <para>
+                    If you are not using the default CNI, Canal, set
+                    <literal>cni: <replaceable>CNI</replaceable></literal>.
+                  </para>
+<screen>system-default-registry: registry.rancher.com
+cni: <replaceable>CNI</replaceable></screen>
+                </step>
+              </substeps>
+            </listitem>
+            <listitem>
+              <para>
+                If using the Private Registry Method, set the following values
+                in <filename>config.yaml</filename>:
+              </para>
+<screen>system-default-registry: "registry.example.com:5000"</screen>
+              <note>
+                <para>
+                  The <parameter>system-default-registry</parameter> parameter
+                  must specify only valid RFC 3986 URI authorities, i.e. a host
+                  and optional port.
+                </para>
+              </note>
+            </listitem>
+          </itemizedlist>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="rke2-airgapped-script-install">
+      <title>&rke2; install.sh script install</title>
+      <para>
+        <filename>install.sh</filename> may be used in an offline mode by
+        setting the <envar>INSTALL_RKE2_ARTIFACT_PATH</envar> variable to a path
+        containing pre-downloaded artifacts. This will run through a standard
+        install, including creating systemd units.
+      </para>
+      <procedure>
+        <step>
+          <para>
+            Download the install script, &rke2; binaries, &rke2; images, and
+            SHA256 checksums archives from the
+            <link
+            xlink:href="https://scc.suse.com/rancher-docs/rancherprime/latest/en/reference-guide.html#prime-artifacts-url">Prime
+            Artifacts URL</link> into the <filename>/rke2-artifacts</filename>
+            directory, as in the example below:
+          </para>
+<screen>mkdir /rke2-artifacts &amp;&amp; cd /rke2-artifacts/
+curl -OLs <replaceable>PRIME-ARTIFACTS-URL</replaceable>/rke2/<replaceable>VERSION</replaceable>/rke2-images.linux-<replaceable>ARCH</replaceable>.tar.zst
+curl -OLs <replaceable>PRIME-ARTIFACTS-URL</replaceable>/rke2/<replaceable>VERSION</replaceable>/rke2.linux-<replaceable>ARCH</replaceable>.tar.gz
+curl -OLs <replaceable>PRIME-ARTIFACTS-URL</replaceable>/rke2/<replaceable>VERSION</replaceable>/sha256sum-<replaceable>ARCH</replaceable>.txt
+curl -sfL https://get.rke2.io --output install.sh</screen>
+        </step>
+        <step>
+          <para>
+            Run <filename>install.sh</filename> using the directory, as in the
+            example below:
+          </para>
+<screen>INSTALL_RKE2_ARTIFACT_PATH=/rke2-artifacts sh install.sh</screen>
+        </step>
+        <step>
+          <para>
+            Enable and run the service as outlined
+            <link
+            xlink:href="https://documentation.suse.com/cloudnative/rke2/latest/en/install/quickstart.html">here</link>.
+          </para>
+        </step>
+      </procedure>
+    </section>
+  </section>
+</topic>
