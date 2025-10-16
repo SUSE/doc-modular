@@ -25,7 +25,7 @@
   </info>
 
   <para>
-    Do not configure several power switches in parallel.
+    In this procedure you will create multiple &stonith; resources, each targeting a specific node in the cluster. This is because the &stonith; resource cannot be used to fence the same node it is currently running on.
   </para>
 
   <itemizedlist>
@@ -52,71 +52,99 @@
     </step>
     <step>
       <para>
-        Show a list of all the supported &stonith; types:
+        Show the list of supported &stonith; types:
       </para>
   <screen>&prompt.user;<command>sudo crm ra list stonith</command></screen>
     </step>
     <step>
       <para>
-        Show the list of parameters for a specific &stonith; device:
+        Show the list of required and optional parameters for your device type:
       </para>
-  <screen>&prompt.user;<command>sudo crm ra info stonith:<replaceable>DEVICE</replaceable></command></screen>
+  <screen>&prompt.user;<command>sudo crm ra info stonith:fence_<replaceable>TYPE</replaceable></command></screen>
+      <para>
+        Make a note of the parameters you need to use for your specific setup.
+      </para>
     </step>
     <step>
       <para>
         Start the <command>crm</command> interactive shell:
       </para>
 <screen>&prompt.user;<command>sudo crm configure</command></screen>
+      <para>
+        This mode lets you make multiple configuration changes before committing all the changes at once.
+      </para>
     </step>
     <step>
       <para>
-      Create the &stonith; resource with the <literal>stonith</literal>
-      class, the type you have chosen,
-      and the respective parameters if needed, for example:
+        Create a &stonith; resource for each node in the cluster. Include the <literal>stonith</literal> class, your device type, the parameters for that device type, and a monitor operation:
       </para>
-<screen>&prompt.crm.conf;<command>primitive my-stonith stonith:external/ipmi \
-  params hostname="&node1;" \
-  ipaddr="&subnetI;.221" \
-  userid="admin" passwd="secret" \
+<screen>&prompt.crm.conf;<command>primitive <replaceable>RESOURCE-NAME</replaceable> stonith:fence_<replaceable>TYPE</replaceable> \
+  params <replaceable>KEY=VALUE</replaceable> <replaceable>KEY=VALUE</replaceable> <replaceable>KEY=VALUE</replaceable> [...] \
+  op monitor interval=<replaceable>INTEGER</replaceable> timeout=<replaceable>INTEGER</replaceable></command></screen>
+      <example xml:id="ha-fencing-creating-resources-for-physical-device-primitives">
+        <title>&stonith; resources for two nodes with an &ibm; RSA device</title>
+        <para>
+          This example shows a basic resource configuration for an &ibm; RSA lights-out device on two nodes, <systemitem>&node1;</systemitem> and <systemitem>&node2;</systemitem>:
+      </para>
+<screen>&prompt.crm.conf;<command>primitive fence-rsa-&node1; stonith:fence_rsa \
+  params pcmk_host_list=&node1; \
+  ip=&subnetI;.101 username=admin password=secret \
+  op monitor interval=60m timeout=120s</command>
+&prompt.crm.conf;<command>primitive fence-rsa-&node2; stonith:external/fence_rsa \
+  params pcmk_host_list=&node2; \
+  ip=&subnetI;.102 username=admin password=secret \
   op monitor interval=60m timeout=120s</command></screen>
-    <para>
-     An IBM RSA lights-out device might be configured like this:
-    </para>
-<screen>&prompt.crm.conf;<command>primitive st-ibmrsa-1 stonith:external/ibmrsa-telnet \
-  params nodename=&node1; ip_address=192.168.0.101 \
-  username=USERNAME password=PASSW0RD</command>
-&prompt.crm.conf;<command>primitive st-ibmrsa-2 stonith:external/ibmrsa-telnet \
-  params nodename=&node2; ip_address=192.168.0.102 \
-  username=USERNAME password=PASSW0RD</command></screen>
+      </example>
     </step>
     <step>
       <para>
-        Add location constraints:
+        Add location constraints so that each &stonith; resource <emphasis>cannot</emphasis> run on the node it targets:
       </para>
-<screen>&prompt.crm.conf;<command>location l-st-&node1; st-ibmrsa-1 -inf: &node1;</command>
-&prompt.crm.conf;<command>location l-st-&node2; st-ibmrsa-2 -inf: &node2;</command></screen>
-    <para>
-     In this example, location constraints are used for the following
-     reason: there is always a certain probability that the &stonith;
-     operation is going to fail. Therefore, a &stonith; operation on the
-     node which is the executioner as well is not reliable. If the node is
-     reset, it cannot send the notification about the fencing operation
-     outcome. The only way to do that is to assume that the operation is
-     going to succeed and send the notification beforehand. But if the
-     operation fails, problems could arise. Therefore, by convention,
-     <systemitem class="daemon">pacemaker-fenced</systemitem> refuses to terminate its host.
-    </para>
+<screen>&prompt.crm.conf;<command>location <replaceable>CONSTRAINT-NAME</replaceable> <replaceable>RESOURCE-NAME</replaceable> -inf: <replaceable>NODE-NAME</replaceable></command></screen>
+      <example xml:id="ha-fencing-creating-resources-for-physical-device-constraints">
+        <title>Location constraints for &stonith; resources</title>
+        <para>
+          This example shows location constraints for the &ibm; RSA resources on <systemitem>&node1;</systemitem> and <systemitem>&node2;</systemitem>:
+        </para>
+<screen>&prompt.crm.conf;<command>location loc-rsa-&node1; fence-rsa-&node1; -inf: &node1;</command>
+&prompt.crm.conf;<command>location loc-rsa-&node2; fence-rsa-&node2; -inf: &node2;</command></screen>
+        <para>
+          In this example, location constraints are used for the following
+          reason: there is always a certain probability that the &stonith;
+          operation is going to fail. Therefore, a &stonith; operation on the
+          node which is the executioner as well is not reliable. If the node is
+          reset, it cannot send the notification about the fencing operation
+          outcome. The only way to do that is to assume that the operation is
+          going to succeed and send the notification beforehand. But if the
+          operation fails, problems could arise. Therefore, by convention,
+          <systemitem class="daemon">pacemaker-fenced</systemitem> refuses to terminate its host.
+        </para>
+      </example>
     </step>
     <step>
       <para>
-        Enable &stonith; in the CIB and add a timeout:
+        Enable &stonith; for the cluster:
       </para>
-<screen>&prompt.crm.conf;<command>property stonith-enabled=true</command>
-&prompt.crm.conf;<command>property stonith-timeout=60</command></screen>
+<screen>&prompt.crm.conf;<command>property stonith-enabled=true</command></screen>
+    </step>
+    <step>
+      <para>
+        Add a global &stonith; timeout:
+      </para>
+<screen>&prompt.crm.conf;<command>property stonith-timeout=60</command></screen>
+      <para>
+        The default timeout value is <literal>60</literal> seconds, but you might need to change it if [reasons].
+      </para>
+    </step>
+    <step>
+      <para>
+        Review the updated cluster configuration:
+      </para>
+<screen>&prompt.crm.conf;<command>show</command></screen>
     </step>
     <step>
       <para><!--Do you still need to do this or is it automatic when you quit?-->
-        Commit your changes:
+        Commit the changes:
       </para>
 <screen>&prompt.crm.conf;<command>commit</command></screen>
     </step>
@@ -128,8 +156,12 @@
     </step>
     <step>
       <para>
-        Check something somehow, maybe <command>crm configure show</command>
+        Check the status of the cluster to make sure the &stonith; resources started:
       </para>
+<screen>&prompt.user;<command>sudo crm status</command></screen>
     </step>
   </procedure>
+  <para>
+    Troubleshooting? e.g. check connection with <command>fence_TYPE -o status</command>, maybe check that node names are the same in hypervisor list?
+  </para>
 </topic>
