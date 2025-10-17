@@ -1,0 +1,386 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="rke2-installation-quickstart"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Installing &rke2;</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        This guide will help you quickly launch a cluster with default options.
+      </para>
+    </abstract>
+  </info>
+  <tip>
+    <para>
+      New to &k8s;? The official &k8s; docs already have
+      <link xlink:href="https://kubernetes.io/docs/tutorials/kubernetes-basics/">great
+      tutorials</link> outlining the basics.
+    </para>
+  </tip>
+  <important>
+    <para>
+      You can use any &rke2a; Prime version listed on the Prime Artifacts URL
+      for the assets mentioned in these steps. To learn more about the Prime
+      Artifacts URL, see our
+      <link xlink:href="https://scc.suse.com/rancher-docs/rancherprime/latest/en/reference-guide.html#prime-artifacts-url">Prime-only
+      documentation</link>. Authentication is required. Use your
+      <link xlink:href="https://scc.suse.com/home">&scc; (SCC)</link>
+      credentials to log in.
+    </para>
+  </important>
+  <section xml:id="rke2-prerequisites">
+    <title>Prerequisites</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Make sure your environment fulfills the
+          <link
+          xlink:href="https://documentation.suse.com/cloudnative/rke2/latest/en/install/requirements.html">
+          requirements</link>. If &nm; is installed and enabled on your hosts,
+          ensure that it is configured to
+          <link
+          xlink:href="https://documentation.suse.com/cloudnative/rke2/latest/en/known_issues.html#_networkmanager">ignore
+          CNI-managed interfaces</link>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          If the host kernel supports
+          <link xlink:href="https://apparmor.net/">&aa;</link>, the &aa; tools
+          (usually available via the <package>apparmor-parser</package> package)
+          must also be present before installing &rke2a;.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          The &rke2a; installation process must be run as the &rootuser; user or
+          through <command>sudo</command>.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="rke2-server-node-installation">
+    <title>Server node installation</title>
+    <para>
+      &rke2; provides an installation script that is a convenient way to install
+      it as a service on systemd-based systems. This script is available at
+      <link xlink:href="https://get.rke2.io"/>. To install &rke2a; using this
+      method, do the following:
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Run the installer, where
+          <replaceable>INSTALL_RKE2_ARTIFACT_URL</replaceable> is the Prime
+          Artifacts URL and <replaceable>INSTALL_RKE2_CHANNEL</replaceable> is a
+          release channel you can subscribe to and defaults to
+          <literal>stable</literal>. In this example,
+          <literal>INSTALL_RKE2_CHANNEL="latest"</literal> gives you the latest
+          version of &rke2a;.
+        </para>
+<screen>&prompt.sudo;curl -sfL https://get.rke2.io/ | \
+  sudo INSTALL_RKE2_ARTIFACT_URL=<replaceable>PRIME-ARTIFACTS-URL</replaceable>/rke2 \
+  INSTALL_RKE2_CHANNEL="latest" sh -</screen>
+        <para>
+          To specify a version, set the
+          <replaceable>INSTALL_RKE2_VERSION</replaceable> environment variable.
+        </para>
+<screen>&prompt.sudo;curl -sfL https://get.rke2.io/ | \
+sudo INSTALL_RKE2_ARTIFACT_URL=<replaceable>PRIME-ARTIFACTS-URL</replaceable>/rke2 \
+  INSTALL_RKE2_VERSION="<replaceable>VERSION</replaceable>" ./install.sh</screen>
+        <para>
+          This will install the
+          <systemitem class="daemon">rke2-server</systemitem> service and the
+          <literal>rke2</literal> binary onto your machine. Due to its nature,
+          it will fail unless it runs as the &rootuser; user or through
+          <command>sudo</command>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Enable the <systemitem class="daemon">rke2-server</systemitem>
+          service.
+        </para>
+<screen>&prompt.sudo;systemctl enable rke2-server.service</screen>
+      </step>
+      <step>
+        <para>
+          To pull images from the Rancher Prime registry, set the following
+          value in <filename>etc/rancher/rke2/config.yaml</filename>:
+        </para>
+<screen>&prompt.sudo;system-default-registry: registry.rancher.com</screen>
+        <para>
+          This configuration tells &rke2a; to use registry.rancher.com as the
+          default location for all container images it needs to deploy within
+          the cluster.
+        </para>
+      </step>
+      <step>
+        <para>
+          Start the service.
+        </para>
+<screen>&prompt.sudo;systemctl start rke2-server.service</screen>
+      </step>
+      <step>
+        <para>
+          Follow the logs with the following command:
+        </para>
+<screen>&prompt.sudo;journalctl -u rke2-server -f</screen>
+      </step>
+    </procedure>
+    <para>
+      After running this installation:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          The <systemitem class="daemon">rke2-server</systemitem> service will
+          be installed. The <systemitem class="daemon">rke2-server</systemitem>
+          service will be configured to automatically restart after node reboots
+          or if the process crashes or is killed.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Additional utilities will be installed at
+          <filename>/var/lib/rancher/rke2/bin/</filename>. They include:
+          <command>kubectl</command>, <command>crictl</command>, and
+          <command>ctr</command>. Note that these are not on your path by
+          default.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Two cleanup scripts, <filename>rke2-killall.sh</filename> and
+          <filename>rke2-uninstall.sh</filename>, will be installed to the path
+          at:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              <filename>/usr/local/bin</filename> for regular file systems
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <filename>/opt/rke2/bin</filename> for read-only and Btrfs file
+              systems
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <filename><replaceable>INSTALL_RKE2_TAR_PREFIX</replaceable>/bin</filename>
+              if <replaceable>INSTALL_RKE2_TAR_PREFIX</replaceable> is set
+            </para>
+          </listitem>
+        </itemizedlist>
+      </listitem>
+      <listitem>
+        <para>
+          A
+          <link xlink:href="https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/">kubeconfig</link>
+          file will be written to
+          <filename>/etc/rancher/rke2/rke2.yaml</filename>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          A token that can be used to register other server or agent nodes will
+          be created at
+          <filename>/var/lib/rancher/rke2/server/node-token</filename>.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <note>
+      <para>
+        If you are adding additional server nodes, you must have an odd number
+        in total. An odd number is needed to maintain a quorum. See the
+        <link
+        xlink:href="https://documentation.suse.com/cloudnative/rke2/latest/en/install/ha.html">&ha;
+        documentation</link> for more details.
+      </para>
+    </note>
+  </section>
+  <section xml:id="rke2-linux-agent-installation">
+    <title>Linux agent (worker) node installation</title>
+    <para>
+      The steps on this section requires &rootuser;-level access or
+      <command>sudo</command> to work.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Run the installer.
+        </para>
+<screen>&prompt.sudo;curl -sfL https://get.rke2.io | INSTALL_RKE2_TYPE="agent" sh -</screen>
+        <para>
+          This will install the
+          <systemitem class="daemon">rke2-agent</systemitem> service and the
+          <literal>rke2</literal> binary onto your machine. Due to its nature,
+          it will fail unless it runs as the root user or through
+          <command>sudo</command>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Enable the <systemitem class="daemon">rke2-agent</systemitem> service.
+        </para>
+<screen>&prompt.sudo;systemctl enable rke2-agent.service</screen>
+      </step>
+      <step>
+        <para>
+          Configure the <systemitem class="daemon">rke2-agent</systemitem>
+          service.
+        </para>
+<screen>&prompt.sudo;mkdir -p /etc/rancher/rke2/
+vim /etc/rancher/rke2/config.yaml</screen>
+        <para>
+          Content for <filename>config.yaml</filename>:
+        </para>
+<screen>&prompt.sudo;server: https://<replaceable>SERVER_IP_OR_DNS</replaceable>:9345
+token: <replaceable>TOKEN_FROM_SERVER_NODE</replaceable></screen>
+        <note>
+          <para>
+            The <systemitem class="daemon">rke2 server</systemitem> process
+            listens on port <literal>9345</literal> for new nodes to register.
+            The &k8s; API is still served on port <literal>6443</literal>, as
+            normal.
+          </para>
+        </note>
+      </step>
+      <step>
+        <para>
+          Start the service.
+        </para>
+<screen>&prompt.sudo;systemctl start rke2-agent.service</screen>
+      </step>
+      <step>
+        <para>
+          Follow the logs with the following command:
+        </para>
+<screen>&prompt.sudo;journalctl -u rke2-agent -f</screen>
+      </step>
+    </procedure>
+    <note>
+      <para>
+        Each machine must have a unique host name. If your machines do not have
+        unique host names, set the <replaceable>node-name</replaceable>
+        parameter in the <filename>config.yaml</filename> file and provide a
+        value with a valid and unique host name for each node. To learn more
+        about the config.yaml file, refer to the
+        <link xlink:href="https://documentation.suse.com/cloudnative/rke2/latest/en/install/configuration.html#_configuration-file">Configuration
+        options documentation</link>.
+      </para>
+    </note>
+  </section>
+  <section xml:id="rke2-windows-agent-installation">
+    <title>&mswin; agent (worker) node installation</title>
+    <para>
+      Windows Support works with Calico or Flannel as the CNI for the &rke2a;
+      cluster.
+    </para>
+    <procedure>
+      <title>Prepare the &mswin; agent node</title>
+      <note>
+        <para>
+          The Windows Server Containers feature needs to be enabled for the
+          &rke2a; agent to work.
+        </para>
+      </note>
+      <step>
+        <para>
+          Open a new PowerShell window with administrator privileges.
+        </para>
+<screen>powershell -Command "Start-Process PowerShell -Verb RunAs"</screen>
+      </step>
+      <step>
+        <para>
+          In the new PowerShell window, run the following command to install the
+          containers feature.
+        </para>
+<screen>Enable-WindowsOptionalFeature -Online -FeatureName containers –All</screen>
+        <para>
+          This will require a reboot for the <literal>Containers</literal>
+          feature to function properly.
+        </para>
+      </step>
+    </procedure>
+    <procedure>
+      <step>
+        <para>
+          Download the install script.
+        </para>
+<screen>Invoke-WebRequest -Uri https://raw.githubusercontent.com/rancher/rke2/master/install.ps1 -Outfile install.ps1</screen>
+        <para>
+          This script will download the <filename>rke2.exe</filename> Windows
+          binary onto your machine.
+        </para>
+      </step>
+      <step>
+        <para>
+          Configure the rke2-agent for Windows.
+        </para>
+<screen>&prompt.sudo;New-Item -Type Directory c:/etc/rancher/rke2 -Force
+Set-Content -Path c:/etc/rancher/rke2/config.yaml -Value @"
+server: https://<replaceable>SERVER_IP_OR_DNS</replaceable>:9345
+token: <replaceable>TOKEN_FROM_SERVER_NODE</replaceable>
+"@</screen>
+        <para>
+          To learn more about the <filename>config.yaml</filename> file, refer
+          to the
+          <link xlink:href="https://documentation.suse.com/cloudnative/rke2/latest/en/install/configuration.html#_configuration-file">Configuration
+          options documentation</link>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Configure the PATH.
+        </para>
+<screen>&prompt.sudo;$env:PATH+=";c:\var\lib\rancher\rke2\bin;c:\usr\local\bin"
+
+[Environment]::SetEnvironmentVariable(
+    "Path",
+    [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine) + ";c:\var\lib\rancher\rke2\bin;c:\usr\local\bin",
+    [EnvironmentVariableTarget]::Machine)</screen>
+      </step>
+      <step>
+        <para>
+          Run the installer.
+        </para>
+<screen>&prompt.sudo;./install.ps1</screen>
+      </step>
+      <step>
+        <para>
+          Start the Windows <systemitem class="daemon">RKE2</systemitem>
+          Service.
+        </para>
+<screen>&prompt.sudo;rke2.exe agent service --add</screen>
+      </step>
+    </procedure>
+    <note>
+      <para>
+        Each machine must have a unique host name.
+      </para>
+    </note>
+    <para>
+      Do not forget to start the <systemitem class="daemon">RKE2</systemitem>
+      service with:
+    </para>
+<screen>Start-Service rke2</screen>
+    <para>
+      If you would prefer to use CLI parameters only instead, run the binary
+      with the desired parameters.
+    </para>
+<screen>rke2.exe agent --token <replaceable>TOKEN</replaceable> --server <replaceable>SERVER_URL</replaceable></screen>
+  </section>
+</topic>
