@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- partially refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_storage_protection.xml -->
+
+<topic xml:id="ha-sbd-changing-timeout-settings"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Changing the &sbd; timeout settings</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        &sbd; relies on multiple different timeout settings to manage node fencing. When you
+        configure &sbd; using the &crmshell;, these timeouts are automatically calculated and
+        adjusted. The automatic values are sufficient for most use cases, but if you need to
+        change them, you can use the <command>crm sbd configure</command> command.
+    </para>
+    </abstract>
+  </info>
+
+  <xi:include href="../snippets/ha-cluster-restart-warning.xml"/>
+
+  <itemizedlist>
+    <title>Requirements</title>
+    <listitem>
+      <para>
+        &sbd; is already configured and running.
+      </para>
+    </listitem>
+  </itemizedlist>
+  <para>
+    Perform this procedure on only one node in the cluster:
+  </para>
+<procedure>
+    <step>
+      <para>
+        Log in either as the &rootuser; user or as a user with <command>sudo</command> privileges.
+      </para>
+    </step>
+    <step>
+      <para>
+        Check the current timeout settings:
+      </para>
+<screen>&prompt.user;<command>sudo crm sbd configure show</command></screen>
+    </step>
+    <step>
+      <para>
+        Change one or both of the following timeout values as needed:
+      </para>
+<screen>&prompt.user;<command>sudo crm sbd configure \</command>
+  <command>watchdog-timeout=<replaceable>INTEGER_IN_SECONDS</replaceable> \</command><co xml:id="co-sbd-watchdog-timeout"/>
+  <command>msgwait-timeout=<replaceable>INTEGER_IN_SECONDS</replaceable> \</command><co xml:id="co-sbd-msgwait-timeout"/></screen>
+      <para>
+        If you change one timeout, the other timeout is automatically adjusted so that the
+        <literal>msgwait-timeout</literal> is twice the <literal>watchdog-timeout</literal>. You
+        only need to change both timeouts manually if you want the <literal>msgwait-timeout</literal>
+        to be <emphasis>more</emphasis> than double the <literal>watchdog-timeout</literal>.
+        If you try to make the <literal>msgwait-timeout</literal> <emphasis>less</emphasis> than
+        double the <literal>watchdog-timeout</literal>, the command fails with a warning.
+      </para>
+      <calloutlist>
+        <callout arearefs="co-sbd-watchdog-timeout">
+          <para>
+            The <literal>watchdog-timeout</literal> defines how long the watchdog waits for a
+            response from &sbd; before fencing the node. Diskless &sbd; reads this timeout from
+            <filename>/etc/sysconfig/sbd</filename>, but disk-based &sbd; reads it from the device
+            metadata, which takes precedence over the settings in <filename>/etc/sysconfig/sbd</filename>.
+          </para>
+          <para>
+            For disk-based &sbd; on a multipath setup, this timeout must be longer than the
+            <literal>max_polling_interval</literal> in <filename>/etc/multipath.conf</filename>,
+            to allow enough time to detect a path failure and switch to the next path.
+         </para>
+        </callout>
+        <callout arearefs="co-sbd-msgwait-timeout">
+          <para>
+            <emphasis>Only used for disk-based &sbd;.</emphasis>
+            After the <literal>msgwait-timeout</literal> is reached, &sbd; assumes that a message
+            written to the node's slot on the &sbd; device was delivered successfully. The timeout
+            must be long enough for the node to detect that it needs to self-fence.
+          </para>
+          <para>
+            When you increase this timeout, the script also automatically adjusts the
+            <literal>SBD_DELAY_START</literal> setting. This helps to avoid a situation where
+            a node reboots too quickly and rejoins the cluster before the fencing action is
+            considered complete, which can cause a split-brain scenario.
+          </para>
+        </callout>
+      </calloutlist>
+      <tip role="compact">
+        <para>
+          You should not need to change the <literal>allocate-timeout</literal> or the
+          <literal>loop-timeout</literal>.
+        </para>
+      </tip>
+      <para>
+        The script automatically adjusts any other related timeouts in the cluster and displays
+        the new values. The script also checks whether it is safe to restart the cluster services
+        automatically. If any non-&stonith; resources are running, the script warns you to restart
+        the cluster services manually.
+      </para>
+    </step>
+    <xi:include href="../snippets/ha-cluster-restart-steps.xml"/>
+    <step>
+      <para>
+        When you change a timeout with <command>crm sbd configure</command>, the global
+        &stonith; timeouts are also adjusted automatically. The automatic values are
+        sufficient for most use cases, but if you need to change them, you can use the
+        <command>crm configure property</command> command:
+      </para>
+<screen>&prompt.user;<command>sudo crm configure property stonith-timeout=<replaceable>INTEGER_IN_SECONDS</replaceable></command><co xml:id="co-stonith-timeout"/>
+&prompt.user;<command>sudo crm configure property stonith-watchdog-timeout=<replaceable>INTEGER_IN_SECONDS</replaceable></command><co xml:id="co-stonith-watchdog-timeout"/></screen>
+      <para>
+        This command does <emphasis>not</emphasis> automatically adjust any other timeouts,
+        and these settings might be overwritten if you change the &sbd; configuration again.
+      </para>
+      <calloutlist>
+        <callout arearefs="co-stonith-timeout">
+          <para>
+            The <literal>stonith-timeout</literal> defines how long to wait for the &stonith;
+            action to complete.
+          </para>
+       </callout>
+       <callout arearefs="co-stonith-watchdog-timeout">
+          <para>
+            <emphasis>Only used for diskless &sbd;.</emphasis>
+            The <literal>stonith-watchdog-timeout</literal> defines how long to wait for the
+            watchdog to fence the node.
+          </para>
+        </callout>
+      </calloutlist>
+    </step>
+    <step>
+      <para>
+        Confirm that the timeout settings changed:
+      </para>
+<screen>&prompt.user;<command>sudo crm sbd configure show</command></screen>
+    </step>
+  </procedure>
+
+  <para>
+    If you need to manually calculate any timeouts, you can use these basic formulas for most
+    use cases:
+  </para>
+  <variablelist xml:id="ha-sbd-calculating-timeouts">
+    <varlistentry>
+      <term>Disk-based &sbd;</term>
+      <listitem>
+        <para>
+          <literal>msgwait-timeout &gt;= (watchdog-timeout * 2)</literal>
+        </para>
+        <para>
+          <literal>stonith-timeout &gt;= msgwait-timeout + 20%</literal>
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>Diskless &sbd;</term>
+      <listitem>
+        <para>
+          <literal>stonith-watchdog-timeout &gt;= (watchdog-timeout * 2)</literal>
+        </para>
+        <para>
+          <literal>stonith-timeout &gt;= stonith-watchdog-timeout + 20%</literal>
+        </para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  <para>
+    For more information, run the <command>crm help TimeoutFormulas</command> command.
+  </para>
+</topic>

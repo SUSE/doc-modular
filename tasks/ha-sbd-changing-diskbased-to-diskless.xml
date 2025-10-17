@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_storage_protection.xml -->
+
+<topic xml:id="ha-sbd-changing-diskbased-to-diskless"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Changing disk-based &sbd; to diskless &sbd;</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Use this procedure to change disk-based &sbd; to diskless &sbd;.
+      </para>
+      <para>
+        Diskless &sbd; cannot handle a split-brain scenario for a two-node cluster. This
+        configuration should only be used for clusters with more than two nodes, or in
+        combination with &qdevice; to help handle split-brain scenarios.
+      </para>
+    </abstract>
+  </info>
+
+  <important>
+    <title>Cluster restart required</title>
+    <para>
+      In this procedure, the setup script automatically puts the cluster into maintenance mode
+      and restarts the cluster services. In maintenance mode, the cluster stops monitoring all
+      resources. This allows the services managed by the resources to keep running even during
+      the cluster restart. However, be aware that the resources will not have cluster protection
+      while in maintenance mode.
+    </para>
+  </important>
+  <itemizedlist>
+    <title>Requirements</title>
+    <listitem>
+      <para>
+        Disk-based &sbd; is configured and running.
+      </para>
+    </listitem>
+  </itemizedlist>
+  <para>
+    Perform this procedure on only one node in the cluster:
+  </para>
+  <procedure>
+    <step>
+      <para>
+        Log in either as the &rootuser; user or as a user with <command>sudo</command> privileges.
+      </para>
+    </step>
+    <step>
+      <para>
+        Check the status of &sbd;:
+      </para>
+<screen>&prompt.user;<command>sudo crm sbd status</command>
+# Type of &sbd;:
+Disk-based &sbd; configured</screen>
+    </step>
+    <step>
+      <para>
+        Configure diskless &sbd;. Use <option>--force</option> (or <option>-F</option>) to allow
+        you to reconfigure &sbd; even when it is already running, and <option>--enable-sbd</option>
+        (or <option>-S</option>) to specify that no device is needed:
+      </para>
+<screen>&prompt.user;<command>sudo crm --force cluster init sbd --enable-sbd</command></screen>
+      <para>
+        The script stops and removes the <literal>stonith:fence_sbd</literal> cluster resource,
+        then updates the &sbd; configuration file and timeout settings. The script also puts the
+        cluster into maintenance mode, restarts the cluster services, then puts the cluster back
+        into normal operation.
+      </para>
+    </step>
+    <step>
+      <para>
+        Check the status of the cluster:
+      </para>
+<screen>&prompt.user;<command>sudo crm status</command></screen>
+      <para>
+        The nodes should be <literal>Online</literal> and the resources <literal>Started</literal>.
+      </para>
+    </step>
+    <step>
+      <para>
+        Check the status of &sbd;:
+      </para>
+<screen>&prompt.user;<command>sudo crm sbd status</command>
+# Type of &sbd;:
+Diskless &sbd; configured</screen>
+    </step>
+  </procedure>
+</topic>

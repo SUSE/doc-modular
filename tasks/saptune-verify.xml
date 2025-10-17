@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="saptune-verify"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Verification and troubleshooting</title>
+    <!-- can be changed via merge
+      in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="Dmitri Popov" its:translate="no"/>
+    <abstract>
+      <!-- can be changed via merge in the assembly -->
+      <para>
+        This chapter explains how to verify &sapnote;s and troubleshoot &saptune;.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="task-saptune-verify-requirements">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          A system with &saptune; installed, configured, and enabled.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+
+  <section xml:id="task-saptune-verify-troubleshoot">
+  <title>Verification and troubleshooting</title>
+<para>To see the current status of &saptune;, run the following command:</para>
+<screen>&prompt.root;<command>saptune status</command></screen>
+   <para>The output contains the following:</para>
+   <itemizedlist>
+    <listitem>
+     <para>status of the &saptune;, &sapconf;, and &tuned; services</para>
+    </listitem>
+    <listitem>
+     <para>version of the package and running &saptune;</para>
+    </listitem>
+    <listitem>
+     <para>details about configured &sapsol;s and &sapnote;s</para>
+    </listitem>
+    <listitem>
+     <para>details about staging</para>
+    </listitem>
+    <listitem>
+      <para>status of the &systemd; system state</para>
+    </listitem>
+    <listitem>
+      <para>virtualization environment (new in &saptune; version 3.1)</para>
+    </listitem>
+    <listitem>
+      <para>tuning compliance (new in &saptune; version 3.1)</para>
+    </listitem>
+   </itemizedlist>
+   <para>
+   To analyze your &saptune; installation, run:
+   </para>
+
+<screen>&prompt.root;<command>saptune check</command></screen>
+
+<para>
+This command performs the following checks: 
+</para>
+
+<itemizedlist>
+<listitem>
+<para>
+check for mandatory or obsolete configuration files
+</para>
+</listitem>
+<listitem>
+<para>
+check for RPM leftovers
+</para>
+</listitem>
+<listitem>
+<para>
+check if the &systemd; system state is degraded and list failed units
+</para>
+</listitem>
+<listitem>
+<para>
+check the status of the <literal>sapconf</literal>, &saptune; and tuned services
+</para>
+</listitem>
+</itemizedlist>
+
+<note>
+<para>
+If <command>saptune check</command> warns about a degraded &systemd; system status, in most cases it has no impact on &saptune;. However, failed services require troubleshooting.
+</para>
+</note>
+
+<para>
+The command does not check the tuning itself. To check the tuning, use the command below:
+</para>
+
+<screen>&prompt.root;<command>saptune note verify</command></screen>
+
+<note>
+<para>
+If <command>saptune note verify</command> is called without specifying a Note,
+it verifies all enabled Notes. To verify the currently applied Notes, use the
+<command>saptune note verify applied</command> or <command>saptune verify
+applied</command> commands. Normally, enabled Notes are also applied, except
+when the system has been rebooted without an enabled <systemitem
+class="service">saptune.service</systemitem>.
+</para>
+</note>
+
+<para>
+The <command>saptune note verify</command> command prints a table with all applied Notes, including the following:
+</para>
+
+<itemizedlist>
+<listitem>
+<para>
+SAP Note and version
+</para>
+</listitem>
+<listitem>
+<para>
+the parameter
+</para>
+</listitem>
+<listitem>
+<para>
+the expected value of the parameter
+</para>
+</listitem>
+<listitem>
+<para>
+the value from an Override if one exists
+</para>
+</listitem>
+<listitem>
+<para>
+the current system value
+</para>
+</listitem>
+<listitem>
+<para>
+the compliance status of the parameter
+</para>
+</listitem>
+</itemizedlist>
+
+<para>
+The last line contains the overall compliance status of the entire tuning.
+</para>
+
+<note>
+<para>
+Some parameters of shipped Notes are disabled, meaning they have empty values in the <guimenu>Expected</guimenu> column. In such cases, the SAP Note does not contain a concrete recommendation or &saptune; cannot detect the conditions for a recommendation. Read the SAP Note and set the value manually by customizing the Note (See <xref linkend="sec-saptune-sap-notes-customize"/>).
+</para>
+</note>
+
+<para>
+If the parameters are not compliant, read the footnote if it exists. For some tunings, equivalent parameters exist, for example:
+</para>
+
+<itemizedlist>
+<listitem>
+<para>
+<literal>grub:intel_idle.max_cstate</literal> covered by <literal>force_latency</literal>
+</para>
+</listitem>
+<listitem>
+<para>
+<literal>grub:processor.max_cstate</literal> covered by <literal>force_latency</literal>
+</para>
+</listitem>
+<listitem>
+<para>
+<literal>grub:numa_balancing</literal> covered by <literal>kernel.numa_balancing</literal>
+</para>
+</listitem>
+<listitem>
+<para>
+<literal>grub:transparent_hugepage</literal> covered by <literal>THP</literal>
+</para>
+</listitem>
+</itemizedlist>
+
+<para>
+A restart of the <literal>saptune</literal> service fixes the problems, except in the case of non-compliant packages (parameter starts with <literal>rpm:</literal>) or GRUB entries (parameter starts with <literal>grub:</literal>). &saptune; does not install, uninstall or upgrade packages, and it never changes the boot loader.
+</para>
+
+<para>
+A typical problem is the <command>sysctl</command> parameters that are handled by &saptune; and <command>sysctl</command>. A footnote in the parameter's compliance column indicates if it is also present in one of the <command>sysctl</command> configuration files. Remove the parameter from the <command>sysctl</command> configuration or disable the parameter in &saptune; <!-- (see <xref linkend="sec-saptune-customize"/>) --> to fix the problem.
+</para>
+
+<para>
+Always investigate the cause of the changed tuning and fix it. If &saptune; does not tune certain parameters, you can revert the Note or just disable parameters via an Override<!-- (see <xref linkend="sec-saptune-customize"/>)-->.
+   </para>
+  </section>
+</topic>

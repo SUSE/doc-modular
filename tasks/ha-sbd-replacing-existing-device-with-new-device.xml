@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<topic xml:id="ha-sbd-replacing-existing-device-with-new-device"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Replacing an existing &sbd; device with a new device</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        If you need to replace an &sbd; device, you can use <command>crm sbd device add</command>
+        to add the new device and <command>crm sbd device remove</command> to remove the old device.
+        If the cluster has two &sbd; devices, you can run these commands in any order. However, if
+        the cluster has one or three &sbd; devices, you must run these commands in a specific order:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            One device: <command>crm sbd device remove</command> cannot remove the only device,
+            so you must add the new device before you can remove the old device.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Three devices: <command>crm sbd device add</command> cannot add a fourth device,
+            so you must remove the old device before you can add the new device.
+          </para>
+        </listitem>
+      </itemizedlist>
+    </abstract>
+  </info>
+
+  <important>
+    <title>Cluster restart required</title>
+    <para>
+      In this procedure, the cluster services must be restarted twice: once after adding the new
+      device <emphasis>and</emphasis> once after removing the old device. We recommend putting the
+      cluster into maintenance mode first to avoid resource downtime. However, be aware that the
+      resources will not have cluster protection while in maintenance mode.
+    </para>
+  </important>
+
+  <itemizedlist>
+    <title>Requirements</title>
+    <listitem>
+      <para>
+        Disk-based &sbd; is already configured and running with at least one device.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        An additional shared storage device is accessible from all cluster nodes.
+      </para>
+    </listitem>
+  </itemizedlist>
+  <para>
+    Perform this procedure on only one node in the cluster:
+  </para>
+  <procedure>
+    <step>
+      <para>
+        Log in either as the &rootuser; user or as a user with <command>sudo</command> privileges.
+      </para>
+    </step>
+    <step>
+      <para>
+        Put the cluster into maintenance mode:
+      </para>
+<screen>&prompt.user;<command>sudo crm maintenance on</command></screen>
+      <para>
+        In this state, the cluster stops monitoring all resources. This allows the services
+        managed by the resources to keep running while the cluster restarts. However, be aware
+        that the resources will not have cluster protection while in maintenance mode.
+      </para>
+    </step>
+    <step xml:id="ha-sbd-replacing-check-sbd-devices">
+      <para>
+        Check how many devices are already configured for use with &sbd;:
+      </para>
+<screen>&prompt.user;<command>sudo crm sbd configure show sysconfig</command></screen>
+      <para>
+        The output shows one or more device IDs in the <literal>SBD_DEVICE</literal> line.
+        The number of devices determines the order of the next steps.
+      </para>
+    </step>
+    <step>
+      <para>
+        Add or remove a device, depending on the number of devices shown in
+        <xref linkend="ha-sbd-replacing-check-sbd-devices"/>:
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term>One device:</term>
+          <listitem>
+            <para>
+              Add the new device to the existing &sbd; configuration:
+            </para>
+<screen>&prompt.user;<command>sudo crm sbd device add /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+            <para>
+              The script restarts the cluster services automatically.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Two or three devices:</term>
+          <listitem>
+            <para>
+              Remove the old device from the &sbd; configuration:
+            </para>
+<screen>&prompt.user;<command>sudo crm sbd device remove /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+            <para>
+              The script warns you to restart the cluster services manually.
+            </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </step>
+    <step>
+      <para>
+        If you need to restart the cluster services manually, run the following command:
+      </para>
+<screen>&prompt.user;<command>sudo crm cluster restart --all</command></screen>
+      <para>
+        Check the status of the cluster:
+      </para>
+<screen>&prompt.user;<command>sudo crm status</command></screen>
+      <para>
+        The nodes will have the status <literal>UNCLEAN (offline)</literal>, but will soon
+        change to <literal>Online</literal>.
+      </para>
+    </step>
+    <step>
+      <para>
+        Add or remove a device, depending on the number of devices shown in
+        <xref linkend="ha-sbd-replacing-check-sbd-devices"/>:
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term>One device:</term>
+          <listitem>
+            <para>
+              Remove the old device from the &sbd; configuration:
+            </para>
+<screen>&prompt.user;<command>sudo crm sbd device remove /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+            <para>
+              The script warns you to restart the cluster services manually.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Two or three devices:</term>
+          <listitem>
+            <para>
+              Add the new device to the existing &sbd; configuration:
+            </para>
+<screen>&prompt.user;<command>sudo crm sbd device add /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+            <para>
+              The script restarts the cluster services automatically.
+            </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </step>
+    <step>
+      <para>
+        If you need to restart the cluster services manually, run the following command:
+      </para>
+<screen>&prompt.user;<command>sudo crm cluster restart --all</command></screen>
+      <para>
+        Check the status of the cluster:
+      </para>
+<screen>&prompt.user;<command>sudo crm status</command></screen>
+      <para>
+        The nodes will have the status <literal>UNCLEAN (offline)</literal>, but will soon
+        change to <literal>Online</literal>.
+      </para>
+    </step>
+    <step>
+      <para>
+        When the nodes are back online, put the cluster back into normal operation:
+      </para>
+<screen>&prompt.user;<command>sudo crm maintenance off</command></screen>
+    </step>
+    <step>
+      <para>
+        Check the &sbd; configuration again:
+      </para>
+<screen>&prompt.user;<command>sudo crm sbd configure show sysconfig</command></screen>
+      <para>
+        The output should now show the new device in the <literal>SBD_DEVICE</literal> line.
+      </para>
+    </step>
+    <step>
+      <para>
+        Check the status of &sbd; to make sure the correct device is listed:
+      </para>
+<screen>&prompt.user;<command>sudo crm sbd status</command></screen>
+    </step>
+  </procedure>
+</topic>
