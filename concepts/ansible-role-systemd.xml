@@ -8,7 +8,7 @@
 <!-- point back to this document with a similar comment added to your legacy doc piece -->
 <!-- refer to README.md for file and id naming conventions -->
 <!-- metadata is dealt with on the assembly level -->
-<topic xml:id="ansible-role-aide"
+<topic xml:id="ansible-role-systemd"
  role="concept" xml:lang="en"
  xmlns="http://docbook.org/ns/docbook" version="5.2"
  xmlns:its="http://www.w3.org/2005/11/its"
@@ -16,64 +16,50 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>About the &aide; Linux system role</title>
+    <title>About the systemd Linux system role</title>
     <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
     <abstract>
       <para>
-       The &aide; Linux system role in Ansible installs, configures and manages the Advanced Intrusion Detection Environment (AIDE) utility on &productname; 16.0 systems.
+       The &systemd; Linux system role in Ansible automates the full lifecycle management and deployment of &systemd; units and configurations &productname; 16.0 systems.
       </para>
     </abstract>
   </info>
   <para>You can use this role to:</para>
   <itemizedlist>
-  <listitem><para>Ensure the &aide; package is installed on the managed node.</para></listitem>
-  <listitem><para>Optionally generate and deploys a custom <filename>/etc/aide.conf</filename>file</para></listitem>
-  <listitem><para>Create the baseline AIDE database on the managed node.</para></listitem>
-  <listitem><para>Run checks against the live system and reports any file additions, deletions, or modifications. This is used for daily intrusion detection.</para></listitem>
-  <listitem><para>Securely fetch the AIDE database files from the remote host back to the Ansible Control Node (ACN).</para></listitem>
-  </itemizedlist>
-<example><title>Install and enable postfix</title>
+  <listitem><para>Place custom or templated &systemd; unit files such as <literal>.service</literal>, <literal>.timer</literal> etc. into the correct directories <filename>/etc/systemd/system/</filename>.</para></listitem>
+  <listitem><para>Control the execution status of services, allowing you to easily start, stop, restart, or reload specific units.</para></listitem>
+  <listitem><para>Control whether units are configured to start automatically at boot or are prevented from doing so.</para></listitem>
+  <listitem><para>Use the most aggressive method to prevent a service from ever running or being manually started by setting the unit as <literal>masked</literal>.</para></listitem>
+   </itemizedlist>
+<example><title>Start and enable a &systemd; unit</title>
 <screen>
 ---
-- name: install and enable postfix
+- name: Deploy and start a &systemd; unit
   hosts: all
-
   vars:
-    postfix_conf:
-      relay_domains: $mydestination
-      relayhost: example.com
+    systemd_unit_file_templates:
+      - test.service.j2
+    systemd_started_units:
+      - item: test.service
+        user: root
+      - item: test1.service
+        user: user1
+    systemd_enabled_units:
+      - test.service
   roles:
-    - linux-system-roles.postfix</screen>
-<itemizedlist>
- <listitem><para><literal>postfix_conf</literal>: is a dictionary variable that serves as the primary interface for directly configuring parameters in the Postfix mail server's main configuration file i.e. <filename>/etc/postfix/main.cf</filename>.
-  The default is empty<literal>{}</literal>.</para></listitem>
-  <listitem><para><literal>relay_domains</literal>: is a configuration parameter that defines the set of destination domains for which the Postfix server is configured to act as an intermediate mail relay rather than performing final local delivery or sending mail directly to the
-    final recipient's server on the internet. In this example, Postfix is configured to relay mail for its own local domains <literal>$mydestination</literal>.
-  </para></listitem>
-  <listitem><para><literal>relayhost</literal>: is a configuration parameter that defines the next-hop destination for all outgoing email that Postfix cannot deliver locally.
-In this example, the single external SMTP server is <literal>example.com</literal>.
-  </para></listitem>
-</itemizedlist>
-</example>
-<example><title>Do not run a postfix check</title>
-<screen>
----
-- name: Manage postfix with no check
-  hosts: all
-
-  vars:
-    postfix_check: false
-  roles:
-    - linux-system-roles.postfix
+    - linux-system-roles.systemd
 </screen>
   <itemizedlist>
-   <listitem><para><literal>postfix_check: false</literal>: controls whether a configuration validation check is performed before restarting the Postfix service.
-    <literal>postfix_check</literal> is a <literal>Boolean</literal> datatype and accepts values <literal>true</literal> and <literal>false</literal>.
-  Default is <literal>true</literal>.
+   <listitem><para><literal>systemd_unit_file_templates</literal>: specifies a list of Jinja2 template filenames residing on the control node that should be rendered and deployed as full &systemd; unit files on the managed nodes.
+It is a list of strings or dictionaries. Each item specifies a Jinja2 template file located in the role's <filename>templates/</filename> directory. Default is an empty list <literal>[]</literal> or <literal>null</literal>.</para></listitem>
+  <listitem><para><literal>systemd_started_units</literal>: specifies which &systemd; units should be set to the started state on the managed nodes.
+    It is a list of strings or dictionaries. Default is an empty list <literal>[]</literal>.</para></listitem>
+  <listitem><para><literal>systemd_enabled_units</literal>: specifies which &systemd; unit files should be enabled on the managed nodes, ensuring they start automatically at boot.
+    It is a list of strings or dictionaries. Default is an empty list <literal>[]</literal>
   </para></listitem>
      </itemizedlist>
   </example>
-<para>For more details about all the variables in the <literal>postfix</literal> Linux system role,
+<para>For more details about all the variables in the &systemd; Linux system role,
   refer to the specific <literal>REDADME.md</literal> file on the control node:</para>
   <screen>/usr/share/ansible/collections/ansible_collections/suse/linux_system_roles/docs</screen>
 </topic>
