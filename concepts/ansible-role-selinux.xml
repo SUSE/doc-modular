@@ -8,7 +8,7 @@
 <!-- point back to this document with a similar comment added to your legacy doc piece -->
 <!-- refer to README.md for file and id naming conventions -->
 <!-- metadata is dealt with on the assembly level -->
-<topic xml:id="ansible-role-aide"
+<topic xml:id="ansible-role-selinux"
  role="concept" xml:lang="en"
  xmlns="http://docbook.org/ns/docbook" version="5.2"
  xmlns:its="http://www.w3.org/2005/11/its"
@@ -16,61 +16,62 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>About the &aide; Linux system role</title>
+    <title>About the &selnx; Linux system role</title>
     <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
     <abstract>
       <para>
-       The &aide; Linux system role in Ansible installs, configures and manages the Advanced Intrusion Detection Environment (AIDE) utility on &productname; 16.0 systems.
+       The &selnx; Linux system role in Ansible automates the full management and enforcement of the &selnx; policy on managed nodes in a standardized and idempotent way.
       </para>
     </abstract>
   </info>
   <para>You can use this role to:</para>
   <itemizedlist>
-  <listitem><para>Ensure the &aide; package is installed on the managed node.</para></listitem>
-  <listitem><para>Optionally generate and deploys a custom <filename>/etc/aide.conf</filename>file</para></listitem>
-  <listitem><para>Create the baseline AIDE database on the managed node.</para></listitem>
-  <listitem><para>Run checks against the live system and reports any file additions, deletions, or modifications. This is used for daily intrusion detection.</para></listitem>
-  <listitem><para>Securely fetch the AIDE database files from the remote host back to the Ansible Control Node (ACN).</para></listitem>
+  <listitem><para>Set the global &selnx; mode to <literal>enforcing</literal>, <literal>permissive</literal> or <literal>disabled</literal> using the <literal>selinux_state</literal> variable.</para></listitem>
+  <listitem><para>Manage the state of &selnx; booleans.</para></listitem>
+  <listitem><para>Define persistent rules for file system labeling (file contexts) for custom directories or applications.</para></listitem>
+  <listitem><para>Define security types for non-standard network ports, allowing services to listen on them without violating the policy.</para></listitem>
+  <listitem><para>Manage the mapping between Linux user accounts and specific &selnx; user identities.</para></listitem>
   </itemizedlist>
-<example><title>Install and enable postfix</title>
+<example><title>Reset the &selnx; context on all nodes</title>
 <screen>
 ---
-- name: install and enable postfix
+- name: Reset the selinux context
   hosts: all
 
   vars:
-    postfix_conf:
-      relay_domains: $mydestination
-      relayhost: example.com
+  selinux_restore_dirs:
+    - /var/www/
+    - /etc/
+
   roles:
-    - linux-system-roles.postfix</screen>
+    - linux-system-roles.selinux</screen>
 <itemizedlist>
- <listitem><para><literal>postfix_conf</literal>: is a dictionary variable that serves as the primary interface for directly configuring parameters in the Postfix mail server's main configuration file i.e. <filename>/etc/postfix/main.cf</filename>.
-  The default is empty<literal>{}</literal>.</para></listitem>
-  <listitem><para><literal>relay_domains</literal>: is a configuration parameter that defines the set of destination domains for which the Postfix server is configured to act as an intermediate mail relay rather than performing final local delivery or sending mail directly to the
-    final recipient's server on the internet. In this example, Postfix is configured to relay mail for its own local domains <literal>$mydestination</literal>.
-  </para></listitem>
-  <listitem><para><literal>relayhost</literal>: is a configuration parameter that defines the next-hop destination for all outgoing email that Postfix cannot deliver locally.
-In this example, the single external SMTP server is <literal>example.com</literal>.
-  </para></listitem>
+ <listitem><para><literal>selinux_restore_dirs</literal>: specifies file system paths on the managed node where the &selnx; contexts should be immediately reapplied or corrected (using the equivalent of the <literal>restorecon</literal> utility).
+  It is a list of strings, where each string is a file system tree where you want to run <literal>restorecon</literal>.</para></listitem>
 </itemizedlist>
 </example>
-<example><title>Do not run a postfix check</title>
+<example><title>Set a &selnx; network port label</title>
 <screen>
 ---
-- name: Manage postfix with no check
+- name: set a selinux port label
   hosts: all
 
   vars:
-    postfix_check: false
+    selinux_ports:
+      - ports: 8080
+        proto: tcp
+        setype: http_port_t
+        state: present
+
   roles:
     - linux-system-roles.postfix
 </screen>
   <itemizedlist>
-   <listitem><para><literal>postfix_check: false</literal>: controls whether a configuration validation check is performed before restarting the Postfix service.
-    <literal>postfix_check</literal> is a <literal>Boolean</literal> datatype and accepts values <literal>true</literal> and <literal>false</literal>.
-  Default is <literal>true</literal>.
-  </para></listitem>
+   <listitem><para><literal>selinux_ports</literal>: manages the &selnx; port labeling policy on a managed node.
+  It is a list of dictionaries  with each dictionary defining a specific port rule. <literal>ports</literal> are strings or a list
+  and define port numbers to which you want to assign the &selnx; label. Multiple vales separated by a comma are accepted.
+ <literal>proto</literal> is a <literal>string</literal> datatype and defines the network protocol. <literal>setype</literal> is a <literal>string</literal> datatype and defines the &selnx; type (label) to assign to the port.
+</para></listitem>
      </itemizedlist>
   </example>
 <para>For more details about all the variables in the <literal>postfix</literal> Linux system role,
