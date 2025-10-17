@@ -32,48 +32,45 @@
   <listitem><para>Run checks against the live system and reports any file additions, deletions, or modifications. This is used for daily intrusion detection.</para></listitem>
   <listitem><para>Securely fetch the AIDE database files from the remote host back to the Ansible Control Node (ACN).</para></listitem>
   </itemizedlist>
-<example><title>Install and enable postfix</title>
+<example><title>AIDE role</title>
 <screen>
----
-- name: install and enable postfix
-  hosts: all
 
-  vars:
-    postfix_conf:
-      relay_domains: $mydestination
-      relayhost: example.com
-  roles:
-    - linux-system-roles.postfix</screen>
+  ---
+  - name: Example aide role invocation
+    hosts: targets
+    tasks:
+      - name: Include role aide
+        vars:
+          aide_db_fetch_dir: files
+          aide_install: true
+          aide_generate_config: true
+          aide_init: true
+          aide_check: false
+          aide_update: false
+        ansible.builtin.include_role:
+          name: linux-system-roles.aide
+</screen>
 <itemizedlist>
- <listitem><para><literal>postfix_conf</literal>: is a dictionary variable that serves as the primary interface for directly configuring parameters in the Postfix mail server's main configuration file i.e. <filename>/etc/postfix/main.cf</filename>.
-  The default is empty<literal>{}</literal>.</para></listitem>
-  <listitem><para><literal>relay_domains</literal>: is a configuration parameter that defines the set of destination domains for which the Postfix server is configured to act as an intermediate mail relay rather than performing final local delivery or sending mail directly to the
-    final recipient's server on the internet. In this example, Postfix is configured to relay mail for its own local domains <literal>$mydestination</literal>.
+ <listitem><para><literal>aide_db_fetch_dir: files</literal>: is a <literal>string</literal> variable that specifies the directory on control node, where the AIDE database files are fetched and stored from the remote managed nodes.
+  The default is <literal>files</literal>, which means the role expects a directory named <literal>files</literal> to exist in the same directory as the playbook being executed.</para></listitem>
+  <listitem><para><literal>aide_install: true</literal>: is a <literal>Boolean</literal> variable used to control whether AIDE package should be installed on the managed nodes.
+The default is <literal>false</literal>.</para></listitem>
+  <listitem><para><literal>aide_generate_config: true</literal>: is a <literal>Boolean</literal> variable that controls whether a new AIDE configuration file should be created and deployed to the managed nodes.
+    The default is <literal>false</literal>. When set to <literal>true</literal>, a new AIDE configuration file is created and placed on the managed node.
   </para></listitem>
-  <listitem><para><literal>relayhost</literal>: is a configuration parameter that defines the next-hop destination for all outgoing email that Postfix cannot deliver locally.
-In this example, the single external SMTP server is <literal>example.com</literal>.
+  <listitem><para><literal>aide_init: true</literal>: is a <literal>Boolean</literal> variable that controls whether a AIDE database should be initialized on a managed node.
+    The default is <literal>false</literal>. When set to <literal>true</literal>, a AIDE database is created on the managed node, it is then fetched to the control node.
   </para></listitem>
+  <listitem><para><literal>aide_check: false</literal>: is a <literal>Boolean</literal> variable that controls whether an integrity check should be immediately run on the managed nodes.
+    The default is <literal>false</literal>. When set to <literal>true</literal>, the AIDE check is run, date is compared with the current state of the file system with the trusted baseline database and a report is generated.
+  </para></listitem>
+  <listitem><para><literal>aide_update: false</literal>: is a <literal>Boolean</literal> variable that controls the creation of a new AIDE database to replace the current trusted baseline.
+    The default is <literal>false</literal>. When set to <literal>true</literal>, the AIDE update command is run on the managed system, which performs an integrity check, creates a new AIDE database reflecting the current system state and establishes this new file as the trusted baseline for future checks.
+  </para></listitem>
+
 </itemizedlist>
 </example>
-<example><title>Do not run a postfix check</title>
-<screen>
----
-- name: Manage postfix with no check
-  hosts: all
-
-  vars:
-    postfix_check: false
-  roles:
-    - linux-system-roles.postfix
-</screen>
-  <itemizedlist>
-   <listitem><para><literal>postfix_check: false</literal>: controls whether a configuration validation check is performed before restarting the Postfix service.
-    <literal>postfix_check</literal> is a <literal>Boolean</literal> datatype and accepts values <literal>true</literal> and <literal>false</literal>.
-  Default is <literal>true</literal>.
-  </para></listitem>
-     </itemizedlist>
-  </example>
-<para>For more details about all the variables in the <literal>postfix</literal> Linux system role,
+<para>For more details about all the variables in the <literal>aide</literal> Linux system role,
   refer to the specific <literal>REDADME.md</literal> file on the control node:</para>
   <screen>/usr/share/ansible/collections/ansible_collections/suse/linux_system_roles/docs</screen>
 </topic>
