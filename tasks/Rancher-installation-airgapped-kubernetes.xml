@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- https://github.com/rancher/rancher-product-docs/blob/main/versions/latest/modules/en/pages/installation-and-upgrade/other-installation-methods/air-gapped/install-kubernetes.adoc -->
+<topic xml:id="rancher-installation-airgapped-kubernetes"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Installing &ranchermanager; in air-gapped environments: install &kube;</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        This section describes how to install a &k8s; cluster according to our
+        best practices for the Rancher server environment. This cluster should
+        be dedicated to run only the Rancher server.
+      </para>
+    </abstract>
+  </info>
+  <note>
+    <para>
+      Skip this section if you are installing Rancher on a single node with
+      &docker;.
+    </para>
+  </note>
+  <para>
+    Rancher can be installed on any &kube; cluster, including hosted &kube;
+    providers. The following sections outline how to set up an air-gapped
+    &rke2a; cluster.
+  </para>
+  <para>
+    In this guide, we are assuming you have created your nodes in your
+    air-gapped environment and have a secure &docker; private registry on your
+    bastion server.
+  </para>
+  <section xml:id="rancher-airgap-rke2-create-config">
+    <title>Create &rke2a; configuration</title>
+    <para>
+      Create the <filename>config.yaml</filename> file at
+      <filename>/etc/rancher/rke2/config.yaml</filename>. This will contain all
+      the configuration options necessary to create a highly available &rke2a;
+      cluster.
+    </para>
+    <para>
+      On the first server the minimum configuration is:
+    </para>
+<screen>token: my-shared-secret
+tls-san:
+  - loadbalancer-dns-domain.com</screen>
+    <para>
+      On each other server the configuration file should contain the same token
+      and tell &rke2a; to connect to the existing first server:
+    </para>
+<screen>server: https://ip-of-first-server:9345
+token: my-shared-secret
+tls-san:
+  - loadbalancer-dns-domain.com</screen>
+    <para>
+      For more information, refer to the
+      <link xlink:href="https://documentation.suse.com/cloudnative/rke2/latest/en/install/ha.html">RKE2
+      documentation</link>.
+    </para>
+    <note>
+      <para>
+        &rke2a; additionally provides a <literal>resolv-conf</literal> option
+        for kubelets, which may help with configuring DNS in air-gap networks.
+      </para>
+    </note>
+  </section>
+  <section xml:id="rancher-airgap-rke2-create-registry-yaml">
+    <title>Create registry YAML file</title>
+    <para>
+      Create the <filename>registries.yaml</filename> file at
+      <filename>/etc/rancher/rke2/registries.yaml</filename>. This will tell
+      &rke2a; the necessary details to connect to your private registry.
+    </para>
+    <para>
+      The <filename>registries.yaml</filename> file should look like this before
+      plugging in the necessary information:
+    </para>
+<screen>---
+mirrors:
+  customreg:
+    endpoint:
+      - "https://ip-to-server:5000"
+configs:
+  customreg:
+    auth:
+      username: xxxxxx # this is the registry username
+      password: xxxxxx # this is the registry password
+    tls:
+      cert_file: <replaceable>path to the cert file used in the registry</replaceable>
+      key_file:  <replaceable>path to the key file used in the registry</replaceable>
+      ca_file: <replaceable>path to the ca file used in the registry</replaceable></screen>
+    <para>
+      For more information on private registries configuration file for &rke2a;,
+      refer to the
+      <link xlink:href="https://documentation.suse.com/cloudnative/rke2/latest/en/install/containerd_registry_configuration.html">RKE2
+      documentation.</link>
+    </para>
+  </section>
+  <section xml:id="rancher-airgap-rke2-install-rke2">
+    <title>Install &rke2a;</title>
+    <para>
+      Rancher needs to be installed on a supported &kube; version. To find out
+      which versions of &kube; are supported for your Rancher version, refer to
+      the
+      <link xlink:href="https://rancher.com/support-maintenance-terms/">support
+      maintenance terms.</link>
+    </para>
+    <para>
+      Download the install script, rke2, rke2-images and sha256sum archives from
+      the release and upload them into a directory on each server:
+    </para>
+<screen>&prompt.user;mkdir /tmp/rke2-artifacts &amp;&amp; cd /tmp/rke2-artifacts/
+&prompt.user;wget https://github.com/rancher/rke2/releases/download/v1.21.5%2Brke2r2/rke2-images.linux-amd64.tar.zst
+&prompt.user;wget https://github.com/rancher/rke2/releases/download/v1.21.5%2Brke2r2/rke2.linux-amd64.tar.gz
+&prompt.user;wget https://github.com/rancher/rke2/releases/download/v1.21.5%2Brke2r2/sha256sum-amd64.txt
+&prompt.user;curl -sfL https://get.rke2.io --output install.sh</screen>
+    <para>
+      Next, run <filename>install.sh</filename> using the directory on each
+      server, as in the example below:
+    </para>
+<screen>&prompt.user;INSTALL_RKE2_ARTIFACT_PATH=/tmp/rke2-artifacts sh install.sh</screen>
+    <para>
+      Then enable and start the service on all servers:
+    </para>
+<screen>&prompt.sudo;systemctl enable rke2-server.service
+&prompt.sudo;systemctl start rke2-server.service</screen>
+    <para>
+      For more information, refer to the
+      <xref linkend="rke2-installation-airgapped"/>.
+    </para>
+  </section>
+  <section xml:id="rancher-airgap-rke2-use-kubeconfig">
+    <title>Save and start using the kubeconfig file</title>
+    <para>
+      When you installed &rke2a; on each Rancher server node, a
+      <literal>kubeconfig</literal> file was created on the node at
+      <filename>/etc/rancher/rke2/rke2.yaml</filename>. This file contains
+      credentials for full access to the cluster, and you should save this file
+      in a secure location.
+    </para>
+    <para>
+      To use this <literal>kubeconfig</literal> file:
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Install
+          <link xlink:href="https://&kube;.io/docs/tasks/tools/install-kubectl/#install-kubectl">kubectl</link>,
+          a &kube; command-line tool.
+        </para>
+      </step>
+      <step>
+        <para>
+          Copy the file at <filename>/etc/rancher/rke2/rke2.yaml</filename> and
+          save it to the directory <filename>~/.kube/config</filename> on your
+          local machine.
+        </para>
+      </step>
+      <step>
+        <para>
+          In the <filename>kubeconfig</filename> file, the
+          <literal>server</literal> directive is defined as localhost. Configure
+          the server as the DNS of your load balancer, referring to port 6443.
+          (The &kube; API server will be reached at port 6443, while the Rancher
+          server will be reached at ports 80 and 443.) Here is an example
+          <filename>rke2.yaml</filename>:
+        </para>
+<screen>apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: <replaceable>[CERTIFICATE-DATA]</replaceable>
+    server: <replaceable>[LOAD-BALANCER-DNS]</replaceable>:6443 # Edit this line
+  name: default
+contexts:
+- context:
+    cluster: default
+    user: default
+  name: default
+current-context: default
+kind: Config
+preferences: {}
+users:
+- name: default
+  user:
+    password: <replaceable>[PASSWORD]</replaceable>
+    username: admin</screen>
+      </step>
+    </procedure>
+    <para>
+      <emphasis role="bold">Result:</emphasis> You can now use
+      <literal>kubectl</literal> to manage your &rke2a; cluster. If you have
+      more than one <filename>kubeconfig</filename> file, you can specify which
+      one you want to use by passing in the path to the file when using
+      <literal>kubectl</literal>:
+    </para>
+<screen>&prompt.user;kubectl --kubeconfig ~/.kube/config/rke2.yaml get pods \
+  --all-namespaces</screen>
+    <para>
+      For more information about the <literal>kubeconfig</literal> file, refer
+      to the
+      <link xlink:href="https://documentation.suse.com/cloudnative/rke2/latest/en/cluster_access.html">&rke2a;
+      documentation</link> or the
+      <link xlink:href="https://&kube;.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/">official
+      &kube; documentation</link> about organizing cluster access using
+      <literal>kubeconfig</literal> files.
+    </para>
+  </section>
+</topic>
