@@ -63,12 +63,10 @@
     </step>
     <step>
       <para>
-        Show the list of required and optional parameters for your device:
+        Show the list of required and optional parameters for your device, and make a note of
+        the parameters you need for your specific setup:
       </para>
 <screen>&prompt.user;<command>sudo crm ra info stonith:fence_<replaceable>AGENT</replaceable></command></screen>
-      <para>
-        Make a note of the parameters you need for your specific setup.
-      </para>
     </step>
     <step>
       <para>
@@ -82,7 +80,7 @@
     </step>
     <step>
       <para>
-        Create a &stonith; resource for each node in the cluster. Specify your device type, the
+        Create a &stonith; resource for every node in the cluster. Specify your device type, the
         parameters for that device type, and a monitor operation:
       </para>
 <screen>&prompt.crm.conf;<command>primitive <replaceable>RESOURCE-NAME</replaceable> stonith:fence_<replaceable>AGENT</replaceable> \
@@ -96,18 +94,20 @@
       </para>
 <screen>&prompt.crm.conf;<command>primitive fence-rsa-&node1; stonith:fence_rsa \
   params pcmk_host_list=&node1; \</command><co xml:id="co-ha-fence-node"/>
-  <command>ip=&subnetI;.101 username=admin password=secret \</command><co xml:id="co-ha-fence-login"/>
+  <command>ip=&subnetI;.101 username=root password=secret \</command><co xml:id="co-ha-fence-login"/>
   <command>op monitor interval=30m timeout=120s</command><co xml:id="co-ha-fence-monitorr"/>
 &prompt.crm.conf;<command>primitive fence-rsa-&node2; stonith:external/fence_rsa \
   params pcmk_host_list=&node2; \
-  ip=&subnetI;.102 username=admin password=secret \
+  ip=&subnetI;.102 username=root password=secret \
   op monitor interval=30m timeout=120s</command></screen>
+<!--Should this be two different IP addresses or just one? From what I could tell from Googling, an
+IBM RSA device is a separate device in each machine, which I assume means two IPs, but I'm not certain-->
         <calloutlist>
           <callout arearefs="co-ha-fence-node">
             <para>
               Use <literal>pcmk_host_list</literal> to specify the node for this resource to target.
-              In this example, the resource named <literal>fence-rsa-&node1;</literal> fences the
-              node named <systemitem>&node1;</systemitem>.
+              In this example, the resource <literal>fence-rsa-&node1;</literal> fences the
+              node <systemitem>&node1;</systemitem>.
             </para>
          </callout>
          <callout arearefs="co-ha-fence-login">
@@ -125,7 +125,7 @@
           <callout arearefs="co-ha-fence-monitorr">
             <para>
               Include a monitor operation to check the status of the device. Ideally, &stonith;
-              devices are not needed often and are unlikely to fail during a fencing operation.
+              devices are not needed very often and are unlikely to fail during a fencing operation.
               Therefore, a monitoring interval of 30 minutes or more should be sufficient for
               most devices.
             </para>
@@ -170,11 +170,12 @@
     </step>
     <step>
       <para>
-        Add a global &stonith; timeout to define how long to wait for the STONITH action to complete:
+        Add a &stonith; timeout to define how long to wait for the fencing action to finish:
       </para>
 <screen>&prompt.crm.conf;<command>property stonith-timeout=60</command></screen>
       <para>
-        The default timeout value is <literal>60</literal> seconds, but you might need to change it if [reasons].
+        The default is <literal>60</literal> seconds, but you might need to change it for your
+        specific setup and infrastructure.
       </para>
     </step>
     <step>
@@ -197,12 +198,28 @@
     </step>
     <step>
       <para>
-        Check the status of the cluster to make sure the &stonith; resources have started:
+        Check the status of the cluster to make sure the &stonith; resources can start:
       </para>
 <screen>&prompt.user;<command>sudo crm status</command></screen>
     </step>
   </procedure>
   <para>
-    Troubleshooting? e.g. check connection with <command>fence_TYPE -o status</command>, maybe check that node names are the same in hypervisor list?
+    If the &stonith; resources have the status <literal>Stopped</literal>, the nodes might
+    have failed to connect to the &stonith; device. You can check the connection with the
+    command line tool for your specific fencing agent. For more information, run the
+    <command>man fence_<replaceable>AGENT</replaceable></command> command.
   </para>
+  <example xml:id="ha-fencing-creating-resources-for-physical-device-troubleshooting">
+    <title>Testing a node's connection to an &ibm; RSA device</title>
+    <para>
+      This command uses the example details from the previous procedure to check the status of
+      node <systemitem>&node2;</systemitem>. Adjust this command for your specific configuration
+      and device.
+    </para>
+<screen><prompt xmlns='http://docbook.org/ns/docbook'>&node1;&gt; </prompt><command>sudo fence_rsa -a &subnetI;.102 -l root -p secret -n &node2; -o status</command></screen>
+    <para>
+      If the connection is successful, the output shows <literal>Status: ON</literal>. If the
+      connection is not successful, the output shows an error message that explains the issue.
+    </para>
+  </example>
 </topic>
