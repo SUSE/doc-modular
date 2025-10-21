@@ -215,7 +215,7 @@ encryption/decryption utility for Ansible data files
            </step>
         </procedure>
         </section>
-      <section xml:id="ansible-playbook">
+             <section xml:id="ansible-playbook">
        <title>Creating a playbook </title>
         <para>
          An Ansible playbook is a <literal>YAML</literal> file that defines a series of tasks to be executed on one or more hosts.
@@ -260,10 +260,96 @@ encryption/decryption utility for Ansible data files
             state: present
     </screen>
     </step>
+    <step><para>Run the playbook in check mode:</para>
+    <screen>&prompt.user; <command>ansible-playbook install.yml --check</command></screen>
+    <para>Check mode validates a configuration management playbook that runs on one node at a time.</para>
+    </step>
     <step><para>Run the playbook:</para>
 <screen>&prompt.user; <command>ansible-playbook -i hosts.ini install.yml</command> </screen>
     <para>Ansible connects to each host in your inventory and executes the defined tasks using the &systemd; package manager.</para>
     </step>
     </procedure>
         </section>
+   <section xml:id="ansible-roles">
+    <title>Understanding roles</title>
+<para>Roles allow you to easily reuse and share your Ansible automation by using a known file structure to automatically load all related artifacts, including tasks, variables, files, and handlers.</para>
+ <section xml:id="role-structure">
+  <title>Structure of a role directory</title>
+  <para>The structure of an Ansible Role is defined by seven standard main directories. You must use at least of the directories that contain content for your specific role. For example:</para>
+<screen>
+    roles/
+    common/               # this hierarchy represents a role
+        tasks/            #
+            main.yml      #tasks file can include smaller files if warranted
+        handlers/         #
+            main.yml      # handlers file
+        templates/        #files for use with the template resource
+            ntp.conf.j2   #templates end in .j2
+        files/            #
+            bar.txt       #files for use with the copy resource
+            foo.sh        #script files for use with the script resource
+        vars/             #
+            main.yml      #variables associated with this role
+        defaults/         #
+            main.yml      #default lower priority variables for this role
+        meta/             #
+            main.yml      #role dependencies
+        library/          # roles can also include custom modules
+        module_utils/     # roles can also include custom module_utils
+        lookup_plugins/   # or other types of plugins, like lookup in this case
+</screen>
+<para>By default, Ansible looks in most role directories for a <literal>main.yml</literal>for relevant content.</para>
+<itemizedlist>
+<listitem><para><literal>tasks/main.yml</literal>: A list of tasks provided by the role for a play execution.</para></listitem>
+<listitem><para><literal>handlers/main.yml</literal>: Handlers imported into the parent play for use by the role or other roles and tasks in the play.</para></listitem>
+<listitem><para><literal>defaults/main.yml</literal>: Very low precedence values for variables provided by the role.</para></listitem>
+<listitem><para><literal>vars/main.yml</literal>: High precedence variables provided by the role to the play. </para></listitem>
+<listitem><para><literal>files/stuff.txt</literal>: One or more files that are available for the role and it’s children.</para></listitem>
+<listitem><para><literal>templates/something.j2</literal>: Templates to use in the role or child roles.</para></listitem>
+<listitem><para><literal>meta/main.yml</literal>: Metadata for the role, including role dependencies and optional Galaxy metadata.</para></listitem>
+</itemizedlist>
+</section>
+<section xml:id="use-role">
+  <title>Using roles</title>
+  <para>You can use the role in the following ways:</para>
+  <itemizedlist>
+    <listitem><para>At the play level with the <literal>roles</literal>: This is the default way of using roles in a play.</para> </listitem>
+    <listitem><para>At the tasks level with <literal>include_role</literal>: You can reuse roles dynamically anywhere in the <literal>tasks</literal> section of a play using <literal>include_role</literal>.</para> </listitem>
+    <listitem><para>At the tasks level with <literal>import_role</literal>: You can reuse roles dynamically anywhere in the <literal>tasks</literal> section of a play using <literal>import_role</literal>.</para> </listitem>
+    <listitem><para>As a dependency of another role.</para> </listitem>
+  </itemizedlist>
+  </section>
+  <section xml:id="import-role">
+  <title>Importing roles</title>
+  <para>You can reuse roles statically anywhere in the <literal>tasks</literal> section of a play by using <literal>import_role</literal>. For example:</para>
+<screen>
+  ---
+  - hosts: webservers
+    tasks:
+      - name: Print a message
+        ansible.builtin.debug:
+          msg: "before we run our role"
+
+      - name: Import the example role
+        import_role:
+          name: example
+
+      - name: Print a message
+        ansible.builtin.debug:
+          msg: "after we ran our role"
+  </screen>
+  <para>You can use other keywords, for example:</para>
+<screen>
+  ---
+  - hosts: webservers
+    tasks:
+      - name: Import the foo_app_instance role
+        import_role:
+          name: test_app_instance
+        vars:
+          dir: '/opt/a'
+          app_port: 5000
+</screen>
+</section>
+</section>
     </topic>
