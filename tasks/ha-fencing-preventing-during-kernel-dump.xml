@@ -19,14 +19,12 @@
     <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        The <literal>stonith:fence_kdump</literal> resource agent checks if a kernel dump (<systemitem>kdump</systemitem>) is in progress on a node. If so, it returns true and the cluster acts <emphasis>as if</emphasis> the node was fenced, because the node will reboot after the <systemitem>kdump</systemitem> is complete. If not, it returns a failure and the next &stonith; device is triggered.
-      </para>
-      <para>
-        The <systemitem>kdump</systemitem> plug-in must be used together with a physical &stonith; device. It does <emphasis>not</emphasis> work with &sbd;. For the fencing mechanism to work properly, you must specify the order of the fencing devices so that <systemitem>kdump</systemitem> is checked before the physical &stonith; device is triggered.
+        Use this procedure if the nodes have <systemitem>kdump</systemitem> configured. If not, you can skip this procedure.
       </para>
     </abstract>
   </info>
 
+  <xi:include href="../snippets/ha-fence-kdump.xml"/>
   <itemizedlist>
     <title>Requirements</title>
     <listitem>
@@ -42,7 +40,6 @@
     <listitem>
       <para>
         <systemitem>kdump</systemitem> is installed and configured on all nodes.
-        <!--Add a link when available?-->
       </para>
     </listitem>
   </itemizedlist>
@@ -60,49 +57,118 @@
         Start the <command>crm</command> interactive shell:
       </para>
 <screen>&prompt.user;<command>sudo crm configure</command></screen>
+      <para>
+        This mode lets you make multiple configuration changes before committing all the changes
+        at once.
+      </para>
     </step>
     <step>
       <para>
-        Create a <literal>stonith:fence_kdump</literal> resource for each node in the cluster.
+        Create a <literal>stonith:fence_kdump</literal> resource for every node in the cluster.
         For example:
       </para>
-<screen>&prompt.crm.conf;<command>primitive fence-kdump-<replaceable>NODE-NAME</replaceable> stonith:fence_kdump \
-  params nodename=<replaceable>NODE-NAME</replaceable> \</command><co xml:id="co-ha-fence-kdump-nodename"/>
-  <command>pcmk_host_list=<replaceable>NODE-NAME</replaceable> \
-  timeout=60</command><co xml:id="co-ha-fence-kdump-timeout"/></screen>
-      <calloutlist>
-        <callout arearefs="co-ha-fence-kdump-nodename">
-          <para>
-            Specify the node for this resource to listen for a message from. Do we need both nodename and pcmk_host_list, or only one?
-          </para>
-        </callout>
-        <callout arearefs="co-ha-fence-kdump-timeout">
-          <para>
-            Define how long to wait for a message from the specified node. If a message is received, then a <systemitem>kdump</systemitem> is in progress and the fencing mechanism considers the node to be fenced. If no message is received, then a <systemitem>kdump</systemitem> is not in progress and the next &stonith; device in the <literal>fencing_topology</literal> fences the node.
-          </para>
-        </callout>
-      </calloutlist>
+<screen>&prompt.crm.conf;<command>primitive <replaceable>RESOURCE-NAME</replaceable> stonith:fence_kdump \
+  params nodename=<replaceable>NODE-NAME</replaceable> pcmk_host_list=<replaceable>NODE-NAME</replaceable> timeout=<replaceable>INTEGER</replaceable></command></screen>
       <para>
         For more information, run the <command>crm ra info stonith:fence_kdump</command> command.
       </para>
+      <example xml:id="ha-fencing-preventing-during-kernel-dump-primitives">
+        <title><literal>stonith:fence_kdump</literal> resources for two nodes</title>
+        <para>
+          This example shows a basic resource configuration for two nodes,
+          <systemitem>&node1;</systemitem> and <systemitem>&node2;</systemitem>:
+        </para>
+<screen>&prompt.crm.conf;<command>primitive fence-kdump-&node1; stonith:fence_kdump \
+  params nodename=&node1; pcmk_host_list=&node1;</command><co xml:id="co-ha-fence-kdump-nodename"/> <command>timeout=60</command><co xml:id="co-ha-fence-kdump-timeout"/>
+&prompt.crm.conf;<command>primitive fence-kdump-&node2; stonith:fence_kdump \
+  params nodename=&node2; pcmk_host_list=&node2; timeout=60</command></screen>
+        <calloutlist>
+          <callout arearefs="co-ha-fence-kdump-nodename">
+            <para>
+              Specify the node for this resource to listen to. In this example, the resource
+              <literal>fence-kdump-&node1;</literal> listens for a <systemitem>kdump</systemitem>
+              message from the node <systemitem>&node1;</systemitem>.
+              <!--`crm ra info` says nodename is required for the `off` action
+              Do we need both nodename and pcmk_host_list, or only one?-->
+            </para>
+          </callout>
+          <callout arearefs="co-ha-fence-kdump-timeout">
+            <para>
+              How long to wait for a message from the specified node. The default is
+              <literal>60</literal> seconds.
+            </para>
+          </callout>
+        </calloutlist>
+      </example>
     </step>
     <step>
       <para>
-        Do we need location constraints?
+        Add location constraints so that each resource <emphasis>cannot</emphasis> run on the
+        node it listens to:
       </para>
-<screen>&prompt.crm.conf;<command>location l-st-&node1; st-ibmrsa-1 -inf: &node1;</command>
-&prompt.crm.conf;<command>location l-st-&node2; st-ibmrsa-2 -inf: &node2;</command></screen>
+<screen>&prompt.crm.conf;<command>location <replaceable>CONSTRAINT-NAME</replaceable> <replaceable>RESOURCE-NAME</replaceable> -inf: <replaceable>NODE-NAME</replaceable></command></screen>
+      <example xml:id="ha-fencing-preventing-during-kernel-dump-constraints">
+        <title>Location constraints for <literal>stonith:fence_kdump</literal> resources on two nodes</title>
+        <para>
+          This example shows location constraints that prevent one resource from running on
+          node <systemitem>&node1;</systemitem> and the other resource from running on node
+          <systemitem>&node2;</systemitem>:
+        </para>
+<screen>&prompt.crm.conf;<command>location loc-kdump-&node1; fence-kdump-&node1; -inf: &node1;</command>
+&prompt.crm.conf;<command>location loc-kdump-&node2; fence-kdump-&node2; -inf: &node2;</command></screen>
+        <para>
+          A <literal>stonith:fence_kdump</literal> resource cannot listen for messages from its own
+          host if that node is down. Therefore, the resource <literal>fence-kdump-&node1;</literal>
+          must never run on <systemitem>&node1;</systemitem>, and the resource
+          <literal>fence-kdump-&node2;</literal> must never run on <systemitem>&node2;</systemitem>.
+        </para>
+      </example>
     </step>
     <step>
       <para>
-        To have <systemitem>kdump</systemitem> checked before triggering a real fencing mechanism (like <literal>external/ipmi</literal>), use a configuration similar to the following:
+        Specify the order of the fencing devices so the cluster checks if a
+        <systemitem>kdump</systemitem> is in progress <emphasis>before</emphasis> calling
+        the physical &stonith; device. Include all the cluster nodes in one command:
       </para>
 <screen>&prompt.crm.conf;<command>fencing_topology \
-  &node1;: kdump-node1 ipmi-node1 \
-  &node2;: kdump-node2 ipmi-node2</command></screen>
+  <replaceable>NODE-NAME</replaceable>: <replaceable>KDUMP-RESOURCE</replaceable> <replaceable>STONITH-RESOURCE</replaceable> \
+  <replaceable>NODE-NAME</replaceable>: <replaceable>KDUMP-RESOURCE</replaceable> <replaceable>STONITH-RESOURCE</replaceable> \
+  [...]</command></screen>
       <para>
         For more information, run the <command>crm configure help fencing_topology</command> command.
       </para>
+      <example xml:id="ha-fencing-preventing-during-kernel-dump-topology">
+        <title>Fencing topology for &stonith; resources on two nodes</title>
+        <para>
+          This example shows the order of the fencing devices for two nodes,
+          <systemitem>&node1;</systemitem> and <systemitem>&node2;</systemitem>:
+        </para>
+<screen>&prompt.crm.conf;<command>fencing_topology \
+  &node1;: fence-kdump-&node1; fence-rsa-&node1; \
+  &node2;: fence-kdump-&node2; fence-rsa-&node2;</command></screen>
+        <para>
+          Both nodes have <systemitem>kdump</systemitem> and a physical &ibm; RSA device configured.
+          If <systemitem>&node1;</systemitem> needs to be fenced, the cluster first calls the resource
+          <literal>fence-kdump-&node1;</literal> to check whether <systemitem>&node1;</systemitem>
+          is performing a <systemitem>kdump</systemitem>. If not, the cluster calls the resource
+          <literal>fence-rsa-&node1;</literal> to fence <systemitem>&node1;</systemitem>.
+        </para>
+      </example>
+    </step>
+    <step>
+      <para>
+        You might need to increase the &stonith; timeout so the fencing action has time to finish:
+      </para>
+<screen>&prompt.crm.conf;<command>property stonith-timeout=<replaceable>INTEGER</replaceable></command></screen>
+      <para>
+        The appropriate value depends on your specific setup and infrastructure.
+      </para>
+    </step>
+    <step>
+      <para>
+        Review the updated cluster configuration:
+      </para>
+<screen>&prompt.crm.conf;<command>show</command></screen>
     </step>
     <step>
       <para>
@@ -118,19 +184,23 @@
     </step>
     <step>
       <para>
-        Open the firewall port for <literal>fence_kdump</literal> on all nodes:
+        Open the firewall port for <literal>kdump</literal> messages on all nodes:
       </para>
-<screen>&prompt.user;<command>sudo crm cluster run "sudo firewall-cmd --add-port=7410/udp"</command></screen>
+<screen>&prompt.user;<command>sudo crm cluster run "sudo firewall-cmd --add-port=7410/udp --permanent"</command>
+&prompt.user;<command>sudo crm cluster run "sudo firewall-cmd --reload"</command></screen>
     </step>
     <step>
       <para>
-        Configure <literal>fence_kdump_send</literal> to send a message to all nodes when the <systemitem>kdump</systemitem> process is finished:
+        Configure <systemitem>fence_kdump_send</systemitem> to send a message to all nodes when
+        the <systemitem>kdump</systemitem> process is finished:
       </para>
       <substeps>
         <step>
           <para>
-            In the <filename>/etc/sysconfig/kdump</filename> file, edit the <literal>KDUMP_POSTSCRIPT</literal> line. For example:
-          </para><!-- Do we really need an interval if the count is only 1? -->
+            In the <filename>/etc/sysconfig/kdump</filename> file, edit the
+            <literal>KDUMP_POSTSCRIPT</literal> line:
+          </para>
+<!-- Do we really need an interval if the message count is only 1? Or should we increase the count?-->
 <screen>KDUMP_POSTSCRIPT="/usr/lib/fence_kdump_send -i 10 -p 7410 -c 1 <replaceable>NODELIST</replaceable>"</screen>
         <para>
           Replace <replaceable>NODELIST</replaceable> with the host names of all the cluster nodes.
@@ -140,6 +210,7 @@
           <para>
             Copy the <filename>/etc/sysconfig/kdump</filename> file to the rest of the nodes:
           </para>
+<!--Is `crm cluster copy` fine, or would it be better to add the kdump file to the Csync config?-->
 <screen>&prompt.user;<command>sudo crm cluster copy /etc/sysconfig/kdump</command></screen>
         </step>
       </substeps>
@@ -150,7 +221,8 @@
       </para>
 <screen>&prompt.user;<command>sudo crm cluster run "sudo systemctl restart kdump.service"</command></screen>
       <para>
-        This regenerates <filename>initrd</filename> so that it includes the library <literal>fence_kdump_send</literal> with network enabled.
+        This regenerates <filename>initrd</filename> so it includes the library
+        <literal>fence_kdump_send</literal>.
       </para>
     </step>
   </procedure>
