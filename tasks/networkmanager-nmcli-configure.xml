@@ -374,8 +374,7 @@ create a connection profile:</para>
 <para>Install the <literal>teamd</literal> and <literal>NetworkManager-team</literal> packages:</para>
 <screen>&prompt.sudo; zypper install teamd
 &prompt.sudo; zypper install NetworkManager-team</screen>
-The <note><para><literal>teamd</literal>, <literal>NetworkManager-team</literal> and <literal>libteam-tools</literal> packages are deprecated in &productname; &productnumber; as the upstream activities are deprecated. You must migrate existing team interfaces to bonding configurations managed through NetworkManager. NetworkManager bonding supports many bonding scenarios, including LACP.</para></note>
-  </listitem>
+<para>The <literal>teamd</literal>, <literal>NetworkManager-team</literal> and <literal>libteam-tools</literal> packages are deprecated in &productname; &productnumber; as the upstream activities are deprecated. You must migrate existing team interfaces to bonding configurations managed through NetworkManager. NetworkManager bonding supports many bonding scenarios, including LACP.</para></listitem>
 <listitem>
   <para>Install two or more physical or virtual devices on the server:</para>
 </listitem>
@@ -685,6 +684,103 @@ connection:</para>
 <screen>&prompt.sudo;nmcli connection up MyOpenVPN</screen></step>
 <step><para>Verify if the configured connection is active:</para>
 <screen>&prompt.user;nmcli connection show --active</screen>
+</step>
+</procedure>
+</section>
+
+<section xml:id="migrate-teamd">
+  <title>Convert teamd configuration to &nm;</title>
+  <para>In &productname;&productnumber;, <command>libteam</command> and <command>teamd</command> are deprecated and hence Network Load Balancing configurations that relied on <command>libteam</command> in the past must be converted to a NetworkManager based bonding interface.</para>
+<procedure xml:id="active-load-balancing-lacp">
+  <title>Active Load Balancing with LACP</title>
+    <step>
+    <para>A sample <literal>team0</literal> interface configuration (<filename>/etc/sysconfig/network/ifcfg-team0</filename>) is mentioned below based on which the commands are described.</para>
+    <screen>BOOTPROTO="static"
+STARTMODE="onboot"
+
+TEAM_RUNNER="lacp"
+TEAM_LACP_TX_HASH="l4,l3,eth,vlan"
+TEAM_LACP_TX_BALANCER_NAME="basic"
+TEAM_LACP_TX_BALANCER_INTERVAL="100"
+TEAM_LACP_ACTIVE=true
+TEAM_LACP_SELECT_POLICY="lacp_prio"
+TEAM_LW_NAME="ethtool"
+TEAM_LW_ETHTOOL_DELAY_UP="10"
+TEAM_LW_ETHTOOL_DELAY_DOWN="10"
+IPADDR="10.1.1.1"
+NETMASK="255.255.255.0"
+IPADDR_0="2001:db8::1"
+PREFIXLEN_0="64"
+TEAM_PORT_DEVICE_0="eth0"
+TEAM_PORT_DEVICE_1="eth3"</screen>
+<para>This configuration describes a network bond using active transmit load balancing. Any load balancing that happens on incoming traffic is performed by the switch.</para>
+</step>
+  <step>
+<para>Run the following <command>nmcli</command> commands to configure a bonding interface (bond0), and add the Ethernet ports to it:</para>
+<screen>
+&prompt.sudo; nmcli connection add type bond bond-options "...." \
+ifname bond0 con-name bond0 \
+ipv4.method manual ipv4.address 10.1.1.1/24 \
+ipv6.method manual ipv6.address 2001:db8::1/64
+&prompt.sudo; nmcli connection add type ethernet ifname eth0 con-name eth0 master bond0
+&prompt.sudo; nmcli connection add type ethernet ifname eth3 con-name eth3 master bond0
+&prompt.sudo; nmcli connection modify bond0 connection.autoconnect-slaves yes</screen>
+</step>
+<step><para>For the specific <literal>ifcfg-team0</literal> example shown above, you can translate the LACP settings into options for the bond device shown as "..." as given below:</para>
+<itemizedlist>
+<listitem>
+<para><command>TX_BALANCER_NAME=basic</command> indicates active load balancing. There is no other balancer in <literal>teamd</literal>, so this is actually redundant and can be ignored.</para>
+</listitem>
+<listitem>
+<para>The protocol chosen for managing the bond needs to be provided to the kernel via the mode option. The <command>TEAM_RUNNER</command> variable above specifies LACP, the Link Aggregation Protocol. This is defined by IEEE 802.3ad, and that's also the name by which it is referred to in the kernel bond documentation. So the corresponding option is <command>mode=802.3ad</command></para>
+</listitem>
+<listitem>
+<para>The <command>TX_HASH</command> setting describes which headers are used to distribute outgoing packets to links. The bonding equivalent to the above settings is <command>xmit_hash_policy=layer3+4</command></para>
+</listitem>
+<listitem><para>The <command>TX_BALANCER_INTERVAL</command> describes how frequently the status of the Ethernet ports is inspected (in milliseconds). The corresponding option is <command>miimon=100</command>.</para></listitem>
+<listitem><para>The <command>LW_NAME</command> variable specifies the link watch method. The bonding driver can check the availability of a link using one of two methods; one, by using some generic ioctls, or by using the NIC driver's internal <command>netif_carrier_ok</command> logic. When <command>LW_NAME</command> is set to <command>ethtool</command>, choose <command>use_carrier=0</command>; otherwise, choose <command>use_carrier=1</command>.</para>
+<para>When ethtool is used, the corresponding DELAY values can be translated to bonding options updelay; and downdelay, respectively.</para>
+<para>So with all of the above together, the first <command>nmcli</command> command would use bond-options <command>mode=802.3ad,miimon=100,xmit_hash_policy=layer3+4,use_carrier=0,updelay=10,downdelay=10</command>.</para><para>The resulting configuration is persistent, it activates whenever the system reboots.</para></listitem>
+</itemizedlist>
+</step>
+</procedure>
+<procedure xml:id="active-passive">
+<title>Active-Passive setups using MII monitoring</title>
+<step><para>This is another way of using is active-backup, where two or more Ethernet ports are used for redundancy in the face of network failures. Usually, each NIC is connected to a different switch in order to establish a separate network path. When the active link is failing, the connection will automatically fail over to the secondary port.</para>
+<para>A typical ifcfg file for a teaming based active-backup setup would look like this (excluding the BOOTPROTO, IPADDR settings and so on from the example given above).</para>
+<screen>TEAM_RUNNER="activebackup"
+TEAM_LW_NAME="ethtool"
+TEAM_PORT_DEVICE_0="eth0"
+TEAM_PORT_DEVICE_1="eth3"</screen>
+</step>
+<step>
+<para>Run the following command to migrate configurations to NetworkManager based bonding connections.</para>
+<itemizedlist>
+<listitem><para>The mode parameter needs to be set as <command>mode=active-backup</command>.</para></listitem>
+<listitem><para>The link watch method chosen here is ethtool, which translated to <command>miimon=100 use_carrier=0</command>.</para></listitem>
+</itemizedlist>
+</step>
+</procedure>
+<procedure xml:id="active-passive-arp">
+<title>Active-Passive setups using ARP for link monitoring</title>
+<step><para>The activebackup runner in teamd supports other link watch methods apart from ethtool; in particular, ARP pings. A typical configuration snippet would look like this:</para>
+<screen>TEAM_RUNNER="activebackup"
+TEAM_LW_NAME="arp_ping"
+TEAM_LW_ARP_PING_TARGET=10.1.2.3
+TEAM_LW_ARP_PING_INTERVAL=60
+</screen>
+</step>
+<step>
+<para>This is translated to bond-options <command>mode=active-backup arp_ip_target=10.1.2.3 arp_interval=60</command>.</para>
+<para>Other link watch types supported by teams are not supported by the kernel bonding driver. In particular, if you are using <command>nsna_ping</command>, you need to change to using ARP pings.</para>
+</step>
+</procedure>
+<procedure xml:id="manage-unused-interface">
+<title>Managing Unused Interfaces</title>
+<para>By default, NetworkManager manages all network interfaces available on the system. This may sometimes cause issues in some configurations. In this case, you can configure NetworkManager to not manage the NIC by adding them to <command>/etc/NetworkManager/conf.d/unmanaged-devices.conf</command>.</para>
+<step><para>To ignore eth1 completely,including across reboots, add the following content to <command>/etc/NetworkManager/conf.d/unmanaged-devices.conf</command>:</para>
+<screen>[keyfile]
+unmanaged-devices=interface-name:eth1</screen>
 </step>
 </procedure>
 </section>
