@@ -6,10 +6,7 @@
   <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
     %entities;
 ]>
-<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
-<!-- point back to this document with a similar comment added to your legacy doc piece -->
-<!-- refer to README.md for file and id naming conventions -->
-<!-- metadata is dealt with on the assembly level -->
+<!-- https://github.com/rancher/rke2-product-docs/blob/main/versions/latest/modules/en/pages/advanced.adoc#deploy-nvidia-operator -->
 <topic xml:id="nvidia-operator-installation"
  role="task" xml:lang="en"
  xmlns="http://docbook.org/ns/docbook" version="5.2"
@@ -18,64 +15,90 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Installing the &nvoperator; on the &rke2; &kube; cluster</title>
+    <title>Installing the &nvoperator; on the &rke2; cluster</title>
     <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        This topic describes how to install the &nvoperator; on the &rke2;
-        &kube; cluster.
+        The &nvidia; operator allows administrators of &k8s; clusters to manage
+        GPUs just like CPUs. It includes everything needed for pods to be able
+        to operate GPUs.
       </para>
     </abstract>
   </info>
-  <procedure>
-    <title>Installation of the &nvoperator;</title>
-    <itemizedlist>
-      <title>Requirements</title>
-      <para>
-        If you are following this guide, it assumes that you have the following
-        already available:
-      </para>
-      <listitem>
+  <section xml:id="nvidia-operator-host-requirements">
+    <title>Host OS requirements</title>
+    <para>
+      To expose the GPU to the pod correctly, the &nvidia; kernel drivers and
+      the <filename>libnvidia-ml</filename> library must be correctly installed
+      in the host OS. The &nvidia; Operator can automatically install drivers
+      and libraries on specific operating systems. Check the &nvidia;
+      documentation for information on
+      <link xlink:href="https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/platform-support.html#supported-operating-systems-and-kubernetes-platforms">supported
+      operating system releases</link>. Installation of the &nvidia; components
+      on your host OS is out of the scope of this document. Refer to the
+      &nvidia; documentation for instructions.
+    </para>
+    <para>
+      The following three commands should return a correct output if the kernel
+      driver is correctly installed.
+    </para>
+    <procedure>
+      <step>
         <para>
-          A successfully deployed and fully operational &rke2; &kube; cluster.
+          <command>lsmod | grep nvidia</command> returns a list of &nvidia;
+          kernel modules. For example:
         </para>
-      </listitem>
-      <listitem>
+<screen>nvidia_uvm           2129920  0
+nvidia_drm            131072  0
+nvidia_modeset       1572864  1 nvidia_drm
+video                  77824  1 nvidia_modeset
+nvidia               9965568  2 nvidia_uvm,nvidia_modeset
+ecc                    45056  1 nvidia</screen>
+      </step>
+      <step>
         <para>
-          At least one worker node with a
-          <link xlink:href="https://github.com/NVIDIA/open-gpu-kernel-modules#compatible-gpus">compatible
-          &nvidia; GPU</link> and corresponding &nvidia; drivers installed.
+          <command>cat /proc/driver/nvidia/version</command> returns the NVRM
+          and GCC versions of the driver. For example:
         </para>
-      </listitem>
-      <listitem>
+<screen>NVRM version: NVIDIA UNIX Open Kernel Module for x86_64  555.42.06
+  Release Build  (abuild@host)  Thu Jul 11 12:00:00 UTC 2024
+  GCC version:  gcc version 7.5.0 (SUSE Linux)</screen>
+      </step>
+      <step>
         <para>
-          The &helm; package manager available on a host from which you operate
-          the &rke2; cluster.
+          <command>find /usr/ -iname libnvidia-ml.so</command> returns a path to
+          the <filename>libnvidia-ml.so</filename> library. For example:
         </para>
-      </listitem>
-      <listitem>
+<screen>/usr/lib64/libnvidia-ml.so</screen>
         <para>
-          &nvidia; GPU drivers installed on the nodes with GPU hardware. Find
-          more details in
-          <link
-          xlink:href="https://documentation.suse.com/suse-ai/1.0/html/NVIDIA-GPU-driver-on-SL-Micro/index.html">Installing
-          &nvidia; GPU Drivers on &slem;</link>.
+          This library is used by &kube; components to interact with the kernel
+          driver.
         </para>
-      </listitem>
-    </itemizedlist>
-    <step>
-      <para>
-        Add &nvidia; &helm; repository and update it.
-      </para>
-<screen>&prompt.user;<command>helm repo add nvidia https://helm.ngc.nvidia.com/nvidia</command>
-&prompt.user;<command>helm repo update</command></screen>
-    </step>
-    <step>
-      <para>
-        Create a <filename>values.yaml</filename> configuration file and check
-        the settings of the following <literal>toolkit</literal> environmental
-        variables.
-      </para>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="nvidia-operator-installation-procedure">
+    <title>Operator installation</title>
+    <para>
+      Once the OS is ready and &rke2a; is running, adjust the &rke2a; nodes:
+    </para>
+    <procedure>
+      <step>
+        <para>
+          On the agent nodes of &rke2a;, run the following command:
+        </para>
+<screen>&prompt.root;echo PATH=$PATH:/usr/local/nvidia/toolkit &gt;&gt; /etc/default/rke2-agent</screen>
+      </step>
+      <step>
+        <para>
+          On the server nodes of &rke2a;, run the following command:
+        </para>
+<screen>&prompt.root;echo PATH=$PATH:/usr/local/nvidia/toolkit &gt;&gt; /etc/default/rke2-server</screen>
+      </step>
+    </procedure>
+    <para>
+      Then, install the &nvoperator; using the following YAML manifest.
+    </para>
 <screen>apiVersion: helm.cattle.io/v1
 kind: HelmChart
 metadata:
@@ -88,87 +111,139 @@ spec:
   createNamespace: true
   valuesContent: |-
     toolkit:
-    env:
-    - name: CONTAINERD_CONFIG<co xml:id="co-containerd-config"/>
-      value: /var/lib/rancher/rke2/agent/etc/containerd/config.toml.tmpl
-    - name: CONTAINERD_SOCKET<co xml:id="co-containerd-socket"/>
-      value: /run/k3s/containerd/containerd.sock
-    - name: CONTAINERD_RUNTIME_CLASS<co xml:id="co-containerd-class"/>
-      value: nvidia
-    - name: CONTAINERD_SET_AS_DEFAULT<co xml:id="co-containerd-default"/>
-      value: "true"</screen>
-      <calloutlist>
-        <callout arearefs="co-containerd-config">
-          <para>
-            The path on the host to the &containerd; configuration you want to
-            have updated with support for the
-            <systemitem>nvidia-container-runtime</systemitem>. It defaults to
-            <filename>/etc/containerd/config.toml</filename>.
-          </para>
-        </callout>
-        <callout arearefs="co-containerd-socket">
-          <para>
-            The path on the host to the socket file used to communicate with
-            &containerd;. The &nvoperator; uses it to send a SIGHUP signal to
-            the <systemitem class="daemon">&containerd;</systemitem> daemon to
-            reload its configuration. It defaults to
-            <filename>/run/containerd/containerd.sock</filename>.
-          </para>
-        </callout>
-        <callout arearefs="co-containerd-class">
-          <para>
-            The name of the
-            <link
-            xlink:href="https://kubernetes.io/docs/concepts/containers/runtime-class">Runtime
-            Class</link> you would like to associate with the
-            <systemitem>nvidia-container-runtime</systemitem>. Pods launched
-            with a <option>runtimeClassName</option> equal to
-            <option>CONTAINERD_RUNTIME_CLASS</option> always run with the
-            <systemitem>nvidia-container-runtime</systemitem>. The default
-            <option>CONTAINERD_RUNTIME_CLASS</option> is
-            <literal>nvidia</literal>.
-          </para>
-        </callout>
-        <callout arearefs="co-containerd-default">
-          <para>
-            A flag indicating whether you want to set
-            <systemitem>nvidia-container-runtime</systemitem> as the default
-            runtime used to launch all containers. When set to
-            <literal>false</literal>, only containers in pods with a
-            <option>runtimeClassName</option> equal to
-            <option>CONTAINERD_RUNTIME_CLASS</option> run with the
-            <systemitem>nvidia-container-runtime</systemitem>. The default value
-            is <literal>true</literal>.
-          </para>
-        </callout>
-      </calloutlist>
-    </step>
-    <step>
+      env:
+      - name: CONTAINERD_SOCKET
+        value: /run/k3s/containerd/containerd.sock</screen>
+    <warning>
       <para>
-        Pass the <filename>values.yaml</filename> file to the following
-        <command>helm</command> command:
+        The &nvidia; operator restarts &containerd; with a hangup call, which
+        restarts &rke2a;.
       </para>
-<screen>&prompt.user;<command>helm install --wait gpu-operator nvidia/gpu-operator \
-  -n gpu-operator --create-namespace --set driver.enabled=false -f values.yaml</command></screen>
-    </step>
-  </procedure>
-  <note>
-    <title>Installation without a YAML file</title>
+    </warning>
     <para>
-      An alternative way of installing the &nvoperator; is by specifying the
-      above configuration options directly with the <command>helm</command>
-      command. In this case, you do not store the <option>toolkit</option>
-      options in the YAML file.
+      After approximately one minute, you can make the following checks to
+      verify that everything works as expected.
     </para>
-<screen>&prompt.user;<command>helm install --wait gpu-operator nvidia/gpu-operator \
-  -n gpu-operator --create-namespace --set driver.enabled=false \
-  --set toolkit.env[0].name=CONTAINERD_CONFIG \
-  --set toolkit.env[0].value=/var/lib/rancher/rke2/agent/etc/containerd/config.toml.tmpl \
-  --set toolkit.env[1].name=CONTAINERD_SOCKET \
-  --set toolkit.env[1].value=/run/k3s/containerd/containerd.sock \
-  --set toolkit.env[2].name=CONTAINERD_RUNTIME_CLASS \
-  --set toolkit.env[2].value=nvidia \
-  --set toolkit.env[3].name=CONTAINERD_SET_AS_DEFAULT \
-  --set-string toolkit.env[3].value=true</command></screen>
-  </note>
+    <procedure>
+      <step>
+        <para>
+          Assuming the drivers and <filename>libnvidia-ml.so</filename> library
+          are installed, check if the operator detects them correctly.
+        </para>
+<screen>&prompt.user;kubectl get node <replaceable>NODENAME</replaceable> \
+  -o jsonpath='{.metadata.labels}' | grep "nvidia.com/gpu.deploy.driver"</screen>
+        <para>
+          You should see the value <literal>pre-installed</literal>. If you see
+          <literal>true</literal>, the drivers are not installed correctly. If
+          the requirements in
+          <xref linkend="nvidia-operator-host-requirements"/> are met, you may
+          have forgotten to reboot the node after installing all packages.
+        </para>
+        <para>
+          You can also check other driver labels:
+        </para>
+<screen>&prompt.user;kubectl get node <replaceable>NODENAME</replaceable> \
+  -o jsonpath='{.metadata.labels}' | jq | grep "nvidia.com"</screen>
+        <para>
+          You should see labels specifying driver and GPU, for example,
+          <literal>nvidia.com/gpu.machine</literal> or
+          <literal>nvidia.com/cuda.driver.major</literal>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Check if the GPU was added by
+          <literal>nvidia-device-plugin-daemonset</literal> as an allocatable
+          resource in the node.
+        </para>
+<screen>&prompt.user;kubectl get node <replaceable>NODENAME</replaceable> \
+  -o jsonpath='{.status.allocatable}' | jq</screen>
+        <para>
+          You should see <literal>"nvidia.com/gpu":</literal> followed by the
+          number of GPUs in the node.
+        </para>
+      </step>
+      <step>
+        <para>
+          Check that the container runtime binary was installed by the operator
+          (in particular, by the
+          <literal>nvidia-container-toolkit-daemonset</literal>):
+        </para>
+<screen>&prompt.user;ls /usr/local/nvidia/toolkit/nvidia-container-runtime</screen>
+      </step>
+      <step>
+        <para>
+          Verify whether the &containerd; configuration was updated to include
+          the &nvidia; container runtime.
+        </para>
+<screen>&prompt.user;grep nvidia /var/lib/rancher/rke2/agent/etc/containerd/config.toml</screen>
+      </step>
+      <step>
+        <para>
+          Run a pod to verify that the GPU resource can successfully be
+          scheduled on a pod and the pod can detect it.
+        </para>
+<screen>apiVersion: v1
+kind: Pod
+metadata:
+  name: nbody-gpu-benchmark
+  namespace: default
+spec:
+  restartPolicy: OnFailure
+  runtimeClassName: nvidia
+  containers:
+  - name: cuda-container
+    image: nvcr.io/nvidia/k8s/cuda-sample:nbody
+    args: ["nbody", "-gpu", "-benchmark"]
+    resources:
+      limits:
+        nvidia.com/gpu: 1
+    env:
+    - name: NVIDIA_VISIBLE_DEVICES
+      value: all
+    - name: NVIDIA_DRIVER_CAPABILITIES
+      value: compute,utility</screen>
+      </step>
+    </procedure>
+    <note>
+      <title>Version gate</title>
+      <para>
+        Available as of October 2024 releases: v1.28.15+rke2r1, v1.29.10+rke2r1,
+        v1.30.6+rke2r1, v1.31.2+rke2r1.
+      </para>
+    </note>
+    <para>
+      &rke2a; will now use <envar>PATH</envar> to find alternative container
+      runtimes, in addition to checking the default paths used by the container
+      runtime packages. To use this feature, you must modify the &rke2a;
+      service's <envar>PATH</envar> environment variable to add the directories
+      containing the container runtime binaries.
+    </para>
+    <para>
+      We recommend modifying one of these two environment files:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <filename>/etc/default/rke2-server</filename> # or rke2-agent
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <filename>/etc/sysconfig/rke2-server</filename> # or rke2-agent
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      This example adds the <envar>PATH</envar> in
+      <filename>/etc/default/rke2-server</filename>:
+    </para>
+<screen>&prompt.user;echo PATH=$PATH &gt;&gt; /etc/default/rke2-server</screen>
+    <warning>
+      <para>
+        <envar>PATH</envar> changes should be done with care to avoid placing
+        untrusted binaries in the path of services that run as root.
+      </para>
+    </warning>
+  </section>
 </topic>
