@@ -16,11 +16,11 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>About the &selnx; Linux system role</title>
+    <title>About the SELinux Linux system role</title>
     <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
     <abstract>
       <para>
-       The &selnx; Linux system role in Ansible automates the full management and enforcement of the &selnx; policy on managed nodes in a standardized and idempotent way.
+       The SELinux Linux system role in Ansible automates the full management and enforcement of the &selnx; policy on managed nodes in a standardized and idempotent way.
       </para>
     </abstract>
   </info>
@@ -32,19 +32,23 @@
   <listitem><para>Define security types for non-standard network ports, allowing services to listen on them without violating the policy.</para></listitem>
   <listitem><para>Manage the mapping between Linux user accounts and specific &selnx; user identities.</para></listitem>
   </itemizedlist>
-<example><title>Reset the &selnx; context on all nodes</title>
+<example><title>Reset the &selnx; context </title>
 <screen>
 ---
 - name: Reset the selinux context
-  hosts: all
+  hosts: managed_nodes
+  become: true
 
   vars:
   selinux_restore_dirs:
     - /var/www/
     - /etc/
 
-  roles:
-    - linux-system-roles.selinux</screen>
+  tasks:
+    - name: reset the selinux context
+      ansible.builtin.include_role:
+        name: suse.linux_system_roles.selinux
+   </screen>
 <itemizedlist>
  <listitem><para><literal>selinux_restore_dirs</literal>: specifies file system paths on the managed node where the &selnx; contexts should be immediately reapplied or corrected (using the equivalent of the <literal>restorecon</literal> utility).
   It is a list of strings, where each string is a file system tree where you want to run <literal>restorecon</literal>.</para></listitem>
@@ -54,7 +58,7 @@
 <screen>
 ---
 - name: set a selinux port label
-  hosts: all
+  hosts: managed_nodes
 
   vars:
     selinux_ports:
@@ -63,8 +67,10 @@
         setype: http_port_t
         state: present
 
-  roles:
-    - linux-system-roles.postfix
+    tasks:
+      - name: set a selinux port label
+          ansible.builtin.include_role:
+            name: suse.linux_system_roles.selinux
 </screen>
   <itemizedlist>
    <listitem><para><literal>selinux_ports</literal>: manages the &selnx; port labeling policy on a managed node.

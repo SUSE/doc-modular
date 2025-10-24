@@ -16,11 +16,11 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>About the timesync Linux system role</title>
+    <title>About the time synchronization Linux system role</title>
     <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
     <abstract>
       <para>
-       The timesync Linux system role in Ansible automates the configuration and enforcement of system time synchronization on managed Linux hosts.
+       The time synchronization Linux system role in Ansible automates the configuration and enforcement of system time synchronization on managed Linux hosts.
        NTP and PTP are essential standards used to synchronize computer clocks across a network. Accurate time synchronization is crucial because many critical network services rely on precise time to function correctly.
       </para>
     </abstract>
@@ -32,11 +32,13 @@
   <listitem><para>Ensure the system uses the desired synchronization method.</para></listitem>
   <listitem><para>Helps ensure that systems are compliant with security requirements that mandate accurate logging and synchronized authentication, for example, Kerberos.</para></listitem>
   </itemizedlist>
-<example><title>Install and configure NTP to synchronize the system clock with three designated NTP servers.</title>
+<example><title>Install and configure NTP to synchronize the system clock with managed nodes</title>
 <screen>
 ---
-- name: Manage timesync with 3 NTP servers
-  hosts: targets
+- name: Manage timesync
+  hosts: managed_nodes
+  become: true
+
   vars:
     timesync_ntp_servers:
       - hostname: ntp.example.com
@@ -45,11 +47,14 @@
         iburst: true
       - hostname: sync.example.com
         iburst: true
-  roles:
-    - linux-system-roles.timesync
+
+  tasks:
+    - name: Manage timesync
+        ansible.builtin.include_role:
+        name: suse.linux_system_roles.timesync
 </screen>
 <itemizedlist>
- <listitem><para><literal>timesync_ntp_servers</literal>: primary mechanism for an administrator to specify which external network time sources (NTP servers) the managed Linux host should use for clock synchronization.
+ <listitem><para><literal>timesync_ntp_servers</literal>: is a primary mechanism for an administrator to specify which external network time sources (NTP servers) the managed Linux host should use for clock synchronization.
 It is a list of dictionaries.The default is an empty list<literal>[]</literal>.
  Each dictionary entry within the <literal>timesync_ntp_servers</literal>list defines a single time source and its desired configuration options. In this example, <literal>hostname</literal> is a
 required <literal>string</literal> datatype and <literal>iburst</literal> is an optional <literal>Boolean</literal> datatype.
@@ -60,13 +65,18 @@ required <literal>string</literal> datatype and <literal>iburst</literal> is an 
 <screen>
 ---
 - name: Manage timesync in PTP domain 0, interface eth0
-  hosts: targets
+  hosts: managed_nodes
+  become: true
+
   vars:
     timesync_ptp_domains:
       - number: 0
         interfaces: [eth0]
-  roles:
-    - linux-system-roles.timesync
+
+  tasks:
+    - name: Manage linuxptp
+        ansible.builtin.include_role:
+        name: suse.linux_system_roles.timesync
 </screen>
   <itemizedlist>
    <listitem><para><literal>timesync_ptp_domains</literal>: configures Precision Time Protocol (PTP) synchronization
@@ -74,7 +84,7 @@ It is a list of dictionaries. Default is an empty list <literal>[]</literal>. In
 is a required <literal>string</literal> datatype and <literal>interfaces</literal> are optional <literal>list of strings</literal> data types.</para></listitem>
      </itemizedlist>
   </example>
-<para>For more details about all the variables in the <literal>timesync</literal> Linux system role,
-  refer to the specific <literal>REDADME.md</literal> file on the control node:</para>
+<para>For more details about all the variables in the time synchronization Linux system role,
+  refer to the specific <literal>README.md</literal> file on the control node:</para>
   <screen>/usr/share/ansible/collections/ansible_collections/suse/linux_system_roles/docs</screen>
 </topic>
