@@ -24,8 +24,7 @@
     <title>&owui; override file with &ollama; included</title>
     <para>
       The following override file installs &ollama; during the &owui;
-      installation. Replace <replaceable>SUSE_AI_NAMESPACE</replaceable> with
-      your &kube; namespace.
+      installation.
     </para>
 <screen>global:
   imagePullSecrets:
@@ -51,16 +50,26 @@ ollama:
       number: 1
     persistentVolume:<co xml:id="co-ollama-persistent1"/>
       enabled: true
-      storageClass: local-path<co xml:id="co-ollama-localpath2"/>
+      storageClass: local-path
 pipelines:
-  enabled: False
+  enabled: true
   persistence:
-    storageClass: local-path<co xml:id="co-ollama-localpath3"/>
+    storageClass: local-path
+  extraEnvVars: <co xml:id="co-pipelines-extraenvvars"/>
+    - name: PIPELINES_URLS <co xml:id="co-pipelines-extraenvvars-pipelines-urls"/>
+      value: "https://raw.githubusercontent.com/SUSE/suse-ai-observability-extension/refs/heads/main/integrations/oi-filter/suse_ai_filter.py"
+    - name: OTEL_SERVICE_NAME <co xml:id="co-pipelines-extraenvvars-otel-service-name"/>
+      value: "Open WebUI"
+    - name: OTEL_EXPORTER_HTTP_OTLP_ENDPONT <co xml:id="co-pipelines-extraenvvars-otel-exporter-http-otlp-endpoint"/>
+      value: "http://opentelemetry-collector.suse-observability.svc.cluster.local:4318"
+    - name: PRICING_JSON <co xml:id="co-pipelines-extraenvvars-pricing-json"/>
+      value: "https://raw.githubusercontent.com/SUSE/suse-ai-observability-extension/refs/heads/main/integrations/oi-filter/pricing.json"
 ingress:
   enabled: true
   class: ""
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "1024m"
   host: suse-ollama-webui<co xml:id="co-ollama-webui"/>
   tls: true
 extraEnvVars:
@@ -79,8 +88,20 @@ extraEnvVars:
 - name: MILVUS_URI
   value: http://milvus.<replaceable>SUSE_AI_NAMESPACE</replaceable>.svc.cluster.local:19530
 - name: INSTALL_NLTK_DATASETS<co xml:id="co-ollama-extravars-nltk"/>
-  value: "true"</screen>
+  value: "true"
+- name: OMP_NUM_THREADS
+  value: "1"
+- name: OPENAI_API_KEY <co xml:id="co-extraenvvars-openai-api-key"/>
+  value: "0p3n-w3bu!"</screen>
     <calloutlist>
+      <callout arearefs="co-ollama-localpath1">
+        <para>
+          Use <option>local-path</option> storage only for testing purposes. For
+          production use, we recommend using a storage solution more suitable
+          for persistent storage. To use &sstorage;, specify
+          <literal>longhorn</literal>.
+        </para>
+      </callout>
       <callout arearefs="co-ollama-models">
         <para>
           Specifies that two large language models (LLM) will be loaded in
@@ -102,11 +123,44 @@ extraEnvVars:
           when the container is restarted.
         </para>
       </callout>
-      <callout arearefs="co-ollama-localpath1 co-ollama-localpath2 co-ollama-localpath3">
+      <callout arearefs="co-pipelines-extraenvvars">
         <para>
-          Use <option>local-path</option> storage only for testing purposes. For
-          production use, we recommend using a storage solution suitable for
-          persistent storage, such as &sstorage;.
+          The environment variables that you are making available for the
+          pipeline's runtime container.
+        </para>
+      </callout>
+      <callout arearefs="co-pipelines-extraenvvars-pipelines-urls">
+        <para>
+          A list of pipeline URLs to be downloaded and installed by default.
+          Individual URLs are separated by a semicolon <literal>;</literal>.
+        </para>
+        <para condition="deployment_airgap">
+          For air-gapped deployments, you need to provide the pipelines at URLs
+          that are accessible from the local host, such as an internal GitLab
+          instance.
+        </para>
+      </callout>
+      <callout arearefs="co-pipelines-extraenvvars-otel-service-name">
+        <para>
+          The service name that appears in traces and topological
+          representations in &sobservability;.
+        </para>
+      </callout>
+      <callout arearefs="co-pipelines-extraenvvars-otel-exporter-http-otlp-endpoint">
+        <para>
+          The endpoint for the &otelemetry; collector. Make sure to use the HTTP
+          port of your collector.
+        </para>
+      </callout>
+      <callout arearefs="co-pipelines-extraenvvars-pricing-json">
+        <para>
+          A file for the model multipliers in cost estimation. You can customize
+          it to match your actual infrastructure experimentally.
+        </para>
+        <para condition="deployment_airgap">
+          For air-gapped deployments, you need to provide the pipelines at URLs
+          that are accessible from the local host, such as an internal GitLab
+          instance.
         </para>
       </callout>
       <callout arearefs="co-ollama-extravars">
@@ -128,14 +182,19 @@ extraEnvVars:
           licensing information.
         </para>
       </callout>
+      <callout arearefs="co-extraenvvars-openai-api-key">
+        <para>
+          API key value for communication between &owui; and &owui; Pipelines.
+          The default value is <quote>0p3n-w3bu!</quote>.
+        </para>
+      </callout>
     </calloutlist>
   </example>
   <example xml:id="owui-ollama-deploy-separate">
     <title>&owui; override file with &ollama; installed separately</title>
     <para>
       The following override file installs &ollama; separately from the &owui;
-      installation. Replace <replaceable>SUSE_AI_NAMESPACE</replaceable> with
-      your &kube; namespace.
+      installation.
     </para>
 <screen>global:
   imagePullSecrets:
@@ -177,7 +236,9 @@ extraEnvVars:
 - name: ENABLE_OTEL<co xml:id="co-owui-otel1"/>
   value: "true"
 - name: OTEL_EXPORTER_OTLP_ENDPOINT<co xml:id="co-owui-otel2"/>
-  value: http://opentelemetry-collector.observability.svc.cluster.local:4317<co xml:id="co-llama-otel"/></screen>
+  value: http://opentelemetry-collector.observability.svc.cluster.local:4317<co xml:id="co-llama-otel"/>
+- name: OMP_NUM_THREADS
+  value: "1"</screen>
     <calloutlist>
       <callout arearefs="co-ollama-localpath4 co-ollama-localpath5">
         <para>
@@ -200,6 +261,59 @@ extraEnvVars:
       <callout arearefs="co-llama-otel">
         <para>
           The URL of the &otelemetry; Collector installed by the user.
+        </para>
+      </callout>
+    </calloutlist>
+  </example>
+  <example xml:id="owui-ollama-deploy-pipelines">
+    <title>&owui; override file with pipelines enabled</title>
+    <para>
+      The following override file installs &ollama; separately and enables
+      &owui; pipelines. This simple filter adds a limit to the number of
+      question and answer turns during the LLM chat.
+    </para>
+    <tip>
+      <para>
+        Pipelines normally require additional configuration provided either via
+        environment variables or specified in the &owui; Web UI.
+      </para>
+    </tip>
+<screen>global:
+  imagePullSecrets:
+  - application-collection
+  <phrase condition="deployment_airgap">imageRegistry: <replaceable>LOCAL_DOCKER_REGISTRY_URL</replaceable>:5043</phrase>
+ollamaUrls:
+- http://ollama.<replaceable>SUSE_AI_NAMESPACE</replaceable>.svc.cluster.local:11434
+persistence:
+  enabled: true
+  storageClass: local-path
+ollama:
+  enabled: false
+pipelines:
+  enabled: true
+  persistence:
+    storageClass: local-path
+  extraEnvVars:
+  - name: PIPELINES_URLS <co xml:id="co-extraenvvars-pipelines-urls"/>
+    value: "https://raw.githubusercontent.com/SUSE/suse-ai-observability-extension/refs/heads/main/integrations/oi-filter/conversation_turn_limit_filter.py"
+ingress:
+  enabled: true
+  class: ""
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  host: suse-ollama-webui
+  tls: true
+[...]</screen>
+    <calloutlist>
+      <callout arearefs="co-extraenvvars-pipelines-urls">
+        <para>
+          A list of pipeline URLs to be downloaded and installed by default.
+          Individual URLs are separated by a semicolon <literal>;</literal>.
+        </para>
+        <para condition="deployment_airgap">
+          For air-gapped deployments, you need to provide the pipelines at URLs
+          that are accessible from the local host, such as an internal GitLab
+          instance.
         </para>
       </callout>
     </calloutlist>
