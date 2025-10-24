@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- based on https://documentation.suse.com/cloudnative/security/5.4/en/airgap.html -->
+<topic xml:id="suse-security-installation-airgapped"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Installing &ssecurity; in air-gapped environments</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Follow information in this article to perform air-gapped deployment of
+        &ssecurity;.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="suse-security-airgapped-tools-needed">
+    <title>Required tools</title>
+    <para>
+      We need to install three tools for downloading all components of
+      &ssecurity;.
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <link xlink:href="https://helm.sh/">&helm;</link> - Application
+          Lifecycle Manager
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <link xlink:href="https://github.com/containers/skopeo">Skopeo</link>
+          - Image/Registry Tool
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <link xlink:href="https://github.com/facebook/zstd">ZStandard</link> -
+          Compression Algorithm
+        </para>
+      </listitem>
+    </itemizedlist>
+    <procedure>
+      <step>
+        <para>
+          Install &helm;.
+        </para>
+<screen> &prompt.user;curl -fsSL \
+  https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash </screen>
+      </step>
+      <step>
+        <para>
+          Install &skopeo; and <package>zstd</package>.
+        </para>
+<screen> &prompt.sudo;zypper update &amp;&amp; zypper install zstd skopeo -y</screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="suse-security-airgapped-get-images-chart">
+    <title>Get images and a &helm; chart</title>
+    <para>
+      To get all the needed images, use the chart itself. Using &helm;, add the
+      repo and download the chart. Use &skopeo; for downloading and uploading.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Create a directory for the images.
+        </para>
+<screen>&prompt.user;&prompt.user;mkdir -p neuvector/images</screen>
+      </step>
+      <step>
+        <para>
+          Add a &neuvector; repository.
+        </para>
+<screen>&prompt.user;helm repo add neuvector \
+  https://neuvector.github.io/neuvector-helm/</screen>
+      </step>
+      <step>
+        <para>
+          Download the latest &neuvector; chart.
+        </para>
+<screen>&prompt.user;helm repo update \
+  &amp;&amp; helm pull neuvector/core -d neuvector</screen>
+      </step>
+      <step>
+        <para>
+          You should see a file named
+          <filename>core-<replaceable>X.Y.Z</replaceable>.tgz</filename>. To
+          obtain the list of required images, run the following command:
+        </para>
+<screen>&prompt.user;helm template neuvector/core-*.tgz \
+  | awk '$1 ~ /image:/ {print $2}' | sed -e 's/\"//g' \
+  &gt; neuvector/images/list.txt</screen>
+      </step>
+      <step>
+        <para>
+          Download the images based on the generated list.
+        </para>
+<screen>for i in $(cat neuvector/images/list.txt); do \
+  skopeo copy docker://$i docker-archive:neuvector/images/$(echo $i| awk -F/ '{print $3}'|sed 's/:/_/g').tar:$(echo $i| awk -F/ '{print $3}') \
+done</screen>
+      </step>
+      <step>
+        <para>
+          Now you have a directory similar to the following one:
+        </para>
+<screen>&prompt.user;ls -lR neuvector
+neuvector:
+total 16
+-rw-r--r--. 1 root root 15892 Jan  8 14:33 core-2.4.0.tgz
+drwxr-xr-x. 2 root root   153 Jan  8 14:35 images
+
+neuvector/images:
+total 953920
+-rw-r--r--. 1 root root 236693504 Jan  8 14:35 controller_5.3.2.tar
+-rw-r--r--. 1 root root 226704384 Jan  8 14:35 enforcer_5.3.2.tar
+-rw-r--r--. 1 root root       176 Jan  8 14:34 list.txt
+-rw-r--r--. 1 root root 331550208 Jan  8 14:35 manager_5.3.2.tar
+-rw-r--r--. 1 root root 169589760 Jan  8 14:35 scanner_latest.tar
+-rw-r--r--. 1 root root  12265472 Jan  8 14:35 updater_latest.tar</screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="suse-security-airgapped-compress-move">
+    <title>Compress and move the images to local network</title>
+    <para>
+      Use <command>tar</command> with the ZST format for maximum compression
+      level.
+    </para>
+<screen>&prompt.user;tar -I zstd -vcf neuvector_airgap.zst neuvector</screen>
+    <para>
+      Move the created <filename>neuvector_airgap.zst</filename> archive to the
+      isolated local network.
+    </para>
+  </section>
+  <section xml:id="suse-security-airgapped-uncompress-load">
+    <title>Uncompress and load the images</title>
+    <para>
+      Uncompress the images from the archive. The following example leaves them
+      in the <literal>neuvector</literal> directory.
+    </para>
+<screen>&prompt.user;tar -I zstd -vxf neuvector_airgap.zst</screen>
+    <para>
+      Loading the images into a local image registry requires you to understand
+      your local network. This example uses
+      <literal>registry.awesome.sauce</literal> as the DNS name. Loading the
+      images is done with the <command>skopeo</command> command. Make sure that
+      <command>skopeo</command> is installed on the air-gapped local machine.
+      You may need to authenticate with <command>skopeo login</command> first.
+    </para>
+<screen>&prompt.user; export REGISTRY=registry.awesome.sauce
+for file in $(ls neuvector/images | grep -v txt ); do
+     skopeo copy docker-archive:neuvector/images/$file docker://$(echo $file | sed 's/.tar//g' | awk -F_ '{print "'$REGISTRY'/neuvector/"$1":"$2}')
+done</screen>
+    <para>
+      With all the images loaded in a local image registry, you can install
+      using &helm;.
+    </para>
+  </section>
+  <section xml:id="suse-security-airgapped-deploy-helm">
+    <title>Install the transferred images on a local cluster</title>
+    <para>
+      To install the images from the local registry, you must override
+      <varname>REGISTRY</varname> and <varname>NEU_URL</varname> variables.
+      Also, adjust the <literal>imagePullSecrets</literal> option to include the
+      secret for your cluster to authenticate to the registry.
+    </para>
+<screen>&prompt.user;export REGISTRY=registry.awesome.sauce
+&prompt.user;export NEU_URL=neuvector.awesome.sauce
+&prompt.user;helm upgrade -i neuvector --namespace neuvector neuvector/core \
+--create-namespace --set imagePullSecrets=regsecret --set k3s.enabled=true \
+--set k3s.runtimePath=/run/k3s/containerd/containerd.sock \
+--set manager.ingress.enabled=true --set controller.pvc.enabled=true \
+--set controller.pvc.capacity=10Gi --set manager.svc.type=ClusterIP \
+--set registry=$REGISTRY --set tag=5.3.2 \
+--set controller.image.repository=neuvector/controller \
+--set enforcer.image.repository=neuvector/enforcer \
+--set manager.image.repository=neuvector/manager \
+--set cve.updater.image.repository=neuvector/updater \
+--set manager.ingress.host=$NEU_URL</screen>
+  </section>
+</topic>
