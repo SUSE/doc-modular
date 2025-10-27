@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="ansible-role-podman"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>About the &podman; Linux system role</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+       The &podman; Linux system role in Ansible automates the deployment and lifecycle management of containers as system services at scale, ensuring consistent and often rootless container orchestration across an infrastructure.
+      </para>
+    </abstract>
+  </info>
+  <para>You can use this role to:</para>
+  <itemizedlist>
+  <listitem><para>Ensure the necessary &podman; packages and related tools are installed and updated.</para></listitem>
+  <listitem><para>Automate the prerequisite setup for running containers as unprivileged users. Also includes managing the correct entries in <filename>/etc/subuid</filename> and <filename>/etc/subgid</filename>files.</para></listitem>
+  <listitem><para>Manage the creation, starting, stopping and removal of containers.</para></listitem>
+  <listitem><para>Leverage Podman's deep integration with &systemd; by automatically generating &systemd; unit files (or Quadlet files on newer systems) to manage containers and pods as persistent services that start automatically at boot.</para></listitem>
+  <listitem><para>Deploy complex multi-container workloads defined using standard Kubernetes YAML manifests.</para></listitem>
+  </itemizedlist>
+<example><title>Create a container running as root with &podman; volume  </title>
+<screen>
+---
+- name: Manage podman root containers and services
+  hosts: managed_hosts
+  become: true
+  gather_facts: true
+
+  vars:
+    podman_firewall:
+      - port: 8080/tcp
+        state: enabled
+    podman_kube_specs:
+      - state: started
+        kube_file_content:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: test1-httpd
+          spec:
+            containers:
+              - name: test1-httpd
+                image: registry.access.suse.com/test1/httpd-24
+                ports:
+                  - containerPort: 8080
+                    hostPort: 8080
+                volumeMounts:
+                  - mountPath: /var/www/html:Z
+                    name: test1-html
+            volumes:
+              - name: test1-html
+                persistentVolumeClaim:
+                  claimName: test1-html-volume
+
+  tasks:
+    - name: Dynamically install Cockpit and open firewall
+      ansible.builtin.include_role:
+        name: suse.linux_system_roles.podman
+</screen>
+<para>In this example , a Kubernetes pod <literal>test1-httpd</literal> running an HTTP server container from the <literal>registry.access.suse.com/test1/httpd-24</literal> image.
+ The container’s web content is mounted from a persistent volume named <literal>test1-html-volume</literal>.
+ By default, the role creates rootful containers.</para>
+<itemizedlist>
+ <listitem><para><literal>podman_firewall</literal>: controls the necessary firewall configurations on the host to ensure container ports are accessible.
+It is a list of dictionaries, where each dictionary defines a single firewall rule for a container. The accepted values are specified as key-value pairs within these dictionaries.
+The most common and crucial keys accepted within each dictionary item are <literal>port</literal>, <literal>state</literal>, <literal>zone</literal> and <literal>masquerade</literal>.
+Default is an empty list <literal>[]</literal> or <literal>null</literal>.
+</para></listitem>
+  <listitem><para><literal>podman_kube_specs</literal>: defines and manage Podman containers or pods based on Kubernetes YAML specifications.
+  It is a list of dictionaries and each dictionary item defines one container or pod deployment and requires one of the following keys to specify the Kubernetes YAML source:
+  <literal>kube_file_src</literal> or <literal>kube_file_content</literal>. Default is an empty list <literal>[]</literal> or <literal>null</literal>.
+  </para></listitem>
+  </itemizedlist>
+</example>
+<para>For more details about all the variables in the &podman; Linux system role,
+  refer to the specific <literal>README.md</literal> file on the control node:</para>
+  <screen>/usr/share/ansible/collections/ansible_collections/suse/linux_system_roles/docs</screen>
+</topic>

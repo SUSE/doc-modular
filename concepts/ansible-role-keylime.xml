@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="ansible-role-keylime"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>About the &keylime; Linux system role</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+       The &keylime; Linux system role in Ansible automate the deployment and configuration of the &keylime; attestation system for establishing trust in Linux infrastructure
+      </para>
+    </abstract>
+  </info>
+  <para>A comprehensive &keylime; setup requires several distinct roles to be applied to different sets of hosts:</para>
+  <itemizedlist>
+    <listitem><para><emphasis role="bold" >Keylime Verifier Role</emphasis>: This role is deployed to a central control host.</para>
+      <itemizedlist><listitem><para><emphasis role="bold">Function</emphasis>: Manages the primary logic of attestation. It is responsible for checking the integrity measurements received from agents against a known, trusted baseline.</para></listitem>
+        <listitem><para><emphasis role="bold">Tasks</emphasis>: Installs the Keylime Verifier service and configures its connection to the Registrar. </para></listitem>
+      </itemizedlist>
+      </listitem>
+      <listitem><para><emphasis role="bold" >Keylime Registrar Role</emphasis>: This role is deployed to a separate database or registration host.</para>
+        <itemizedlist><listitem><para><emphasis role="bold">Function</emphasis>: Securely stores the cryptographic data (like the TPM's identity credentials and keys) needed to enroll new agents and maintain a secure inventory.</para></listitem>
+          <listitem><para><emphasis role="bold">Tasks</emphasis>: Installs the Keylime Registrar service and sets up the required database such as MySQL. </para></listitem>
+        </itemizedlist>
+        </listitem>
+        <listitem><para><emphasis role="bold" >Keylime Agent Role</emphasis>: This role is deployed to the managed hosts.</para>
+          <itemizedlist><listitem><para><emphasis role="bold">Function</emphasis>: Communicates with the TPM to collect system integrity measurements (boot components, kernel, configuration) and securely transmits them to the Verifier.</para></listitem>
+            <listitem><para><emphasis role="bold">Tasks</emphasis>: Installs the Keylime Agent package, configures it with the IP address of the Verifier and Registrar, and ensures the service is running persistently. </para></listitem>
+          </itemizedlist>
+          </listitem>
+
+  </itemizedlist>
+<example><title>Deploy and configure Keylime Agent on managed nodes</title>
+<screen>
+---
+- name: Deploy and configure Keylime Agent on managed nodes
+  hosts: all
+
+  vars:
+    keylime_server_verifier_ip: "192.168.1.100"
+    keylime_server_registrar_ip: "192.168.1.101"
+
+  roles:
+    - suse.linux_system_roles.keylime_server
+</screen>
+<itemizedlist>
+ <listitem><para><literal>keylime_server_verifier_ip</literal>: defines the IP address or hostname where the Keylime Registrar component is running and accessible on the network.
+  It is a <literal>string</literal> datatype and accepts values of a valid network identifier. This variable has no safe default and must be explicitly defined by the user during deployment to ensure components can locate each other. </para></listitem>
+    <listitem><para><literal>keylime_server_registrar_ip</literal>: role-specific configuration variable used in the Keylime Ansible roles (specifically the Agent and Verifier roles) to identify the network location of the Keylime Registrar service.
+      It is a <literal>string</literal> datatype and accepts IP address (IPv4 or IPv6) or the resolvable hostname of the machine hosting the Keylime Registrar .</para></listitem>
+</itemizedlist>
+</example>
+<para>For more details about all the variables in the &keylime; Linux system role,
+  refer to the specific <literal>README.md</literal> file on the control node:</para>
+  <screen>/usr/share/ansible/collections/ansible_collections/suse/linux_system_roles/docs</screen>
+</topic>

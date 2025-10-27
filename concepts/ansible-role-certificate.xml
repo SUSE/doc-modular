@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="ansible-role-certificate"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>About the certificate Linux system role</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+       The certificate Linux system role in Ansible automates the entire lifecycle of TLS and SSL certificates on managed Linux hosts.
+      </para>
+    </abstract>
+  </info>
+  <para>You can use this role to:</para>
+  <itemizedlist>
+  <listitem><para>Generate the private key and the Certificate Signing Request (CSR) locally on the managed node, ensuring the private key never leaves the host.</para></listitem>
+  <listitem><para>Handle the submission of the CSR to a designated Certificate Authority (CA).</para></listitem>
+  <listitem><para>Save the newly issued certificate, key, and CA chain files to the correct, secure locations on the file system, managing file ownership and permissions.</para></listitem>
+  <listitem><para>Set up mechanisms such as <literal>certmonger</literal> to automatically monitor the certificate's expiration date and attempt renewal before it expires.</para></listitem>
+  </itemizedlist>
+<example><title>Issue a self signed certificate</title>
+<screen>
+---
+-name: Issue a self signed certificate
+ hosts: managed_nodes
+ become: true
+
+  vars:
+    certificate_requests:
+      - name: mycert
+        dns: *.example.com
+        ca: self-sign
+
+  tasks:
+    - name: Issue a self signed certificate
+      ansible.builtin.include_role:
+        name: suse.linux_system_roles.certificate
+</screen>
+<itemizedlist>
+ <listitem><para><literal>certificate_requests</literal>: defines the specific details of the certificates the role needs to issue, manage, or renew.
+ It is a list of dictionaries and each item in the list is a dictionary specifies the properties of one unique certificate to be managed. The default is an empty list <literal>[]</literal>.
+ If this list is empty, the role performs no certificate management actions. Each dictionary within the <literal>certificate_requests</literal> list must define at least the certificate name and the issuing Certificate Authority.
+ Other parameters specify the key size, subject, and domains. In this example, <literal>name</literal>, <literal>ca</literal> are <literal>string</literal> data types and required. <literal>dns</literal> can be either a <literal>list</literal>
+or <literal>string</literal> and is optional.
+</para></listitem>
+  </itemizedlist>
+  <para>You can find the directory at:</para>
+  <itemizedlist>
+    <listitem><para>Certificates: <filename>/etc/ssl/certs</filename></para></listitem>
+    <listitem><para>Keys: <filename>/etc/ssl/certs/private</filename></para></listitem>
+  </itemizedlist>
+</example>
+<example><title>Issue a certificate and key and specify location to place them</title>
+<screen>
+  ---
+  -name: Issue a certificate and specify location
+   hosts: managed_nodes
+   become: true
+   gather_facts: true
+
+   vars:
+     certificate_requests:
+       - name: test/path/mycert
+         dns: *.example.com
+         ca: self-sign
+
+    tasks:
+      - name: Issue a certificate and specify location
+        ansible.builtin.include_role:
+          name: suse.linux_system_roles.certificate
+
+</screen>
+  <para>This example creates a certificate file in <filename>/test/path/mycert.crt</filename> and a key file in <filename>/test/path/mycert.key</filename> .</para>
+  </example>
+<para>For more details about all the variables in the certificate Linux system role,
+  refer to the specific <literal>README.md</literal> file on the control node:</para>
+  <screen>/usr/share/ansible/collections/ansible_collections/suse/linux_system_roles/docs</screen>
+</topic>

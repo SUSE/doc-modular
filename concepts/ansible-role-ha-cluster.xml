@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="ansible-role-ha-cluster"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>About the HA cluster Linux system role</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+       The HA cluster Linux system role in Ansible is designed to fully install, configure and manage a
+       Pacemaker and Corosync High Availability (HA) cluster on &productname; 16.0 systems.
+      </para>
+    </abstract>
+  </info>
+  <para>You can use this role to:</para>
+  <itemizedlist>
+  <listitem><para>Automate the installation of core cluster components like Pacemaker and Corosync.</para></listitem>
+  <listitem><para>Create and initialize a robust, multi-node High Availability cluster.</para></listitem>
+  <listitem><para>Configure fencing devices to ensure true node isolation and data integrity upon failure.</para></listitem>
+  <listitem><para>Define and manage cluster resources, such as floating IP addresses, application services, and shared storage mounts.</para></listitem>
+  <listitem><para>Set resource constraints and dependencies to control which nodes run specific services.</para></listitem>
+  <listitem><para>Enable and manage cluster services across the defined cluster nodes.</para></listitem>
+  <listitem><para>Ensure consistent HA setup across multiple environments, adhering to best practices and minimizing manual errors.</para></listitem>
+    </itemizedlist>
+<example><title>Configure firewall and SELinux for managed nodes</title>
+<screen>
+  ---
+  - name: Configure firewall and selinux for managed nodes
+    hosts: managed_nodes
+    become: true
+    gather_facts: true
+
+    vars:
+      ha_cluster_manage_firewall: true
+      ha_cluster_manage_selinux: true
+
+    tasks:
+      - name: Manage firewall and selinux
+        ansible.builtin.include_role:
+          name: suse.linux_system_roles.ha_cluster
+ </screen>
+<itemizedlist>
+ <listitem><para><literal>ha_cluster_manage_firewall: true</literal>: It controls whether the role should automatically configure the system's firewall to permit necessary cluster communication.
+<literal>ha_cluster_manage_firewall</literal> is a <literal>Boolean</literal> datatype and accepts values <literal>true</literal>,<literal>false</literal>,<literal>yes</literal>,<literal>no</literal>, <literal>0</literal> and <literal>1</literal>.
+When set to <literal>true</literal>, it automatically adds firewall rules to open the necessary ports for the cluster to function. Default is <literal>false</literal>.
+</para></listitem>
+<listitem><para><literal>ha_cluster_manage_selinux: true</literal>: Controls whether the HA cluster role will automatically configure the SELinux policy to allow cluster processes to function.
+  <literal>ha_cluster_manage_selinux</literal> is a <literal>Boolean</literal> datatype and accepts values <literal>true</literal>,<literal>false</literal>,<literal>yes</literal>,<literal>no</literal>, <literal>0</literal> and <literal>1</literal>.
+  When set to <literal>true</literal>, it manages &selnx; and performs actions like setting the correct &selnx; contexts on necessary files and directories, enabling or setting &selnx; booleans required for cluster services etc. Default is <literal>false</literal>.
+</para></listitem>
+ </itemizedlist>
+</example>
+<example><title>Create pcsd TLS certificates and key files</title>
+<screen>
+  ---
+  - name: Manage HA cluster with TLS certificates and key files
+    hosts: managed_nodes
+    become: true
+    gather_facts: true
+
+    vars:
+      ha_cluster_pcsd_certificates:
+        - name: FILENAME
+          common_name: "{{ ansible_hostname }}"
+          ca: self-sign
+
+    tasks:
+      - name: Manage firewall and selinux
+        ansible.builtin.include_role:
+          name: suse.linux_system_roles.ha_cluster
+</screen>
+<para>This example creates self-signed <literal>pcsd</literal> certificate and private key files in <filename>/var/lib/pcsd</filename>
+  with the file name <literal>FILENAME.crt</literal> and <literal>FILENAME.key</literal>.</para>
+  <itemizedlist>
+   <listitem><para><literal>ha_cluster_pcsd_certificates</literal>: is a list of dictionaries used to define TLS certificates for the pcsd service.
+    The default is <literal>[]</literal>. It uses the structure of the underlying <literal>certificate</literal> system role.
+The certificate specific keys are <literal>ca</literal>, <literal>common_name</literal> and <literal>cert_basename</literal>.
+These keys are all <literal>string</literal> data types.</para></listitem>
+     </itemizedlist>
+  </example>
+<para>For more details about all the variables in the HA cluster Linux system role,
+  refer to the specific <literal>README.md</literal> file on the control node:</para>
+  <screen>/usr/share/ansible/collections/ansible_collections/suse/linux_system_roles/docs</screen>
+</topic>
