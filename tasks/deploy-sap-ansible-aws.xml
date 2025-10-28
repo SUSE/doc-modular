@@ -184,6 +184,74 @@ For this procedure:</para>
 </step>
 </substeps>
 </step>
-    </procedure>
+<step><para>Update the variable file <literal> ansible_extravars_aws_ec2_vs.yml</literal>.</para>
+<substeps>
+<step>
+ <para>The variables for connecting through Bastion host.</para>
+ <screen>sap_vm_provision_bastion_user: "ENTER_STRING_VALUE_HERE"  # Bastion user name (String).</screen>
+ <screen>sap_vm_provision_bastion_ssh_port: "ENTER_STRING_VALUE_HERE"  # Bastion user password (String).</screen>
+ <screen>sap_vm_provision_bastion_public_ip: "ENTER_STRING_VALUE_HERE"  # Public IP of the bastion server (String).</screen>
+<screen>sap_vm_provision_ssh_bastion_private_key_file_path: "ENTER_STRING_VALUE_HERE"  # Path to bastion server's SSH private key on the execution node (String).</screen>
+<screen>sap_vm_provision_ssh_host_private_key_file_path: "ENTER_STRING_VALUE_HERE"  # Path to target host's SSH private key on the execution node (String).</screen>
+</step>
+<step>
+  <para>The variables for connecting to a cloud environment.</para>
+  <screen>sap_vm_provision_aws_access_key: "ENTER_STRING_VALUE_HERE"  # Access key ID (String).</screen>
+  <screen>sap_vm_provision_aws_secret_access_key: "ENTER_STRING_VALUE_HERE"  # Secret access key (String).</screen>
+  <screen>sap_vm_provision_aws_vpc_availability_zone: "ENTER_STRING_VALUE_HERE"  # Availability zone (String).</screen>
+ <screen>sap_vm_provision_aws_vpc_subnet_id: "ENTER_STRING_VALUE_HERE" # VPC Subnet ID (String). if ansible_to_terraform, use "new"</screen>
+ <screen>sap_vm_provision_dns_root_domain: "ENTER_STRING_VALUE_HERE"  # Root domain for DNS entries (e.g., example.com) (String).</screen>
+ <screen>sap_vm_provision_aws_key_pair_name_ssh_host_public_key: "ENTER_STRING_VALUE_HERE"  # SSH Key name in AWS Console (String).</screen>
+ <screen>sap_vm_provision_aws_vpc_sg_names: "ENTER_STRING_VALUE_HERE"  # Comma separated list of AWS VPC Service Group names (String).</screen>
+</step>
+</substeps>
+</step>
+<step>
+  <para>The variable for selecting what OS image to use for provisioned instances are defined in the <literal>sap_vm_provision_aws_ec2_vs_host_os_image_dictionary </literal>
+  dictionary, which defines the search pattern for images. In this procedure, a PAYG image is used.
+ &sles; 16 images will be updated in the dictionary when cloud images are available.</para>
+  <screen>sap_vm_provision_aws_ec2_vs_host_os_image: "sles-15-6-sap-ha"</screen>
+ </step>
+ <step><para>The scenario specific variables for platform required for configuring &ha;.</para>
+<screen>sap_vm_provision_nfs_mount_point: "ENTER_STRING_VALUE_HERE" # e.g. fs-0000.efs.eu-west-2.amazonaws.com:/ </screen>
+<screen>sap_vm_provision_nfs_mount_point_separate_sap_transport_dir: "ENTER_STRING_VALUE_HERE" # e.g. fs-0000.efs.eu-west-2.amazonaws.com:/</screen>
+<screen>sap_vm_provision_nfs_mount_point_type: nfs4  # NFS version (String).</screen>
+<screen>sap_vm_provision_nfs_mount_point_opts:
+  nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport,acl  # NFS Mount options (String).</screen>
+  <screen>sap_ha_pacemaker_cluster_aws_vip_update_rt: "ENTER_STRING_VALUE_HERE"  # AWS Routing Table ID (String).</screen>
+</step>
+<step><para>Encrypt files with Ansible Vault. Files can be encrypted either using prompt or with password file.
+  This is easier for larger environments for reusability.</para>
+<para>Encryption with prompt:</para>
+<screen>&prompt.sudo;<command>ansible-vault encrypt ansible_extravars.yml ansible_extravars_aws_ec2_vs.yml</command></screen>
+<para>Encryption with a password file, which requires appropriate permissions and protection for security compliance:</para>
+<screen>&prompt.sudo;<command>ansible-vault encrypt --vault-password-file password.key ansible_extravars.yml ansible_extravars_aws_ec2_vs.yml</command></screen>
+</step>
+<step><para>Use the playbook directly from <literal>/usr/share/ansible/playbooks/ansible.playbooks_for_sap/deploy_scenarios/sap_s4hana_distributed_ha</literal> without editing it.
+If you need to adjust the playbook, we recommend copying it outside of the package directory.
+Execute the Ansible Playbook with Ansible Vault key file.</para>
 
+<screen>&prompt.sudo;<command> ansible-playbook /usr/share/ansible/playbooks/ansible.playbooks_for_sap/deploy_scenarios/sap_s4hana_distributed_ha/ansible_playbook.yml \
+    --extra-vars "@./ansible_extravars.yml" \
+    --extra-vars "@./ansible_extravars_aws_ec2_vs.yml" \
+    --vault-password-file password.key </command></screen>
+</step>
+ </procedure>
+ <para><emphasis role="bold">Outcome</emphasis></para>
+ <para>You now have a fully operational, &ha; and distributed &s4h; landscape on AWS.</para>
+ <para>Your new environment includes:</para>
+<itemizedlist>
+ <listitem><para><emphasis role="bold" >A clustered &hana; database:</emphasis> With automated failover to ensure continuous availability.</para></listitem>
+ <listitem><para><emphasis role="bold">A clustered ASCS/ERS Instance:</emphasis> Protecting the central services, which are critical for system operation.</para></listitem>
+ <listitem><para><emphasis role="bold">Multiple application servers:</emphasis> To distribute the workload and provide scalability.</para></listitem>
+ <listitem><para><emphasis role="bold">Shared storage:</emphasis> For binaries and transport files, accessible across the landscape.</para></listitem>
+</itemizedlist>
+<para><emphasis role="bold">Next steps</emphasis></para>
+ <para>You can now proceed with post-installation tasks, such as:</para>
+ <itemizedlist>
+ <listitem><para><emphasis role="bold">System validation:</emphasis> Performing health checks and verifying the &ha; functionality.</para></listitem>
+ <listitem><para><emphasis role="bold">SAP Configuration:</emphasis> Applying initial SAP basis configurations, such as SAP Transport Management System (STMS) and profile parameter tuning.</para></listitem>
+ <listitem><para><emphasis role="bold">Backup and Recovery:</emphasis> Implementing a robust backup and recovery strategy for the &hana; database and application servers.</para></listitem>
+ <listitem><para><emphasis role="bold">Monitoring:</emphasis> Integrating the new landscape with your existing monitoring solutions.</para></listitem>
+ </itemizedlist>
  </topic>
