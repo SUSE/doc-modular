@@ -15,23 +15,18 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Creating &stonith; resources for a physical device</title>
+    <title>Creating fencing resources for a physical device</title>
     <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
     <abstract>
-      <para>
-        To configure fencing with a physical &stonith; device, you must create &stonith; resources
-        to act as interfaces between the cluster and the fencing device. Starting or stopping a
-        &stonith; resource means loading or unloading the device driver on a node and does not
-        perform any operation on the fencing device itself. However, monitoring a &stonith;
-        resource does mean logging in to the device to verify that it will work when needed.
-      </para>
+      <xi:include href="../snippets/ha-fence-agent.xml"/>
     </abstract>
   </info>
 
   <para>
-    A &stonith; resource cannot fence the node it is currently running on. Therefore, in this
-    procedure you will create multiple &stonith; resources, each targeting a specific node.
-    Each &stonith; resource can run on any node in the cluster except for the node it targets.
+    When a node needs to be fenced, the fencing action is usually performed by a different node
+    in the cluster. Therefore, in this procedure you will create multiple fencing resources, each
+    targeting a specific node. Each fencing resource can run on any node in the cluster except for
+    the node it targets.
   </para>
   <itemizedlist>
     <title>Requirements</title>
@@ -42,7 +37,7 @@
     </listitem>
     <listitem>
       <para>
-        All cluster nodes can access a physical &stonith; device.
+        All cluster nodes can access a physical fencing device.
       </para>
     </listitem>
   </itemizedlist>
@@ -57,7 +52,7 @@
     </step>
     <step>
       <para>
-        Show the list of available &stonith; resource agents:
+        Show the list of available fence agents:
       </para>
   <screen>&prompt.user;<command>sudo crm ra list stonith</command></screen>
     </step>
@@ -80,14 +75,14 @@
     </step>
     <step>
       <para>
-        Create a &stonith; resource for every node in the cluster. Specify your device type, the
+        Create a fencing resource for every node in the cluster. Specify your device type, the
         parameters for that device type, and a monitor operation:
       </para>
 <screen>&prompt.crm.conf;<command>primitive <replaceable>RESOURCE-NAME</replaceable> stonith:fence_<replaceable>AGENT</replaceable> \
   params <replaceable>KEY=VALUE</replaceable> <replaceable>KEY=VALUE</replaceable> <replaceable>KEY=VALUE</replaceable> [...] \
   op monitor interval=<replaceable>INTEGER</replaceable> timeout=<replaceable>INTEGER</replaceable></command></screen>
       <example xml:id="ha-fencing-creating-resources-for-physical-device-primitives">
-        <title>&stonith; resources for two nodes with an &ibm; RSA device</title>
+        <title>Fencing resources for two nodes with an &ibm; RSA device</title>
         <para>
           This example shows a basic resource configuration for an &ibm; RSA lights-out device on
           two nodes, <systemitem>&node1;</systemitem> and <systemitem>&node2;</systemitem>:
@@ -100,8 +95,6 @@
   params pcmk_host_list=&node2; \
   ip=&subnetI;.102 username=root password=secret \
   op monitor interval=30m timeout=120s</command></screen>
-<!--Should this be two different IP addresses or just one? From what I could tell from Googling, an
-IBM RSA device is a separate device in each machine, which I assume means two IPs, but I'm not certain-->
         <calloutlist>
           <callout arearefs="co-ha-fence-node">
             <para>
@@ -112,7 +105,7 @@ IBM RSA device is a separate device in each machine, which I assume means two IP
          </callout>
          <callout arearefs="co-ha-fence-login">
             <para>
-              Provide any details needed to log in to the physical &stonith; device. The required
+              Provide login details for the fencing device. The required
               parameters depend on the specific device.
             </para>
             <para>
@@ -124,7 +117,7 @@ IBM RSA device is a separate device in each machine, which I assume means two IP
           </callout>
           <callout arearefs="co-ha-fence-monitorr">
             <para>
-              Include a monitor operation to check the status of the device. Ideally, &stonith;
+              Include a monitor operation to check the status of the device. Ideally, fencing
               devices are not needed very often and are unlikely to fail during a fencing operation.
               Therefore, a monitoring interval of 30 minutes or more should be sufficient for
               most devices.
@@ -135,28 +128,23 @@ IBM RSA device is a separate device in each machine, which I assume means two IP
     </step>
     <step>
       <para>
-        Add location constraints so that each &stonith; resource <emphasis>cannot</emphasis> run
+        Add location constraints so that each fencing resource <emphasis>cannot</emphasis> run
         on the node it targets:
       </para>
 <screen>&prompt.crm.conf;<command>location <replaceable>CONSTRAINT-NAME</replaceable> <replaceable>RESOURCE-NAME</replaceable> -inf: <replaceable>NODE-NAME</replaceable></command></screen>
       <example xml:id="ha-fencing-creating-resources-for-physical-device-constraints">
         <title>Location constraints for &ibm; RSA resources on two nodes</title>
         <para>
-          This example shows location constraints that prevent one resource from running on
-          node <systemitem>&node1;</systemitem> and the other resource from running on node
-          <systemitem>&node2;</systemitem>:
+          This example shows location constraints for two nodes, <systemitem>&node1;</systemitem> and <systemitem>&node2;</systemitem>:
         </para>
 <screen>&prompt.crm.conf;<command>location loc-rsa-&node1; fence-rsa-&node1; -inf: &node1;</command>
 &prompt.crm.conf;<command>location loc-rsa-&node2; fence-rsa-&node2; -inf: &node2;</command></screen>
         <para>
-          The fencing agent cannot fence its own host. Therefore, the resource
-          <literal>fence-rsa-&node1;</literal> must never run on <systemitem>&node1;</systemitem>,
-          and the resource <literal>fence-rsa-&node2;</literal> must never run on
-          <systemitem>&node2;</systemitem>.
-        </para>
-        <para>
-          In a two-node cluster, this means that <literal>fence-rsa-&node1;</literal> always runs
-          on <systemitem>&node2;</systemitem>. In a cluster with more nodes, this means that
+          The resource
+          <literal>fence-rsa-&node1;</literal> must <emphasis>not</emphasis> run on <systemitem>&node1;</systemitem>,
+          and the resource <literal>fence-rsa-&node2;</literal> must <emphasis>not</emphasis> run on
+          <systemitem>&node2;</systemitem>. In a two-node cluster, this means <literal>fence-rsa-&node1;</literal> always runs
+          on <systemitem>&node2;</systemitem>. In a cluster with more nodes, this means
           <literal>fence-rsa-&node1;</literal> can run on <emphasis>any</emphasis> node except
           <systemitem>&node1;</systemitem>.
         </para>
@@ -164,13 +152,13 @@ IBM RSA device is a separate device in each machine, which I assume means two IP
     </step>
     <step>
       <para>
-        Enable &stonith; for the whole cluster:
+        Enable node fencing for the whole cluster:
       </para>
 <screen>&prompt.crm.conf;<command>property stonith-enabled=true</command></screen>
     </step>
     <step>
       <para>
-        Add a &stonith; timeout to define how long to wait for the fencing action to finish:
+        Add a fencing timeout to define how long to wait for the fencing action to finish:
       </para>
 <screen>&prompt.crm.conf;<command>property stonith-timeout=60</command></screen>
       <para>
@@ -198,15 +186,15 @@ IBM RSA device is a separate device in each machine, which I assume means two IP
     </step>
     <step>
       <para>
-        Check the status of the cluster to make sure the &stonith; resources can start:
+        Check the status of the cluster to make sure the fencing resources can start:
       </para>
 <screen>&prompt.user;<command>sudo crm status</command></screen>
     </step>
   </procedure>
   <para>
-    If the &stonith; resources have the status <literal>Stopped</literal>, the nodes might
-    have failed to connect to the &stonith; device. You can check the connection with the
-    command line tool for your specific fencing agent. For more information, run the
+    If the fencing resources have the status <literal>Stopped</literal>, the nodes might
+    have failed to connect to the fencing device. You can check the connection with the
+    command line tool for your specific fence agent. For more information, run the
     <command>man fence_<replaceable>AGENT</replaceable></command> command.
   </para>
   <example xml:id="ha-fencing-creating-resources-for-physical-device-troubleshooting">
