@@ -18,15 +18,228 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Deploying a sandbox &s4h; 16 system on GCP</title>
+    <title>Deploying a sandbox &s4h; system on GCP</title>
     <!-- can be changed via merge in the assembly -->
     <!--add author's email address-->
     <meta name="maintainer" content="amrita.sakthivel" its:translate="no"/>
     <abstract>
-  <para>The following example deploys a &s4h; sandbox system using two deployment scenarios: on an AWS cloud environment and existing hosts.
+  <para>This is a detailed step-by-step procedure to deploy a non production sandbox &s4h; system on Google Cloud Platform (GCP).
+   The <literal>ansible-sap-playbooks</literal> package is used to automate infrastructure provisioning and SAP software installation, resulting in a compact, single-node environment suitable for development, testing or training.
+  This procedures uses Pay-As-You-Go (PAYG) model for the &suse; operating system, where the subscription cost is included in the AWS instance pricing.
   </para>
     </abstract>
   </info>
-  <para>
-      </para>
-      </topic>
+  <para>This procedure is intended for system administrators, DevOps engineers and SAP Basis consultants who have a working knowledge of AWS, Ansible and &sap; principles.
+  </para>
+  <para>With this procedure, you can:</para>
+<itemizedlist>
+  <listitem><para>Prepare a control node and the GCP cloud environment for automation.</para></listitem>
+  <listitem><para>Configure Ansible variables for the sandbox deployment.</para></listitem>
+  <listitem><para>Execute a single playbook to provision and configure the entire &sap; system.</para></listitem>
+  <listitem><para>Achieve a functional sandbox system ready for post-installation activities.</para></listitem>
+   </itemizedlist>
+
+  <para> The resulting &s4h; system consist of a single server with the following components:</para>
+  <itemizedlist>
+    <listitem><para>One &hana; database.</para></listitem>
+    <listitem><para>One &sap; ABAP SAP Central Services (ASCS).</para></listitem>
+    <listitem><para>One Primary Application Server (PAS)</para></listitem>
+       </itemizedlist>
+  <procedure><title>Deployment on GCP cloud environment</title>
+    <para>Provisioning with Ansible requires a pre-existing environment and a service user with the necessary permissions.</para>
+    <step><para>Prepare your GCP cloud environment with the following:</para>
+      <itemizedlist>
+        <listitem><para>VPC: </para>
+        <itemizedlist>
+         <listitem><para>VPC Subnetwork</para></listitem>
+          </itemizedlist>
+        </listitem>
+        <listitem><para>Compute Firewall</para></listitem>
+        <listitem><para>Compute Firewall</para>
+        <itemizedlist><listitem><para>Cloud NAT (SNAT)</para></listitem></itemizedlist>
+        </listitem>
+        <listitem><para>DNS Managed Zone (Private DNS)</para></listitem>
+        <listitem><para>File store (NFS) or NFS server</para></listitem>
+        <listitem><para>Bastion host (GCP CE VM)</para></listitem>
+   </itemizedlist>
+ <para>For more details on infrastructure prerequisites, refer <link xlink:href="https://github.com/SUSE/community.sap_infrastructure/blob/main/roles/sap_vm_provision/PLATFORM_GUIDANCE.md#infrastructure-prerequisites-for-ansible-provisioning-method"/> </para>
+      </step>
+    <step><para>Create a new IAM role or policy appropriate access as either:</para>
+    <itemizedlist><listitem><para>Restricted access, refer <link xlink:href="https://github.com/SUSE/community.sap_infrastructure/blob/main/roles/sap_vm_provision/PLATFORM_GUIDANCE.md#recommended-infrastructure-platform-authorizations"/></para></listitem>
+       </itemizedlist>
+    <note><para>A bastion host is required when you provision to private cloud from outside. Set the variable <literal>sap_vm_provision_bastion_execution</literal>
+      to <literal>false</literal>, which means your control node has direct access to your cloud account and virtual private cloud (VPC).
+      </para></note>
+    </step>
+    <step><para>Prepare the control node.</para>
+   <substeps>
+    <step>
+   <para>Install the <literal>sles_sap_automation</literal> pattern that contains all recommended packages for automation.</para>
+   <screen>&prompt.sudo; <command>zypper install --type pattern sles_sap_automation</command></screen>
+    </step>
+   <step>
+  <para>Verify that the pattern and all the packages are installed. </para>
+  <screen>&prompt.sudo; <command>zypper info --type pattern sles_sap_automation</command>
+
+    Refreshing service 'SUSE_Linux_Enterprise_Server_for_SAP_Applications_x86_64'.
+    Retrieving repository 'SLE-Product-SLES_SAP-16.0' metadata .........................................................................[done]
+    Building repository 'SLE-Product-SLES_SAP-16.0' cache ..............................................................................[done]
+    Loading repository data...
+    Reading installed packages...
+
+
+    Information for pattern sles_sap_automation:
+    --------------------------------------------
+    Repository      : SLE-Product-SLES_SAP-16.0
+    Name            : sles_sap_automation
+    Version         : 16.0-160000.2.2
+    Arch            : x86_64
+    Vendor          : SUSE LLC &lt;https://www.suse.com/>
+    Installed       : Yes
+    Visible to User : Yes
+    Summary         : automation deployment
+    Description     :
+        ansible playbooks and roles
+    Contents        :
+        S  | Name                         | Type    | Dependency
+        ---+------------------------------+---------+-----------
+        i  | ansible                      | package | Required
+        i  | ansible-linux-system-roles   | package | Required
+        i  | ansible-sap-infrastructure   | package | Required
+        i  | ansible-sap-install          | package | Required
+        i  | ansible-sap-operations       | package | Required
+        i  | ansible-sap-playbooks        | package | Required
+        i+ | patterns-sap-automation      | package | Required
+        i+ | patterns-sap-base_sap_server | package | Required</screen>
+  </step>
+ <step><para>Install the GCP requirements, refer <link xlink:href="https://github.com/SUSE/community.sap_infrastructure/tree/main/roles/sap_vm_provision#amazon-web-services-aws-prerequisites"/>.</para>
+   <screen>&prompt.sudo; <command> ansible-galaxy collection install google.cloud</command></screen>
+   <screen>&prompt.sudo; <command> zypper install python313-google-auth</command></screen>
+   </step>
+ </substeps>
+  </step>
+<step>
+<para>Ansible Playbooks are installed in <literal>/usr/share/ansible/playbooks</literal> .
+ To prevent changes from being overwritten by future package updates, these files should not be modified directly.
+For this procedure:</para>
+ <substeps>
+ <step><para>Use scenario directory <literal>/usr/share/ansible/playbooks/ansible.playbooks_for_sap/deploy_scenarios/sap_bw4hana_sandbox</literal> </para></step>
+ <step><para>Use <literal> /playbooks/S01</literal> as the dedicated directory. For simplicity, all customizations are stored in the <literal>/playbooks</literal>directory.</para></step>
+ <step><para>Define minimal required variables and leave predefined in place for a simplified configuration. </para></step>
+</substeps>
+</step>
+<step>
+  <para>You can encrypt variables for playbooks in different ways to ensure security compliance.</para>
+   <substeps>
+   <step><para>Encrypt all variables for scenario. </para></step>
+   <step><para>Split variables for reusability and encrypt only what is needed. For example:</para>
+  <itemizedlist>
+    <listitem><para>Cloud credentials and information encrypted in Ansible Vault.</para></listitem>
+    <listitem><para>Scenario passwords encrypted in Ansible Vault.</para></listitem>
+    <listitem><para>Scenario non-sensitive variables without using Ansible Vault.</para></listitem>
+  </itemizedlist>
+  <para>In this procedure, we use a simplified variant for encrypting whole files.</para>
+  </step>
+    </substeps>
+  </step>
+<step><para>Copy the variable files from source. Since we are provisioning new servers in GCP, only two variable files are required:</para>
+<itemizedlist><listitem><para><literal>ansible_extravars.yml</literal>contains scenario specific variables.</para></listitem>
+  <listitem><para><literal>ansible_extravars_gcp_ce_vm.yml</literal>contains platform specific variables.</para></listitem>
+</itemizedlist>
+<screen>cp /usr/share/ansible/playbooks/ansible.playbooks_for_sap/deploy_scenarios/sap_bw4hana_sandbox/ansible_extravars.yml /playbooks/B01/
+</screen>
+<screen>cp /usr/share/ansible/playbooks/ansible.playbooks_for_sap/deploy_scenarios/sap_bw4hana_sandbox/ansible_extravars_gcp_ce_vm.yml /playbooks/B01/</screen>
+</step>
+<step><para>Update the variable file <literal>ansible_extravars.yml</literal>.</para>
+<substeps>
+  <step><para>The following variable define the provisioning method.</para>
+ <screen>sap_vm_provision_iac_type: "ansible"</screen>
+ </step>
+<step><para>The following variable selects the desired topology from the <literal>sap_vm_provision_aws_ec2_vs_host_specifications_dictionary</literal>.</para>
+<itemizedlist>
+ <listitem><para>Predefined with minimum recommended instances for hosting a &sap; system.</para></listitem>
+ <listitem><para>Customizable as you can edit existing entry or define a new plan.</para></listitem>
+</itemizedlist>
+  <screen>sap_vm_provision_host_specification_plan: "xsmall_256gb"</screen>
+   </step>
+ <step><para>The value of the variable <literal>sap_software_product</literal> is key predefined in the <literal> sap_software_install_dictionary</literal> dictionary.
+  This dictionary follows same rules as the one above. You can edit an existing entry or create a new one plan.</para>
+<screen>sap_software_product: "sap_s4hana_2023_distributed"</screen>
+<screen> sap_install_media_detect_source_directory: "/software"</screen>
+<important><para>The default execution ignores list of &sap; media files in the <literal>sap_software_install_dictionary</literal> dictionary, because the optional package <literal>ansible-sap-launchpad</literal> is not present.
+  This package is available in Package Hub and it allows you to download SAP Media Software when provided with valid S-User credentials with appropriate download authorization.</para>
+  <para>If this package is not installed, the playbook expects you to have all required files present in the path defined in the <literal>sap_install_media_detect_source_directory</literal> directory.
+  The variables used by <literal>sap_launchpad</literal> role are <literal>sap_id_user</literal> and <literal>sap_id_user_password</literal>.</para></important>
+<para>The password variables are simplified and use the Master password. This procedure does not include plan text passwords, you must
+ define them when updating the variable files.</para>
+<screen>sap_hana_install_use_master_password: "y"  # Use a master password for SAP HANA installation (y/n) (String).</screen>
+<screen>sap_hana_install_use_master_password: "y"  # Use a master password for SAP HANA installation (y/n) (String).</screen>
+<screen>sap_hana_install_use_master_password: "y"  # Use a master password for SAP HANA installation (y/n) (String).</screen>
+<screen>sap_hana_install_use_master_password: "y"  # Use a master password for SAP HANA installation (y/n) (String).</screen>
+</step>
+</step>
+<step><para>Update the variable file <literal> ansible_extravars_gcp_ce_vm.yml</literal>.</para>
+<substeps>
+<step>
+ <para>The variables for connecting through Bastion host.</para>
+ <screen>sap_vm_provision_bastion_user: "ENTER_STRING_VALUE_HERE"  # Bastion user name (String).</screen>
+ <screen>sap_vm_provision_bastion_ssh_port: "ENTER_STRING_VALUE_HERE"  # Bastion user password (String).</screen>
+ <screen>sap_vm_provision_bastion_public_ip: "ENTER_STRING_VALUE_HERE"  # Public IP of the bastion server (String).</screen>
+<screen>sap_vm_provision_ssh_bastion_private_key_file_path: "ENTER_STRING_VALUE_HERE"  # Path to bastion server's SSH private key on the execution node (String).</screen>
+<screen>sap_vm_provision_ssh_host_private_key_file_path: "ENTER_STRING_VALUE_HERE"  # Path to target host's SSH private key on the execution node (String).</screen>
+<screen>sap_vm_provision_ssh_host_public_key_file_path: "ENTER_STRING_VALUE_HERE"  # Path to bastion public host key on execution node (String).</screen>
+<step>
+  <para>The variables for connecting to a cloud environment.</para>
+  <screen>sap_vm_provision_gcp_credentials_json: "ENTER_STRING_VALUE_HERE"  # Path to JSON credentials file (String).</screen>
+  <screen>sap_vm_provision_gcp_project: "ENTER_STRING_VALUE_HERE"  # Project name (String).</screen>
+  <screen>sap_vm_provision_gcp_region_zone: "ENTER_STRING_VALUE_HERE"  # Region zone (String).</screen>
+ <screen>sap_vm_provision_gcp_vpc_name: "ENTER_STRING_VALUE_HERE"  # VPC name (String).</screen>
+ <screen>sap_vm_provision_gcp_vpc_subnet_name: "ENTER_STRING_VALUE_HERE"  # VPC Subnet name (String).</screen>
+ <screen>sap_vm_provision_dns_root_domain: "ENTER_STRING_VALUE_HERE"  # Root domain for DNS entries (e.g., example.com) (String).</screen>
+ </step>
+</substeps>
+</step>
+<step>
+  <para>The variable for selecting what OS image to use for provisioned instances are defined in the <literal>sap_vm_provision_aws_ec2_vs_host_os_image_dictionary </literal>
+  dictionary, which defines the search pattern for images. In this procedure, a PAYG image is used.
+ &sles; 16 images will be updated in the dictionary when cloud images are available.</para>
+  <screen>sap_vm_provision_gcp_ce_vm_host_os_image: "sles-15-6-sap-byos"</screen>
+  <screen>sap_vm_provision_os_online_registration_user: "ENTER_STRING_VALUE_HERE"  # User/Email for SUSEConnect registration (String).</screen>
+  <screen>sap_vm_provision_os_online_registration_passcode:  "ENTER_STRING_VALUE_HERE"  # Registration code for SUSEConnect registration (String).</screen>
+ </step>
+ <step><para>Encrypt files with Ansible Vault. Files can be encrypted either using prompt or with password file.
+  This is easier for larger environments for reusability.</para>
+<para>Encryption with prompt:</para>
+<screen>&prompt.sudo;<command>ansible-vault encrypt ansible_extravars.yml ansible_extravars_gcp_ce_vm.yml</command></screen>
+<para>Encryption with a password file, which requires appropriate permissions and protection for security compliance:</para>
+<screen>&prompt.sudo;<command>ansible-vault encrypt --vault-password-file password.key ansible_extravars.yml ansible_extravars_gcp_ce_vm.yml</command></screen>
+</step>
+<step><para>Use the playbook directly from <literal>/usr/share/ansible/playbooks/ansible.playbooks_for_sap/deploy_scenarios/sap_s4hana_distributed_ha</literal> without editing it.
+If you need to adjust the playbook, we recommend copying it outside of the package directory.
+Execute the Ansible Playbook with Ansible Vault key file.</para>
+
+<screen>&prompt.sudo;<command> ansible-playbook /usr/share/ansible/playbooks/ansible.playbooks_for_sap/deploy_scenarios/sap_bw4hana_sandbox/ansible_playbook.yml \
+	--extra-vars "@./ansible_extravars.yml" \
+	--extra-vars "@./ansible_extravars_gcp_ce_vm.yml" \
+	--vault-password-file password.key</command></screen>
+</step>
+ </procedure>
+ <para><emphasis role="bold">Outcome</emphasis></para>
+ <para>You now have a fully operational fully operational, non-production sandbox &s4hana; system running on a single virtual machine in GCP.</para>
+ <para>Your new environment includes:</para>
+<itemizedlist>
+ <listitem><para><emphasis role="bold" >A Single GCP Compute Engine VM:</emphasis> Hosting all SAP instances.</para></listitem>
+ <listitem><para><emphasis role="bold">&hana; Database:</emphasis>The underlying database for your BW/4HANA system.</para></listitem>
+ <listitem><para><emphasis role="bold">&sap; ASCS and PAS Instances:</emphasis> The central services and primary application server are installed on the same host.</para></listitem>
+ <listitem><para><emphasis role="bold">Shared storage:</emphasis>  An NFS mount is configured for software and transport files.</para></listitem>
+</itemizedlist>
+<para><emphasis role="bold">Next steps</emphasis></para>
+ <para>You can now proceed with post-installation tasks, such as:</para>
+ <itemizedlist>
+ <listitem><para><emphasis role="bold">System Validation:</emphasis> Perform basic health checks to ensure the SAP system is running correctly.</para></listitem>
+ <listitem><para><emphasis role="bold">Development and Prototyping:</emphasis> Begin developing and testing new data models and reports in a safe, isolated environment.</para></listitem>
+ <listitem><para><emphasis role="bold">&sap; Configuration</emphasis> Apply any necessary post-installation configurations or client copies.</para></listitem>
+ <listitem><para><emphasis role="bold">Learning and Exploration:</emphasis> Use the system to explore the features of SAP BW/4HANA.
+ </para></listitem>
+ </itemizedlist>
+ </topic>
