@@ -160,38 +160,50 @@ fence-rsa-alice
     </step>
     <step>
       <para>
-        Configure <systemitem>fence_kdump_send</systemitem> to send a message to all nodes when
-        the <systemitem>kdump</systemitem> process is finished:
+        Configure <systemitem>fence_kdump_send</systemitem> to send a message to all nodes
+        when the <systemitem>kdump</systemitem> process is finished. In the file
+        <filename>/etc/sysconfig/kdump</filename>, edit the <literal>KDUMP_POSTSCRIPT</literal> line:
       </para>
-      <substeps>
-        <step>
+<screen>KDUMP_POSTSCRIPT="/usr/lib/fence_kdump_send -c 5<co xml:id="co-fence-kdump-send-count"/> -i 10<co xml:id="co-fence-kdump-send-interval"/> -p 7410<co xml:id="co-fence-kdump-send-port"/> <replaceable>NODE-LIST</replaceable>"<co xml:id="co-fence-kdump-send-nodes"/></screen>
+      <calloutlist>
+        <callout arearefs="co-fence-kdump-send-count">
           <para>
-            In the <filename>/etc/sysconfig/kdump</filename> file, edit the
-            <literal>KDUMP_POSTSCRIPT</literal> line:
+            Use <literal>--count</literal> (or <literal>-c</literal>) to specify how many messages
+            to send. We recommend sending multiple messages in case the first message fails.
           </para>
-<!-- Do we really need an interval if the message count is only 1? Or should we increase the count?-->
-<screen>KDUMP_POSTSCRIPT="/usr/lib/fence_kdump_send -i 10 -p 7410 -c 1 <replaceable>NODE-LIST</replaceable>"</screen>
-        <para>
-          Replace <replaceable>NODE-LIST</replaceable> with the host names of all the cluster nodes.
-        </para>
-        </step>
-        <step>
+        </callout>
+        <callout arearefs="co-fence-kdump-send-interval">
           <para>
-            Copy the <filename>/etc/sysconfig/kdump</filename> file to the rest of the nodes:
+            Use <literal>--interval</literal> (or <literal>-i</literal>) to specify the interval
+            between messages. The default is <literal>10</literal> seconds.
           </para>
-<screen>&prompt.user;<command>sudo crm cluster copy /etc/sysconfig/kdump</command></screen>
-        </step>
-      </substeps>
+       </callout>
+       <callout arearefs="co-fence-kdump-send-port">
+          <para>
+            Use <literal>--port</literal> (or <literal>-p</literal>) to specify the firewall port
+            for <literal>kdump</literal> messages.
+          </para>
+        </callout>
+        <callout arearefs="co-fence-kdump-send-nodes">
+          <para>
+            Replace <replaceable>NODE-LIST</replaceable> with a space-separated list of all the
+            cluster nodes.
+          </para>
+        </callout>
+      </calloutlist>
     </step>
     <step>
       <para>
-        Restart the <systemitem>kdump</systemitem> service on all nodes:
+        Copy the <systemitem>kdump</systemitem><filename>/etc/sysconfig/kdump</filename> file to
+        the rest of the nodes:
       </para>
-<screen>&prompt.user;<command>sudo crm cluster run "sudo systemctl restart kdump.service"</command></screen>
+<screen>&prompt.user;<command>sudo crm cluster copy /etc/sysconfig/kdump</command></screen>
+    </step>
+    <step>
       <para>
-        This regenerates <filename>initrd</filename> so it includes the library
-        <literal>fence_kdump_send</literal>.
+        Regenerate the <systemitem>kdump</systemitem> <filename>initrd</filename> on all nodes:
       </para>
+<screen>&prompt.user;<command>sudo crm cluster run "sudo mkdumprd"</command></screen>
     </step>
   </procedure>
 </topic>
