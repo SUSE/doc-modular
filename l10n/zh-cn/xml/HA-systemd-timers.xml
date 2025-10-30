@@ -1,0 +1,1688 @@
+<?xml version="1.0"?>
+<article xmlns="http://docbook.org/ns/docbook" version="5.2" xml:id="systemd-timers" xml:lang="zh-cn">
+  <info>
+    <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">使用 <systemitem class="daemon">systemd</systemitem> 计时器</title>
+    <revhistory xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" xml:id="rh-systemd-timers">
+      <revision>
+        <date>2025-11-06</date>
+        <revdescription>
+          <para>
+              初始版本
+            </para>
+        </revdescription>
+      </revision>
+    </revhistory>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/> <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="series" its:translate="no">Products &amp; Solutions</meta> <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="task" its:translate="no">
+      <phrase>Administration</phrase>
+      <phrase>Automation</phrase>
+      <phrase>Configuration</phrase>
+      <phrase>Maintenance</phrase>
+      <phrase>Troubleshooting</phrase>
+    </meta> <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="category" its:translate="no">
+      <phrase>Configuration</phrase>
+    </meta>
+    <dm:docmanager xmlns:dm="urn:x-suse:ns:docmanager" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" its:translate="no">
+      <dm:bugtracker>
+        <dm:url>https://bugzilla.suse.com/enter_bug.cgi</dm:url>
+        <dm:component>Documentation</dm:component>
+        <dm:product os="sleha">SUSE Linux Enterprise Server 16.0</dm:product>
+        <dm:assignee>amrita.sakthivel@suse.com</dm:assignee>
+      </dm:bugtracker>
+      <dm:translation>yes</dm:translation>
+    </dm:docmanager>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="architecture" its:translate="no">
+      <phrase>AMD64/Intel 64</phrase>
+      <phrase>POWER</phrase>
+      <phrase>IBM Z</phrase>
+      <phrase>AArch64</phrase>
+    </meta> <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="productname" its:translate="no">
+      <productname os="sleha" version="16.0">SUSE Linux Enterprise High Availability</productname>
+    </meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="title" its:translate="yes">使用 <systemitem class="daemon">systemd</systemitem> 计时器</meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="social-descr" its:translate="yes">使用 <systemitem class="daemon">systemd</systemitem> 计时器</meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="description" its:translate="yes">如何创建、维护、测试 <systemitem class="daemon">systemd</systemitem> 计时器以及对其进行查错，包括从 cron 迁移</meta>
+    <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+      <variablelist>
+        <varlistentry>
+          <term>内容</term>
+          <listitem>
+            <para>
+                从定期运行备份脚本，到计算机引导后立即启动特定进程，Linux 系统上有大量的任务需要调度。<systemitem class="daemon">systemd</systemitem> 计时器为调度和管理作业及服务提供了灵活的机制。
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>原因</term>
+          <listitem>
+            <para>
+                本文旨在提供 <systemitem class="daemon">systemd</systemitem> 计时器的完整概述，涵盖创建、维护、测试、查错以及从 cron 迁移等方面的信息。
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>工作量</term>
+          <listitem>
+            <para>
+                创建示例 <systemitem class="daemon">systemd</systemitem> 计时器需要 10 分钟。最多花费 30 分钟即可完全了解 <systemitem class="daemon">systemd</systemitem> 计时器的工作原理。
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>要求</term>
+          <listitem>
+            <itemizedlist>
+              <listitem>
+                <para>
+                    基本了解 <systemitem class="daemon">systemd</systemitem>。
+                  </para>
+              </listitem>
+              <listitem>
+                <para><systemitem class="username">root</systemitem> 或 sudo 特权。要以普通用户的身份使用 <systemitem class="daemon">systemd</systemitem> 计时器，请先参见<xref linkend="systemd-timer-user"/>。
+                  </para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </abstract>
+  </info>
+  <section role="concept" xml:lang="zh-cn" version="5.2" xml:id="systemd-timer-concept">
+    <info>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion"><systemitem class="daemon">systemd</systemitem> 计时器概念</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para><systemitem class="daemon">systemd</systemitem> 计时器单元提供了用于在 Linux 上调度作业的机制。这些作业的执行时间可以基于时间和日期或基于事件。
+      </para>
+      </abstract>
+    </info>
+    <para><systemitem class="daemon">systemd</systemitem> 计时器单元通过 <filename class="extension">.timer</filename> 文件扩展名标识。每个计时器文件都需要一个由它控制的相应服务文件。也就是说，计时器文件将激活并管理相应的服务文件。<systemitem class="daemon">systemd</systemitem> 计时器支持以下功能：
+  </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+        使用计时器单元安排的作业可以依赖其他 <systemitem class="daemon">systemd</systemitem> 服务。计时器单元被视为常规 <systemitem class="daemon">systemd</systemitem> 服务，因此可以使用 <command>systemctl</command> 进行管理。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        计时器可以是实时的（基于日历事件触发），也可以是单调性的（自特定起始时刻经过指定的时间后触发）。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        时间单元将记录到系统日志中，这样用户便能更轻松地对时间单元进行监视和查错。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        计时器使用集中式 <systemitem class="daemon">systemd</systemitem> 管理服务。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        如果系统在预期执行期间关闭，则一旦系统再次运行，就会执行计时器。
+      </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section role="task" xml:lang="zh-cn" version="5.2" xml:id="systemd-create-timer">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">创建计时器</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+        以下示例说明如何设置下面这样的计时器：在引导后触发 <literal>helloworld.sh</literal> 外壳脚本，并相对于其激活时间每隔 24 小时重复执行一次。此外，计时器会在星期一至星期五上午 10 点运行。
+      </para>
+      </abstract>
+    </info>
+    <section>
+      <title><emphasis>Hello World</emphasis> 示例</title>
+      <procedure>
+        <step>
+          <para>
+          创建包含以下内容的可执行文件 <filename>/usr/local/bin/helloworld.sh</filename>：
+        </para>
+          <screen>#!/bin/sh
+  # This is bash program to display Hello World
+  echo " Hello World "
+</screen>
+          <para>
+          这是一个可执行的 <literal>.sh</literal> 文件，其中包含您希望 <systemitem class="daemon">systemd</systemitem> 运行和管理的命令。
+        </para>
+        </step>
+        <step>
+          <para>
+          创建包含以下内容的 <filename>/etc/systemd/system/helloworld.service</filename> 文件：
+        </para>
+          <screen>[Unit]
+Description="Hello World script"
+
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh
+</screen>
+          <para>
+          这是一个 <systemitem class="daemon">systemd</systemitem> 服务文件，告知 <systemitem class="daemon">systemd</systemitem> 要运行哪个应用程序。
+        </para>
+        </step>
+        <step>
+          <para>
+          创建包含以下内容的 <filename>/etc/systemd/system/helloworld.timer</filename> 文件：
+        </para>
+          <screen>[Unit]
+Description="Run helloworld.service 5min after boot and every 24 hours relative to activation time"
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=24h
+OnCalendar=Mon..Fri *-*-* 10:00
+Unit=helloworld.service
+
+[Install]
+WantedBy=multi-user.target
+</screen>
+          <para>
+          这是计时器文件，用于控制相应服务文件的激活。
+        </para>
+        </step>
+        <step>
+          <para>
+          校验您先前创建的文件是否不含错误：
+        </para>
+          <screen><prompt>&gt; </prompt>systemd-analyze verify /etc/systemd/system/helloworld.*</screen>
+          <para>
+          如果命令未返回任何输出，则表示文件成功通过了校验。
+        </para>
+        </step>
+        <step>
+          <para>
+          启动计时器：
+        </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl start helloworld.timer</screen>
+          <para>
+          仅针对当前会话激活计时器。
+        </para>
+        </step>
+        <step>
+          <para>
+          启用计时器以确保在引导时将其激活：
+        </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl enable helloworld.timer</screen>
+        </step>
+      </procedure>
+    </section>
+    <section>
+      <title>示例解释</title>
+      <example xml:id="systemd-timer-example-service">
+        <title>服务文件</title>
+        <screen>[Unit]
+Description="Hello World script"<co xml:id="systemd-timer-example-service-descr"/>
+
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh<co xml:id="systemd-timer-example-service-exec"/></screen>
+        <calloutlist>
+          <callout arearefs="systemd-timer-example-service-descr">
+            <para>
+            解释服务文件用途的简短说明。
+          </para>
+          </callout>
+          <callout arearefs="systemd-timer-example-service-exec">
+            <para>
+            要执行的应用程序。
+          </para>
+          </callout>
+        </calloutlist>
+        <para>
+        <literal>[Unit]</literal> 和 <literal>[Service]</literal> 部分是服务文件能够正常运行所需的最基础部分。<systemitem class="daemon">systemd</systemitem> 服务文件通常还包含 <literal>[Install]</literal> 部分，该部分用于指定服务加载时对应的一个或多个目标。计时器的服务文件中不需要此部分，因为此信息已在计时器文件中提供。有关高级配置，请参见<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/reference-managing-systemd-targets-systemctl/reference-systemctl-managing-targets.html">如何使用 systemctl 管理 <systemitem class="daemon">systemd</systemitem> 目标的文章</link>。
+      </para>
+      </example>
+      <example xml:id="systemd-timer-example-timer">
+        <title>计时器文件</title>
+        <screen>[Unit]
+Description="Run helloworld.service 5min after boot and every 24 hours relative to activation time"<co xml:id="systemd-timer-example-timer-descr"/>
+
+[Timer]
+OnBootSec=5min<co xml:id="systemd-timer-example-timer-onboot"/>
+OnUnitActiveSec=24h<co xml:id="systemd-timer-example-timer-onunit"/>
+OnCalendar=Mon..Fri *-*-* 10:00<co xml:id="systemd-timer-example-timer-oncal"/>
+Unit=helloworld.service<co xml:id="systemd-timer-example-timer-unit"/>
+
+[Install]
+WantedBy=multi-user.target<co xml:id="systemd-timer-example-timer-wanted"/></screen>
+        <calloutlist>
+          <callout arearefs="systemd-timer-example-timer-descr">
+            <para>
+            解释计时器文件用途的简短说明。
+          </para>
+          </callout>
+          <callout arearefs="systemd-timer-example-timer-onboot">
+            <para>
+            指定一个用于在系统引导 5 分钟后触发服务的计时器。有关详细信息，请参见<xref linkend="systemd-timer-types-monotonic"/>。
+          </para>
+          </callout>
+          <callout arearefs="systemd-timer-example-timer-onunit">
+            <para>
+            指定一个用于在激活服务 24 小时后触发服务（即每天触发一次）的计时器。有关详细信息，请参见<xref linkend="systemd-timer-types-realtime"/>。
+          </para>
+          </callout>
+          <callout arearefs="systemd-timer-example-timer-oncal">
+            <para>
+            指定一个在固定时间点（在本示例中为星期一至星期五上午 10 点）触发服务的计时器。有关详细信息，请参见<xref linkend="systemd-timer-types-realtime"/>。
+          </para>
+          </callout>
+          <callout arearefs="systemd-timer-example-timer-unit">
+            <para>
+            要执行的服务文件。
+          </para>
+          </callout>
+          <callout arearefs="systemd-timer-example-timer-wanted">
+            <para>
+            要在其中激活计时器的 <systemitem class="daemon">systemd</systemitem> 目标。有关 <systemitem class="daemon">systemd</systemitem> 目标的详细信息，请参见<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/reference-managing-systemd-targets-systemctl/reference-systemctl-managing-targets.html">如何使用 systemctl 管理 <systemitem class="daemon">systemd</systemitem> 目标的文章</link>。
+          </para>
+          </callout>
+        </calloutlist>
+      </example>
+    </section>
+  </section>
+  <section role="reference" xml:lang="zh-cn" version="5.2" xml:id="systemd-timer-manage">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">管理计时器</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+        可以使用 <command>systemctl</command> 命令管理计时器。
+      </para>
+      </abstract>
+    </info>
+    <variablelist>
+      <varlistentry>
+        <term>启动和停止计时器</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl start <replaceable>TIMER</replaceable>.timer
+<prompt>&gt; </prompt><command>sudo</command> systemctl restart <replaceable>TIMER</replaceable>.timer
+<prompt>&gt; </prompt><command>sudo</command> systemctl stop <replaceable>TIMER</replaceable>.timer</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>启用和禁用计时器</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl enable <replaceable>TIMER</replaceable>.timer
+<prompt>&gt; </prompt><command>sudo</command> systemctl disable <replaceable>TIMER</replaceable>.timer</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>显示计时器文件内容</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl cat <replaceable>TIMER</replaceable>.timer</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>检查特定的计时器</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl status <replaceable>TIMER</replaceable>.timer</screen>
+          <example>
+            <title>计时器状态</title>
+            <screen><prompt>&gt; </prompt><command>sudo</command> systemctl status helloworld.timer
+● helloworld.timer - "Run helloworld.service 5min after boot and every 24 hours
+relative to activation time"<co xml:id="systemd-timer-status-1"/>
+Loaded: loaded (/etc/systemd/system/helloworld.timer; disabled; vendor preset: disabled)<co xml:id="systemd-timer-status-2"/>
+Active: active (waiting) since Tue 2022-10-26 18:35:41 CEST; 6s ago<co xml:id="systemd-timer-status-3"/>
+Trigger: Wed 2022-10-27 18:35:41 CEST; 23h left<co xml:id="systemd-timer-status-4"/>
+Triggers: ● helloworld.service<co xml:id="systemd-timer-status-5"/><co xml:id="systemd-timer-status-6"/>
+Oct 26 18:35:41 neo systemd[1]: Started "Run helloworld.service 5min after boot and every 24 hours relative to activation time".<co xml:id="systemd-timer-status-7"/></screen>
+            <calloutlist>
+              <callout arearefs="systemd-timer-status-1">
+                <para>
+                计时器的文件名和说明。
+              </para>
+              </callout>
+              <callout arearefs="systemd-timer-status-2">
+                <para>
+                列出计时器是否已成功分析并保留在内存中（已加载），显示计时器文件的完整路径，以及计时器在系统引导时会启动（已启用）还是不会启动（已禁用）。第一个值显示当前系统配置，第二个值显示供应商预设的值。
+              </para>
+              </callout>
+              <callout arearefs="systemd-timer-status-3">
+                <para>
+                指示计时器是处于活动状态（正在等待触发事件）还是非活动状态。如果处于活动状态，它还会显示自上次激活以来经过的时间（在本示例中为 6 秒）。
+              </para>
+              </callout>
+              <callout arearefs="systemd-timer-status-4">
+                <para>
+                下次触发计时器的日期和时间。
+              </para>
+              </callout>
+              <callout arearefs="systemd-timer-status-5">
+                <para>
+                计时器触发的服务文件的名称。
+              </para>
+              </callout>
+              <callout arearefs="systemd-timer-status-6">
+                <para>
+                指向文档（例如手册页）的可选行。如果不可用，则显示空行（如本示例中所示）。
+              </para>
+              </callout>
+              <callout arearefs="systemd-timer-status-7">
+                <para>
+                计时器创建的最新日记项。
+              </para>
+              </callout>
+            </calloutlist>
+          </example>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <para>
+    要列出系统上所有可用的计时器，请使用 <command>systemctl list-timers</command>。下列选项可用：
+  </para>
+    <variablelist>
+      <varlistentry>
+        <term>列出所有活动计时器：</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>列出所有计时器，包括非活动的计时器：</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers --all</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>列出与模式匹配的所有计时器：</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers <replaceable>PATTERN</replaceable><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers --all <replaceable>PATTERN</replaceable></screen>
+          <para><replaceable>PATTERN</replaceable> 必须是一个名称或外壳通配表达式。可以使用运算符 <literal>*</literal>、<literal>?</literal> 和 <literal>[]</literal>。有关通配模式的详细信息，请参见 <command>man 7 glob</command>。
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>列出与特定状态匹配的计时器：</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers --state=<replaceable>STATE</replaceable></screen>
+          <para><replaceable>STATE</replaceable> 接受以下值：<literal>active</literal>、<literal>failed</literal>、<literal>load</literal>、<literal>sub</literal>。有关详细信息，请参见 <command>man systemctl</command>。
+        </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <example>
+      <title>列出计时器</title>
+      <para>
+      运行任何 <command>systemctl list-timers</command> 都会生成如下所示的表。此示例列出了与模式 <literal>snapper*</literal> 匹配的所有活动计时器：
+    </para>
+      <screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers snapper*
+NEXT<co xml:id="systemd-timer-list-next"/>                       LEFT<co xml:id="systemd-timer-list-left"/>      LAST<co xml:id="systemd-timer-list-last"/>                        PASSED<co xml:id="systemd-timer-list-passed"/>   UNIT<co xml:id="systemd-timer-list-unit"/>                  ACTIVATES<co xml:id="systemd-timer-list-activates"/>
+
+-----------------------------------------------------------------------------------------------------------------------------
+Tue 2022-10-26 19:00:00 CEST 39min left Tue 2022-10-26 18:00:29 CEST 19min ago snapper-timeline.timer snapper-timeline.service
+Wed 2022-10-27 08:33:04 CEST 14h   left Tue 2022-10-26 08:33:04 CEST 9h ago    snapper-cleanup.timer  snapper-cleanup.service</screen>
+      <calloutlist>
+        <callout arearefs="systemd-timer-list-next">
+          <para>
+          下次运行计时器的时间点。
+        </para>
+        </callout>
+        <callout arearefs="systemd-timer-list-left">
+          <para>
+          距离下次运行计时器的剩余时间。
+        </para>
+        </callout>
+        <callout arearefs="systemd-timer-list-last">
+          <para>
+          上次运行计时器的时间点。
+        </para>
+        </callout>
+        <callout arearefs="systemd-timer-list-passed">
+          <para>
+          自上次运行计时器以来经过的时间。
+        </para>
+        </callout>
+        <callout arearefs="systemd-timer-list-unit">
+          <para>
+          计时器单元的名称。
+        </para>
+        </callout>
+        <callout arearefs="systemd-timer-list-activates">
+          <para>
+          计时器激活的服务的名称。
+        </para>
+        </callout>
+      </calloutlist>
+    </example>
+  </section>
+  <section role="reference" xml:lang="zh-cn" version="5.2" xml:id="systemd-timer-types">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">计时器类型</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para><systemitem class="daemon">systemd</systemitem> 支持两种类型的计时器：实时（基于日历）和单调（基于事件）计时器。尽管计时器通常是永久性的，但 <systemitem class="daemon">systemd</systemitem> 还允许设置仅对当前会话有效的瞬态计时器。
+      </para>
+      </abstract>
+    </info>
+    <variablelist>
+      <varlistentry xml:id="systemd-timer-types-realtime">
+        <term>实时计时器</term>
+        <listitem>
+          <para>
+          实时计时器由日历事件触发。它们是使用选项 <literal>OnCalendar</literal> 定义的。
+        </para>
+          <para>
+          您可以基于日期和时间指定何时触发事件。使用以下模板：
+        </para>
+          <screen>OnCalendar=DayOfWeek<co xml:id="systemd-timer-real-dayofweek"/> Year-Month-Day<co xml:id="systemd-timer-real-date"/> Hour:Minute:Second<co xml:id="systemd-timer-real-time"/></screen>
+          <calloutlist>
+            <callout arearefs="systemd-timer-real-dayofweek">
+              <para>
+              星期日期。可能的值为 <literal>Sun</literal>、<literal>Mon</literal>、<literal>Tue</literal>、<literal>Wed</literal>、<literal>Thu</literal>、<literal>Fri</literal>、<literal>Sat</literal>。留空会忽略星期日期。
+            </para>
+            </callout>
+            <callout arearefs="systemd-timer-real-date">
+              <para>
+              日期。用两位数指定月和日，用四位数指定年。可以用通配符 <literal>*</literal> 替换每个值，以匹配每个出现的值。
+            </para>
+            </callout>
+            <callout arearefs="systemd-timer-real-time">
+              <para>
+              时间。用两位数指定每个值。可以用通配符 <literal>*</literal> 替换每个值，以匹配每个出现的值。
+            </para>
+            </callout>
+          </calloutlist>
+          <para>
+          应用于所有值：用两个点定义连续范围 (<literal>Mon..Fri</literal>)。用逗号分隔各个不同值的列表 (<literal>Mon,Wed,Fri</literal>)。
+        </para>
+          <example>
+            <title>实时计时器示例</title>
+            <itemizedlist>
+              <listitem>
+                <para>
+                每个星期五的下午 6 点：
+              </para>
+                <screen>OnCalendar=Fri *-*-* 18:00:00</screen>
+              </listitem>
+              <listitem>
+                <para>
+                每天上午 5 点：
+              </para>
+                <screen>OnCalendar=Mon..Sun *-*-* 5:00:00</screen>
+              </listitem>
+              <listitem>
+                <para>
+                星期日和星期二凌晨 1 点和 3 点：
+              </para>
+                <screen>OnCalendar=Tue,Sun *-*-* 01,03:00:00</screen>
+              </listitem>
+              <listitem>
+                <para>
+                单个日期：
+              </para>
+                <screen>OnCalendar=Mo..Sun 2023-09-23 00:00:01</screen>
+              </listitem>
+              <listitem>
+                <para>
+                要指定不同时间的触发器，可以在单个计时器文件中创建多个 OnCalendar 项：
+              </para>
+                <screen>OnCalendar=Mon..Fri *-*-* 10:00
+OnCalendar=Sat,Sun *-*-* 22:00</screen>
+              </listitem>
+            </itemizedlist>
+          </example>
+          <para>
+          有关可用功能和选项的完整列表，请参见 <command>man 7
+          systemd.time</command>，其中提供了有关以下主题的其他信息：
+        </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+              缩短语法并使用缩写
+            </para>
+            </listitem>
+            <listitem>
+              <para>
+              指定重复次数
+            </para>
+            </listitem>
+            <listitem>
+              <para>
+              查找一个月中的特定日期（如月末最后一天、当月最后一个周日等）
+            </para>
+            </listitem>
+            <listitem>
+              <para>
+              应用时区
+            </para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+      <varlistentry xml:id="systemd-timer-types-monotonic">
+        <term>单调计时器</term>
+        <listitem>
+          <para>
+          单调计时器在发生特定事件（例如系统引导或系统单元激活事件）后经过指定的时间时触发。值按时间单位（分钟、小时、日、月、年等）定义。支持以下单位：<literal>usec</literal>、<literal>msec</literal>、<literal>seconds</literal>、<literal>minutes</literal>、<literal>hours</literal>、<literal>days</literal>、<literal>weeks</literal>、<literal>months</literal>、<literal>years</literal>。可以使用多个选项来定义单调计时器：
+        </para>
+          <itemizedlist>
+            <listitem>
+              <para><literal>OnActiveSec</literal>：激活单元后经过的时间
+            </para>
+              <screen>OnActiveSec=50minutes</screen>
+            </listitem>
+            <listitem>
+              <para><literal>OnBootSec</literal>：系统引导后经过的时间
+            </para>
+              <screen>OnBootSec=10hours</screen>
+            </listitem>
+            <listitem>
+              <para><literal>OnStartupSec</literal>：启动服务管理器后经过的时间。对于系统服务，此选项大致相当于 <literal>OnActiveSec</literal>。请将此选项用于相应服务管理器会在用户登录时启动的用户服务。
+            </para>
+              <screen>OnStartupSec=5minutes 20seconds</screen>
+            </listitem>
+            <listitem>
+              <para><literal>OnUnitActiveSec</literal>：上次激活相应服务后经过的时间
+            </para>
+              <screen>OnUnitActiveSec=10seconds</screen>
+            </listitem>
+            <listitem>
+              <para><literal>OnUnitInactiveSec</literal>：上次停用相应服务后经过的时间
+            </para>
+              <screen>OnUnitInactiveSec=2hours 15minutes 18 seconds</screen>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>瞬态计时器</term>
+        <listitem>
+          <para>
+          瞬态计时器是仅对当前会话有效的临时计时器。借助这些计时器，可以使用现有的服务文件或直接启动程序。可以运行 <command>systemd-run</command> 来调用瞬态计时器。
+        </para>
+          <para>
+          以下示例每隔两小时运行一次 <filename>helloworld.service</filename> 单元：
+        </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemd-run --on-active="2hours" --unit="helloworld.service"</screen>
+          <para>
+          要直接运行某个命令，请使用以下语法。此示例直接调用脚本 <filename>/usr/local/bin/helloworld.sh</filename>：
+        </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemd-run --on-active="2hours" /usr/local/bin/helloworld.sh</screen>
+          <para>
+          如果命令接受参数，请用空格分隔添加的参数：
+        </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemd-run --on-active="2hours" /usr/local/bin/helloworld.sh --language=pt_BR</screen>
+          <para>
+          瞬态计时器可以是单调的，也可以是实时的。支持以下开关，其工作方式如<xref linkend="systemd-timer-types-monotonic" xrefstyle="select:title"/>中所述：
+        </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <option>--on-active</option>
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <option>--on-startup</option>
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <option>--on-unit-active</option>
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <option>--on-unit-inactive</option>
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <option>--on-calendar</option>
+              </para>
+            </listitem>
+          </itemizedlist>
+          <para>
+          有关详细信息，请参见 <command>man 1 systemd-run</command>。
+        </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section role="task" xml:lang="zh-cn" version="5.2" xml:id="systemd-timer-test">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">测试日历项</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para><systemitem class="daemon">systemd</systemitem> 提供了用于为实时计时器测试和创建日历计时器项的工具，即 <command>systemd-analyze calendar</command>。此工具接受的参数与用于设置实时计时器的 <literal>OnCalendar</literal> 项相同。
+      </para>
+      </abstract>
+    </info>
+    <para>
+    您可以串联多个参数（用空格分隔）。如果要测试的字词正确，则输出会显示下次触发计时器的时间（以本地时间和 UTC 表示）。其中还会显示<literal>Normalized form</literal>的字符串，建议在计时器文件中使用该字符串。考虑下列示例：
+  </para>
+    <screen><prompt>&gt; </prompt>systemd-analyze calendar "Tue,Sun *-*-* 01,03:00:00"
+Normalized form: Tue,Sun *-*-* 01,03:00:00
+Next elapse: Sun 2021-10-31 01:00:00 CEST
+(in UTC): Sat 2021-10-30 23:00:00 UTC
+From now: 3 days left
+
+<prompt>&gt; </prompt>systemd-analyze calendar "Mon..Fri *-*-* 10:00" "Sat,Sun *-*-* 22:00"
+Original form: Mon..Fri *-*-* 10:00
+Normalized form: Mon..Fri *-*-* 10:00:00
+Next elapse: Thu 2021-10-28 10:00:00 CEST
+(in UTC): Thu 2021-10-28 08:00:00 UTC
+From now: 19h left
+
+Original form: Sat,Sun *-*-* 22:00
+Normalized form: Sat,Sun *-*-* 22:00:00
+Next elapse: Sat 2021-10-30 22:00:00 CEST
+(in UTC): Sat 2021-10-30 20:00:00 UTC
+From now: 3 days left</screen>
+    <para>
+    对于重复性计时器，请使用 <option>–iterations <replaceable>N</replaceable></option> 开关列出触发时间，然后测试计时器是否按预期工作。参数 <replaceable>N</replaceable> 指定您要测试的迭代次数。以下示例字符串在星期日每隔 8 小时（从 00:00:00 开始）触发一次计时器：
+  </para>
+    <screen><prompt>&gt; </prompt>systemd-analyze calendar --iterations 5 "Sun *-*-* 0/08:00:00"
+Original form: Sun *-*-* 0/08:00:00
+Normalized form: Sun *-*-* 00/8:00:00
+Next elapse: Sun 2021-10-31 00:00:00 CEST
+(in UTC): Sat 2021-10-30 22:00:00 UTC
+From now: 3 days left
+Iter. #2: Sun 2021-10-31 08:00:00 CET
+(in UTC): Sun 2021-10-31 07:00:00 UTC
+From now: 3 days left
+Iter. #3: Sun 2021-10-31 16:00:00 CET
+(in UTC): Sun 2021-10-31 15:00:00 UTC
+From now: 4 days left
+Iter. #4: Sun 2021-11-07 00:00:00 CET
+(in UTC): Sat 2021-11-06 23:00:00 UTC
+From now: 1 week 3 days left
+Iter. #5: Sun 2021-11-07 08:00:00 CET
+(in UTC): Sun 2021-11-07 07:00:00 UTC
+From now: 1 week 3 days left</screen>
+  </section>
+  <section role="task" xml:lang="zh-cn" version="5.2" xml:id="systemd-mailto">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">当计时器失败时接收电子邮件通知</title>
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <para><systemitem class="daemon">systemd</systemitem> 未提供与 cron 的 MAILTO 类似的功能。以下过程介绍了当计时器失败时启用电子邮件通知的解决方法。
+          </para>
+        <para>
+            该过程包括以下步骤：
+          </para>
+        <orderedlist>
+          <listitem>
+            <para>
+                创建一个用于发送电子邮件的脚本。
+              </para>
+          </listitem>
+          <listitem>
+            <para>
+                创建运行电子邮件脚本的 <systemitem class="daemon">systemd</systemitem> 服务文件。
+              </para>
+          </listitem>
+          <listitem>
+            <para>
+                测试电子邮件服务文件。
+              </para>
+          </listitem>
+          <listitem>
+            <para>
+                在计时器控制的服务中，通过 <literal>OnFailure</literal> 调用创建的电子邮件服务文件。
+              </para>
+          </listitem>
+        </orderedlist>
+      </abstract>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+    </info>
+    <procedure>
+      <para>
+      以下示例将使用软件包 <package>mailx</package> 中的 <command>mailx</command> 命令。这需要安装并正确配置 Postfix 电子邮件服务器。
+    </para>
+      <step>
+        <para>
+        创建脚本 <filename class="directory">/usr/local/bin/send_systemd_email</filename>。
+      </para>
+        <substeps>
+          <step>
+            <para>
+            该脚本需要两个参数：<literal>$1</literal>（电子邮件地址）和 <literal>$2</literal>（用于接收失败通知的服务文件的名称）。这两个参数均由运行邮件脚本的单元文件提供。
+          </para>
+            <screen>#!/bin/sh
+systemctl status --full "$2" | mailx -S sendwait\
+ -s "Service failure for $2" -r root@$HOSTNAME $1
+</screen>
+          </step>
+          <step>
+            <para>
+            确保该脚本可执行：
+          </para>
+            <screen><prompt>&gt; </prompt><command>sudo</command> chmod 755 /usr/local/bin/send_systemd_email</screen>
+          </step>
+        </substeps>
+      </step>
+      <step>
+        <para>
+        创建文件 <filename>/etc/systemd/system/send_email_to_<replaceable>USER</replaceable>@.service</filename>。
+      </para>
+        <screen>[Unit]
+Description=Send systemd status information by email for %i to <replaceable>USER</replaceable>
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/send_systemd_email <replaceable>EMAIL_ADDRESS</replaceable> %i
+User=root
+Group=systemd-journal
+</screen>
+        <para>
+        将文件中的 <replaceable>USER</replaceable> 和 <replaceable>EMAIL_ADDRESS</replaceable> 分别替换为要接收电子邮件的用户的登录名和电子邮件地址。<literal>%i</literal> 是失败的服务名称（通过 <literal>%n</literal> 参数传递给电子邮件服务)。
+      </para>
+      </step>
+      <step>
+        <para>
+        校验服务文件并修复报告的问题：
+      </para>
+        <screen><prompt>&gt; </prompt>systemd-analyze verify /etc/systemd/system/send_email_to_<replaceable>USER</replaceable>@.service</screen>
+        <para>
+        如果命令未返回任何输出，则表示文件成功通过了校验。
+      </para>
+      </step>
+      <step>
+        <para>
+        要校验整个过程，请使用 <literal>dbus</literal> 实例启动服务进行测试。（您可以使用当前正在运行的任何其他服务。本示例使用 dbus，是因为该服务在所有安装环境中都能确保运行。）
+      </para>
+        <screen><prompt>&gt; </prompt><command>sudo</command> systemctl start send_email_to_<replaceable>USER</replaceable>@dbus.service</screen>
+        <para>
+        如果成功，<replaceable>EMAIL_ADDRESS</replaceable> 会收到一封电子邮件，其主题为 <literal>Service failure for dbus</literal>，正文包含 dbus 状态消息。（这只是一项测试，dbus 服务本身并未出现问题。您可以放心删除该电子邮件，无需执行任何操作）。
+      </para>
+        <para>
+        如果测试电子邮件已成功发送，请将其集成到您的服务文件中。
+      </para>
+      </step>
+      <step>
+        <para>
+        要向服务添加电子邮件通知，请将 <literal>OnFailure</literal> 选项添加到在发生失败时用于接收通知的服务文件的 <literal>Unit</literal> 部分：
+      </para>
+        <screen>[Unit]
+Description="Hello World script"
+OnFailure<co xml:id="systemd-mailto-onfailure"/>=send_email_to_<replaceable>USER</replaceable><co xml:id="systemd-mailto-user"/>@%n<co xml:id="systemd-mailto-name"/>.service
+
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh
+</screen>
+        <calloutlist>
+          <callout arearefs="systemd-mailto-onfailure">
+            <para>
+            <literal>OnFailure</literal> 选项接受将某个服务作为参数。
+          </para>
+          </callout>
+          <callout arearefs="systemd-mailto-user">
+            <para>
+            将此服务单元文件名部分替换为登录名。
+          </para>
+          </callout>
+          <callout arearefs="systemd-mailto-name">
+            <para>
+            指定服务的名称（在本示例中为 <literal>helloworld</literal>）。此名称在电子邮件服务文件中以 %i 形式提供。
+          </para>
+          </callout>
+        </calloutlist>
+      </step>
+      <result>
+        <para>
+        您已成功为 <systemitem class="daemon">systemd</systemitem> 服务设置失败通知。
+      </para>
+      </result>
+    </procedure>
+    <tip>
+      <title>向多个用户发送电子邮件通知</title>
+      <para>
+      电子邮件服务文件已将收件人的电子邮件地址硬编码。要向其他用户发送通知电子邮件，请复制电子邮件服务文件，并替换文件名中的用户登录名，以及抄送行中的电子邮件地址。
+    </para>
+      <para>
+      要同时向多个收件人发送失败通知，请将相应的服务文件添加到该服务文件（使用空格作为分隔符）：
+    </para>
+      <screen>OnFailure=send_email_to_tux@%n.service send_email_to_wilber@%n.service</screen>
+    </tip>
+  </section>
+  <section role="task" xml:lang="zh-cn" version="5.2" xml:id="systemd-timer-user">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">以普通用户身份使用计时器</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>普通用户也可以使用 <systemitem class="daemon">systemd</systemitem> 计时器。这些计时器可帮助您自动完成重复性任务，例如备份、处理图像或将数据移到云中。
+      </para>
+      </abstract>
+    </info>
+    <para>
+    适用于系统范围计时器的过程和任务同样适用于 systemd 计时器。但是，两者存在以下差异：
+  </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+        计时器和服务文件必须放在 <filename>~/.config/systemd/user/</filename> 中。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        必须结合 <option>--user</option> 开关运行所有 <command>systemctl</command> 和 <command>journalctl</command> 命令。<command>systemd-analyze</command> <emphasis>不</emphasis>需要此选项。
+      </para>
+        <para>
+        作为普通用户，您必须提供单元文件的路径，如以下示例中所示。否则，如果存在同名的系统范围计时器，则会执行或列出该系统范围计时器。
+      </para>
+        <screen><prompt>&gt; </prompt>systemctl --user start ~/.config/systemd/user/helloworld.timer
+<prompt>&gt; </prompt>systemctl --user enable ~/.config/systemd/user/helloworld.timer
+<prompt>&gt; </prompt>systemctl --user list-timers
+<prompt>&gt; </prompt>journalctl --user -u helloworld.*
+<prompt>&gt; </prompt>systemd-analyze verify ~/.config/systemd/user/helloworld.timer</screen>
+      </listitem>
+    </itemizedlist>
+    <important>
+      <title>用户计时器仅在活动会话期间运行</title>
+      <para>
+      与以普通用户身份启动的其他 <systemitem class="daemon">systemd</systemitem> 服务一样，用户计时器仅在用户登录后才运行。若要让用户计时器在系统引导时启动，且在用户注销后仍保持运行状态，需要为每个相关用户启用<emphasis>用户驻留</emphasis>模式：
+    </para>
+      <screen>sudo loginctl enable-linger <replaceable>USER</replaceable></screen>
+      <para>
+      有关详细信息，请参见 <command>man 1 loginctl</command>。
+    </para>
+    </important>
+    <important>
+      <title>不继承环境变量</title>
+      <para>
+      <systemitem class="daemon">systemd</systemitem> 用户实例不会继承 <filename>~/.profile</filename> 或 <filename>~/.bashrc</filename> 等脚本设置的环境变量。要检查 <systemitem class="daemon">systemd</systemitem> 环境，请运行 <command>systemctl --user show-environment</command>。
+    </para>
+      <para>
+      要导入 <systemitem class="daemon">systemd</systemitem> 环境中缺少的任何变量，请在 <filename>~/.bashrc</filename> 末尾指定以下命令：
+    </para>
+      <screen>systemctl --user import-environment <replaceable>VARIABLE1</replaceable> <replaceable>VARIABLE2</replaceable></screen>
+    </important>
+  </section>
+  <section role="task" xml:lang="zh-cn" version="5.2" xml:id="systemd-timer-catchup">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">从 cron 迁移到 <systemitem class="daemon">systemd</systemitem> 计时器</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+        所有 cron 作业都可以迁移到 <systemitem class="daemon">systemd</systemitem> 计时器。下面提供了说明和示例。
+      </para>
+      </abstract>
+    </info>
+    <procedure>
+      <step>
+        <para>
+        创建执行脚本的服务文件。有关详细信息，请参见<xref linkend="systemd-timer-example-service"/>。
+      </para>
+      </step>
+      <step>
+        <para>
+        创建执行服务文件的计时器文件。有关一般说明，请参见<xref linkend="systemd-timer-example-timer"/>。
+      </para>
+        <substeps>
+          <step>
+            <para>
+            转换日历项。在 cron 和 <systemitem class="daemon">systemd</systemitem> 中，时间的指定方式不同。使用以下模式作为转换模板：
+          </para>
+            <screen>Cron:               Minute Hour Day Month DayOfWeek
+systemd: OnCalendar=DayOfWeek Year-Month-Day Hour:Minute:Second</screen>
+            <para>
+            要测试转换后的日历项，请按照<xref linkend="systemd-timer-test"/>中的说明操作。
+          </para>
+          </step>
+          <step>
+            <para>
+            转换 cron 别名 (<literal>@<replaceable>NICK</replaceable></literal>)：
+          </para>
+            <screen>Cron     : <systemitem class="daemon">systemd</systemitem> timer
+-------- : ----------------------------
+@reboot  : OnBootSec=1s
+@yearly  : OnCalendar=*-01-01 00:00:00
+@annually: OnCalendar=*-01-01 00:00:00
+@monthly : OnCalendar=*-*-01 00:00:00
+@weekly  : OnCalendar=Sun *-*-* 00:00:00
+@daily   : OnCalendar=*-*-* 00:00:00
+@hourly  : OnCalendar=*-*-* *:00:00</screen>
+          </step>
+          <step>
+            <para>
+            转换变量赋值。<systemitem class="daemon">systemd</systemitem> 变量赋值必须在 <literal>[Service]</literal> 部分中定义。不能以这种方式转换 <envar>MAILTO</envar> - 具体请参见下一步。
+          </para>
+            <screen>cron: <replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>
+systemd: Environment="<replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>"</screen>
+          </step>
+          <step>
+            <para>
+            按照<xref linkend="systemd-mailto"/>中的说明设置电子邮件通知，以替换 cron 的 MAILTO 功能。
+          </para>
+          </step>
+        </substeps>
+      </step>
+    </procedure>
+    <example>
+      <title>从 cron 迁移到 <systemitem class="daemon">systemd</systemitem> 计时器</title>
+      <para>
+      下面是在引导后经过 5 分钟并在每个星期一至星期五 10 点调用脚本 <literal>helloworld.sh</literal> 的 crontab 项：
+    </para>
+      <screen>@reboot sleep 300 &amp;&amp; /usr/local/bin/helloworld.sh
+0 10 * * * 1-5 /usr/local/bin/helloworld.sh</screen>
+      <para>
+      调用脚本的 <systemitem class="daemon">systemd</systemitem> 服务文件 (<filename>helloworld.service</filename>) 如下所示：
+    </para>
+      <screen>[Unit]
+Description="Hello World script"
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh</screen>
+      <para>
+      计时器文件 (<filename>helloworld.timer</filename>) 如下所示：
+    </para>
+      <screen>[Unit]
+Description="Run helloworld.service 5min after boot and at 10am every Mon-Fri"
+[Timer]
+OnBootSec=5min
+OnCalendar=Mon..Fri *-*-* 10:00
+Unit=helloworld.service
+[Install]
+WantedBy=multi-user.target</screen>
+    </example>
+  </section>
+  <section role="task" xml:lang="zh-cn" version="5.2" xml:id="systemd-timer-troubleshoot">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">查错和常见问题</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+        了解如何对失败的 <systemitem class="daemon">systemd</systemitem> 计时器进行调试和查错。查找有关 <systemitem class="daemon">systemd</systemitem> 计时器的常见问题解答。
+      </para>
+      </abstract>
+    </info>
+    <section>
+      <title>避免错误</title>
+      <para>
+      为了避免 <systemitem class="daemon">systemd</systemitem> 计时器出现错误，请确保遵循以下最佳实践：
+    </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+          校验您在服务中使用 <literal>ExecStart</literal> 指定的可执行文件是否正确运行。
+        </para>
+        </listitem>
+        <listitem>
+          <para>
+          运行 <command>systemd-analyze
+          verify <replaceable>FILE</replaceable></command> 来检查服务和计时器文件的语法。
+        </para>
+        </listitem>
+        <listitem>
+          <para>
+          运行 <command>systemd-analyze calendar
+          <replaceable>CALENDER_ENTRY</replaceable></command> 来检查日历项的执行时间。
+        </para>
+        </listitem>
+      </itemizedlist>
+    </section>
+    <section>
+      <title>事件未触发</title>
+      <para>
+      当您激活包含非严重错误的计时器时，<systemitem class="daemon">systemd</systemitem> 将静默忽略这些错误。例如：
+    </para>
+      <example>
+        <title>包含非致命错误的 <systemitem class="daemon">systemd</systemitem> 计时器文件中断</title>
+        <screen>[Timer]
+OnBootSec=5min
+OnClendar=Mon..Fri 10:00
+Unit=helloworld.service
+</screen>
+        <para>
+        第 3 行包含语法错误（应该是 <literal>OnClendar</literal>，而不是 <literal>OnCalendar</literal>）。由于 <literal>[Timer]</literal> 部分包含另一个计时器项 (OnBoot)，因此该错误并不严重，将被静默忽略。因此，星期一至星期五的触发器不会执行。检测错误的唯一方法是使用命令 <command>systemd-analyze verify</command>：
+      </para>
+        <screen><prompt role="root"># </prompt>systemd-analyze verify /etc/systemd/system/helloworld.timer
+/etc/systemd/system/helloworld.timer:7: Unknown key name 'OnClendar' in section 'Timer', ignoring.</screen>
+      </example>
+    </section>
+    <section>
+      <title>在系统日记中检查错误</title>
+      <para>
+      与每个 <systemitem class="daemon">systemd</systemitem> 服务一样，计时器触发的事件和操作将记录到系统日志中。如果触发器未按预期运行，请使用 <command>journalctl</command> 检查日志消息。要过滤日志以显示相关信息，请使用 <option>-u</option> 开关指定 <systemitem class="daemon">systemd</systemitem> 计时器和服务文件。使用此选项可显示计时器<emphasis>和</emphasis>相应服务文件的日志项：
+    </para>
+      <screen>sudo journalctl -u  helloworld.timer -u helloworld.service</screen>
+      <para>
+      或使用更短的选项格式（如果适用）：
+    </para>
+      <screen>sudo journalctl -u  helloworld.*</screen>
+      <para><command>journalctl</command> 是支持许多选项和过滤器的工具。请参见 <command>man 1 journalctl</command> 获取深入信息。以下选项对于计时器查错非常有用：
+    </para>
+      <itemizedlist>
+        <listitem>
+          <para><option>-b</option>：仅显示当前引导对应的项。
+        </para>
+        </listitem>
+        <listitem>
+          <para><option>-S today</option>：仅显示当日的项。
+        </para>
+        </listitem>
+        <listitem>
+          <para><option>-x</option>：显示帮助文本以及日志项。
+        </para>
+        </listitem>
+        <listitem>
+          <para><option>-f</option>：从最新的项开始，随着新项的不断添加持续列显日志。非常适合用于检查以较短间隔执行的触发器。按 <keycombo><keycap function="control"/><keycap>C</keycap></keycombo> 键退出。
+        </para>
+        </listitem>
+      </itemizedlist>
+    </section>
+    <section>
+      <title><systemitem class="daemon">systemd</systemitem> 计时器：弥补错过的轮次</title>
+      <para>
+      如果 <systemitem class="daemon">systemd</systemitem> 计时器处于非活动状态或系统在预期执行期间关闭，可以选择性地在计时器再次激活后立即触发错过的事件。要启用此功能，请将配置选项 <literal>Persistent=true</literal> 添加到 <literal>[Timer]</literal> 部分：
+    </para>
+      <screen>[Timer]
+OnCalendar=Mon..Fri 10:00
+Persistent=true
+Unit=helloworld.service</screen>
+    </section>
+    <section>
+      <title>如何从 cron 迁移到 <systemitem class="daemon">systemd</systemitem> 计时器？</title>
+      <para>
+      所有 cron 作业都可以迁移到 <systemitem class="daemon">systemd</systemitem> 计时器。下面是有关迁移 cron 作业的一般说明：
+    </para>
+      <procedure>
+        <step>
+          <para>
+          创建执行脚本的服务文件。有关详细信息，请参见<xref linkend="systemd-timer-example-service"/>。
+        </para>
+        </step>
+        <step>
+          <para>
+          创建执行服务文件的计时器文件。有关一般说明，请参见<xref linkend="systemd-timer-example-timer"/>。
+        </para>
+          <substeps>
+            <step>
+              <para>
+              转换日历项。在 cron 和 <systemitem class="daemon">systemd</systemitem> 中，时间的指定方式不同。使用以下模式作为转换模板：
+            </para>
+              <screen>Cron:               Minute Hour Day Month DayOfWeek
+systemd: OnCalendar=DayOfWeek Year-Month-Day Hour:Minute:Second</screen>
+              <para>
+              要测试转换后的日历项，请按照<xref linkend="systemd-timer-test"/>中的说明操作。
+            </para>
+            </step>
+            <step>
+              <para>
+              转换 cron 别名 (<literal>@<replaceable>NICK</replaceable></literal>)：
+            </para>
+              <screen>Cron     : <systemitem class="daemon">systemd</systemitem> timer
+-------- : ----------------------------
+@reboot  : OnBootSec=1s
+@yearly  : OnCalendar=*-01-01 00:00:00
+@annually: OnCalendar=*-01-01 00:00:00
+@monthly : OnCalendar=*-*-01 00:00:00
+@weekly  : OnCalendar=Sun *-*-* 00:00:00
+@daily   : OnCalendar=*-*-* 00:00:00
+@hourly  : OnCalendar=*-*-* *:00:00</screen>
+            </step>
+            <step>
+              <para>
+              转换变量赋值。<systemitem class="daemon">systemd</systemitem> 变量赋值必须在 <literal>[Service]</literal> 部分中定义。不能以这种方式转换 <envar>MAILTO</envar> - 具体请参见下一步。
+            </para>
+              <screen>cron: <replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>
+systemd: Environment="<replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>"</screen>
+            </step>
+            <step>
+              <para>
+              按照<xref linkend="systemd-mailto"/>中的说明设置电子邮件通知，以替换 cron 的 MAILTO 功能。
+            </para>
+            </step>
+          </substeps>
+        </step>
+      </procedure>
+      <example>
+        <title>从 cron 迁移到 <systemitem class="daemon">systemd</systemitem> 计时器</title>
+        <para>
+        下面是在引导后经过 5 分钟并在每个星期一至星期五 10 点调用脚本 <literal>helloworld.sh</literal> 的 crontab 项：
+      </para>
+        <screen>@reboot sleep 300 &amp;&amp; /usr/local/bin/helloworld.sh
+0 10 * * * 1-5 /usr/local/bin/helloworld.sh</screen>
+        <para>
+        调用脚本的 <systemitem class="daemon">systemd</systemitem> 服务文件 (<filename>helloworld.service</filename>) 如下所示：
+      </para>
+        <screen>[Unit]
+Description="Hello World script"
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh</screen>
+        <para>
+        计时器文件 (<filename>helloworld.timer</filename>) 如下所示：
+      </para>
+        <screen>[Unit]
+Description="Run helloworld.service 5min after boot and at 10am every Mon-Fri"
+[Timer]
+OnBootSec=5min
+OnCalendar=Mon..Fri *-*-* 10:00
+Unit=helloworld.service
+[Install]
+WantedBy=multi-user.target</screen>
+      </example>
+    </section>
+  </section>
+  <section role="glue" xml:lang="zh-cn" version="5.2" xml:id="systemd-timers-more-info">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">更多信息</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+    </info>
+    <itemizedlist>
+      <listitem>
+        <para>
+        有关 <systemitem class="daemon">systemd</systemitem> 计时器的完整参考，包括高级配置选项（例如延迟或者处理时钟或时区更改），请参见 <command>man 5
+        systemd.timer</command>。
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+          <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/concept-systemd/concept-systemd.html"><systemitem class="daemon">systemd</systemitem> 的基本概念</link>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/reference-systemctl-start-stop-services/reference-systemctl-start-stop-services.html">启动和停止 <systemitem class="daemon">systemd</systemitem> 服务</link>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/reference-systemctl-enable-disable-services/reference-systemctl-enable-disable-services.html">启用和禁用 <systemitem class="daemon">systemd</systemitem> 服务</link>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/task-debug-failed-systemd-services/index.html">调试失败的 <systemitem class="daemon">systemd</systemitem> 服务</link>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/task-send-termination-signals-systemd/task-send-termination-signals-systemd.html">向 <systemitem class="daemon">systemd</systemitem> 服务发送终止信号</link>
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section version="5.2" xml:id="legal-disclaimer">
+    <info>
+      <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">法律声明</title>
+    </info>
+    <para> 版权所有© 2006–<?dbtimestamp format="Y"?> SUSE LLC 和撰稿人。保留所有权利。</para>
+    <para>
+    根据 GNU 自由文档许可证 (GNU Free Documentation License) 版本 1.2 或（根据您的选择）版本 1.3 中的条款，在此授予您复制、分发和/或修改本文档的权限；本版权声明和许可证附带不可变部分。许可版本 1.2 的副本包含在<quote>GNU Free Documentation License</quote>部分。
+  </para>
+    <para>
+    有关 SUSE 商标，请参见 <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.suse.com/company/legal/"/>。所有其他第三方商标分别为相应所有者的财产。商标符号（®、™ 等）代表 SUSE 及其关联公司的商标。星号 (*) 代表第三方商标。
+  </para>
+    <para>
+    本指南力求涵盖所有细节，但这不能确保本指南准确无误。SUSE LLC 及其关联公司、作者和译者对于可能出现的错误或由此造成的后果皆不承担责任。
+  </para>
+  </section>
+  <appendix xmlns:its="http://www.w3.org/2005/11/its" version="5.2" role="legal" its:translate="no" xml:id="doc-gfdl-license">
+    <info>
+      <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">GNU Free Documentation License</title>
+    </info>
+    <para>
+  Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc. 51 Franklin St,
+  Fifth Floor, Boston, MA 02110-1301 USA. Everyone is permitted to copy and
+  distribute verbatim copies of this license document, but changing it is not
+  allowed.
+ </para>
+    <bridgehead renderas="sect4">
+    0. PREAMBLE
+  </bridgehead>
+    <para>
+  The purpose of this License is to make a manual, textbook, or other
+  functional and useful document "free" in the sense of freedom: to assure
+  everyone the effective freedom to copy and redistribute it, with or without
+  modifying it, either commercially or non-commercially. Secondarily, this
+  License preserves for the author and publisher a way to get credit for their
+  work, while not being considered responsible for modifications made by
+  others.
+ </para>
+    <para>
+  This License is a kind of "copyleft", which means that derivative works of
+  the document must themselves be free in the same sense. It complements the
+  GNU General Public License, which is a copyleft license designed for free
+  software.
+ </para>
+    <para>
+  We have designed this License to use it for manuals for free software,
+  because free software needs free documentation: a free program should come
+  with manuals providing the same freedoms that the software does. But this
+  License is not limited to software manuals; it can be used for any textual
+  work, regardless of subject matter or whether it is published as a printed
+  book. We recommend this License principally for works whose purpose is
+  instruction or reference.
+ </para>
+    <bridgehead renderas="sect4">
+    1. APPLICABILITY AND DEFINITIONS
+  </bridgehead>
+    <para>
+  This License applies to any manual or other work, in any medium, that
+  contains a notice placed by the copyright holder saying it can be distributed
+  under the terms of this License. Such a notice grants a world-wide,
+  royalty-free license, unlimited in duration, to use that work under the
+  conditions stated herein. The "Document", below, refers to any such manual or
+  work. Any member of the public is a licensee, and is addressed as "you". You
+  accept the license if you copy, modify or distribute the work in a way
+  requiring permission under copyright law.
+ </para>
+    <para>
+  A "Modified Version" of the Document means any work containing the Document
+  or a portion of it, either copied verbatim, or with modifications and/or
+  translated into another language.
+ </para>
+    <para>
+  A "Secondary Section" is a named appendix or a front-matter section of the
+  Document that deals exclusively with the relationship of the publishers or
+  authors of the Document to the Document's overall subject (or to related
+  matters) and contains nothing that could fall directly within that overall
+  subject. (Thus, if the Document is in part a textbook of mathematics, a
+  Secondary Section may not explain any mathematics.) The relationship could be
+  a matter of historical connection with the subject or with related matters,
+  or of legal, commercial, philosophical, ethical or political position
+  regarding them.
+ </para>
+    <para>
+  The "Invariant Sections" are certain Secondary Sections whose titles are
+  designated, as being those of Invariant Sections, in the notice that says
+  that the Document is released under this License. If a section does not fit
+  the above definition of Secondary then it is not allowed to be designated as
+  Invariant. The Document may contain zero Invariant Sections. If the Document
+  does not identify any Invariant Sections then there are none.
+ </para>
+    <para>
+  The "Cover Texts" are certain short passages of text that are listed, as
+  Front-Cover Texts or Back-Cover Texts, in the notice that says that the
+  Document is released under this License. A Front-Cover Text may be at most 5
+  words, and a Back-Cover Text may be at most 25 words.
+ </para>
+    <para>
+  A "Transparent" copy of the Document means a machine-readable copy,
+  represented in a format whose specification is available to the general
+  public, that is suitable for revising the document straightforwardly with
+  generic text editors or (for images composed of pixels) generic paint
+  programs or (for drawings) some widely available drawing editor, and that is
+  suitable for input to text formatters or for automatic translation to a
+  variety of formats suitable for input to text formatters. A copy made in an
+  otherwise Transparent file format whose markup, or absence of markup, has
+  been arranged to thwart or discourage subsequent modification by readers is
+  not Transparent. An image format is not Transparent if used for any
+  substantial amount of text. A copy that is not "Transparent" is called
+  "Opaque".
+ </para>
+    <para>
+  Examples of suitable formats for Transparent copies include plain ASCII
+  without markup, Texinfo input format, LaTeX input format, SGML or XML using a
+  publicly available DTD, and standard-conforming simple HTML, PostScript or
+  PDF designed for human modification. Examples of transparent image formats
+  include PNG, XCF and JPG. Opaque formats include proprietary formats that can
+  be read and edited only by proprietary word processors, SGML or XML for which
+  the DTD and/or processing tools are not generally available, and the
+  machine-generated HTML, PostScript or PDF produced by some word processors
+  for output purposes only.
+ </para>
+    <para>
+  The "Title Page" means, for a printed book, the title page itself, plus such
+  following pages as are needed to hold, legibly, the material this License
+  requires to appear in the title page. For works in formats which do not have
+  any title page as such, "Title Page" means the text near the most prominent
+  appearance of the work's title, preceding the beginning of the body of the
+  text.
+ </para>
+    <para>
+  A section "Entitled XYZ" means a named subunit of the Document whose title
+  either is precisely XYZ or contains XYZ in parentheses following text that
+  translates XYZ in another language. (Here XYZ stands for a specific section
+  name mentioned below, such as "Acknowledgements", "Dedications",
+  "Endorsements", or "History".) To "Preserve the Title" of such a section when
+  you modify the Document means that it remains a section "Entitled XYZ"
+  according to this definition.
+ </para>
+    <para>
+  The Document may include Warranty Disclaimers next to the notice which states
+  that this License applies to the Document. These Warranty Disclaimers are
+  considered to be included by reference in this License, but only as regards
+  disclaiming warranties: any other implication that these Warranty Disclaimers
+  may have is void and has no effect on the meaning of this License.
+ </para>
+    <bridgehead renderas="sect4">
+    2. VERBATIM COPYING
+  </bridgehead>
+    <para>
+  You may copy and distribute the Document in any medium, either commercially
+  or non-commercially, provided that this License, the copyright notices, and
+  the license notice saying this License applies to the Document are reproduced
+  in all copies, and that you add no other conditions whatsoever to those of
+  this License. You may not use technical measures to obstruct or control the
+  reading or further copying of the copies you make or distribute. However, you
+  may accept compensation in exchange for copies. If you distribute a large
+  enough number of copies you must also follow the conditions in section 3.
+ </para>
+    <para>
+  You may also lend copies, under the same conditions stated above, and you may
+  publicly display copies.
+ </para>
+    <bridgehead renderas="sect4">
+    3. COPYING IN QUANTITY
+  </bridgehead>
+    <para>
+  If you publish printed copies (or copies in media that commonly have printed
+  covers) of the Document, numbering more than 100, and the Document's license
+  notice requires Cover Texts, you must enclose the copies in covers that
+  carry, clearly and legibly, all these Cover Texts: Front-Cover Texts on the
+  front cover, and Back-Cover Texts on the back cover. Both covers must also
+  clearly and legibly identify you as the publisher of these copies. The front
+  cover must present the full title with all words of the title equally
+  prominent and visible. You may add other material on the covers in addition.
+  Copying with changes limited to the covers, as long as they preserve the
+  title of the Document and satisfy these conditions, can be treated as
+  verbatim copying in other respects.
+ </para>
+    <para>
+  If the required texts for either cover are too voluminous to fit legibly, you
+  should put the first ones listed (as many as fit reasonably) on the actual
+  cover, and continue the rest onto adjacent pages.
+ </para>
+    <para>
+  If you publish or distribute Opaque copies of the Document numbering more
+  than 100, you must either include a machine-readable Transparent copy along
+  with each Opaque copy, or state in or with each Opaque copy a
+  computer-network location from which the general network-using public has
+  access to download using public-standard network protocols a complete
+  Transparent copy of the Document, free of added material. If you use the
+  latter option, you must take reasonably prudent steps, when you begin
+  distribution of Opaque copies in quantity, to ensure that this Transparent
+  copy will remain thus accessible at the stated location until at least one
+  year after the last time you distribute an Opaque copy (directly or through
+  your agents or retailers) of that edition to the public.
+ </para>
+    <para>
+  It is requested, but not required, that you contact the authors of the
+  Document well before redistributing any large number of copies, to give them
+  a chance to provide you with an updated version of the Document.
+ </para>
+    <bridgehead renderas="sect4">
+    4. MODIFICATIONS
+  </bridgehead>
+    <para>
+  You may copy and distribute a Modified Version of the Document under the
+  conditions of sections 2 and 3 above, provided that you release the Modified
+  Version under precisely this License, with the Modified Version filling the
+  role of the Document, thus licensing distribution and modification of the
+  Modified Version to whoever possesses a copy of it. In addition, you must do
+  these things in the Modified Version:
+ </para>
+    <orderedlist numeration="upperalpha" spacing="normal">
+      <listitem>
+        <para>
+    Use in the Title Page (and on the covers, if any) a title distinct from
+    that of the Document, and from those of previous versions (which should, if
+    there were any, be listed in the History section of the Document). You may
+    use the same title as a previous version if the original publisher of that
+    version gives permission.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    List on the Title Page, as authors, one or more persons or entities
+    responsible for authorship of the modifications in the Modified Version,
+    together with at least five of the principal authors of the Document (all
+    of its principal authors, if it has fewer than five), unless they release
+    you from this requirement.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    State on the Title page the name of the publisher of the Modified Version,
+    as the publisher.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve all the copyright notices of the Document.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Add an appropriate copyright notice for your modifications adjacent to the
+    other copyright notices.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Include, immediately after the copyright notices, a license notice giving
+    the public permission to use the Modified Version under the terms of this
+    License, in the form shown in the Addendum below.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve in that license notice the full lists of Invariant Sections and
+    required Cover Texts given in the Document's license notice.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Include an unaltered copy of this License.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve the section Entitled "History", Preserve its Title, and add to it
+    an item stating at least the title, year, new authors, and publisher of the
+    Modified Version as given on the Title Page. If there is no section
+    Entitled "History" in the Document, create one stating the title, year,
+    authors, and publisher of the Document as given on its Title Page, then add
+    an item describing the Modified Version as stated in the previous sentence.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve the network location, if any, given in the Document for public
+    access to a Transparent copy of the Document, and likewise the network
+    locations given in the Document for previous versions it was based on.
+    These may be placed in the "History" section. You may omit a network
+    location for a work that was published at least four years before the
+    Document itself, or if the original publisher of the version it refers to
+    gives permission.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    For any section Entitled "Acknowledgements" or "Dedications", Preserve the
+    Title of the section, and preserve in the section all the substance and
+    tone of each of the contributor acknowledgements and/or dedications given
+    therein.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve all the Invariant Sections of the Document, unaltered in their
+    text and in their titles. Section numbers or the equivalent are not
+    considered part of the section titles.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Delete any section Entitled "Endorsements". Such a section may not be
+    included in the Modified Version.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Do not retitle any existing section to be Entitled "Endorsements" or to
+    conflict in title with any Invariant Section.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve any Warranty Disclaimers.
+   </para>
+      </listitem>
+    </orderedlist>
+    <para>
+  If the Modified Version includes new front-matter sections or appendices that
+  qualify as Secondary Sections and contain no material copied from the
+  Document, you may at your option designate some or all of these sections as
+  invariant. To do this, add their titles to the list of Invariant Sections in
+  the Modified Version's license notice. These titles must be distinct from any
+  other section titles.
+ </para>
+    <para>
+  You may add a section Entitled "Endorsements", provided it contains nothing
+  but endorsements of your Modified Version by various parties--for example,
+  statements of peer review or that the text has been approved by an
+  organization as the authoritative definition of a standard.
+ </para>
+    <para>
+  You may add a passage of up to five words as a Front-Cover Text, and a
+  passage of up to 25 words as a Back-Cover Text, to the end of the list of
+  Cover Texts in the Modified Version. Only one passage of Front-Cover Text and
+  one of Back-Cover Text may be added by (or through arrangements made by) any
+  one entity. If the Document already includes a cover text for the same cover,
+  previously added by you or by arrangement made by the same entity you are
+  acting on behalf of, you may not add another; but you may replace the old
+  one, on explicit permission from the previous publisher that added the old
+  one.
+ </para>
+    <para>
+  The author(s) and publisher(s) of the Document do not by this License give
+  permission to use their names for publicity for or to assert or imply
+  endorsement of any Modified Version.
+ </para>
+    <bridgehead renderas="sect4">
+    5. COMBINING DOCUMENTS
+  </bridgehead>
+    <para>
+  You may combine the Document with other documents released under this
+  License, under the terms defined in section 4 above for modified versions,
+  provided that you include in the combination all of the Invariant Sections of
+  all of the original documents, unmodified, and list them all as Invariant
+  Sections of your combined work in its license notice, and that you preserve
+  all their Warranty Disclaimers.
+ </para>
+    <para>
+  The combined work need only contain one copy of this License, and multiple
+  identical Invariant Sections may be replaced with a single copy. If there are
+  multiple Invariant Sections with the same name but different contents, make
+  the title of each such section unique by adding at the end of it, in
+  parentheses, the name of the original author or publisher of that section if
+  known, or else a unique number. Make the same adjustment to the section
+  titles in the list of Invariant Sections in the license notice of the
+  combined work.
+ </para>
+    <para>
+  In the combination, you must combine any sections Entitled "History" in the
+  various original documents, forming one section Entitled "History"; likewise
+  combine any sections Entitled "Acknowledgements", and any sections Entitled
+  "Dedications". You must delete all sections Entitled "Endorsements".
+ </para>
+    <bridgehead renderas="sect4">
+    6. COLLECTIONS OF DOCUMENTS
+  </bridgehead>
+    <para>
+  You may make a collection consisting of the Document and other documents
+  released under this License, and replace the individual copies of this
+  License in the various documents with a single copy that is included in the
+  collection, provided that you follow the rules of this License for verbatim
+  copying of each of the documents in all other respects.
+ </para>
+    <para>
+  You may extract a single document from such a collection, and distribute it
+  individually under this License, provided you insert a copy of this License
+  into the extracted document, and follow this License in all other respects
+  regarding verbatim copying of that document.
+ </para>
+    <bridgehead renderas="sect4">
+    7. AGGREGATION WITH INDEPENDENT WORKS
+  </bridgehead>
+    <para>
+  A compilation of the Document or its derivatives with other separate and
+  independent documents or works, in or on a volume of a storage or
+  distribution medium, is called an "aggregate" if the copyright resulting from
+  the compilation is not used to limit the legal rights of the compilation's
+  users beyond what the individual works permit. When the Document is included
+  in an aggregate, this License does not apply to the other works in the
+  aggregate which are not themselves derivative works of the Document.
+ </para>
+    <para>
+  If the Cover Text requirement of section 3 is applicable to these copies of
+  the Document, then if the Document is less than one half of the entire
+  aggregate, the Document's Cover Texts may be placed on covers that bracket
+  the Document within the aggregate, or the electronic equivalent of covers if
+  the Document is in electronic form. Otherwise they must appear on printed
+  covers that bracket the whole aggregate.
+ </para>
+    <bridgehead renderas="sect4">
+    8. TRANSLATION
+  </bridgehead>
+    <para>
+  Translation is considered a kind of modification, so you may distribute
+  translations of the Document under the terms of section 4. Replacing
+  Invariant Sections with translations requires special permission from their
+  copyright holders, but you may include translations of some or all Invariant
+  Sections in addition to the original versions of these Invariant Sections.
+  You may include a translation of this License, and all the license notices in
+  the Document, and any Warranty Disclaimers, provided that you also include
+  the original English version of this License and the original versions of
+  those notices and disclaimers. In case of a disagreement between the
+  translation and the original version of this License or a notice or
+  disclaimer, the original version will prevail.
+ </para>
+    <para>
+  If a section in the Document is Entitled "Acknowledgements", "Dedications",
+  or "History", the requirement (section 4) to Preserve its Title (section 1)
+  will typically require changing the actual title.
+ </para>
+    <bridgehead renderas="sect4">
+    9. TERMINATION
+  </bridgehead>
+    <para>
+  You may not copy, modify, sublicense, or distribute the Document except as
+  expressly provided for under this License. Any other attempt to copy, modify,
+  sublicense or distribute the Document is void, and will automatically
+  terminate your rights under this License. However, parties who have received
+  copies, or rights, from you under this License will not have their licenses
+  terminated so long as such parties remain in full compliance.
+ </para>
+    <bridgehead renderas="sect4">
+    10. FUTURE REVISIONS OF THIS LICENSE
+  </bridgehead>
+    <para>
+  The Free Software Foundation may publish new, revised versions of the GNU
+  Free Documentation License from time to time. Such new versions will be
+  similar in spirit to the present version, but may differ in detail to address
+  new problems or concerns. See
+  <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.gnu.org/copyleft/"/>.
+ </para>
+    <para>
+  Each version of the License is given a distinguishing version number. If the
+  Document specifies that a particular numbered version of this License "or any
+  later version" applies to it, you have the option of following the terms and
+  conditions either of that specified version or of any later version that has
+  been published (not as a draft) by the Free Software Foundation. If the
+  Document does not specify a version number of this License, you may choose
+  any version ever published (not as a draft) by the Free Software Foundation.
+ </para>
+    <bridgehead renderas="sect4">
+    ADDENDUM: How to use this License for your documents
+  </bridgehead>
+    <screen>Copyright (c) YEAR YOUR NAME.
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2
+or any later version published by the Free Software Foundation;
+with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+A copy of the license is included in the section entitled “GNU
+Free Documentation License”.</screen>
+    <para>
+  If you have Invariant Sections, Front-Cover Texts and Back-Cover Texts,
+  replace the “with...Texts.” line with this:
+ </para>
+    <screen>with the Invariant Sections being LIST THEIR TITLES, with the
+Front-Cover Texts being LIST, and with the Back-Cover Texts being LIST.</screen>
+    <para>
+  If you have Invariant Sections without Cover Texts, or some other combination
+  of the three, merge those two alternatives to suit the situation.
+ </para>
+    <para>
+  If your document contains nontrivial examples of program code, we recommend
+  releasing these examples in parallel under your choice of free software
+  license, such as the GNU General Public License, to permit their use in free
+  software.
+</para>
+  </appendix>
+</article>
