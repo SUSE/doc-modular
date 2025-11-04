@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_fencing.xml -->
+
+<topic xml:id="ha-fencing-preventing-during-kernel-dump"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Preventing node fencing during a kernel dump</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Use this procedure if the nodes have <systemitem>kdump</systemitem> configured. If not,
+        you can skip this procedure.
+      </para>
+    </abstract>
+  </info>
+
+  <xi:include href="../snippets/ha-fence-kdump.xml"/>
+  <itemizedlist>
+    <title>Requirements</title>
+    <listitem>
+      <para>
+        The cluster uses a physical node fencing device.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        Cluster resources for the fencing device are already configured.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <systemitem>kdump</systemitem> is installed and configured on all nodes.
+      </para>
+    </listitem>
+  </itemizedlist>
+  <para>
+    Perform this procedure on only one node in the cluster:
+  </para>
+  <procedure>
+    <step>
+      <para>
+        Log in either as the &rootuser; user or as a user with <command>sudo</command> privileges.
+      </para>
+    </step>
+    <step>
+      <para>
+        Create a <literal>fence_kdump</literal> resource that can check all the nodes in the
+        cluster. For example:
+      </para>
+<screen>&prompt.user;<command>sudo crm configure primitive <replaceable>RESOURCE-NAME</replaceable> stonith:fence_kdump \
+  params pcmk_host_list="<replaceable>NODE-LIST</replaceable>" timeout=<replaceable>INTEGER</replaceable></command></screen>
+      <para>
+        The resource is registered with the <systemitem>pacemaker-fenced</systemitem> daemon on
+        all the specified nodes. You do not need to clone this resource.
+      </para>
+      <para>
+        For more information, run the <command>crm ra info stonith:fence_kdump</command> command.
+      </para>
+      <example xml:id="ha-fencing-preventing-during-kernel-dump-primitives">
+        <title><literal>fence_kdump</literal> resource for two nodes</title>
+        <para>
+          This example shows a basic resource configuration for two nodes,
+          <systemitem>&node1;</systemitem> and <systemitem>&node2;</systemitem>:
+        </para>
+<screen>&prompt.user;<command>sudo crm configure primitive check-kdump stonith:fence_kdump \
+  params pcmk_host_list="&node1;,&node2;"</command><co xml:id="co-ha-fence-kdump-nodename"/> <command>timeout=60</command><co xml:id="co-ha-fence-kdump-timeout"/></screen>
+        <calloutlist>
+          <callout arearefs="co-ha-fence-kdump-nodename">
+            <para>
+              A comma-separated list of the cluster nodes. When a node needs to be fenced, this
+              resource listens for a message from <systemitem>fence_kdump_send</systemitem> on
+              that node. If a message is received, the node is considered fenced. If no message
+              is received, the physical fencing device must fence the node.
+            </para>
+          </callout>
+          <callout arearefs="co-ha-fence-kdump-timeout">
+            <para>
+              How long to wait for a message from a node. The default is <literal>60</literal> seconds.
+            </para>
+          </callout>
+        </calloutlist>
+      </example>
+    </step>
+    <step>
+      <para>
+        Check that the <literal>fence_kdump</literal> resource appears on all nodes:
+      </para>
+<screen>&prompt.user;<command>sudo crm cluster run "sudo stonith_admin -L"</command></screen>
+      <para>
+        You should see output similar to this:
+      </para>
+<screen>INFO: [alice]
+check-kdump
+fence-rsa-bob
+2 fence devices found
+
+INFO: [bob]
+check-kdump
+fence-rsa-alice
+2 fence devices found
+</screen>
+    </step>
+    <step>
+      <para>
+        Specify the order of the fencing devices. This tells the cluster to check if a
+        <systemitem>kdump</systemitem> is in progress <emphasis>before</emphasis> deciding
+        whether to call the physical fencing device. Include all the nodes in one command:
+      </para>
+<screen>&prompt.user;<command>sudo crm configure fencing_topology \
+  <replaceable>NODE-NAME</replaceable>: <replaceable>KDUMP-RESOURCE</replaceable> <replaceable>FENCING-RESOURCE</replaceable> \
+  <replaceable>NODE-NAME</replaceable>: <replaceable>KDUMP-RESOURCE</replaceable> <replaceable>FENCING-RESOURCE</replaceable> \
+  [...]</command></screen>
+      <para>
+        For more information, run the <command>crm configure help fencing_topology</command> command.
+      </para>
+      <example xml:id="ha-fencing-preventing-during-kernel-dump-topology">
+        <title>Fencing topology for two nodes</title>
+        <para>
+          This example shows the order of the fencing devices for two nodes,
+          <systemitem>&node1;</systemitem> and <systemitem>&node2;</systemitem>:
+        </para>
+<screen>&prompt.user;<command>sudo crm configure fencing_topology \
+  &node1;: check-kdump fence-rsa-&node1; \
+  &node2;: check-kdump fence-rsa-&node2;</command></screen>
+        <para>
+          Both nodes have <systemitem>kdump</systemitem> and a physical &ibm; RSA device configured.
+          If <systemitem>&node1;</systemitem> needs to be fenced, the cluster first calls the
+          resource <literal>check-kdump</literal> to check whether <systemitem>&node1;</systemitem>
+          is performing a <systemitem>kdump</systemitem>. If not, the cluster calls the resource
+          <literal>fence-rsa-&node1;</literal> to fence <systemitem>&node1;</systemitem>.
+        </para>
+      </example>
+    </step>
+    <step>
+      <para>
+        You might need to increase the fencing timeout so the fencing action has time to finish:
+      </para>
+<screen>&prompt.user;<command>sudo crm configure property stonith-timeout=<replaceable>INTEGER</replaceable></command></screen>
+      <para>
+        The appropriate value depends on your specific setup and infrastructure.
+      </para>
+    </step>
+    <step>
+      <para>
+        Open the firewall port for <literal>kdump</literal> messages on all nodes:
+      </para>
+<screen>&prompt.user;<command>sudo crm cluster run "sudo firewall-cmd --add-port=7410/udp --permanent"</command>
+&prompt.user;<command>sudo crm cluster run "sudo firewall-cmd --reload"</command></screen>
+    </step>
+    <step>
+      <para>
+        Configure <systemitem>fence_kdump_send</systemitem> to send a message to all nodes
+        when the <systemitem>kdump</systemitem> process is finished. In the file
+        <filename>/etc/sysconfig/kdump</filename>, edit the <literal>KDUMP_POSTSCRIPT</literal> line:
+      </para>
+<screen>KDUMP_POSTSCRIPT="/usr/lib/fence_kdump_send -c 5<co xml:id="co-fence-kdump-send-count"/> -i 10<co xml:id="co-fence-kdump-send-interval"/> -p 7410<co xml:id="co-fence-kdump-send-port"/> <replaceable>NODE-LIST</replaceable>"<co xml:id="co-fence-kdump-send-nodes"/></screen>
+      <calloutlist>
+        <callout arearefs="co-fence-kdump-send-count">
+          <para>
+            Use <literal>--count</literal> (or <literal>-c</literal>) to specify how many messages
+            to send. We recommend sending multiple messages in case the first message fails.
+          </para>
+        </callout>
+        <callout arearefs="co-fence-kdump-send-interval">
+          <para>
+            Use <literal>--interval</literal> (or <literal>-i</literal>) to specify the interval
+            between messages. The default is <literal>10</literal> seconds.
+          </para>
+       </callout>
+       <callout arearefs="co-fence-kdump-send-port">
+          <para>
+            Use <literal>--port</literal> (or <literal>-p</literal>) to specify the firewall port
+            for <literal>kdump</literal> messages.
+          </para>
+        </callout>
+        <callout arearefs="co-fence-kdump-send-nodes">
+          <para>
+            Replace <replaceable>NODE-LIST</replaceable> with a space-separated list of all the
+            cluster nodes.
+          </para>
+        </callout>
+      </calloutlist>
+    </step>
+    <step>
+      <para>
+        Copy the <systemitem>kdump</systemitem><filename>/etc/sysconfig/kdump</filename> file to
+        the rest of the nodes:
+      </para>
+<screen>&prompt.user;<command>sudo crm cluster copy /etc/sysconfig/kdump</command></screen>
+    </step>
+    <step>
+      <para>
+        Regenerate the <systemitem>kdump</systemitem> <filename>initrd</filename> on all nodes:
+      </para>
+<screen>&prompt.user;<command>sudo crm cluster run "sudo mkdumprd"</command></screen>
+    </step>
+  </procedure>
+</topic>

@@ -1,0 +1,1688 @@
+<?xml version="1.0"?>
+<article xmlns="http://docbook.org/ns/docbook" version="5.2" xml:id="systemd-timers" xml:lang="es">
+  <info>
+    <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Uso de los temporizadores <systemitem class="daemon">systemd</systemitem></title>
+    <revhistory xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" xml:id="rh-systemd-timers">
+      <revision>
+        <date>6/11/2025</date>
+        <revdescription>
+          <para>
+              Versión inicial
+            </para>
+        </revdescription>
+      </revision>
+    </revhistory>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/> <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="series" its:translate="no">Products &amp; Solutions</meta> <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="task" its:translate="no">
+      <phrase>Administration</phrase>
+      <phrase>Automation</phrase>
+      <phrase>Configuration</phrase>
+      <phrase>Maintenance</phrase>
+      <phrase>Troubleshooting</phrase>
+    </meta> <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="category" its:translate="no">
+      <phrase>Configuration</phrase>
+    </meta>
+    <dm:docmanager xmlns:dm="urn:x-suse:ns:docmanager" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" its:translate="no">
+      <dm:bugtracker>
+        <dm:url>https://bugzilla.suse.com/enter_bug.cgi</dm:url>
+        <dm:component>Documentation</dm:component>
+        <dm:product os="sleha">SUSE Linux Enterprise Server 16.0</dm:product>
+        <dm:assignee>amrita.sakthivel@suse.com</dm:assignee>
+      </dm:bugtracker>
+      <dm:translation>yes</dm:translation>
+    </dm:docmanager>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="architecture" its:translate="no">
+      <phrase>AMD64/Intel 64</phrase>
+      <phrase>POWER</phrase>
+      <phrase>IBM Z</phrase>
+      <phrase>AArch64</phrase>
+    </meta> <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="productname" its:translate="no">
+      <productname os="sleha" version="16.0">SUSE Linux Enterprise High Availability</productname>
+    </meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="title" its:translate="yes">Uso de los temporizadores <systemitem class="daemon">systemd</systemitem></meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="social-descr" its:translate="yes">Uso de los temporizadores <systemitem class="daemon">systemd</systemitem></meta>
+    <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="description" its:translate="yes">Cómo crear, mantener, probar y solucionar problemas de temporizadores <systemitem class="daemon">systemd</systemitem>, incluida la migración de cron</meta>
+    <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+      <variablelist>
+        <varlistentry>
+          <term>DESCRIPCIÓN</term>
+          <listitem>
+            <para>
+                Hay muchas tareas que requieren programación en un sistema Linux: desde la ejecución de un guion de copia de seguridad a intervalos regulares hasta el inicio de un proceso específico tan pronto como arranca el equipo. Los temporizadores <systemitem class="daemon">systemd</systemitem> proporcionan un mecanismo flexible para programar y gestionar trabajos y servicios.
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>INTENCIÓN</term>
+          <listitem>
+            <para>
+                El objetivo de este artículo es proporcionar una descripción completa de los temporizadores <systemitem class="daemon">systemd</systemitem>, que cubre la creación, el mantenimiento, las pruebas, la resolución de problemas y la migración desde cron.
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>ESFUERZO</term>
+          <listitem>
+            <para>
+                La creación de un temporizador <systemitem class="daemon">systemd</systemitem> de ejemplo lleva unos 10 minutos. Necesitará hasta 30 minutos para comprender completamente cómo funcionan los temporizadores <systemitem class="daemon">systemd</systemitem>.
+              </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>REQUISITOS</term>
+          <listitem>
+            <itemizedlist>
+              <listitem>
+                <para>
+                    Conocimientos básicos de <systemitem class="daemon">systemd</systemitem>.
+                  </para>
+              </listitem>
+              <listitem>
+                <para>Privilegios de <systemitem class="username">root</systemitem> o sudo. Para utilizar temporizadores <systemitem class="daemon">systemd</systemitem> como usuario normal, consulte primero la <xref linkend="systemd-timer-user"/>.
+                  </para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </abstract>
+  </info>
+  <section role="concept" xml:lang="es" version="5.2" xml:id="systemd-timer-concept">
+    <info>
+      <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">El concepto de temporizador <systemitem class="daemon">systemd</systemitem></title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>Las unidades de un temporizador <systemitem class="daemon">systemd</systemitem> proporcionan un mecanismo para programar trabajos en Linux. El tiempo de ejecución de estos trabajos puede basarse en la hora y la fecha o en eventos.
+      </para>
+      </abstract>
+    </info>
+    <para>Las unidades de un temporizador <systemitem class="daemon">systemd</systemitem> se identifican por la extensión de nombre de archivo <filename class="extension">.timer</filename>. Cada archivo de temporizador requiere el archivo de servicio correspondiente que controla. En otras palabras, un archivo de temporizador activa y gestiona el archivo de servicio correspondiente. Los temporizadores <systemitem class="daemon">systemd</systemitem> admiten las funciones siguientes:
+  </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+        Los trabajos programados mediante una unidad de temporizador pueden depender de otros servicios <systemitem class="daemon">systemd</systemitem>. Las unidades de temporizador se tratan como servicios <systemitem class="daemon">systemd</systemitem> regulares, por lo que se pueden gestionar con <command>systemctl</command>.
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        Los temporizadores pueden ser en tiempo real (se activan en eventos del calendario) o monotónicos (se activan cuando ha transcurrido un tiempo especificado desde un punto de inicio determinado).
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        Las unidades de tiempo se registran en el diario del sistema, lo que facilita su supervisión y la resolución de problemas.
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        Los temporizadores utilizan los servicios de gestión <systemitem class="daemon">systemd</systemitem> centralizados.
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        Si el sistema está apagado durante el tiempo de ejecución previsto, el temporizador se ejecuta una vez que el sistema se vuelve a ejecutar.
+      </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section role="task" xml:lang="es" version="5.2" xml:id="systemd-create-timer">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Creación de un temporizador</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+        El siguiente ejemplo muestra cómo configurar un temporizador que active el guion de shell <literal>helloworld.sh</literal> después del arranque y repita su ejecución cada 24 horas en relación con su tiempo de activación. También funciona de lunes a viernes a las 10 de la mañana.
+      </para>
+      </abstract>
+    </info>
+    <section>
+      <title>Ejemplo de <emphasis>Hello World</emphasis></title>
+      <procedure>
+        <step>
+          <para>
+          Cree un archivo ejecutable <filename>/usr/local/bin/helloworld.sh</filename> con el siguiente contenido:
+        </para>
+          <screen>#!/bin/sh
+  # This is bash program to display Hello World
+  echo " Hello World "
+</screen>
+          <para>
+          Se trata de un archivo <literal>.sh</literal> ejecutable que contiene los comandos que desea que ejecute y gestione <systemitem class="daemon">systemd</systemitem>.
+        </para>
+        </step>
+        <step>
+          <para>
+          Cree el archivo <filename>/etc/systemd/system/helloworld.service</filename> con el siguiente contenido:
+        </para>
+          <screen>[Unit]
+Description="Hello World script"
+
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh
+</screen>
+          <para>
+          Se trata de un archivo de servicio <systemitem class="daemon">systemd</systemitem> que indica a <systemitem class="daemon">systemd</systemitem> qué aplicación se debe ejecutar.
+        </para>
+        </step>
+        <step>
+          <para>
+          Cree el archivo <filename>/etc/systemd/system/helloworld.timer</filename> con el siguiente contenido:
+        </para>
+          <screen>[Unit]
+Description="Run helloworld.service 5min after boot and every 24 hours relative to activation time"
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=24h
+OnCalendar=Mon..Fri *-*-* 10:00
+Unit=helloworld.service
+
+[Install]
+WantedBy=multi-user.target
+</screen>
+          <para>
+          Este es el archivo de temporizador que controla la activación del archivo de servicio respectivo.
+        </para>
+        </step>
+        <step>
+          <para>
+          Compruebe que los archivos que ha creado anteriormente no contienen errores:
+        </para>
+          <screen><prompt>&gt; </prompt>systemd-analyze verify /etc/systemd/system/helloworld.*</screen>
+          <para>
+          Si el comando no devuelve ningún resultado, los archivos han pasado la verificación correctamente.
+        </para>
+        </step>
+        <step>
+          <para>
+          Inicie el temporizador:
+        </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl start helloworld.timer</screen>
+          <para>
+          Esto solo activa el temporizador para la sesión actual.
+        </para>
+        </step>
+        <step>
+          <para>
+          Habilite el temporizador para asegurarse de que está activado al arrancar:
+        </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl enable helloworld.timer</screen>
+        </step>
+      </procedure>
+    </section>
+    <section>
+      <title>Explicación del ejemplo</title>
+      <example xml:id="systemd-timer-example-service">
+        <title>El archivo de servicio</title>
+        <screen>[Unit]
+Description="Hello World script"<co xml:id="systemd-timer-example-service-descr"/>
+
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh<co xml:id="systemd-timer-example-service-exec"/></screen>
+        <calloutlist>
+          <callout arearefs="systemd-timer-example-service-descr">
+            <para>
+            Una breve descripción de la finalidad del archivo de servicio.
+          </para>
+          </callout>
+          <callout arearefs="systemd-timer-example-service-exec">
+            <para>
+            La aplicación que se va a ejecutar.
+          </para>
+          </callout>
+        </calloutlist>
+        <para>
+        Las secciones <literal>[Unit]</literal> y <literal>[Service]</literal> son las mínimas necesarias para que funcione un archivo de servicio. Los archivos de servicio de <systemitem class="daemon">systemd</systemitem> suelen contener una sección <literal>[Install]</literal> que determina uno o varios destinos para que se cargue un servicio. Esta sección no es necesaria en los archivos de servicio de los temporizadores, ya que esta información se proporciona con el archivo de temporizador. Para una configuración avanzada, consulte <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/reference-managing-systemd-targets-systemctl/reference-systemctl-managing-targets.html">Gestión de destinos <systemitem class="daemon">systemd</systemitem> con systemctl</link>.
+      </para>
+      </example>
+      <example xml:id="systemd-timer-example-timer">
+        <title>El archivo del temporizador</title>
+        <screen>[Unit]
+Description="Run helloworld.service 5min after boot and every 24 hours relative to activation time"<co xml:id="systemd-timer-example-timer-descr"/>
+
+[Timer]
+OnBootSec=5min<co xml:id="systemd-timer-example-timer-onboot"/>
+OnUnitActiveSec=24h<co xml:id="systemd-timer-example-timer-onunit"/>
+OnCalendar=Mon..Fri *-*-* 10:00<co xml:id="systemd-timer-example-timer-oncal"/>
+Unit=helloworld.service<co xml:id="systemd-timer-example-timer-unit"/>
+
+[Install]
+WantedBy=multi-user.target<co xml:id="systemd-timer-example-timer-wanted"/></screen>
+        <calloutlist>
+          <callout arearefs="systemd-timer-example-timer-descr">
+            <para>
+            Una breve descripción del propósito del archivo de temporizador.
+          </para>
+          </callout>
+          <callout arearefs="systemd-timer-example-timer-onboot">
+            <para>
+            Especifica un temporizador que activa el servicio cinco minutos después del arranque del sistema. Consulte <xref linkend="systemd-timer-types-monotonic"/> para obtener más información.
+          </para>
+          </callout>
+          <callout arearefs="systemd-timer-example-timer-onunit">
+            <para>
+            Especifica un temporizador que activa el servicio 24 horas después de que se haya activado (es decir, el temporizador activa el servicio una vez al día). Consulte <xref linkend="systemd-timer-types-realtime"/> para obtener más información.
+          </para>
+          </callout>
+          <callout arearefs="systemd-timer-example-timer-oncal">
+            <para>
+            Especifica un temporizador que activa el servicio en momentos determinados (en este ejemplo, de lunes a viernes a las 10 de la mañana). Consulte <xref linkend="systemd-timer-types-realtime"/> para obtener más información.
+          </para>
+          </callout>
+          <callout arearefs="systemd-timer-example-timer-unit">
+            <para>
+            El archivo de servicio que se va a ejecutar.
+          </para>
+          </callout>
+          <callout arearefs="systemd-timer-example-timer-wanted">
+            <para>
+            El destino de <systemitem class="daemon">systemd</systemitem> en el que se activa el temporizador. Para obtener más información sobre los destinos <systemitem class="daemon">systemd</systemitem>, consulte <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/reference-managing-systemd-targets-systemctl/reference-systemctl-managing-targets.html">Gestión de destinos <systemitem class="daemon">systemd</systemitem> con systemctl</link>.
+          </para>
+          </callout>
+        </calloutlist>
+      </example>
+    </section>
+  </section>
+  <section role="reference" xml:lang="es" version="5.2" xml:id="systemd-timer-manage">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Gestión de temporizadores</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+        Puede gestionar los temporizadores mediante el comando <command>systemctl</command>.
+      </para>
+      </abstract>
+    </info>
+    <variablelist>
+      <varlistentry>
+        <term>Iniciar y detener temporizadores</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl start <replaceable>TIMER</replaceable>.timer
+<prompt>&gt; </prompt><command>sudo</command> systemctl restart <replaceable>TIMER</replaceable>.timer
+<prompt>&gt; </prompt><command>sudo</command> systemctl stop <replaceable>TIMER</replaceable>.timer</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Habilitar e inhabilitar temporizadores</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl enable <replaceable>TIMER</replaceable>.timer
+<prompt>&gt; </prompt><command>sudo</command> systemctl disable <replaceable>TIMER</replaceable>.timer</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Mostrar el contenido del archivo del temporizador</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl cat <replaceable>TIMER</replaceable>.timer</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Comprobar un temporizador específico</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl status <replaceable>TIMER</replaceable>.timer</screen>
+          <example>
+            <title>Estado del temporizador</title>
+            <screen><prompt>&gt; </prompt><command>sudo</command> systemctl status helloworld.timer
+● helloworld.timer - "Run helloworld.service 5min after boot and every 24 hours
+relative to activation time"<co xml:id="systemd-timer-status-1"/>
+Loaded: loaded (/etc/systemd/system/helloworld.timer; disabled; vendor preset: disabled)<co xml:id="systemd-timer-status-2"/>
+Active: active (waiting) since Tue 2022-10-26 18:35:41 CEST; 6s ago<co xml:id="systemd-timer-status-3"/>
+Trigger: Wed 2022-10-27 18:35:41 CEST; 23h left<co xml:id="systemd-timer-status-4"/>
+Triggers: ● helloworld.service<co xml:id="systemd-timer-status-5"/><co xml:id="systemd-timer-status-6"/>
+Oct 26 18:35:41 neo systemd[1]: Started "Run helloworld.service 5min after boot and every 24 hours relative to activation time".<co xml:id="systemd-timer-status-7"/></screen>
+            <calloutlist>
+              <callout arearefs="systemd-timer-status-1">
+                <para>
+                El nombre y la descripción del archivo del temporizador.
+              </para>
+              </callout>
+              <callout arearefs="systemd-timer-status-2">
+                <para>
+                Muestra si un temporizador se ha analizado correctamente y se mantiene en la memoria (cargado), muestra la vía completa al archivo del temporizador y muestra si el temporizador se está iniciando en el momento del arranque (habilitado) o no (inhabilitado). El primer valor muestra la configuración actual del sistema, el segundo el valor preestablecido por el proveedor.
+              </para>
+              </callout>
+              <callout arearefs="systemd-timer-status-3">
+                <para>
+                Indica si el temporizador está activo (a la espera de activar eventos) o inactivo. Si está activo, también muestra el tiempo transcurrido desde la última activación (6 segundos en este ejemplo).
+              </para>
+              </callout>
+              <callout arearefs="systemd-timer-status-4">
+                <para>
+                Fecha y hora a la que se volverá a activar el temporizador.
+              </para>
+              </callout>
+              <callout arearefs="systemd-timer-status-5">
+                <para>
+                Nombre del archivo de servicio que activa el temporizador.
+              </para>
+              </callout>
+              <callout arearefs="systemd-timer-status-6">
+                <para>
+                Línea opcional que dirige a la documentación (por ejemplo, páginas man). Si no está disponible, se muestra una línea vacía (como en este ejemplo).
+              </para>
+              </callout>
+              <callout arearefs="systemd-timer-status-7">
+                <para>
+                Entrada de diario más reciente creada por el temporizador.
+              </para>
+              </callout>
+            </calloutlist>
+          </example>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <para>
+    Para mostrar todos los temporizadores disponibles en el sistema, utilice <command>systemctl list-timers</command>. Están disponibles las siguientes opciones:
+  </para>
+    <variablelist>
+      <varlistentry>
+        <term>Mostrar todos los temporizadores activos:</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Mostrar todos los temporizadores, incluidos los inactivos:</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers --all</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Mostrar todos los temporizadores que coinciden con un patrón:</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers <replaceable>PATTERN</replaceable><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers --all <replaceable>PATTERN</replaceable></screen>
+          <para><replaceable>PATTERN</replaceable> debe ser un nombre o una expresión global de shell. Se pueden utilizar los operadores <literal>*</literal>, <literal>?</literal> y <literal>[]</literal>. Consulte <command>man 7 glob</command> para obtener más información sobre los patrones globales.
+        </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Mostrar los temporizadores que coinciden con un estado determinado:</term>
+        <listitem>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers --state=<replaceable>STATE</replaceable></screen>
+          <para><replaceable>STATE</replaceable> toma los siguientes valores: <literal>active</literal>, <literal>failed</literal>, <literal>load</literal> o <literal>sub</literal>. Consulte el <command>man systemctl</command> para obtener más información.
+        </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <example>
+      <title>Listado de temporizadores</title>
+      <para>
+      Al ejecutar cualquier <command>systemctl list-timers</command>, se muestra una tabla similar a la siguiente. En este ejemplo, se muestran todos los temporizadores activos que coinciden con el patrón <literal>snapper*</literal>:
+    </para>
+      <screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers snapper*
+NEXT<co xml:id="systemd-timer-list-next"/>                       LEFT<co xml:id="systemd-timer-list-left"/>      LAST<co xml:id="systemd-timer-list-last"/>                        PASSED<co xml:id="systemd-timer-list-passed"/>   UNIT<co xml:id="systemd-timer-list-unit"/>                  ACTIVATES<co xml:id="systemd-timer-list-activates"/>
+
+-----------------------------------------------------------------------------------------------------------------------------
+Tue 2022-10-26 19:00:00 CEST 39min left Tue 2022-10-26 18:00:29 CEST 19min ago snapper-timeline.timer snapper-timeline.service
+Wed 2022-10-27 08:33:04 CEST 14h   left Tue 2022-10-26 08:33:04 CEST 9h ago    snapper-cleanup.timer  snapper-cleanup.service</screen>
+      <calloutlist>
+        <callout arearefs="systemd-timer-list-next">
+          <para>
+          El momento en el que se ejecutará el temporizador la próxima vez.
+        </para>
+        </callout>
+        <callout arearefs="systemd-timer-list-left">
+          <para>
+          El tiempo que queda hasta la próxima ejecución del temporizador.
+        </para>
+        </callout>
+        <callout arearefs="systemd-timer-list-last">
+          <para>
+          El momento en el que se ejecutó el temporizador por última vez.
+        </para>
+        </callout>
+        <callout arearefs="systemd-timer-list-passed">
+          <para>
+          El tiempo transcurrido desde la última ejecución del temporizador.
+        </para>
+        </callout>
+        <callout arearefs="systemd-timer-list-unit">
+          <para>
+          El nombre de la unidad de temporizador.
+        </para>
+        </callout>
+        <callout arearefs="systemd-timer-list-activates">
+          <para>
+          El nombre del servicio que activa el temporizador.
+        </para>
+        </callout>
+      </calloutlist>
+    </example>
+  </section>
+  <section role="reference" xml:lang="es" version="5.2" xml:id="systemd-timer-types">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Tipos de temporizador</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para><systemitem class="daemon">systemd</systemitem> admite dos tipos de temporizadores: en tiempo real (basado en el calendario) y monotónico (basado en eventos). Aunque los temporizadores suelen ser persistentes, <systemitem class="daemon">systemd</systemitem> también permite configurar temporizadores transitorios que solo son válidos para la sesión actual.
+      </para>
+      </abstract>
+    </info>
+    <variablelist>
+      <varlistentry xml:id="systemd-timer-types-realtime">
+        <term>Temporizadores en tiempo real</term>
+        <listitem>
+          <para>
+          Los temporizadores en tiempo real se activan mediante eventos de calendario. Se definen mediante la opción <literal>OnCalendar</literal>.
+        </para>
+          <para>
+          Puede especificar cuándo se debe activar un evento según la fecha y la hora. Use la plantilla siguiente:
+        </para>
+          <screen>OnCalendar=DayOfWeek<co xml:id="systemd-timer-real-dayofweek"/> Year-Month-Day<co xml:id="systemd-timer-real-date"/> Hour:Minute:Second<co xml:id="systemd-timer-real-time"/></screen>
+          <calloutlist>
+            <callout arearefs="systemd-timer-real-dayofweek">
+              <para>
+              Día de la semana. Los valores posibles son <literal>Sun</literal>, <literal>Mon</literal>, <literal>Tue</literal>, <literal>Wed</literal>, <literal>Thu</literal>, <literal>Fri</literal> y <literal>Sat</literal>. Omita la opción para ignorar el día de la semana.
+            </para>
+            </callout>
+            <callout arearefs="systemd-timer-real-date">
+              <para>
+              Fecha. Especifique el mes y el día con dos dígitos y el año con cuatro dígitos. Cada valor se puede sustituir por el comodín <literal>*</literal> para que coincida con cada aparición.
+            </para>
+            </callout>
+            <callout arearefs="systemd-timer-real-time">
+              <para>
+              Hora. Especifique cada valor con dos dígitos. Cada valor se puede sustituir por el comodín <literal>*</literal> para que coincida con cada aparición.
+            </para>
+            </callout>
+          </calloutlist>
+          <para>
+          Se aplica a todos los valores: utilice dos puntos para definir un intervalo continuo (<literal>Mon..Fri</literal>). Utilice comas para delimitar una lista de valores separados (<literal>Mon,Wed,Fri</literal>).
+        </para>
+          <example>
+            <title>Ejemplos de temporizador en tiempo real</title>
+            <itemizedlist>
+              <listitem>
+                <para>
+                A las 6 de la tarde todos los viernes:
+              </para>
+                <screen>OnCalendar=Fri *-*-* 18:00:00</screen>
+              </listitem>
+              <listitem>
+                <para>
+                A las 5 de la mañana todos los días:
+              </para>
+                <screen>OnCalendar=Mon..Sun *-*-* 5:00:00</screen>
+              </listitem>
+              <listitem>
+                <para>
+                A la 1 y a las 3 de la mañana los domingos y martes:
+              </para>
+                <screen>OnCalendar=Tue,Sun *-*-* 01,03:00:00</screen>
+              </listitem>
+              <listitem>
+                <para>
+                Fecha única:
+              </para>
+                <screen>OnCalendar=Mo..Sun 2023-09-23 00:00:01</screen>
+              </listitem>
+              <listitem>
+                <para>
+                Para especificar activadores en momentos diferentes, puede crear más de una entrada OnCalendar en un único archivo de temporizador:
+              </para>
+                <screen>OnCalendar=Mon..Fri *-*-* 10:00
+OnCalendar=Sat,Sun *-*-* 22:00</screen>
+              </listitem>
+            </itemizedlist>
+          </example>
+          <para>
+          Para obtener una lista completa de las funciones y opciones disponibles, consulte <command>man 7
+          systemd.time</command>, que ofrece información adicional sobre los siguientes temas:
+        </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+              acortar la sintaxis y utilizar abreviaturas
+            </para>
+            </listitem>
+            <listitem>
+              <para>
+              especificar repeticiones
+            </para>
+            </listitem>
+            <listitem>
+              <para>
+              buscar días específicos en un mes (último día del mes, último domingo, etc.)
+            </para>
+            </listitem>
+            <listitem>
+              <para>
+              aplicar zonas horarias
+            </para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+      <varlistentry xml:id="systemd-timer-types-monotonic">
+        <term>Temporizadores monotónicos</term>
+        <listitem>
+          <para>
+          Los temporizadores monotónicos se activan cuando ha transcurrido un tiempo especificado desde un evento determinado, como un evento de arranque del sistema o de activación de una unidad del sistema. Los valores se definen como unidades de tiempo (minutos, horas, días, meses, años, etc.). Se admiten las siguientes unidades: <literal>usec</literal>, <literal>msec</literal>, <literal>seconds</literal>, <literal>minutes</literal>, <literal>hours</literal>, <literal>days</literal>, <literal>weeks</literal>, <literal>months</literal>, <literal>years</literal>. Existen varias opciones para definir temporizadores monotónicos:
+        </para>
+          <itemizedlist>
+            <listitem>
+              <para><literal>OnActiveSec</literal>: tiempo tras la activación de la unidad
+            </para>
+              <screen>OnActiveSec=50minutes</screen>
+            </listitem>
+            <listitem>
+              <para><literal>OnBootSec</literal>: tiempo tras el arranque del sistema
+            </para>
+              <screen>OnBootSec=10hours</screen>
+            </listitem>
+            <listitem>
+              <para><literal>OnStartupSec</literal>: tiempo desde que se inicia el gestor de servicios. Para los servicios del sistema, esto es casi igual a <literal>OnActiveSec</literal>. Utilícelo para los servicios de usuario en los que el gestor de servicios se inicia cuando el usuario inicia sesión.
+            </para>
+              <screen>OnStartupSec=5minutes 20seconds</screen>
+            </listitem>
+            <listitem>
+              <para><literal>OnUnitActiveSec</literal>: tiempo transcurrido desde la última activación del servicio correspondiente
+            </para>
+              <screen>OnUnitActiveSec=10seconds</screen>
+            </listitem>
+            <listitem>
+              <para><literal>OnUnitInactiveSec</literal>: tiempo transcurrido desde la última desactivación del servicio correspondiente
+            </para>
+              <screen>OnUnitInactiveSec=2hours 15minutes 18 seconds</screen>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Temporizadores transitorios</term>
+        <listitem>
+          <para>
+          Los temporizadores transitorios son temporizadores temporales que solo son válidos para la sesión actual. Con estos temporizadores, puede utilizar un archivo de servicio existente o iniciar un programa directamente. Los temporizadores transitorios se invocan ejecutando <command>systemd-run</command>.
+        </para>
+          <para>
+          El siguiente ejemplo ejecuta la unidad <filename>helloworld.service</filename> cada dos horas:
+        </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemd-run --on-active="2hours" --unit="helloworld.service"</screen>
+          <para>
+          Para ejecutar un comando directamente, utilice la siguiente sintaxis. En este ejemplo, se llama directamente al guion <filename>/usr/local/bin/helloworld.sh</filename>:
+        </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemd-run --on-active="2hours" /usr/local/bin/helloworld.sh</screen>
+          <para>
+          Si el comando toma parámetros, añádalos separados por un espacio:
+        </para>
+          <screen><prompt>&gt; </prompt><command>sudo</command> systemd-run --on-active="2hours" /usr/local/bin/helloworld.sh --language=pt_BR</screen>
+          <para>
+          Los temporizadores transitorios pueden ser monotónicos o en tiempo real. Los siguientes conmutadores son compatibles y funcionan como se describe en <xref linkend="systemd-timer-types-monotonic" xrefstyle="select:title"/>:
+        </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <option>--on-active</option>
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <option>--on-startup</option>
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <option>--on-unit-active</option>
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <option>--on-unit-inactive</option>
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <option>--on-calendar</option>
+              </para>
+            </listitem>
+          </itemizedlist>
+          <para>
+          Para obtener más información, consulte <command>man 1 systemd-run</command>.
+        </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section role="task" xml:lang="es" version="5.2" xml:id="systemd-timer-test">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Prueba de entradas de calendario</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para><systemitem class="daemon">systemd</systemitem> proporciona una herramienta para probar y crear entradas de temporizador de calendario para temporizadores en tiempo real: <command>systemd-analyze calendar</command>. Acepta los mismos argumentos que la entrada <literal>OnCalendar</literal> necesaria para configurar temporizadores en tiempo real.
+      </para>
+      </abstract>
+    </info>
+    <para>
+    Puede concatenar varios argumentos separados por un espacio. Si el término que se va a probar es correcto, el resultado muestra cuándo se activa el temporizador (en hora local y UTC). También muestra la cadena en <literal>Normalized form</literal>, y se recomienda utilizar esa cadena en el archivo del temporizador. Considere los siguientes ejemplos:
+  </para>
+    <screen><prompt>&gt; </prompt>systemd-analyze calendar "Tue,Sun *-*-* 01,03:00:00"
+Normalized form: Tue,Sun *-*-* 01,03:00:00
+Next elapse: Sun 2021-10-31 01:00:00 CEST
+(in UTC): Sat 2021-10-30 23:00:00 UTC
+From now: 3 days left
+
+<prompt>&gt; </prompt>systemd-analyze calendar "Mon..Fri *-*-* 10:00" "Sat,Sun *-*-* 22:00"
+Original form: Mon..Fri *-*-* 10:00
+Normalized form: Mon..Fri *-*-* 10:00:00
+Next elapse: Thu 2021-10-28 10:00:00 CEST
+(in UTC): Thu 2021-10-28 08:00:00 UTC
+From now: 19h left
+
+Original form: Sat,Sun *-*-* 22:00
+Normalized form: Sat,Sun *-*-* 22:00:00
+Next elapse: Sat 2021-10-30 22:00:00 CEST
+(in UTC): Sat 2021-10-30 20:00:00 UTC
+From now: 3 days left</screen>
+    <para>
+    Para los temporizadores periódicos, utilice el conmutador <option>–iterations <replaceable>N</replaceable></option> para mostrar las horas de activación y, a continuación, compruebe si funcionan como se espera. El argumento <replaceable>N</replaceable> especifica el número de iteraciones que desea probar. La siguiente cadena de ejemplo se activa cada 8 horas (a partir de las 00:00:00) los domingos:
+  </para>
+    <screen><prompt>&gt; </prompt>systemd-analyze calendar --iterations 5 "Sun *-*-* 0/08:00:00"
+Original form: Sun *-*-* 0/08:00:00
+Normalized form: Sun *-*-* 00/8:00:00
+Next elapse: Sun 2021-10-31 00:00:00 CEST
+(in UTC): Sat 2021-10-30 22:00:00 UTC
+From now: 3 days left
+Iter. #2: Sun 2021-10-31 08:00:00 CET
+(in UTC): Sun 2021-10-31 07:00:00 UTC
+From now: 3 days left
+Iter. #3: Sun 2021-10-31 16:00:00 CET
+(in UTC): Sun 2021-10-31 15:00:00 UTC
+From now: 4 days left
+Iter. #4: Sun 2021-11-07 00:00:00 CET
+(in UTC): Sat 2021-11-06 23:00:00 UTC
+From now: 1 week 3 days left
+Iter. #5: Sun 2021-11-07 08:00:00 CET
+(in UTC): Sun 2021-11-07 07:00:00 UTC
+From now: 1 week 3 days left</screen>
+  </section>
+  <section role="task" xml:lang="es" version="5.2" xml:id="systemd-mailto">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Recepción de notificaciones por correo electrónico cuando falla un temporizador</title>
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <para><systemitem class="daemon">systemd</systemitem> no ofrece una función similar a MAILTO de cron. El procedimiento siguiente es una solución alternativa para habilitar las notificaciones por correo electrónico cuando falla un temporizador.
+          </para>
+        <para>
+            El procedimiento consta de los siguientes pasos:
+          </para>
+        <orderedlist>
+          <listitem>
+            <para>
+                Cree un guion que envíe un mensaje de correo electrónico.
+              </para>
+          </listitem>
+          <listitem>
+            <para>
+                Cree un archivo de servicio <systemitem class="daemon">systemd</systemitem> que ejecute el guion de correo electrónico.
+              </para>
+          </listitem>
+          <listitem>
+            <para>
+                Pruebe el archivo de servicio de correo electrónico.
+              </para>
+          </listitem>
+          <listitem>
+            <para>
+                Desde el servicio que controla el temporizador, llame al archivo de servicio de correo electrónico creado mediante <literal>OnFailure</literal>.
+              </para>
+          </listitem>
+        </orderedlist>
+      </abstract>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+    </info>
+    <procedure>
+      <para>
+      En el siguiente ejemplo, usamos el comando <command>mailx</command> del paquete <package>mailx</package>. Requiere que el servidor de correo electrónico Postfix esté instalado y configurado correctamente.
+    </para>
+      <step>
+        <para>
+        Crear el guion <filename class="directory">/usr/local/bin/send_systemd_email</filename>.
+      </para>
+        <substeps>
+          <step>
+            <para>
+            El guion requiere dos parámetros: <literal>$1</literal>, la dirección de correo electrónico, y <literal>$2</literal>, el nombre del archivo de servicio para el que se recibe la notificación de fallo. Ambos parámetros los proporciona el archivo de unidad que ejecuta el guion de correo.
+          </para>
+            <screen>#!/bin/sh
+systemctl status --full "$2" | mailx -S sendwait\
+ -s "Service failure for $2" -r root@$HOSTNAME $1
+</screen>
+          </step>
+          <step>
+            <para>
+            Asegúrese de que el guion sea ejecutable:
+          </para>
+            <screen><prompt>&gt; </prompt><command>sudo</command> chmod 755 /usr/local/bin/send_systemd_email</screen>
+          </step>
+        </substeps>
+      </step>
+      <step>
+        <para>
+        Cree el archivo <filename>/etc/systemd/system/send_email_to_<replaceable>USER</replaceable>@.service</filename>.
+      </para>
+        <screen>[Unit]
+Description=Send systemd status information by email for %i to <replaceable>USER</replaceable>
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/send_systemd_email <replaceable>EMAIL_ADDRESS</replaceable> %i
+User=root
+Group=systemd-journal
+</screen>
+        <para>
+        Sustituya <replaceable>USER</replaceable> y <replaceable>EMAIL_ADDRESS</replaceable> en el archivo con los datos de inicio de sesión y la dirección de correo electrónico del usuario que debe recibir el correo electrónico. <literal>%i</literal> es el nombre del servicio que ha fallado (el parámetro <literal>%n</literal> lo pasa al servicio de correo electrónico).
+      </para>
+      </step>
+      <step>
+        <para>
+        Verifique el archivo de servicio y solucione los problemas notificados:
+      </para>
+        <screen><prompt>&gt; </prompt>systemd-analyze verify /etc/systemd/system/send_email_to_<replaceable>USER</replaceable>@.service</screen>
+        <para>
+        Si el comando no devuelve ningún resultado, el archivo ha pasado la verificación correctamente.
+      </para>
+      </step>
+      <step>
+        <para>
+        Para verificar el procedimiento completo, inicie el servicio utilizando la instancia <literal>dbus</literal> de prueba. Puede usar cualquier otro servicio que se esté ejecutando actualmente. En ese ejemplo se usa dbus porque se garantiza que el servicio se ejecutará en cualquier instalación.
+      </para>
+        <screen><prompt>&gt; </prompt><command>sudo</command> systemctl start send_email_to_<replaceable>USER</replaceable>@dbus.service</screen>
+        <para>
+        Si se verifica correctamente, <replaceable>EMAIL_ADDRESS</replaceable> recibe un mensaje de correo electrónico con el asunto <literal>Service failure for dbus</literal> que contiene mensajes de estado de dbus en el cuerpo. Esto es solo una prueba, no hay ningún problema con el servicio dbus. Puede suprimir el correo electrónico de forma segura, no es necesario realizar ninguna acción.
+      </para>
+        <para>
+        Si el correo electrónico de prueba se ha enviado correctamente, continúe integrándolo en el archivo de servicio.
+      </para>
+      </step>
+      <step>
+        <para>
+        Para añadir una notificación por correo electrónico al servicio, añada una opción <literal>OnFailure</literal> a la sección <literal>Unit</literal> del archivo de servicio para la que desea recibir una notificación en caso de fallo:
+      </para>
+        <screen>[Unit]
+Description="Hello World script"
+OnFailure<co xml:id="systemd-mailto-onfailure"/>=send_email_to_<replaceable>USER</replaceable><co xml:id="systemd-mailto-user"/>@%n<co xml:id="systemd-mailto-name"/>.service
+
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh
+</screen>
+        <calloutlist>
+          <callout arearefs="systemd-mailto-onfailure">
+            <para>
+            La opción <literal>OnFailure</literal> toma un servicio como argumento.
+          </para>
+          </callout>
+          <callout arearefs="systemd-mailto-user">
+            <para>
+            Sustituya la parte del nombre de archivo de la unidad de servicio por el nombre de inicio de sesión.
+          </para>
+          </callout>
+          <callout arearefs="systemd-mailto-name">
+            <para>
+            Especifica el nombre del servicio (en este ejemplo, <literal>helloworld</literal>). Este nombre está disponible en el archivo del servicio de correo electrónico como %i.
+          </para>
+          </callout>
+        </calloutlist>
+      </step>
+      <result>
+        <para>
+        Ha configurado correctamente la notificación de fallos para los servicios <systemitem class="daemon">systemd</systemitem>.
+      </para>
+      </result>
+    </procedure>
+    <tip>
+      <title>envío de notificaciones por correo electrónico a varios usuarios</title>
+      <para>
+      El archivo de servicio de correo electrónico tiene la dirección de correo electrónico del destinatario codificada. Para enviar mensajes de correo electrónico de notificación a un usuario diferente, copie el archivo del servicio de correo electrónico y sustituya los datos de inicio de sesión del usuario en el nombre del archivo y la dirección de correo electrónico en la copia.
+    </para>
+      <para>
+      Para enviar una notificación de fallo a varios destinatarios simultáneamente, añada los archivos de servicio correspondientes al archivo de servicio (utilice espacios como separadores):
+    </para>
+      <screen>OnFailure=send_email_to_tux@%n.service send_email_to_wilber@%n.service</screen>
+    </tip>
+  </section>
+  <section role="task" xml:lang="es" version="5.2" xml:id="systemd-timer-user">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Uso de temporizadores como usuario normal</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>Los usuarios normales también pueden utilizar temporizadores <systemitem class="daemon">systemd</systemitem>. Les ayudan a automatizar tareas periódicas como las copias de seguridad, el procesamiento de imágenes o el traslado de datos a la nube.
+      </para>
+      </abstract>
+    </info>
+    <para>
+    Son válidos los mismos procedimientos y tareas que para los temporizadores de todo el sistema. Sin embargo, se aplican las siguientes diferencias:
+  </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+        Los archivos de temporizador y servicio deben colocarse en <filename>~/.config/systemd/user/</filename>.
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+        Todos los comandos de <command>systemctl</command> y <command>journalctl</command> deben ejecutarse con el conmutador <option>‑‑user</option>. <command>systemd-analyze</command> <emphasis>no</emphasis> requiere esta opción.
+      </para>
+        <para>
+        Como usuario normal, debe proporcionar la vía a los archivos de unidad, como en los ejemplos siguientes. Si no lo hace y existe un temporizador para todo el sistema con el mismo nombre, este se ejecutará o se mostrará en su lugar.
+      </para>
+        <screen><prompt>&gt; </prompt>systemctl --user start ~/.config/systemd/user/helloworld.timer
+<prompt>&gt; </prompt>systemctl --user enable ~/.config/systemd/user/helloworld.timer
+<prompt>&gt; </prompt>systemctl --user list-timers
+<prompt>&gt; </prompt>journalctl --user -u helloworld.*
+<prompt>&gt; </prompt>systemd-analyze verify ~/.config/systemd/user/helloworld.timer</screen>
+      </listitem>
+    </itemizedlist>
+    <important>
+      <title>los temporizadores de usuario solo se ejecutan durante una sesión activa</title>
+      <para>
+      Al igual que con otros servicios <systemitem class="daemon">systemd</systemitem> que inicia como usuario normal, los temporizadores de usuario solo se ejecutan cuando el usuario ha entrado en la sesión. En su lugar, para iniciar los temporizadores de usuario en el momento del arranque y mantenerlos en ejecución después de cerrar la sesión, habilite la <emphasis>persistencia</emphasis> (lingering) para cada usuario afectado:
+    </para>
+      <screen>sudo loginctl enable-linger <replaceable>USER</replaceable></screen>
+      <para>
+      Para obtener más información, consulte <command>man 1 loginctl</command>.
+    </para>
+    </important>
+    <important>
+      <title>las variables de entorno no se heredan</title>
+      <para>
+      La instancia de usuario <systemitem class="daemon">systemd</systemitem> no hereda las variables de entorno definidas por guiones como <filename>~/.profile</filename> o <filename>~/.bashrc</filename>. Para comprobar el entorno <systemitem class="daemon">systemd</systemitem>, ejecute <command>systemctl --user show-environment</command>.
+    </para>
+      <para>
+      Para importar las variables que faltan en el entorno <systemitem class="daemon">systemd</systemitem>, especifique el siguiente comando al final de su <filename>~/.bashrc</filename>:
+    </para>
+      <screen>systemctl --user import-environment <replaceable>VARIABLE1</replaceable> <replaceable>VARIABLE2</replaceable></screen>
+    </important>
+  </section>
+  <section role="task" xml:lang="es" version="5.2" xml:id="systemd-timer-catchup">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Migración de cron a temporizadores <systemitem class="daemon">systemd</systemitem></title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+        Todos los trabajos cron se pueden migrar a temporizadores <systemitem class="daemon">systemd</systemitem>. Aquí encontrará instrucciones y un ejemplo.
+      </para>
+      </abstract>
+    </info>
+    <procedure>
+      <step>
+        <para>
+        Cree un archivo de servicio ejecutando el guion. Consulte el <xref linkend="systemd-timer-example-service"/> para obtener más información.
+      </para>
+      </step>
+      <step>
+        <para>
+        Cree un archivo de temporizador ejecutando el archivo de servicio. Consulte el <xref linkend="systemd-timer-example-timer"/> para ver las instrucciones generales.
+      </para>
+        <substeps>
+          <step>
+            <para>
+            Convierta las entradas de calendario. La hora se especifica de forma diferente en cron y <systemitem class="daemon">systemd</systemitem>. Utilice los patrones siguientes como plantilla de conversión:
+          </para>
+            <screen>Cron:               Minute Hour Day Month DayOfWeek
+systemd: OnCalendar=DayOfWeek Year-Month-Day Hour:Minute:Second</screen>
+            <para>
+            Para probar la entrada de calendario convertida, siga las instrucciones de la <xref linkend="systemd-timer-test"/>.
+          </para>
+          </step>
+          <step>
+            <para>
+            Convierta los apodos cron (<literal>@<replaceable>NICK</replaceable></literal>):
+          </para>
+            <screen>Cron     : <systemitem class="daemon">systemd</systemitem> timer
+-------- : ----------------------------
+@reboot  : OnBootSec=1s
+@yearly  : OnCalendar=*-01-01 00:00:00
+@annually: OnCalendar=*-01-01 00:00:00
+@monthly : OnCalendar=*-*-01 00:00:00
+@weekly  : OnCalendar=Sun *-*-* 00:00:00
+@daily   : OnCalendar=*-*-* 00:00:00
+@hourly  : OnCalendar=*-*-* *:00:00</screen>
+          </step>
+          <step>
+            <para>
+            Convierta las asignaciones de variables. La asignación de variable <systemitem class="daemon">systemd</systemitem> debe ir a la sección <literal>[Service]</literal>. No es posible convertir <envar>MAILTO</envar> de esta forma; consulte el siguiente paso.
+          </para>
+            <screen>cron: <replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>
+systemd: Environment="<replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>"</screen>
+          </step>
+          <step>
+            <para>
+            Configure las notificaciones por correo electrónico para reemplazar la función MAILTO de cron siguiendo las instrucciones de la <xref linkend="systemd-mailto"/>.
+          </para>
+          </step>
+        </substeps>
+      </step>
+    </procedure>
+    <example>
+      <title>Migración de cron a temporizador <systemitem class="daemon">systemd</systemitem></title>
+      <para>
+      Estas son las entradas crontab que llaman al guion <literal>helloworld.sh</literal> 5 minutos después del arranque y a las 10 en punto de cada lunes a viernes:
+    </para>
+      <screen>@reboot sleep 300 &amp;&amp; /usr/local/bin/helloworld.sh
+0 10 * * * 1-5 /usr/local/bin/helloworld.sh</screen>
+      <para>
+      El archivo de servicio <systemitem class="daemon">systemd</systemitem> (<filename>helloworld.service</filename>) que llama al guion tiene este aspecto:
+    </para>
+      <screen>[Unit]
+Description="Hello World script"
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh</screen>
+      <para>
+      El archivo del temporizador (<filename>helloworld.timer</filename>) tiene este aspecto:
+    </para>
+      <screen>[Unit]
+Description="Run helloworld.service 5min after boot and at 10am every Mon-Fri"
+[Timer]
+OnBootSec=5min
+OnCalendar=Mon..Fri *-*-* 10:00
+Unit=helloworld.service
+[Install]
+WantedBy=multi-user.target</screen>
+    </example>
+  </section>
+  <section role="task" xml:lang="es" version="5.2" xml:id="systemd-timer-troubleshoot">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Resolución de problemas y preguntas frecuentes</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+        Aprenda a depurar y solucionar problemas de temporizadores <systemitem class="daemon">systemd</systemitem> que hayan fallado. Encuentre respuestas a preguntas frecuentes sobre los temporizadores <systemitem class="daemon">systemd</systemitem>.
+      </para>
+      </abstract>
+    </info>
+    <section>
+      <title>Cómo evitar errores</title>
+      <para>
+      Para evitar errores con los temporizadores <systemitem class="daemon">systemd</systemitem>, asegúrese de seguir estas prácticas recomendadas:
+    </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+          Compruebe que el ejecutable que especifique en el servicio con <literal>ExecStart</literal> se ejecute correctamente.
+        </para>
+        </listitem>
+        <listitem>
+          <para>
+          Compruebe la sintaxis de los archivos de servicio y de temporizador ejecutando <command>systemd-analyze
+          verify <replaceable>FILE</replaceable></command>.
+        </para>
+        </listitem>
+        <listitem>
+          <para>
+          Compruebe los tiempos de ejecución de las entradas del calendario ejecutando <command>systemd-analyze calendar
+          <replaceable>CALENDER_ENTRY</replaceable></command>.
+        </para>
+        </listitem>
+      </itemizedlist>
+    </section>
+    <section>
+      <title>El evento no se activa</title>
+      <para>
+      Cuando activa un temporizador que contiene errores no críticos, <systemitem class="daemon">systemd</systemitem> los ignora de forma silenciosa. Por ejemplo:
+    </para>
+      <example>
+        <title>Recorte del archivo del temporizador <systemitem class="daemon">systemd</systemitem> que contiene un error no crítico</title>
+        <screen>[Timer]
+OnBootSec=5min
+OnClendar=Mon..Fri 10:00
+Unit=helloworld.service
+</screen>
+        <para>
+        La línea 3 contiene un error de sintaxis (<literal>OnClendar</literal> en lugar de <literal>OnCalendar</literal>). Dado que la sección <literal>[Timer]</literal> contiene una segunda entrada de temporizador (OnBoot), el error no es crítico y se ignora silenciosamente. Como consecuencia, el activador de lunes a viernes no se ejecuta. La única forma de detectar el error es utilizar el comando <command>systemd-analyze verify</command>:
+      </para>
+        <screen><prompt role="root"># </prompt>systemd-analyze verify /etc/systemd/system/helloworld.timer
+/etc/systemd/system/helloworld.timer:7: Unknown key name 'OnClendar' in section 'Timer', ignoring.</screen>
+      </example>
+    </section>
+    <section>
+      <title>Comprobación de errores en el diario del sistema</title>
+      <para>
+      Como ocurre con todos los servicios <systemitem class="daemon">systemd</systemitem>, los eventos y acciones activados por los temporizadores se registran en el diario del sistema. Si un activador no se comporta como se espera, compruebe los mensajes de registro con <command>journalctl</command>. Para localizar la información relevante en el diario, utilice el conmutador <option>-u</option> para especificar los temporizadores <systemitem class="daemon">systemd</systemitem> y los archivos de servicio. Utilice esta opción para mostrar las entradas de registro para el temporizador <emphasis>y</emphasis> el archivo de servicio correspondiente:
+    </para>
+      <screen>sudo journalctl -u  helloworld.timer -u helloworld.service</screen>
+      <para>
+      o más corto (si procede):
+    </para>
+      <screen>sudo journalctl -u  helloworld.*</screen>
+      <para><command>journalctl</command> es una herramienta que admite muchas opciones y filtros. Consulte <command>man 1 journalctl</command> para obtener información detallada. Las siguientes opciones son útiles para solucionar problemas de temporizadores:
+    </para>
+      <itemizedlist>
+        <listitem>
+          <para><option>-b</option>: muestra solo las entradas del arranque actual.
+        </para>
+        </listitem>
+        <listitem>
+          <para><option>-S today</option>: muestra solo las entradas de hoy.
+        </para>
+        </listitem>
+        <listitem>
+          <para><option>-x</option>: muestra textos de ayuda junto a la entrada de registro.
+        </para>
+        </listitem>
+        <listitem>
+          <para><option>-f</option>: comienza con las entradas más recientes e imprime continuamente el registro a medida que se añaden nuevas entradas. Es útil para comprobar los activadores que se producen en intervalos cortos. Para salir, pulse <keycombo><keycap function="control"/><keycap>C</keycap></keycombo>.
+        </para>
+        </listitem>
+      </itemizedlist>
+    </section>
+    <section>
+      <title>Temporizador <systemitem class="daemon">systemd</systemitem>: ponerse al día con las ejecuciones perdidas</title>
+      <para>
+      Si un temporizador <systemitem class="daemon">systemd</systemitem> estaba inactivo o el sistema estaba apagado durante el tiempo de ejecución previsto, los eventos perdidos se pueden activar inmediatamente cuando el temporizador se vuelva a activar. Para hacerlo, añada la opción de configuración <literal>Persistent=true</literal> a la sección <literal>[Timer]</literal>:
+    </para>
+      <screen>[Timer]
+OnCalendar=Mon..Fri 10:00
+Persistent=true
+Unit=helloworld.service</screen>
+    </section>
+    <section>
+      <title>¿Cómo migrar de cron a temporizadores <systemitem class="daemon">systemd</systemitem>?</title>
+      <para>
+      Todos los trabajos cron se pueden migrar a temporizadores <systemitem class="daemon">systemd</systemitem>. A continuación encontrará instrucciones generales para migrar un trabajo cron:
+    </para>
+      <procedure>
+        <step>
+          <para>
+          Cree un archivo de servicio ejecutando el guion. Consulte el <xref linkend="systemd-timer-example-service"/> para obtener más información.
+        </para>
+        </step>
+        <step>
+          <para>
+          Cree un archivo de temporizador ejecutando el archivo de servicio. Consulte el <xref linkend="systemd-timer-example-timer"/> para ver las instrucciones generales.
+        </para>
+          <substeps>
+            <step>
+              <para>
+              Convierta las entradas de calendario. La hora se especifica de forma diferente en cron y <systemitem class="daemon">systemd</systemitem>. Utilice los patrones siguientes como plantilla de conversión:
+            </para>
+              <screen>Cron:               Minute Hour Day Month DayOfWeek
+systemd: OnCalendar=DayOfWeek Year-Month-Day Hour:Minute:Second</screen>
+              <para>
+              Para probar la entrada de calendario convertida, siga las instrucciones de la <xref linkend="systemd-timer-test"/>.
+            </para>
+            </step>
+            <step>
+              <para>
+              Convierta los apodos cron (<literal>@<replaceable>NICK</replaceable></literal>):
+            </para>
+              <screen>Cron     : <systemitem class="daemon">systemd</systemitem> timer
+-------- : ----------------------------
+@reboot  : OnBootSec=1s
+@yearly  : OnCalendar=*-01-01 00:00:00
+@annually: OnCalendar=*-01-01 00:00:00
+@monthly : OnCalendar=*-*-01 00:00:00
+@weekly  : OnCalendar=Sun *-*-* 00:00:00
+@daily   : OnCalendar=*-*-* 00:00:00
+@hourly  : OnCalendar=*-*-* *:00:00</screen>
+            </step>
+            <step>
+              <para>
+              Convierta las asignaciones de variables. La asignación de variable <systemitem class="daemon">systemd</systemitem> debe ir a la sección <literal>[Service]</literal>. No es posible convertir <envar>MAILTO</envar> de esta forma; consulte el siguiente paso.
+            </para>
+              <screen>cron: <replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>
+systemd: Environment="<replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>"</screen>
+            </step>
+            <step>
+              <para>
+              Configure las notificaciones por correo electrónico para reemplazar la función MAILTO de cron siguiendo las instrucciones de la <xref linkend="systemd-mailto"/>.
+            </para>
+            </step>
+          </substeps>
+        </step>
+      </procedure>
+      <example>
+        <title>Migración de cron a temporizador <systemitem class="daemon">systemd</systemitem></title>
+        <para>
+        Estas son las entradas crontab que llaman al guion <literal>helloworld.sh</literal> 5 minutos después del arranque y a las 10 en punto de cada lunes a viernes:
+      </para>
+        <screen>@reboot sleep 300 &amp;&amp; /usr/local/bin/helloworld.sh
+0 10 * * * 1-5 /usr/local/bin/helloworld.sh</screen>
+        <para>
+        El archivo de servicio <systemitem class="daemon">systemd</systemitem> (<filename>helloworld.service</filename>) que llama al guion tiene este aspecto:
+      </para>
+        <screen>[Unit]
+Description="Hello World script"
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh</screen>
+        <para>
+        El archivo del temporizador (<filename>helloworld.timer</filename>) tiene este aspecto:
+      </para>
+        <screen>[Unit]
+Description="Run helloworld.service 5min after boot and at 10am every Mon-Fri"
+[Timer]
+OnBootSec=5min
+OnCalendar=Mon..Fri *-*-* 10:00
+Unit=helloworld.service
+[Install]
+WantedBy=multi-user.target</screen>
+      </example>
+    </section>
+  </section>
+  <section role="glue" xml:lang="es" version="5.2" xml:id="systemd-timers-more-info">
+    <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Información adicional</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+    </info>
+    <itemizedlist>
+      <listitem>
+        <para>
+        Para obtener una referencia completa sobre los temporizadores <systemitem class="daemon">systemd</systemitem>, incluidas las opciones de configuración avanzadas (como retrasos o gestión de cambios de reloj o zona horaria), consulte <command>man 5
+        systemd.timer</command>.
+      </para>
+      </listitem>
+      <listitem>
+        <para>
+          <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/concept-systemd/concept-systemd.html">Conceptos básicos de <systemitem class="daemon">systemd</systemitem></link>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/reference-systemctl-start-stop-services/reference-systemctl-start-stop-services.html">Inicio y detención de servicios <systemitem class="daemon">systemd</systemitem></link>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/reference-systemctl-enable-disable-services/reference-systemctl-enable-disable-services.html">Habilitación e inhabilitación de servicios <systemitem class="daemon">systemd</systemitem></link>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/task-debug-failed-systemd-services/index.html">Depuración de errores de servicios <systemitem class="daemon">systemd</systemitem></link>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/task-send-termination-signals-systemd/task-send-termination-signals-systemd.html">Envío de señales de terminación a servicios <systemitem class="daemon">systemd</systemitem></link>
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section version="5.2" xml:id="legal-disclaimer">
+    <info>
+      <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">Información legal</title>
+    </info>
+    <para> Copyright© 2006–<?dbtimestamp format="Y"?> SUSE LLC y colaboradores. Reservados todos los derechos. </para>
+    <para>
+    Está permitido copiar, distribuir y modificar este documento según los términos de la licencia de documentación gratuita GNU, versión 1.2 o (según su criterio) versión 1.3. Esta información de copyright y licencia deberán permanecer inalterados. En la sección titulada <quote>GNU Free Documentation License</quote> (Licencia de documentación gratuita GNU) se incluye una copia de la versión 1.2 de la licencia.
+  </para>
+    <para>
+    Para obtener información sobre las marcas comerciales de SUSE, consulte <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.suse.com/company/legal/"/>. Todas las marcas comerciales de otros fabricantes son propiedad de sus respectivas empresas. Los símbolos de marcas comerciales (®, ™, etc.) indican marcas comerciales de SUSE y sus filiales. Los asteriscos (*) indican marcas comerciales de otros fabricantes.
+  </para>
+    <para>
+    Toda la información recogida en esta publicación se ha compilado prestando toda la atención posible al más mínimo detalle. Sin embargo, esto no garantiza una precisión total. Ni SUSE LLC, ni sus filiales, ni los autores o traductores serán responsables de los posibles errores o las consecuencias que de ellos pudieran derivarse.
+  </para>
+  </section>
+  <appendix xmlns:its="http://www.w3.org/2005/11/its" version="5.2" role="legal" its:translate="no" xml:id="doc-gfdl-license">
+    <info>
+      <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">GNU Free Documentation License</title>
+    </info>
+    <para>
+  Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc. 51 Franklin St,
+  Fifth Floor, Boston, MA 02110-1301 USA. Everyone is permitted to copy and
+  distribute verbatim copies of this license document, but changing it is not
+  allowed.
+ </para>
+    <bridgehead renderas="sect4">
+    0. PREAMBLE
+  </bridgehead>
+    <para>
+  The purpose of this License is to make a manual, textbook, or other
+  functional and useful document "free" in the sense of freedom: to assure
+  everyone the effective freedom to copy and redistribute it, with or without
+  modifying it, either commercially or non-commercially. Secondarily, this
+  License preserves for the author and publisher a way to get credit for their
+  work, while not being considered responsible for modifications made by
+  others.
+ </para>
+    <para>
+  This License is a kind of "copyleft", which means that derivative works of
+  the document must themselves be free in the same sense. It complements the
+  GNU General Public License, which is a copyleft license designed for free
+  software.
+ </para>
+    <para>
+  We have designed this License to use it for manuals for free software,
+  because free software needs free documentation: a free program should come
+  with manuals providing the same freedoms that the software does. But this
+  License is not limited to software manuals; it can be used for any textual
+  work, regardless of subject matter or whether it is published as a printed
+  book. We recommend this License principally for works whose purpose is
+  instruction or reference.
+ </para>
+    <bridgehead renderas="sect4">
+    1. APPLICABILITY AND DEFINITIONS
+  </bridgehead>
+    <para>
+  This License applies to any manual or other work, in any medium, that
+  contains a notice placed by the copyright holder saying it can be distributed
+  under the terms of this License. Such a notice grants a world-wide,
+  royalty-free license, unlimited in duration, to use that work under the
+  conditions stated herein. The "Document", below, refers to any such manual or
+  work. Any member of the public is a licensee, and is addressed as "you". You
+  accept the license if you copy, modify or distribute the work in a way
+  requiring permission under copyright law.
+ </para>
+    <para>
+  A "Modified Version" of the Document means any work containing the Document
+  or a portion of it, either copied verbatim, or with modifications and/or
+  translated into another language.
+ </para>
+    <para>
+  A "Secondary Section" is a named appendix or a front-matter section of the
+  Document that deals exclusively with the relationship of the publishers or
+  authors of the Document to the Document's overall subject (or to related
+  matters) and contains nothing that could fall directly within that overall
+  subject. (Thus, if the Document is in part a textbook of mathematics, a
+  Secondary Section may not explain any mathematics.) The relationship could be
+  a matter of historical connection with the subject or with related matters,
+  or of legal, commercial, philosophical, ethical or political position
+  regarding them.
+ </para>
+    <para>
+  The "Invariant Sections" are certain Secondary Sections whose titles are
+  designated, as being those of Invariant Sections, in the notice that says
+  that the Document is released under this License. If a section does not fit
+  the above definition of Secondary then it is not allowed to be designated as
+  Invariant. The Document may contain zero Invariant Sections. If the Document
+  does not identify any Invariant Sections then there are none.
+ </para>
+    <para>
+  The "Cover Texts" are certain short passages of text that are listed, as
+  Front-Cover Texts or Back-Cover Texts, in the notice that says that the
+  Document is released under this License. A Front-Cover Text may be at most 5
+  words, and a Back-Cover Text may be at most 25 words.
+ </para>
+    <para>
+  A "Transparent" copy of the Document means a machine-readable copy,
+  represented in a format whose specification is available to the general
+  public, that is suitable for revising the document straightforwardly with
+  generic text editors or (for images composed of pixels) generic paint
+  programs or (for drawings) some widely available drawing editor, and that is
+  suitable for input to text formatters or for automatic translation to a
+  variety of formats suitable for input to text formatters. A copy made in an
+  otherwise Transparent file format whose markup, or absence of markup, has
+  been arranged to thwart or discourage subsequent modification by readers is
+  not Transparent. An image format is not Transparent if used for any
+  substantial amount of text. A copy that is not "Transparent" is called
+  "Opaque".
+ </para>
+    <para>
+  Examples of suitable formats for Transparent copies include plain ASCII
+  without markup, Texinfo input format, LaTeX input format, SGML or XML using a
+  publicly available DTD, and standard-conforming simple HTML, PostScript or
+  PDF designed for human modification. Examples of transparent image formats
+  include PNG, XCF and JPG. Opaque formats include proprietary formats that can
+  be read and edited only by proprietary word processors, SGML or XML for which
+  the DTD and/or processing tools are not generally available, and the
+  machine-generated HTML, PostScript or PDF produced by some word processors
+  for output purposes only.
+ </para>
+    <para>
+  The "Title Page" means, for a printed book, the title page itself, plus such
+  following pages as are needed to hold, legibly, the material this License
+  requires to appear in the title page. For works in formats which do not have
+  any title page as such, "Title Page" means the text near the most prominent
+  appearance of the work's title, preceding the beginning of the body of the
+  text.
+ </para>
+    <para>
+  A section "Entitled XYZ" means a named subunit of the Document whose title
+  either is precisely XYZ or contains XYZ in parentheses following text that
+  translates XYZ in another language. (Here XYZ stands for a specific section
+  name mentioned below, such as "Acknowledgements", "Dedications",
+  "Endorsements", or "History".) To "Preserve the Title" of such a section when
+  you modify the Document means that it remains a section "Entitled XYZ"
+  according to this definition.
+ </para>
+    <para>
+  The Document may include Warranty Disclaimers next to the notice which states
+  that this License applies to the Document. These Warranty Disclaimers are
+  considered to be included by reference in this License, but only as regards
+  disclaiming warranties: any other implication that these Warranty Disclaimers
+  may have is void and has no effect on the meaning of this License.
+ </para>
+    <bridgehead renderas="sect4">
+    2. VERBATIM COPYING
+  </bridgehead>
+    <para>
+  You may copy and distribute the Document in any medium, either commercially
+  or non-commercially, provided that this License, the copyright notices, and
+  the license notice saying this License applies to the Document are reproduced
+  in all copies, and that you add no other conditions whatsoever to those of
+  this License. You may not use technical measures to obstruct or control the
+  reading or further copying of the copies you make or distribute. However, you
+  may accept compensation in exchange for copies. If you distribute a large
+  enough number of copies you must also follow the conditions in section 3.
+ </para>
+    <para>
+  You may also lend copies, under the same conditions stated above, and you may
+  publicly display copies.
+ </para>
+    <bridgehead renderas="sect4">
+    3. COPYING IN QUANTITY
+  </bridgehead>
+    <para>
+  If you publish printed copies (or copies in media that commonly have printed
+  covers) of the Document, numbering more than 100, and the Document's license
+  notice requires Cover Texts, you must enclose the copies in covers that
+  carry, clearly and legibly, all these Cover Texts: Front-Cover Texts on the
+  front cover, and Back-Cover Texts on the back cover. Both covers must also
+  clearly and legibly identify you as the publisher of these copies. The front
+  cover must present the full title with all words of the title equally
+  prominent and visible. You may add other material on the covers in addition.
+  Copying with changes limited to the covers, as long as they preserve the
+  title of the Document and satisfy these conditions, can be treated as
+  verbatim copying in other respects.
+ </para>
+    <para>
+  If the required texts for either cover are too voluminous to fit legibly, you
+  should put the first ones listed (as many as fit reasonably) on the actual
+  cover, and continue the rest onto adjacent pages.
+ </para>
+    <para>
+  If you publish or distribute Opaque copies of the Document numbering more
+  than 100, you must either include a machine-readable Transparent copy along
+  with each Opaque copy, or state in or with each Opaque copy a
+  computer-network location from which the general network-using public has
+  access to download using public-standard network protocols a complete
+  Transparent copy of the Document, free of added material. If you use the
+  latter option, you must take reasonably prudent steps, when you begin
+  distribution of Opaque copies in quantity, to ensure that this Transparent
+  copy will remain thus accessible at the stated location until at least one
+  year after the last time you distribute an Opaque copy (directly or through
+  your agents or retailers) of that edition to the public.
+ </para>
+    <para>
+  It is requested, but not required, that you contact the authors of the
+  Document well before redistributing any large number of copies, to give them
+  a chance to provide you with an updated version of the Document.
+ </para>
+    <bridgehead renderas="sect4">
+    4. MODIFICATIONS
+  </bridgehead>
+    <para>
+  You may copy and distribute a Modified Version of the Document under the
+  conditions of sections 2 and 3 above, provided that you release the Modified
+  Version under precisely this License, with the Modified Version filling the
+  role of the Document, thus licensing distribution and modification of the
+  Modified Version to whoever possesses a copy of it. In addition, you must do
+  these things in the Modified Version:
+ </para>
+    <orderedlist numeration="upperalpha" spacing="normal">
+      <listitem>
+        <para>
+    Use in the Title Page (and on the covers, if any) a title distinct from
+    that of the Document, and from those of previous versions (which should, if
+    there were any, be listed in the History section of the Document). You may
+    use the same title as a previous version if the original publisher of that
+    version gives permission.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    List on the Title Page, as authors, one or more persons or entities
+    responsible for authorship of the modifications in the Modified Version,
+    together with at least five of the principal authors of the Document (all
+    of its principal authors, if it has fewer than five), unless they release
+    you from this requirement.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    State on the Title page the name of the publisher of the Modified Version,
+    as the publisher.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve all the copyright notices of the Document.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Add an appropriate copyright notice for your modifications adjacent to the
+    other copyright notices.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Include, immediately after the copyright notices, a license notice giving
+    the public permission to use the Modified Version under the terms of this
+    License, in the form shown in the Addendum below.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve in that license notice the full lists of Invariant Sections and
+    required Cover Texts given in the Document's license notice.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Include an unaltered copy of this License.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve the section Entitled "History", Preserve its Title, and add to it
+    an item stating at least the title, year, new authors, and publisher of the
+    Modified Version as given on the Title Page. If there is no section
+    Entitled "History" in the Document, create one stating the title, year,
+    authors, and publisher of the Document as given on its Title Page, then add
+    an item describing the Modified Version as stated in the previous sentence.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve the network location, if any, given in the Document for public
+    access to a Transparent copy of the Document, and likewise the network
+    locations given in the Document for previous versions it was based on.
+    These may be placed in the "History" section. You may omit a network
+    location for a work that was published at least four years before the
+    Document itself, or if the original publisher of the version it refers to
+    gives permission.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    For any section Entitled "Acknowledgements" or "Dedications", Preserve the
+    Title of the section, and preserve in the section all the substance and
+    tone of each of the contributor acknowledgements and/or dedications given
+    therein.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve all the Invariant Sections of the Document, unaltered in their
+    text and in their titles. Section numbers or the equivalent are not
+    considered part of the section titles.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Delete any section Entitled "Endorsements". Such a section may not be
+    included in the Modified Version.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Do not retitle any existing section to be Entitled "Endorsements" or to
+    conflict in title with any Invariant Section.
+   </para>
+      </listitem>
+      <listitem>
+        <para>
+    Preserve any Warranty Disclaimers.
+   </para>
+      </listitem>
+    </orderedlist>
+    <para>
+  If the Modified Version includes new front-matter sections or appendices that
+  qualify as Secondary Sections and contain no material copied from the
+  Document, you may at your option designate some or all of these sections as
+  invariant. To do this, add their titles to the list of Invariant Sections in
+  the Modified Version's license notice. These titles must be distinct from any
+  other section titles.
+ </para>
+    <para>
+  You may add a section Entitled "Endorsements", provided it contains nothing
+  but endorsements of your Modified Version by various parties--for example,
+  statements of peer review or that the text has been approved by an
+  organization as the authoritative definition of a standard.
+ </para>
+    <para>
+  You may add a passage of up to five words as a Front-Cover Text, and a
+  passage of up to 25 words as a Back-Cover Text, to the end of the list of
+  Cover Texts in the Modified Version. Only one passage of Front-Cover Text and
+  one of Back-Cover Text may be added by (or through arrangements made by) any
+  one entity. If the Document already includes a cover text for the same cover,
+  previously added by you or by arrangement made by the same entity you are
+  acting on behalf of, you may not add another; but you may replace the old
+  one, on explicit permission from the previous publisher that added the old
+  one.
+ </para>
+    <para>
+  The author(s) and publisher(s) of the Document do not by this License give
+  permission to use their names for publicity for or to assert or imply
+  endorsement of any Modified Version.
+ </para>
+    <bridgehead renderas="sect4">
+    5. COMBINING DOCUMENTS
+  </bridgehead>
+    <para>
+  You may combine the Document with other documents released under this
+  License, under the terms defined in section 4 above for modified versions,
+  provided that you include in the combination all of the Invariant Sections of
+  all of the original documents, unmodified, and list them all as Invariant
+  Sections of your combined work in its license notice, and that you preserve
+  all their Warranty Disclaimers.
+ </para>
+    <para>
+  The combined work need only contain one copy of this License, and multiple
+  identical Invariant Sections may be replaced with a single copy. If there are
+  multiple Invariant Sections with the same name but different contents, make
+  the title of each such section unique by adding at the end of it, in
+  parentheses, the name of the original author or publisher of that section if
+  known, or else a unique number. Make the same adjustment to the section
+  titles in the list of Invariant Sections in the license notice of the
+  combined work.
+ </para>
+    <para>
+  In the combination, you must combine any sections Entitled "History" in the
+  various original documents, forming one section Entitled "History"; likewise
+  combine any sections Entitled "Acknowledgements", and any sections Entitled
+  "Dedications". You must delete all sections Entitled "Endorsements".
+ </para>
+    <bridgehead renderas="sect4">
+    6. COLLECTIONS OF DOCUMENTS
+  </bridgehead>
+    <para>
+  You may make a collection consisting of the Document and other documents
+  released under this License, and replace the individual copies of this
+  License in the various documents with a single copy that is included in the
+  collection, provided that you follow the rules of this License for verbatim
+  copying of each of the documents in all other respects.
+ </para>
+    <para>
+  You may extract a single document from such a collection, and distribute it
+  individually under this License, provided you insert a copy of this License
+  into the extracted document, and follow this License in all other respects
+  regarding verbatim copying of that document.
+ </para>
+    <bridgehead renderas="sect4">
+    7. AGGREGATION WITH INDEPENDENT WORKS
+  </bridgehead>
+    <para>
+  A compilation of the Document or its derivatives with other separate and
+  independent documents or works, in or on a volume of a storage or
+  distribution medium, is called an "aggregate" if the copyright resulting from
+  the compilation is not used to limit the legal rights of the compilation's
+  users beyond what the individual works permit. When the Document is included
+  in an aggregate, this License does not apply to the other works in the
+  aggregate which are not themselves derivative works of the Document.
+ </para>
+    <para>
+  If the Cover Text requirement of section 3 is applicable to these copies of
+  the Document, then if the Document is less than one half of the entire
+  aggregate, the Document's Cover Texts may be placed on covers that bracket
+  the Document within the aggregate, or the electronic equivalent of covers if
+  the Document is in electronic form. Otherwise they must appear on printed
+  covers that bracket the whole aggregate.
+ </para>
+    <bridgehead renderas="sect4">
+    8. TRANSLATION
+  </bridgehead>
+    <para>
+  Translation is considered a kind of modification, so you may distribute
+  translations of the Document under the terms of section 4. Replacing
+  Invariant Sections with translations requires special permission from their
+  copyright holders, but you may include translations of some or all Invariant
+  Sections in addition to the original versions of these Invariant Sections.
+  You may include a translation of this License, and all the license notices in
+  the Document, and any Warranty Disclaimers, provided that you also include
+  the original English version of this License and the original versions of
+  those notices and disclaimers. In case of a disagreement between the
+  translation and the original version of this License or a notice or
+  disclaimer, the original version will prevail.
+ </para>
+    <para>
+  If a section in the Document is Entitled "Acknowledgements", "Dedications",
+  or "History", the requirement (section 4) to Preserve its Title (section 1)
+  will typically require changing the actual title.
+ </para>
+    <bridgehead renderas="sect4">
+    9. TERMINATION
+  </bridgehead>
+    <para>
+  You may not copy, modify, sublicense, or distribute the Document except as
+  expressly provided for under this License. Any other attempt to copy, modify,
+  sublicense or distribute the Document is void, and will automatically
+  terminate your rights under this License. However, parties who have received
+  copies, or rights, from you under this License will not have their licenses
+  terminated so long as such parties remain in full compliance.
+ </para>
+    <bridgehead renderas="sect4">
+    10. FUTURE REVISIONS OF THIS LICENSE
+  </bridgehead>
+    <para>
+  The Free Software Foundation may publish new, revised versions of the GNU
+  Free Documentation License from time to time. Such new versions will be
+  similar in spirit to the present version, but may differ in detail to address
+  new problems or concerns. See
+  <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.gnu.org/copyleft/"/>.
+ </para>
+    <para>
+  Each version of the License is given a distinguishing version number. If the
+  Document specifies that a particular numbered version of this License "or any
+  later version" applies to it, you have the option of following the terms and
+  conditions either of that specified version or of any later version that has
+  been published (not as a draft) by the Free Software Foundation. If the
+  Document does not specify a version number of this License, you may choose
+  any version ever published (not as a draft) by the Free Software Foundation.
+ </para>
+    <bridgehead renderas="sect4">
+    ADDENDUM: How to use this License for your documents
+  </bridgehead>
+    <screen>Copyright (c) YEAR YOUR NAME.
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2
+or any later version published by the Free Software Foundation;
+with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+A copy of the license is included in the section entitled “GNU
+Free Documentation License”.</screen>
+    <para>
+  If you have Invariant Sections, Front-Cover Texts and Back-Cover Texts,
+  replace the “with...Texts.” line with this:
+ </para>
+    <screen>with the Invariant Sections being LIST THEIR TITLES, with the
+Front-Cover Texts being LIST, and with the Back-Cover Texts being LIST.</screen>
+    <para>
+  If you have Invariant Sections without Cover Texts, or some other combination
+  of the three, merge those two alternatives to suit the situation.
+ </para>
+    <para>
+  If your document contains nontrivial examples of program code, we recommend
+  releasing these examples in parallel under your choice of free software
+  license, such as the GNU General Public License, to permit their use in free
+  software.
+</para>
+  </appendix>
+</article>
