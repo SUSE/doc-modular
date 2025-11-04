@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_configuring_resources.xml -->
+
+<topic xml:id="ha-resources-creating-templates"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Creating resource templates</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+    If you want to create lots of resources with similar configurations,
+    defining a resource template is the easiest way. After being
+    defined, it can be referenced in primitives, or in certain types
+    of constraints.
+   </para>
+   <para>
+    If a template is referenced in a primitive, the primitive inherits
+    all operations, instance attributes (parameters), meta attributes and
+    utilization attributes defined in the template. Additionally, you can
+    define specific operations or attributes for your primitive. If any of
+    these are defined in both the template and the primitive, the values
+    defined in the primitive take precedence over the ones defined in
+    the template.
+   </para>
+   <para>
+    You can create resource templates using either &hawk; or &crmsh;.
+   </para>
+    </abstract>
+  </info>
+
+<section xml:id="sec-conf-hawk2-rsc-template">
+   <title>Creating resource templates with &hawk;</title>
+    <para>
+     Resource templates are configured like primitive resources.
+    </para>
+   <procedure xml:id="pro-conf-hawk2-template-add">
+    <title>Adding a resource template</title>
+    <step>
+     <para>
+      Log in to &hawk;:
+     </para>
+ <screen>https://<replaceable>HAWKSERVER</replaceable>:7630/</screen>
+    </step>
+    <step>
+     <para>
+      From the left navigation bar, select <menuchoice> <guimenu>Configuration</guimenu>
+      <guimenu>Add Resource</guimenu> <guimenu>Template</guimenu> </menuchoice>.
+     </para>
+    </step>
+    <step>
+     <para>
+      Enter a unique <guimenu>Resource ID</guimenu>.
+     </para>
+    </step>
+    <step>
+     <para>
+      Follow the instructions in pro-conf-hawk2-primitive-add.
+     </para>
+    </step>
+   </procedure>
+  </section>
+
+  <section xml:id="sec-ha-manual-config-rsc-template">
+   <title>Creating resource templates with &crmsh;</title>
+   <para>
+    Use the <command>rsc_template</command> command to get familiar with the syntax:
+   </para>
+ <screen>&prompt.root;<command>crm configure rsc_template</command>
+ usage: rsc_template &lt;name&gt; [&lt;class&gt;:[&lt;provider&gt;:]]&lt;type&gt;
+        [params &lt;param&gt;=&lt;value&gt; [&lt;param&gt;=&lt;value&gt;...]]
+        [meta &lt;attribute&gt;=&lt;value&gt; [&lt;attribute&gt;=&lt;value&gt;...]]
+        [utilization &lt;attribute&gt;=&lt;value&gt; [&lt;attribute&gt;=&lt;value&gt;...]]
+        [operations id_spec
+            [op op_type [&lt;attribute&gt;=&lt;value&gt;...] ...]]</screen>
+   <para>
+    For example, the following command creates a new resource template with
+    the name <literal>BigVM</literal> derived from the
+    <literal>ocf:heartbeat:Xen</literal> resource and some default values
+    and operations:
+   </para>
+ <screen>&prompt.crm.conf;<command>rsc_template BigVM ocf:heartbeat:Xen \
+   params allow_mem_management="true" \
+   op monitor timeout=60s interval=15s \
+   op stop timeout=10m \
+   op start timeout=10m</command></screen>
+   <para>
+    Once you define the new resource template, you can use it in primitives
+    or reference it in order, colocation or rsc_ticket constraints. To
+    reference the resource template, use the <literal>@</literal> sign:
+   </para>
+ <screen>&prompt.crm.conf;<command>primitive MyVM1 @BigVM \
+   params xmfile="/etc/xen/shared-vm/MyVM1" name="MyVM1"</command></screen>
+   <para>
+    The new primitive MyVM1 is going to inherit everything from the BigVM
+    resource templates. For example, the equivalent of the above two would
+    be:
+   </para>
+ <screen>&prompt.crm.conf;<command>primitive MyVM1 Xen \
+   params xmfile="/etc/xen/shared-vm/MyVM1" name="MyVM1" \
+   params allow_mem_management="true" \
+   op monitor timeout=60s interval=15s \
+   op stop timeout=10m \
+   op start timeout=10m</command></screen>
+   <para>
+    If you want to overwrite some options or operations, add them to your
+    (primitive) definition. For example, the following new primitive MyVM2
+    doubles the timeout for monitor operations but leaves others untouched:
+   </para>
+ <screen>&prompt.crm.conf;<command>primitive MyVM2 @BigVM \
+   params xmfile="/etc/xen/shared-vm/MyVM2" name="MyVM2" \
+   op monitor timeout=120s interval=30s</command></screen>
+   <para>
+    A resource template may be referenced in constraints to stand for all
+    primitives which are derived from that template. This helps to produce a
+    more concise and clear cluster configuration. Resource template
+    references are allowed in all constraints except location constraints.
+    Colocation constraints may not contain more than one template reference.
+   </para>
+  </section>
+</topic>
