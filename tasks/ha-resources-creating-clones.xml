@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_configuring_resources.xml -->
+
+<topic xml:id="ha-resources-creating-clones"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Creating clone resources</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+    You may want certain resources to run simultaneously on multiple nodes
+    in your cluster. To do this, you must configure a resource as a clone.
+    Examples of resources that might be configured as clones include
+    cluster file systems like OCFS2. You can clone any
+    resource provided. This is supported by the resource's Resource
+    Agent. Clone resources may even be configured differently depending on
+    which nodes they are hosted.
+   </para>
+    </abstract>
+  </info>
+
+<para>
+    There are three types of resource clones:
+   </para>
+   <variablelist>
+    <varlistentry>
+     <term>Anonymous clones</term>
+     <listitem>
+      <para>
+       These are the simplest type of clones. They behave identically
+       anywhere they are running. Because of this, there can only be one
+       instance of an anonymous clone active per machine.
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term>Globally unique clones</term>
+     <listitem>
+      <para>
+       These resources are distinct entities. An instance of the clone
+       running on one node is not equivalent to another instance on another
+       node; nor would any two instances on the same node be equivalent.
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term>Promotable clones (multi-state resources)</term>
+     <listitem>
+      <para>
+       Active instances of these resources are divided into two states:
+       active and passive. These are also sometimes called primary and
+       secondary. Promotable clones can be either
+       anonymous or globally unique.
+      </para>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+   <para>
+    Clones must contain exactly one group or one regular resource.
+   </para>
+   <para>
+    When configuring resource monitoring or constraints, clones have
+    different requirements than simple resources. For details, see
+    <link xlink:href="https://www.clusterlabs.org/pacemaker/doc/"/>.
+   </para>
+   <para>
+    You can create clone resources using either &hawk; or &crmsh;.
+   </para>
+      <para>
+    Promotable clones (formerly known as multi-state resources) are a
+    specialization of clones. They allow the
+    instances to be in one of two operating modes (primary or
+    secondary). Promotable clones must contain
+    exactly one group or one regular resource.
+   </para>
+   <para>
+    When configuring resource monitoring or constraints, promotable
+    clones have different requirements than simple resources. For
+    details, see <link xlink:href="https://www.clusterlabs.org/pacemaker/doc/"/>.
+   </para>
+   <para>
+    You can create promotable clones using either &hawk; or &crmsh;.
+   </para>
+
+   <section xml:id="sec-conf-hawk2-rsc-clone">
+    <title>Creating clone resources with &hawk;</title>
+    <note>
+     <title>Child resources for clones</title>
+     <para>
+      Clones can either contain a primitive or a group as child resources. In
+      &hawk;, child resources cannot be created or modified while creating a
+      clone. Before adding a clone, create child resources and configure them as desired.
+     </para>
+    </note>
+    <procedure xml:id="pro-conf-hawk2-clone">
+     <title>Adding a clone resource with &hawk;</title>
+     <step>
+      <para>
+       Log in to &hawk;:
+      </para>
+  <screen>https://<replaceable>HAWKSERVER</replaceable>:7630/</screen>
+     </step>
+     <step>
+      <para>
+       From the left navigation bar, select <menuchoice> <guimenu>Configuration</guimenu>
+      <guimenu>Add Resource</guimenu> <guimenu>Clone</guimenu> </menuchoice>.
+      </para>
+     </step>
+     <step>
+      <para>
+       Enter a unique <guimenu>Clone ID</guimenu>.
+      </para>
+     </step>
+     <step>
+      <para>
+       From the <guimenu>Child Resource</guimenu> list, select the primitive or
+       group to use as a subresource for the clone.
+      </para>
+     </step>
+     <step>
+      <para>
+       If needed, modify or add <guimenu>Meta Attributes</guimenu>.
+      </para>
+     </step>
+     <step>
+      <para>
+       Click <guimenu>Create</guimenu> to finish the configuration. A message at
+       the top of the screen shows if the action has been successful.
+      </para>
+     </step>
+    </procedure>
+   </section>
+
+   <section xml:id="sec-ha-manual-config-clone">
+    <title>Creating clone resources with &crmsh;</title>
+     <para>
+      To create an anonymous clone resource, first create a primitive
+      resource and then refer to it with the <command>clone</command> command.
+     </para>
+     <procedure>
+      <title>Adding a clone resource with &crmsh;</title>
+      <step>
+       <para>
+        Log in as &rootuser; and start the <command>crm</command>
+        interactive shell:
+       </para>
+  <screen>&prompt.root;<command>crm configure</command></screen>
+      </step>
+      <step>
+       <para>
+        Configure the primitive, for example:
+       </para>
+  <screen>&prompt.crm.conf;<command>primitive Apache apache \
+  op monitor timeout=20s interval=10s</command></screen>
+      </step>
+      <step>
+       <para>
+        Clone the primitive:
+       </para>
+  <screen>&prompt.crm.conf;<command>clone cl-apache Apache</command></screen>
+      </step>
+     </procedure>
+    </section>
+
+   <section xml:id="sec-conf-hawk2-rsc-ms">
+    <title>Creating promotable clones with &hawk;</title>
+<!-- tahliar 2023-02-08: Hawk2 UI still says multi-state instead of promotable as of 15 SP5 Beta 3. -->
+    <note>
+     <title>Child resources for promotable clones</title>
+     <para>
+      Promotable clones can either contain a primitive or a group as child
+      resources. In &hawk;, child resources cannot be created or modified while
+      creating a promotable clone. Before adding a promotable clone,
+      create child resources and configure them as desired.
+     </para>
+    </note>
+    <procedure xml:id="pro-conf-hawk2-ms">
+     <title>Adding a promotable clone with &hawk;</title>
+     <step>
+      <para>
+       Log in to &hawk;:
+      </para>
+  <screen>https://<replaceable>HAWKSERVER</replaceable>:7630/</screen>
+     </step>
+     <step>
+      <para>
+       From the left navigation bar, select <menuchoice>
+       <guimenu>Configuration</guimenu>  <guimenu>Add Resource</guimenu>
+       <guimenu>Multi-state</guimenu> </menuchoice>.
+      </para>
+     </step>
+     <step>
+      <para>
+       Enter a unique <guimenu>Multi-state ID</guimenu>.
+      </para>
+     </step>
+     <step>
+      <para>
+       From the <guimenu>Child Resource</guimenu> list, select the primitive or
+       group to use as a subresource for the multi-state resource.
+      </para>
+     </step>
+     <step>
+      <para>
+       If needed, modify or add <guimenu>Meta Attributes</guimenu>.
+      </para>
+     </step>
+     <step>
+      <para>
+       Click <guimenu>Create</guimenu> to finish the configuration. A message at
+       the top of the screen shows if the action has been successful.
+      </para>
+     </step>
+    </procedure>
+   </section>
+
+   <section xml:id="sec-ha-manual-config-clone-stateful">
+    <title>Creating promotable clones with &crmsh;</title>
+    <para>
+     To create a promotable clone resource, first create a primitive resource
+     and then the promotable clone resource. The promotable clone resource must
+     support at least promote and demote operations.
+    </para>
+    <procedure>
+     <title>Adding a promotable clone with &crmsh;</title>
+     <step>
+      <para>
+       Log in as &rootuser; and start the <command>crm</command>
+       interactive shell:
+      </para>
+ <screen>&prompt.root;<command>crm configure</command></screen>
+     </step>
+     <step>
+      <para>
+       Configure the primitive. Change the intervals if needed:
+      </para>
+ <screen>&prompt.crm.conf;<command>primitive my-rsc ocf:myCorp:myAppl \
+    op monitor interval=60 \
+    op monitor interval=61 role=Promoted</command></screen>
+     </step>
+     <step>
+      <para>
+       Create the promotable clone resource:
+      </para>
+ <screen>&prompt.crm.conf;<command>clone clone-rsc my-rsc meta promotable=true</command></screen>
+     </step>
+    </procedure>
+   </section>
+</topic>
