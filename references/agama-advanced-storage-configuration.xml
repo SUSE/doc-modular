@@ -27,865 +27,884 @@
       <para>
         Storage configuration in &agama; is one of the most powerful and flexible components of the
         automated installation process. It allows you to declaratively define everything from
-        simple partition layouts to sophisticated combinations of LUKS encryption, Logical Volume
-        Management (LVM), software RAID, and Btrfs subvolumes — all before the system is booted for
-        the first time.
+        simple partition layouts to sophisticated combinations&mdash;all before the system is
+        booted for the first time.
       </para>
 
       <para>
-        This topic primarily describes the &agama; storage schema as described in
+        This section illustrates several common use cases with examples. For an exhaustive
+        reference of all elements, refer to the schema
         <link xlink:href="https://github.com/agama-project/agama/blob/master/rust/agama-lib/share/storage.schema.json"></link>.
-        Each section in this topic focuses on a specific capability or concept: basic partitions,
-        encrypted volumes, nested logical volumes, RAID configurations, Btrfs setups, and advanced
-        directives like preservation flags or formatting instructions. Together, they enable
-        reproducible, secure, and scalable disk layout management suitable.
-      </para>
-
-      <para>
-        Although a minimal configuration might only need one disk and one mount point, a more
-        detailed storage model enables production-ready deployment pipelines, disaster recovery
-        consistency, and tight security controls from the first boot.
       </para>
     </abstract>
   </info>
   <section xml:id="schema-basics-agama-storage">
-    <title>Top-level schema elements</title>
+    <title>Basic structure of the <literal>storage</literal> schema</title>
     <para>
-      At the highest level, the <literal>storage</literal> section in the &agama; profile is an
-      array of disk configuration objects. Each object describes a physical or virtual block
-      device, and how partitions or logical volumes should be created on it. These objects live
-      under the top-level <literal>storage</literal> key in the profile schema.
+      A <literal>storage</literal> section contains several entries describing how to configure the
+      corresponding storage devices, and some extra entries such as <literal>boot</literal> to
+      setup some general aspects that influence the final layout.
     </para>
+    <para>
+      Each volume group or software RAID can represent a new logical device to be created, or an
+      existing device from the system to be processed. Entries below <literal>drives</literal>
+      represent devices that can be used as regular disks, which includes removable and fixed
+      disks, SD cards, DASD or zFCP devices, iSCSI disks, and multipath devices. Those entries
+      always correspond to devices that can be found at the system, because &agama; cannot create
+      that kind of devices.
+    </para>
+    <example>
+      <title>Top-level <literal>storage</literal> section syntax</title>
+<screen>
+"storage": {
+  "drives": [ ... ],
+  "volumeGroups": [ ... ],
+  "mdRaids": [ ... ],
+  "boot": { ... }
+}
+    </screen>
+    </example>
     <note>
-      <title>Minimal top-level storage</title>
+      <title>Compatibility with legacy Auto&yast; storage</title>
       <para>
-        The following example illustrates only the bare minimum needed to define a disk object. It
-        does not reflect the full capabilities of the &agama; storage model such as partitioning,
-        encryption, volume management, or reuse behavior. These topics are covered in later
-        sections.
+        In some cases, <literal>storage</literal> can be replaced by the
+        <literal>legacyAutoyastStorage</literal> section. This section supports everything offered
+        by the <literal>partitioning</literal> section of the Auto&yast; profile. However, &agama;
+        does not validate this special section&mdash;be careful to provide valid Auto&yast;
+        options.
       </para>
     </note>
-    <example>
-      <title>Minimal top-level storage entry</title>
-<screen>
-[
-  {
-    "type": "disk",
-    "device": "<replaceable>/dev/sda</replaceable>",
-    "wipe": true,
-    "partitions": []
-  }
-]
-    </screen>
-    </example>
+    <para>
+      The following sections illustrate certain common use-cases with examples. Before execution,
+      it is recommended to validate the configurations using the tools provided by &agama;.
+    </para>
   </section>
-  <section xml:id="filesystem-partitions-agama-storage">
-    <title>Filesystems partitions</title>
+  <section xml:id="describe-devices-agama-storage">
+    <title>Describing the devices</title>
     <para>
-      Standard partitions are used to create filesystems directly on a disk. These are the most
-      common storage entities and are defined under the <literal>partitions</literal> array inside
-      a disk object. Each partition can specify properties like mount points, filesystems type,
-      format behavior, and reuse preferences.
-    </para>
-    <para>
-      The example below demonstrates a configuration that sets up two partitions: one EFI system
-      partition and one root partition formatted with XFS.
+      The <literal>drives</literal> collection contains several optional fields, some of which are
+      mutually exclusive.
     </para>
     <example>
-      <title>Partitioned disk with EFI and root filesystems</title>
+      <title>Elements in the <literal>drive</literal> collection</title>
 <screen>
-[
-  {
-    "type": "disk",
-    "device": "<replaceable>/dev/sda</replaceable>",
-    "wipe": true,
-    "partitions": [
-      {
-        "type": "efi",
-        "size": 256,
-        "mountPoint": "/boot/efi",
-        "preserve": false,
-        "format": true
-      },
-      {
-        "type": "partition",
-        "mountPoint": "/",
-        "fsType": "xfs",
-        "size": 20480,
-        "preserve": false,
-        "format": true
-      }
-    ]
-  }
-]
+{
+  "alias": "...",
+  "search": { ... },
+  "encryption": { ... },
+  "filesystem": { ... },
+  "partitions": [ ... ],
+  "ptableType": "..."
+}
     </screen>
     </example>
     <para>
-      This section contains the following elements:
-    </para>
-    <variablelist>
-      <varlistentry>
-        <term>type</term>
-        <listitem>
-          <para>
-            Either <literal>efi</literal> or <literal>partition</literal>. Determines how the
-            partition is treated.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>size</term>
-        <listitem>
-          <para>
-            Size of the partition in MiB. If omitted, the remaining space is used.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>mountPoint</term>
-        <listitem>
-          <para>
-            Mount point inside the target filesystems. Must be specified unless the partition is
-            unmounted.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>fsType</term>
-        <listitem>
-          <para>
-            Filesystems type, such as <literal>xfs</literal>, <literal>ext4</literal>, or
-            <literal>btrfs</literal>. Required unless <literal>format</literal> is false.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>preserve</term>
-        <listitem>
-          <para>
-            Boolean flag. When true, existing data on this partition is preserved. Defaults to
-            false.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>format</term>
-        <listitem>
-          <para>
-            Boolean flag. When true, the partition will be freshly formatted. Defaults to true
-            unless <literal>preserve</literal> is set.
-          </para>
-        </listitem>
-      </varlistentry>
-    </variablelist>
-  </section>
-  <section xml:id="luks-encryption-agama-storage">
-    <title>LUKS encryption</title>
-    <para>
-      &agama; supports encrypting block devices using LUKS. Encrypted devices can be used as
-      mountable filesystems or as physical volumes in LVM setups. Each encrypted block must define
-      its own passphrase or refer to a key file.
-    </para>
-    <para>
-      The example below shows a basic LUKS-encrypted root partition, created inside a disk and
-      mounted as the system root.
+      Usually, a device represented by a <literal>drive</literal> entry is divided into several
+      partitions. Each entry of <literal>partitions</literal> has the following structure with
+      several optional fields:
     </para>
     <example>
-      <title>Root filesystem encrypted with LUKS</title>
+      <title>Structure of <literal>partitions</literal></title>
 <screen>
-[
-  {
-    "type": "disk",
-    "device": "<replaceable>/dev/sda</replaceable>",
-    "wipe": true,
-    "partitions": [
-      {
-        "type": "efi",
-        "size": 256,
-        "mountPoint": "/boot/efi",
-        "format": true,
-        "preserve": false
-      },
-      {
-        "type": "crypt",
-        "name": "cryptroot",
-        "cipher": "aes-xts-plain64",
-        "keySize": 512,
-        "password": "<replaceable>MY-SECRET-PASSWORD</replaceable>",
-        "volume": {
-          "type": "partition",
-          "mountPoint": "/",
-          "fsType": "xfs",
-          "size": 20480,
-          "format": true,
-          "preserve": false
+{
+  "alias": "...",
+  "search": { ... },
+  "id": "...",
+  "size": { ... },
+  "encryption": { ... },
+  "filesystem": { ... },
+  "delete": ...,
+  "deleteIfNeeded": ...
+}
+    </screen>
+    </example>
+    <para>
+      Drives and partitions can be combined such that the one disk is used to create partitions and
+      the other is directly formatted.
+    </para>
+    <example>
+      <title>Combination of disks with partitions and direct formatting</title>
+<screen>
+"storage": {
+  "drives": [
+    {
+      "partitions": [
+        {
+          "filesystem": { "path": "/" },
+          "size": { "min": "10 GiB" }
+        },
+        {
+          "filesystem": { "path": "swap" },
+          "size": "2 GiB"
         }
-      }
-    ]
-  }
-]
-    </screen>
-    </example>
-    <para>
-      This section contains the following elements:
-    </para>
-    <variablelist>
-      <varlistentry>
-        <term>type</term>
-        <listitem>
-          <para>
-            Must be set to <literal>crypt</literal> to declare a LUKS encrypted volume.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>name</term>
-        <listitem>
-          <para>
-            Name for the mapped LUKS device, used in <filename>/dev/mapper</filename>.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>cipher</term>
-        <listitem>
-          <para>
-            Encryption cipher. For example, <literal>aes-xts-plain64</literal>.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>keySize</term>
-        <listitem>
-          <para>
-            Key size in bits. Common values are 256 or 512.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>password</term>
-        <listitem>
-          <para>
-            The passphrase used to unlock the encrypted volume. Can be replaced with
-            <literal>keyFile</literal> if using an external key.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>volume</term>
-        <listitem>
-          <para>
-            The block device definition that will reside within the LUKS container. Often a single
-            partition, but can also be a volume group.
-          </para>
-        </listitem>
-      </varlistentry>
-    </variablelist>
-  </section>
-  <section xml:id="lvm-setup-agama-storage">
-    <title>Logical Volume Management (LVM)</title>
-    <para>
-      Logical Volume Management allows aggregating multiple block devices or partitions into a
-      single logical storage pool. In &agama;, LVM setups are described using a
-      <literal>volumeGroup</literal> type, under which logical volumes are listed.
-    </para>
-    <example>
-      <title>LVM setup with a single logical volume</title>
-<screen>
-[
-  {
-    "type": "disk",
-    "device": "<replaceable>/dev/sda</replaceable>",
-    "wipe": true,
-    "partitions": [
-      {
-        "type": "partition",
-        "size": 30720,
-        "volume": {
-          "type": "volumeGroup",
-          "name": "systemvg",
-          "volumes": [
-            {
-              "name": "home",
-              "mountPoint": "/home",
-              "fsType": "xfs",
-              "size": 20480,
-              "format": true,
-              "preserve": false
-            }
-          ]
-        }
-      }
-    ]
-  }
-]
-    </screen>
-    </example>
-    <para>
-      This section contains the following elements:
-    </para>
-    <variablelist>
-      <varlistentry>
-        <term>type</term>
-        <listitem>
-          <para>
-            Set to <literal>volumeGroup</literal> to define a new LVM volume group container.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>name</term>
-        <listitem>
-          <para>
-            Name of the volume group. Used for identifying the group in
-            <filename>/dev/&lt;vg-name&gt;/</filename>.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>volumes</term>
-        <listitem>
-          <para>
-            List of logical volumes within this volume group. Each volume is defined using fields
-            like <literal>name</literal>, <literal>mountPoint</literal>, <literal>fsType</literal>,
-            and <literal>size</literal>.
-          </para>
-        </listitem>
-      </varlistentry>
-    </variablelist>
-  </section>
-  <section xml:id="raid-setup-agama-storage">
-    <title>RAID configuration</title>
-    <para>
-      &agama; allows defining software RAID arrays directly within the storage configuration using
-      the <literal>mdraid</literal> type. You can specify the RAID level, involved devices, chunk
-      size, and metadata version, among other options. These arrays can be used as mountable
-      volumes or serve as physical volumes in LVM or encryption stacks.
-    </para>
-    <example>
-      <title>Basic RAID 1 setup with /home mounted</title>
-<screen>
-[
-  {
-    "type": "disk",
-    "device": "<replaceable>/dev/sda</replaceable>",
-    "wipe": true
-  },
-  {
-    "type": "disk",
-    "device": "<replaceable>/dev/sdb</replaceable>",
-    "wipe": true
-  },
-  {
-    "type": "mdraid",
-    "level": "1",
-    "devices": ["<replaceable>/dev/sda</replaceable>", "<replaceable>/dev/sdb</replaceable>"],
-    "volume": {
-      "type": "partition",
-      "mountPoint": "/home",
-      "fsType": "xfs",
-      "size": 10240,
-      "format": true,
-      "preserve": false
+      ]
+    },
+    {
+      "filesystem": { "path": "/home" },
     }
-  }
-]
+  ]
+}
+</screen>
+    </example>
+    <para>
+      An entry from <literal>volumeGroups</literal> can have the following properties:
+    </para>
+    <example>
+      <title>Structure of <literal>volumeGroups</literal></title>
+<screen>
+{
+  "alias": "...",
+  "name": "...",
+  "search": { ... },
+  "physicalVolumes": [ ... ],
+  "logicalVolumes": [ ... ],
+  "peSize": ... ,
+  "delete": ...
+}
     </screen>
     </example>
     <para>
-      This section includes the following elements:
-    </para>
-    <variablelist>
-      <varlistentry>
-        <term>type</term>
-        <listitem>
-          <para>
-            Must be set to <literal>mdraid</literal> to define a software RAID device.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>level</term>
-        <listitem>
-          <para>
-            The RAID level to use (e.g., <literal>0</literal>, <literal>1</literal>,
-            <literal>5</literal>, <literal>6</literal>, or <literal>10</literal>).
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>devices</term>
-        <listitem>
-          <para>
-            List of block devices that participate in the array.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>volume</term>
-        <listitem>
-          <para>
-            The volume definition describing what should be created on top of the RAID array. It
-            may be a regular filesystem partition, a LUKS container, or an LVM setup.
-          </para>
-        </listitem>
-      </varlistentry>
-    </variablelist>
-  </section>
-  <section xml:id="btrfs-layout-agama-storage">
-    <title>Btrfs layout</title>
-    <para>
-      &agama; supports configuring Btrfs subvolumes and mount points, allowing granular control
-      over snapshot-aware filesystems. You can define a top-level Btrfs partition or volume, then
-      define subvolumes under it, each optionally with its own mount point.
+      Entries of <literal>logicalVolumes</literal> are relatively similar to the ones used to
+      describe partitions.
     </para>
     <example>
-      <title>Btrfs setup with multiple subvolumes</title>
+      <title>Structure of <literal>logicalVolumes</literal></title>
 <screen>
-[
-  {
-    "type": "disk",
-    "device": "<replaceable>/dev/sda</replaceable>",
-    "wipe": true,
-    "partitions": [
-      {
-        "type": "btrfs",
-        "mountPoint": "/",
-        "format": true,
-        "subvolumes": [
-          {
-            "name": "@home",
-            "mountPoint": "/home"
-          },
-          {
-            "name": "@log",
-            "mountPoint": "/var/log"
+{
+  "alias": "...",
+  "search": { ... },
+  "name": "...",
+  "size": { ... },
+  "encryption": { ... },
+  "filesystem": { ... },
+  "pool": ...,
+  "usedPool": "...",
+  "stripes": ...,
+  "stripeSize": ...,
+  "delete": ...,
+  "deleteIfNeeded": ...
+}
+    </screen>
+    </example>
+    <para>
+      To understand how all the previously described elements fit together, consider the following
+      example in which the first disk of the system is partitioned and a volume group is created on
+      top of that partition after encryption, to allocate two file systems.
+    </para>
+    <example>
+      <title>A combination of disk partition, volume groups and file systems</title>
+<screen>
+"storage": {
+  "drives": [
+    {
+      "partitions": [
+        {
+          "alias": "pv",
+          "id": "lvm",
+          "size": { "min": "12 GiB" },
+          "encryption": {
+            "luks2": { "password": "my secret passphrase" }
           }
-        ]
-      }
-    ]
-  }
-]
+        }
+      ]
+    }
+  ],
+  "volumeGroups": [
+    {
+      "name": "system",
+      "physicalVolumes": [ "pv" ],
+      "logicalVolumes": [
+        {
+          "size":   { "min": "10 GiB" },
+          "filesystem": { "path": "/", "type": "btrfs" }
+        },
+        {
+          "size":   "2 GiB",
+          "filesystem": { "path": "swap", "type": "swap" }
+        }
+      ]
+    }
+  ]
+}
     </screen>
     </example>
     <para>
-      This section includes the following elements:
-    </para>
-    <variablelist>
-      <varlistentry>
-        <term>type</term>
-        <listitem>
-          <para>
-            Must be set to <literal>btrfs</literal> to define a Btrfs partition.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>mountPoint</term>
-        <listitem>
-          <para>
-            The mount point for the root of the Btrfs volume (e.g., <literal>/</literal>).
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>format</term>
-        <listitem>
-          <para>
-            Whether to format the Btrfs partition. Must be set to <literal>true</literal> to create
-            new filesystems.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>subvolumes</term>
-        <listitem>
-          <para>
-            List of Btrfs subvolumes. Each subvolume is an object with at least a
-            <literal>name</literal>, and optionally a <literal>mountPoint</literal>.
-          </para>
-          <itemizedlist>
-            <listitem>
-              <para>
-                <literal>name</literal>: The name of the Btrfs subvolume (e.g.,
-                <literal>@home</literal>).
-              </para>
-            </listitem>
-            <listitem>
-              <para>
-                <literal>mountPoint</literal>: Mount point for this subvolume (e.g.,
-                <literal>/home</literal>).
-              </para>
-            </listitem>
-          </itemizedlist>
-        </listitem>
-      </varlistentry>
-    </variablelist>
-  </section>
-  <section xml:id="partition-flags-modifiers-agama-storage">
-    <title>Partition flags and modifiers</title>
-    <para>
-      Flags and attributes that influence partition behavior, naming, sizing, and boot
-      compatibility.
+      &agama; can also manage software-defined MD RAID arrays represented as entries at the
+      <literal>mdRaids</literal> collection.
     </para>
     <example>
-      <title>Example with partition flags and metadata</title>
+      <title>Structure of <literal>mdRaids</literal> collection</title>
 <screen>
-[
-  {
-    "type": "disk",
-    "device": "<replaceable>/dev/sda</replaceable>",
-    "wipe": true,
-    "partitions": [
-      {
-        "mount": "/boot",
-        "size": 512,
-        "filesystem": "ext4",
-        "esp": true,
-        "grow": false,
-        "label": "BOOT",
-        "id": "boot-partition"
-      }
-    ]
-  }
-]
-    </screen>
+{
+  "alias": "...",
+  "name": "...",
+  "search": { ... },
+  "level": "...",
+  "chunkSize": ... ,
+  "devices": [ ... ],
+  "size": { ... },
+  "encryption": { ... },
+  "filesystem": { ... },
+  "partitions": [ ... ],
+  "ptableType": "...",
+  "delete": ...
+}
+</screen>
     </example>
     <para>
-      This section describes the following partition attributes:
-    </para>
-    <variablelist>
-      <varlistentry>
-        <term><literal>grow</literal></term>
-        <listitem>
-          <para>
-            If set to <literal>true</literal>, this partition or volume will take up any leftover
-            space after allocating other defined volumes.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><literal>esp</literal></term>
-        <listitem>
-          <para>
-            Marks the partition as an EFI System Partition. This is required for UEFI boot setups
-            when using a separate <filename>/boot</filename> partition.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><literal>label</literal></term>
-        <listitem>
-          <para>
-            Human-readable label to assign to the partition or logical volume. For example,
-            <literal>HOME</literal> or <literal>BOOT</literal>.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><literal>id</literal></term>
-        <listitem>
-          <para>
-            Unique identifier used to reference this partition in other sections or mount
-            relationships. Optional, but useful for referencing volumes in complex setups.
-          </para>
-        </listitem>
-      </varlistentry>
-    </variablelist>
-  </section>
-  <section xml:id="reusing-existing-volumes-agama-storage">
-    <title>Reusing existing volumes</title>
-    <para>
-      To preserve data or reuse partitions from a previous installation, &agama; supports marking
-      individual storage entries with <literal>preserve: true</literal>. This avoids reformatting
-      or wiping the specified device or volume.
+      The <literal>devices</literal> property is used to specify the devices that act as members of
+      the RAID.
     </para>
     <example>
-      <title>Reusing an existing <filename>/home</filename> partition</title>
+      <title>An example with <literal>mdRaids</literal> and <literal>devices</literal></title>
 <screen>
-[
-  {
-    "type": "disk",
-    "device": "<replaceable>/dev/sda</replaceable>",
-    "wipe": false,
-    "partitions": [
-      {
-        "mount": "/home",
-        "preserve": true,
-        "id": "home-partition"
-      }
-    ]
-  }
-]
-    </screen>
-    </example>
-    <para>
-      This section describes the relevant flag:
-    </para>
-    <variablelist>
-      <varlistentry>
-        <term><literal>preserve</literal></term>
-        <listitem>
-          <para>
-            If <literal>true</literal>, the existing content of the volume will not be deleted or
-            reformatted. This is useful when retaining data directories like
-            <filename>/home</filename> or reuse across installations. The target must already be
-            formatted with a valid filesystem.
-          </para>
-        </listitem>
-      </varlistentry>
-    </variablelist>
-  </section>
-  <section xml:id="realworld-examples-agama-storage">
-    <title>Real-world example configurations</title>
-    <para>
-      Here are several end-to-end examples illustrating common and practical storage layouts.
-    </para>
-    <example>
-      <title>UEFI layout with root, home, and swap</title>
-<screen>
-[
-  {
-    "type": "disk",
-    "device": "/dev/sda",
-    "wipe": true,
-    "partitions": [
-      {
-        "mount": "/boot/efi",
-        "size": 256,
-        "filesystem": "vfat",
-        "esp": true
-      },
-      {
-        "mount": "/",
-        "size": 20480,
-        "filesystem": "btrfs",
-        "label": "ROOT"
-      },
-      {
-        "mount": "/home",
-        "size": 10240,
-        "filesystem": "xfs",
-        "label": "HOME"
-      },
-      {
-        "filesystem": "swap",
-        "size": 4096
-      }
-    ]
-  }
-]
-    </screen>
-    </example>
-    <example>
-      <title>LVM-backed root and home partitions</title>
-<screen>
-[
-  {
-    "type": "disk",
-    "device": "/dev/sda",
-    "wipe": true,
-    "partitions": [
-      {
-        "type": "lvm",
-        "id": "pv-system"
-      }
-    ]
-  },
-  {
-    "type": "lvm_vg",
-    "id": "vg-system",
-    "devices": ["pv-system"],
-    "volumes": [
-      {
-        "mount": "/",
-        "size": 10240,
-        "filesystem": "btrfs",
-        "label": "ROOT"
-      },
-      {
-        "mount": "/home",
-        "size": 20480,
-        "filesystem": "xfs",
-        "label": "HOME"
-      }
-    ]
-  }
-]
-    </screen>
-    </example>
-    <example>
-      <title>Encrypted LUKS root filesystem</title>
-<screen>
-[
-  {
-    "type": "disk",
-    "device": "/dev/sda",
-    "wipe": true,
-    "partitions": [
-      {
-        "mount": "/boot",
-        "size": 512,
-        "filesystem": "ext4"
-      },
-      {
-        "type": "luks",
-        "id": "crypt-root"
-      }
-    ]
-  },
-  {
-    "type": "luks_open",
-    "id": "decrypted-root",
-    "device": "crypt-root",
-    "name": "cryptroot",
-    "filesystem": "btrfs",
-    "mount": "/",
-    "label": "ROOT"
-  }
-]
-    </screen>
+"storage": {
+  "drives": [
+    {
+      "search": "/dev/sda",
+      "partitions": [
+        { "alias": "sda-40", "size": "40 GiB" }
+      ]
+    },
+    {
+      "search": "/dev/sdb",
+      "partitions": [
+        { "alias": "sdb-40", "size": "40 GiB" }
+      ]
+    }
+  ],
+  "mdRaids": [
+    {
+      "devices": [ "sda-40", "sdb-40" ],
+      "level": "raid0"
+    }
+  ]
+}
+</screen>
     </example>
   </section>
-  <section xml:id="partition-types-reference-agama-storage">
-    <title>Partition type reference</title>
+  <section xml:id="search-existing-devices-agama-storage">
+    <title>Searching existing devices</title>
     <para>
-      The following types are valid values for the <literal>type</literal> field in the &agama;
-      storage schema. Each type describes a different layer or behavior in the storage stack.
+      When a section in the profile describes modification and deletion of devices, the description
+      must match with one or more devices from the system. If a description matches several
+      devices, the same operations are applied to all of them. This approach is useful in several
+      situations, such as applying the same partitioning schema to several disks or deleting all
+      partitions of a disk that match a given criteria.
     </para>
-    <variablelist>
-      <varlistentry>
-        <term><literal>disk</literal></term>
-        <listitem>
-          <para>
-            Represents a physical or virtual block device. It contains a list of partitions or
-            other volume definitions.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><literal>partition</literal></term>
-        <listitem>
-          <para>
-            Represents a filesystem partition on a disk. Most commonly used for mount points like
-            <filename>/boot</filename>, <filename>/home</filename>, or <filename>/</filename>.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><literal>luks</literal></term>
-        <listitem>
-          <para>
-            Marks a partition to be encrypted using LUKS. Must be opened later using
-            <literal>luks_open</literal>.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><literal>luks_open</literal></term>
-        <listitem>
-          <para>
-            Refers to an encrypted volume defined via <literal>luks</literal>. It allows specifying
-            filesystem and mount point on the decrypted device.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><literal>lvm</literal></term>
-        <listitem>
-          <para>
-            Initializes a partition as a physical volume (PV) for LVM. Used in combination with
-            <literal>lvm_vg</literal>.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><literal>lvm_vg</literal></term>
-        <listitem>
-          <para>
-            Defines a volume group that aggregates one or more PVs. Contains logical volumes with
-            their own mount points and filesystems.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><literal>mdraid</literal></term>
-        <listitem>
-          <para>
-            Used to define software RAID arrays (e.g., RAID1, RAID5) over multiple disks or
-            partitions.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><literal>btrfs_subvolume</literal></term>
-        <listitem>
-          <para>
-            Defines a Btrfs subvolume and mount point within a Btrfs-formatted volume. Requires a
-            parent Btrfs filesystem to exist.
-          </para>
-        </listitem>
-      </varlistentry>
-    </variablelist>
+    <para>
+      Matching is performed using a <literal>search</literal> subsection, as illustrated below. By
+      default, all devices in the scope fitting the conditions are matched. You can limit the
+      number of devices that match using <literal>max</literal>. The following example shows how
+      you can use several search sections to find the three biggest disks in the system, delete all
+      partitions bigger than 1 GiB within them and create new partitions of type RAID.
+    </para>
+    <example>
+      <title>Usage of the <literal>search</literal> section</title>
+<screen>
+"storage": {
+  "drives": [
+    {
+      "search": {
+        "sort": { "size": "desc" },
+        "max": 3
+      },
+      "partitions": [
+        {
+          "search": {
+            "condition": { "size": { "greater": "1 GiB" } }
+          },
+          "delete": true
+        },
+        {
+          "alias": "newRaidPart",
+          "id": "raid",
+          "size": { "min": "1 GiB" }
+        }
+      ]
+    }
+  ]
+}
+</screen>
+    </example>
+    <para>
+      The scope of each search depends on the place in the profile of the <literal>search</literal>
+      section. In the example, the devices from the system that are considered as possible
+      candidates. A search section inside the description of an MD RAID only matches the software
+      RAID devices. A search section inside the <literal>partitions</literal> subsection of that
+      RAID description only matches the partitions of RAIDs that have matched the conditions of the
+      most external search.
+    </para>
+    <para>
+      A device can never match two different sections of the &agama; profile. When several sections
+      at the same level contain a search subsection, devices are matched in the order the sections
+      appear on the profile.
+    </para>
+    <example>
+      <title>Order of device matching</title>
+<screen>
+"storage": {
+  "drives": [
+    {
+      "search": {
+        "sort": { "size": "desc" },
+        "max": 1
+      },
+      "alias": "biggest"
+    },
+    {
+      "search": {
+        "sort": { "size": "desc" },
+        "max": 1
+      },
+      "alias": "secondBiggest"
+    }
+  ]
+}
+</screen>
+    </example>
+    <para>
+      An empty search matches all devices in the scope. For example, the configuration given below
+      deletes all the partitions of the chosen disk, but only if the disk contains partitions.
+    </para>
+    <example>
+      <title>Empty search matching all devices in the scope</title>
+<screen>
+"storage": {
+  "drives": [
+    {
+      "partitions": [
+        { "search": {}, "delete": true }
+      ]
+    }
+  ]
+}
+</screen>
+    </example>
+    <para>
+      If there is not a single system device matching the scope and the conditions of a given
+      search, then <literal>ifNotFound</literal> is used. If the value is <literal>skip</literal>,
+      the device definition is ignored. If the value is <literal>"error"</literal> the whole
+      process is aborted.
+    </para>
+    <para>
+      Entries on drives are different from all other subsections describing devices because drives
+      can only be matched to existing devices. If search is omitted for a drive, it is considered
+      to contain the following configuration:
+    </para>
+    <example>
+      <title>Behavior of <literal>search</literal> if omitted for a drive</title>
+<screen>
+{
+  "search": {
+    "sort": "name",
+    "max": 1,
+    "ifNotFound": "error"
+  }
+}
+</screen>
+    </example>
+    <para>
+      When the syntax of a search subsection becomes cumbersome, you can use simple strings.
+    </para>
+    <para>
+      You can use search to find a device by its name. For example:
+    </para>
+    <example>
+      <title>Searching using device name</title>
+<screen>
+{ "search": "/dev/sda" }
+</screen>
+    </example>
+    <para>
+      The string <literal>*</literal> allows to match all the devices from the current context, if
+      any. This is specially useful to match all partitions or logical volumes in a device,
+      irrespective of whether there is any. For example, the two following search sections are
+      equivalent:
+    </para>
+    <example>
+      <title>Example of equivalent search</title>
+<screen>
+{ "search": "*" }
+</screen>
+<screen>
+{ "search": { "ifNotFound": "skip" } }
+</screen>
+    </example>
   </section>
-  <section xml:id="storage-caveats-pitfalls-agama-storage">
-    <title>Common pitfalls and edge cases</title>
+  <section xml:id="reference-other-devices-agama-storage">
+    <title>Referencing other devices</title>
     <para>
-      This section outlines frequently encountered mistakes and gotchas that can lead to
-      installation failures or misconfigured systems when using &agama;'s storage schema.
+      At certain times, it is necessary to reference other devices as part of the specification of
+      an LVM volume group or RAID. Those devices can be existing system devices, or devices that
+      will be created as response to another entry of the &agama; profile. For that purpose, you
+      can use <literal>alias</literal>.
     </para>
-    <itemizedlist>
-      <listitem>
-        <para>
-          <emphasis>Missing or incorrect <literal>id</literal> fields:</emphasis> Every volume
-          layer (disk, partition, luks, lvm, etc.) should have a unique and predictable
-          <literal>id</literal>. Reusing IDs or leaving them out leads to ambiguous device paths
-          during setup.
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          <emphasis>Forgetting to <literal>mount</literal> the root volume:</emphasis> If no volume
-          has a <literal>mount</literal> set to <filename>/</filename>, the system will not boot
-          properly.
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          <emphasis>Not marking a bootable <literal>ESP</literal> for EFI systems:</emphasis>
-          UEFI-based installations must have an EFI System Partition (<literal>esp: true</literal>)
-          mounted at <filename>/boot/efi</filename>.
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          <emphasis>Overlapping device references:</emphasis> Using the same partition or device in
-          more than one storage object (e.g., as both LUKS and plain partition) can result in
-          failed setups.
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          <emphasis>Incorrect <literal>vg</literal> names in LVM:</emphasis> Ensure that the
-          <literal>vg</literal> names in LVM volumes match exactly with the defined
-          <literal>id</literal> of their respective <literal>lvm_vg</literal> parent objects.
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          <emphasis>Using <literal>preserve: true</literal> without
-          <literal>id</literal>:</emphasis> &agama; requires the preserved volume to be clearly
-          referenced. Omitting <literal>id</literal> or <literal>device</literal> fields for
-          preserved objects can break the reuse logic.
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          <emphasis>Inconsistent RAID configurations:</emphasis> All RAID members must define the
-          same <literal>raid</literal> group <literal>id</literal> and match in level and layout.
-          Mismatches can silently fail or create invalid arrays.
-        </para>
-      </listitem>
-    </itemizedlist>
+    <example>
+      <title>Using <literal>alias</literal> in storage configuration</title>
+<screen>
+"storage": {
+  "drives": [
+    {
+      "partitions": [
+        { "size": "50 GiB", "id": "lvm", "alias": "newPV" }
+      ]
+    }
+   ],
+   "volumeGroups": [
+    {
+      "name": "newVG",
+      "physicalVolumes": [ "newPV" ],
+      "logicalVolumes": [ { "name": "data", "size": "20 GiB" } ]
+    }
+  ]
+}
+</screen>
+    </example>
+    <para>
+      If a section matching several existing devices contains an alias, that alias is considered as
+      a reference to all the devices. Consider the following equivalent examples that assumes there
+      are at least two disks in the system:
+    </para>
+    <example>
+      <title>Equivalent examples of alias</title>
+<screen>
+"storage": {
+  "drives": [
+    {
+      "search": {
+        "sort": { "size": "desc" },
+        "max": 1,
+      },
+      "alias": "biggest"
+    },
+    {
+      "search": {
+        "sort": { "size": "desc" },
+        "max": 1,
+      },
+      "alias": "secondBiggest"
+    }
+  ],
+  "mdRaids": [
+    {
+      "devices": [ "biggest", "secondBiggest" ],
+      "level": "raid0"
+    }
+  ]
+}
+
+"storage": {
+  "drives": [
+    {
+      "search": {
+        "sort": { "size": "desc" },
+        "max": 2,
+      },
+      "alias": "big"
+    }
+  ],
+  "mdRaids": [
+    {
+      "devices": [ "big" ],
+      "level": "raid0"
+    }
+  ]
+}
+</screen>
+    </example>
+  </section>
+  <section xml:id="specify-device-size-agama-storage">
+    <title>Specifying the size of a device</title>
+    <para>
+      When configuring storage in the &agama; profile, you must specify the desired size for a new
+      device or the target size when resizing an existing one. The schema allows for flexible size
+      specification. The most common method is using a human-readable string that can be parsed
+      into a valid size. For example, <literal>10 GiB</literal>. Alternatively, you can provide a
+      size as an array (a tuple) containing a minimum size and an optional maximum size. The
+      resulting size will be between these two thresholds. If the maximum is omitted, the device
+      will expand to consume all available contiguous space, respecting other specified size
+      constraints.
+    </para>
+    <para>
+      For configurations targeting existing partitions or Logical Volumes (LVs)&mdash;which must
+      include a search section&mdash;the special keyword <literal>current</literal> can be used as
+      a minimum or maximum size limit. The use of <literal>current</literal> and how it affects
+      resizing the corresponding devices is explained separately.
+    </para>
+    <para>
+      If the size property is completely omitted for an existing device (for example, combined with
+      search), &agama; acts as if both minimum and maximum limits were set to
+      <literal>current</literal>. This characteristic implies that the partition or logical volume
+      are not be resized. If the size is omitted for a device that will be created but includes a
+      file system entry specifying a mount point, &agama; can determine the size limits by applying
+      the settings of the installation product. In &agama; terminology, the product is the
+      operating system being installed, and it specifies the default size ranges for its relevant
+      file systems, such as <filename>/</filename>, <filename>swap</filename> and
+      <filename>/home</filename>.
+    </para>
+  </section>
+  <section xml:id="partition-boot-agama-storage">
+    <title>Partition needed for booting</title>
+    <para>
+      You can use the <literal>boot</literal> entry to configure whether &agama; should calculate
+      and create extra partitions needed for booting. The behavior is same when using an alias. If
+      the device is not specified, &agama; takes the location of the root file system as reference.
+    </para>
+    <example>
+      <title>Partitions needed for booting</title>
+<screen>
+"storage": {
+  "drives": [
+    {
+      "search": "/dev/sda",
+      "alias": "bootDisk"
+    },
+    {
+      "search": "/dev/sdb",
+      "partitions": [
+        { "filesystem": { "path": "/" } }
+      ]
+    }
+  ],
+  "boot": {
+    "configure": true,
+    "device": "bootDisk"
+  }
+}
+</screen>
+    </example>
+  </section>
+  <section xml:id="keep-existing-filesystem-encryption-agama-storage">
+    <title>Keeping an existing file system or encryption layer</title>
+    <para>
+      The entries for both <literal>filesystem</literal> and <literal>encryption</literal> contains
+      a <literal>reuse</literal> flag with a default value of <literal>false</literal>. You can use
+      it in combination with <literal>search</literal> to specify that the device must not be
+      re-formatted or re-encrypted.
+    </para>
+  </section>
+  <section xml:id="delete-shrink-existing-devices-agama-storage">
+    <title>Deleting and shrinking existing devices</title>
+    <para>
+      The storage configuration proposal must allow defining how to manage existing storage
+      components, including partitions, LVM logical volumes, MD RAIDs, and LVM volume groups. A
+      search mechanism is employed to match a partition or LVM logical volume definition with one
+      or more devices already present on the system. Once a match is made, you can specify the
+      required action.
+    </para>
+    <para>
+      The component can be marked to be deleted unconditionally, or deleted if needed to free space
+      for newly defined devices. It can also be shrunk to a necessary size or shrunk or extended to
+      a specific size or range. It is even possible to express combined actions, like attempting to
+      shrink a component first and only proceeding to delete it if shrinking doesn't free up enough
+      space.
+    </para>
+    <para>
+      Deletion is achieved with the corresponding <literal>delete</literal> flag for unconditional
+      deletion or the <literal>deleteIfNeeded</literal> flag for conditional deletion. If either of
+      these flags is active for a partition, it is illogical to specify any other usage for it,
+      such as declaring a file system. For example, you can configure the proposal to
+      unconditionally delete partition number <literal>1</literal> and then conditionally delete
+      other partitions as needed to secure the space for a new <literal>30 Gib</literal> partition.
+    </para>
+    <example>
+      <title>Deleting and shrinking existing devices</title>
+<screen>
+"storage": {
+  "drives": [
+    {
+      "partitions": [
+        {
+          "search": {
+            "condition": { "number": 1 }
+          },
+          "delete": true
+        },
+        { "search": {}, "deleteIfNeeded": true },
+        { "size": "30 GiB" }
+      ]
+    }
+  ]
+}
+</screen>
+    </example>
+    <para>
+      Often some partitions or logical volumes are shrunk only to make space for the declared
+      devices. But because resizing is not a destructive operation, you can declare a given
+      partition to be resized (shrunk or extended), then formatted and/or mounted.
+    </para>
+    <note>
+      <title>Limitation of resizing</title>
+      <para>
+        Resizing a partition can be limited depending on its content and the file system type.
+      </para>
+    </note>
+    <para>
+      Combining <literal>search</literal> and <literal>resize</literal> is enough to indicate that
+      &agama; is expected to resize a given partition, if possible. The keyword
+      <literal>current</literal> can be used as <literal>min</literal> and/or
+      <literal>max</literal> for the size range, and it is always equivalent to the exact original
+      size of the device. The simplest way to use <literal>current</literal> is to just specify
+      that the matched device should keep its original size. That is the default for searched (and
+      found) devices, if size is completely omitted.
+    </para>
+<screen>
+"storage": {
+  "drives": [
+    {
+      "partitions": [
+        {
+          "search": {
+            "condition": { "number": 1 }
+          },
+          "size": { "min": "current", "max": "current" }
+        }
+      ]
+    }
+  ]
+}
+</screen>
+    <para>
+      You can use other combinations to specify how a device could be resized, if possible. See the
+      following examples with explanatory file system labels.
+    </para>
+    <warning>
+      <para>
+        The condition <literal>fsLabel</literal> is not yet implemented.
+      </para>
+    </warning>
+    <example>
+      <title>Deleting and shrinking of existing devices including the <literal>fsLabel</literal> condition for file system labels</title>
+<screen>
+"storage": {
+  "drives": [
+    {
+      "partitions": [
+        {
+          "search": {
+            "condition": { "fsLabel": "shrinkIfNeeded" }
+          },
+          "size": { "min": 0, "max": "current" }
+        },
+        {
+          "search": {
+            "condition": { "fsLabel": "resizeToFixedSize" }
+          },
+          "size": "15 GiB"
+        },
+        {
+          "search": {
+            "condition": { "fsLabel": "resizeByRange" }
+          },
+          "size": { "min": "10 GiB", "max": "50 GiB" }
+        },
+        {
+          "search": {
+            "condition": { "fsLabel": "growAsMuchAsPossible" }
+          },
+          "size": { "min": "current" }
+        },
+      ]
+    }
+  ]
+}
+</screen>
+    </example>
+    <para>
+      When the size limits are specified as a combination of <literal>current</literal> and a fixed
+      value, ensure that the resulting <literal>min</literal> is not bigger than the resulting
+      <literal>max</literal>.
+    </para>
+    <para>
+      Both <literal>deleteIfNeeded</literal> and a size range can be combined to indicate that
+      &agama; should make space first, by shrinking the partitions and deleting them only if
+      shrinking is not enough.
+    </para>
+<screen>
+"storage": {
+  "drives": [
+    {
+      "partitions": [
+        {
+          "search": {},
+          "size": { "min": 0, "max": "current" },
+          "deleteIfNeeded": true
+        }
+      ]
+    }
+  ]
+}
+</screen>
+  </section>
+  <section xml:id="generate-default-volumes-agama-storage">
+    <title>Generating default volumes</title>
+    <para>
+      Every product provides a configuration which defines the storage volumes. For example,
+      feasible file systems for root and default partitions to create. The default or mandatory
+      product volumes can be automatically generated by using a <literal>generate</literal> section
+      in the <literal>partitions</literal> or <literal>logicalVolumes</literal> sections.
+    </para>
+<screen>
+"storage": {
+  "drives": [
+    {
+      "partitions": [
+        { "generate": "default" }
+      ]
+    }
+  ]
+}
+</screen>
+    <para>
+      The <literal>generate</literal> section allows creating the product volumes without
+      explicitly writing all of them. The configuration above would be equivalent to the following:
+    </para>
+<screen>
+"storage": {
+  "drives": [
+    {
+      "partitions": [
+        { "filesystem": { "path": "/" } },
+        { "filesystem": { "path": "/home" } },
+        { "filesystem": { "path": "swap" } }
+      ]
+    }
+  ]
+}
+</screen>
+    <para>
+      If any path is explicitly defined, the <literal>generate</literal> section will not generate
+      a volume for it. For example, with the following configuration, only root and swap would be
+      automatically added.
+    </para>
+<screen>
+"storage": {
+  "drives": [
+    {
+      "partitions": [
+        { "generate": "default" },
+        { "filesystem": { "path": "/home" } }
+      ]
+    }
+  ]
+}
+</screen>
+    <para>
+      The auto-generated volumes can be also configured. For example, for encrypting the
+      partitions:
+    </para>
+<screen>
+"storage": {
+  "drives": [
+    {
+      "partitions": [
+        {
+          "generate": {
+            "partitions": "default",
+            "encryption": {
+              "luks1": { "password": "12345" }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+</screen>
+    <para>
+      The <literal>mandatory</literal> keyword can be used for generating only the mandatory
+      partitions or logical volumes:
+    </para>
+<screen>
+"storage": {
+  "volumeGroups": [
+    {
+      "name": "system",
+      "logicalVolumes": [
+        { "generate": "mandatory" }
+      ]
+    }
+  ]
+}
+</screen>
+  </section>
+  <section xml:id="generate-physical-volumes-agama-storage">
+    <title>Generating physical volumes</title>
+    <para>
+      You can configure volume groups to explicitly use a set of devices as physical volumes. The
+      aliases of the devices to use are added to the list of physical volumes:
+    </para>
+<screen>
+"storage": {
+  "drives": [
+    {
+      "search": "/dev/vda",
+      "partitions": [
+        { "alias": "pv2", "size": "100 GiB" },
+        { "alias": "pv1", "size": "20 GiB" }
+      ]
+    }
+  ],
+  "volumeGroups": [
+    {
+      "name": "system",
+      "physicalVolumes": ["pv1", "pv2"]
+    }
+  ]
+}
+</screen>
+    <para>
+      The physical volumes can be automatically generated too, by simply indicating the target
+      devices in which to create the partitions. For that, a <literal>generate</literal> section is
+      added to the list of physical volumes:
+    </para>
+<screen>
+"storage": {
+  "drives": [
+    {
+      "search": "/dev/vda",
+      "alias": "pvs-disk"
+    }
+  ],
+  "volumeGroups": [
+    {
+      "name": "system",
+      "physicalVolumes": [
+        { "generate": ["pvs-disk"] }
+      ]
+    }
+  ]
+}
+</screen>
+    <para>
+      If the auto-generated physical volumes have to be encrypted, then the encryption config is
+      added to the generate section:
+    </para>
+<screen>
+"storage": {
+  "drives": [
+    {
+      "search": "/dev/vda",
+      "alias": "pvs-disk"
+    }
+  ],
+  "volumeGroups": [
+    {
+      "name": "system",
+      "physicalVolumes": [
+        {
+          "generate": {
+            "targetDevices": ["pvs-disk"],
+            "encryption": {
+              "luks2": { "password": "12345" }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+</screen>
   </section>
 </topic>
