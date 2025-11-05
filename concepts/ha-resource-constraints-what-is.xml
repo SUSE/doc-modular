@@ -1,0 +1,323 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_resource_constraints.xml -->
+
+<topic xml:id="ha-resource-constraints-what-is"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>What are resource constraints?</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Having all the resources configured is only part of the job. Even if the
+    cluster knows all needed resources, it still might not be able to handle
+    them correctly. Resource constraints let you specify which cluster nodes
+    resources can run on, what order resources load in, and what other
+    resources a specific resource is dependent on.
+      </para>
+    </abstract>
+  </info>
+
+<section xml:id="sec-ha-config-basics-constraints-types">
+   <title>Types of constraints</title>
+   <para>
+    There are three different kinds of constraints available:
+   </para>
+   <variablelist>
+    <varlistentry>
+     <term>Resource location
+    </term>
+     <listitem>
+      <para>
+       Location constraints define on which nodes a resource may be
+       run, may not be run or is preferred to be run.
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term>Resource colocation</term>
+     <listitem>
+      <para>
+       Colocation constraints tell the cluster which resources may or
+       may not run together on a node.
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term>Resource order</term>
+     <listitem>
+      <para>
+       Order constraints define the sequence of actions.
+      </para>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+   <important>
+    <title>Restrictions for constraints and certain types of resources</title>
+    <itemizedlist>
+     <listitem>
+      <para>Do not create colocation constraints for <emphasis>members</emphasis> of a resource
+       group. Create a colocation constraint pointing to the resource group as a whole instead. All
+       other types of constraints are safe to use for members of a resource group.</para>
+     </listitem>
+     <listitem>
+      <para>Do not use any constraints on a resource that has a clone resource or a promotable clone
+       resource applied to it. The constraints must apply to the clone or promotable clone resource, not
+       to the child resource.</para>
+     </listitem>
+    </itemizedlist>
+   </important>
+  </section>
+
+  <section xml:id="sec-ha-config-basics-constraints-scores">
+   <title>Scores and infinity</title>
+   <para>
+    When defining constraints, you also need to deal with scores. Scores of
+    all kinds are integral to how the cluster works. Practically everything
+    from migrating a resource to deciding which resource to stop in a
+    degraded cluster is achieved by manipulating scores. Scores
+    are calculated on a per-resource basis and any node with a negative
+    score for a resource cannot run that resource. After calculating the
+    scores for a resource, the cluster then chooses the node with the
+    highest score.
+   </para>
+   <para>
+    <literal>INFINITY</literal> is currently defined as
+    <literal>1,000,000</literal>. Additions or subtractions with it stick to
+    the following three basic rules:
+   </para>
+   <itemizedlist>
+    <listitem>
+     <para>
+      Any value + INFINITY = INFINITY
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      Any value - INFINITY = -INFINITY
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      INFINITY - INFINITY = -INFINITY
+     </para>
+    </listitem>
+   </itemizedlist>
+   <para>
+    When defining resource constraints, you specify a score for each
+    constraint. The score indicates the value you are assigning to this
+    resource constraint. Constraints with higher scores are applied before
+    those with lower scores. By creating additional location constraints
+    with different scores for a given resource, you can specify an order for
+    the nodes that a resource fails over to.
+   </para>
+  </section>
+
+  <section xml:id="sec-ha-config-basics-constraints-templates">
+   <title>Resource templates and constraints</title>
+   <para>
+    If you have defined a resource template, it can be
+    referenced in the following types of constraints:
+   </para>
+   <itemizedlist>
+    <listitem>
+     <para>
+      order constraints
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      colocation constraints
+     </para>
+    </listitem>
+   </itemizedlist>
+   <para>
+    However, colocation constraints must not contain more than one reference
+    to a template. Resource sets must not contain a reference to a template.
+   </para>
+   <para>
+    Resource templates referenced in constraints stand for all primitives
+    which are derived from that template. This means, the constraint applies
+    to all primitive resources referencing the resource template.
+    Referencing resource templates in constraints is an alternative to
+    resource sets and can simplify the cluster configuration considerably.
+   </para>
+  </section>
+
+  <section xml:id="sec-ha-config-basics-constraints-rscset">
+   <title>Using resource sets to define constraints</title>
+   <para>
+     As an alternative format for defining location, colocation or order
+     constraints, you can use <emphasis>resource sets</emphasis>, where
+     primitives are grouped together in one set. Previously this was
+     possible either by defining a resource group (which could not always
+     accurately express the design), or by defining each relationship as an
+     individual constraint. The latter caused a constraint explosion as the
+     number of resources and combinations grew. The configuration via
+     resource sets is not necessarily less verbose, but is easier to
+     understand and maintain.
+   </para>
+   <para>
+    You can configure resource sets using either &hawk; or &crmsh;.
+   </para>
+
+   <section xml:id="sec-conf-hawk2-cons-set">
+    <title>Using resource sets to define constraints with &hawk;</title>
+    <procedure xml:id="pro-hawk2-constraints-sets">
+     <title>Using a resource set for constraints</title>
+     <step>
+      <para>
+       To use a resource set within a location constraint:
+      </para>
+      <substeps performance="required">
+       <step>
+        <para>
+         Proceed as outlined in Procedure 11.1, “Adding a location constraint”,
+         apart from  Step 4. Instead
+         of selecting a single resource, select multiple resources by pressing
+         <keycap function="control"/> or <keycap function="shift"/> and mouse
+         click. This creates a resource set within the location constraint.
+        </para>
+       </step>
+       <step>
+        <para>
+         To remove a resource from the location constraint, press
+         <keycap function="control"/> and click the resource again to deselect
+         it.
+        </para>
+       </step>
+      </substeps>
+     </step>
+     <step>
+      <para>
+       To use a resource set within a colocation or order constraint:
+      </para>
+      <substeps performance="required">
+       <step>
+        <para>
+         Proceed as described in Procedure 11.2, “Adding colocation constraints” or
+        Procedure 11.3, “Adding an order constraint”, apart from the
+         step where you define the resources for the constraint.
+        </para>
+       </step>
+       <step>
+        <para>
+         Add multiple resources.
+        </para>
+       </step>
+       <step>
+        <para>
+         To create a resource set, click the chain icon next to a resource to
+         link it to the resource above. A resource set is visualized by a frame
+         around the resources belonging to a set.
+        </para>
+       </step>
+       <step>
+        <para>
+         You can combine multiple resources in a resource set or create multiple
+         resource sets.
+        </para>
+       </step>
+       <step>
+        <para>
+         To unlink a resource from the resource above, click the scissors icon
+         next to the resource.
+        </para>
+       </step>
+      </substeps>
+     </step>
+     <step>
+      <para>
+       Confirm your changes to finish the constraint configuration.
+      </para>
+     </step>
+    </procedure>
+   </section>
+
+   <section xml:id="sec-ha-config-basics-constraints-rscset-constraints">
+    <title>Using resource sets to define constraints with &crmsh;</title>
+    <example xml:id="ex-config-basic-resourceset-loc">
+     <title>A resource set for location constraints</title>
+     <para>
+      For example, you can use the following configuration of a resource
+      set (<varname>loc-&node1;</varname>) in the &crmsh; to place
+      two virtual IPs (<varname>vip1</varname> and <varname>vip2</varname>)
+      on the same node, <varname>&node1;</varname>:
+     </para>
+<screen>&prompt.crm.conf;<command>primitive vip1 IPaddr2 params ip=&subnetI;.5 op monitor timeout=20s interval=10s</command>
+&prompt.crm.conf;<command>primitive vip2 IPaddr2 params ip=&subnetI;.6 op monitor timeout=20s interval=10s</command>
+&prompt.crm.conf;<command>location loc-&node1; { vip1 vip2 } inf: &node1;</command></screen>
+    </example>
+    <para>
+     If you want to use resource sets to replace a configuration of
+     colocation constraints, consider the following two examples:
+    </para>
+    <example>
+     <title>A chain of colocated resources</title>
+<screen>&lt;constraints&gt;
+    &lt;rsc_colocation id="coloc-1" rsc="B" with-rsc="A" score="INFINITY"/&gt;
+    &lt;rsc_colocation id="coloc-2" rsc="C" with-rsc="B" score="INFINITY"/&gt;
+    &lt;rsc_colocation id="coloc-3" rsc="D" with-rsc="C" score="INFINITY"/&gt;
+&lt;/constraints&gt;</screen>
+    </example>
+    <para>
+     The same configuration expressed by a resource set:
+    </para>
+<screen>&lt;constraints&gt;
+   &lt;rsc_colocation id="coloc-1" score="INFINITY" &gt;
+    &lt;resource_set id="colocated-set-example" sequential="true"&gt;
+     &lt;resource_ref id="A"/&gt;
+     &lt;resource_ref id="B"/&gt;
+     &lt;resource_ref id="C"/&gt;
+     &lt;resource_ref id="D"/&gt;
+    &lt;/resource_set&gt;
+   &lt;/rsc_colocation&gt;
+&lt;/constraints&gt;</screen>
+    <para>
+     If you want to use resource sets to replace a configuration of
+     order constraints, consider the following two examples:
+    </para>
+    <example>
+     <title>A chain of ordered resources</title>
+<screen>&lt;constraints&gt;
+    &lt;rsc_order id="order-1" first="A" then="B" /&gt;
+    &lt;rsc_order id="order-2" first="B" then="C" /&gt;
+    &lt;rsc_order id="order-3" first="C" then="D" /&gt;
+&lt;/constraints&gt;</screen>
+    </example>
+    <para>
+     The same purpose can be achieved by using a resource set with ordered
+     resources:
+    </para>
+    <example>
+     <title>A chain of ordered resources expressed as resource set</title>
+<screen>&lt;constraints&gt;
+    &lt;rsc_order id="order-1"&gt;
+    &lt;resource_set id="ordered-set-example" sequential="true"&gt;
+    &lt;resource_ref id="A"/&gt;
+    &lt;resource_ref id="B"/&gt;
+    &lt;resource_ref id="C"/&gt;
+    &lt;resource_ref id="D"/&gt;
+    &lt;/resource_set&gt;
+    &lt;/rsc_order&gt;
+&lt;/constraints&gt;</screen>
+    </example>
+    <para>
+     Sets can be either ordered (<literal>sequential=true</literal>) or
+     unordered (<literal>sequential=false</literal>). Furthermore, the
+     <literal>require-all</literal> attribute can be used to switch between
+     <literal>AND</literal> and <literal>OR</literal> logic.
+    </para>
+   </section>
+  </section>
+</topic>
