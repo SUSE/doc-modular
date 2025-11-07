@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="pytorch-helm-overrides"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Examples of &pytorch; &helm; chart override files</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <xi:include href="../snippets/helm-chart-overrides-intro.xml"/>
+    </abstract>
+  </info>
+  <example xml:id="pytorch-chart-example-basic">
+    <title>Basic override file with GPU enabled</title>
+<screen># pytorch_custom_overrides.yaml
+runtimeClassName: nvidia
+global:
+  imagePullSecrets:
+    - application-collection <co xml:id="co-pytorch-helm-appco"/>
+image:
+  registry: dp.apps.rancher.io  
+  repository: containers/pytorch
+  tag: "2.7.0-nvidia"
+  pullPolicy: IfNotPresent
+persistence:
+  enabled: true 
+  storageClass: local-path <co xml:id="co-pytorch-helm-localpath"/>
+gpu:
+  enabled: true
+  type: 'nvidia'
+  number: 1</screen>
+    <calloutlist>
+      <callout arearefs="co-pytorch-helm-appco">
+        <para>
+          Instructs &helm; to use credentials from the &sappco;. For
+          instructions on how to configure the image pull secrets for the
+          &sappco;, refer to the
+          <link xlink:href="https://docs.apps.rancher.io/get-started/authentication/">
+          official documentation</link>.
+        </para>
+      </callout>
+      <callout arearefs="co-pytorch-helm-localpath">
+        <para>
+          Use <literal>local-path</literal> storage only for testing purposes.
+          For production use, we recommend using a storage solution suitable for
+          persistent storage, such as &sstorage;.
+        </para>
+      </callout>
+    </calloutlist>
+  </example>
+  <example xml:id="pytorch-chart-example-configmap">
+    <title>ConfigMap-based upload</title>
+    <para>
+      To create a ConfigMap, run the following command:
+    </para>
+<screen>&prompt.user;<command>kubectl describe configmap \
+  <replaceable>MY_CONFIG_MAP</replaceable> -n <replaceable>SUSE_AI_NAMESPACE</replaceable></command></screen>
+<screen># pytorch_custom_overrides.yaml
+runtimeClassName: nvidia
+global:
+  imagePullSecrets:
+    - application-collection 
+image:
+  registry: dp.apps.rancher.io <co xml:id="co-pytorch-helm-configmap-appco"/>
+  repository: containers/pytorch
+  tag: "2.7.0-nvidia"
+  pullPolicy: IfNotPresent
+persistence:
+  enabled: true 
+  storageClass: local-path <co xml:id="co-pytorch-helm-configmap-localpath"/>
+gpu:
+  enabled: true
+  type: 'nvidia'
+  number: 1
+
+configMapExtFiles: "my-config-files" <co xml:id="co-pytorch-helm-configmap"/></screen>
+    <calloutlist>
+      <callout arearefs="co-pytorch-helm-configmap-appco">
+        <para>
+          Instructs &helm; to use credentials from the &sappco;. For
+          instructions on how to configure the image pull secrets for the
+          &sappco;, refer to the
+          <link xlink:href="https://docs.apps.rancher.io/get-started/authentication/">
+          official documentation</link>.
+        </para>
+      </callout>
+      <callout arearefs="co-pytorch-helm-configmap-localpath">
+        <para>
+          Use <literal>local-path</literal> storage only for testing purposes.
+          For production use, we recommend using a storage solution suitable for
+          persistent storage, such as &sstorage;.
+        </para>
+      </callout>
+      <callout arearefs="co-pytorch-helm-configmap">
+        <para>
+          Specifies ConfigMap files.
+        </para>
+      </callout>
+    </calloutlist>
+  </example>
+  <example xml:id="pytorch-chart-example-hostfolder">
+    <title>Host-folder with files baked into the chart</title>
+    <para>
+      Move the <filename>entrypoint.sh</filename> file plus any helper files
+      under the <filename>scripts/</filename> directory.
+    </para>
+<screen># pytorch_custom_overrides.yaml
+runtimeClassName: nvidia
+global:
+  imagePullSecrets:
+    - application-collection <co xml:id="co-pytorch-helm-hostfolder-appco"/>
+image:
+  registry: dp.apps.rancher.io  
+  repository: containers/pytorch
+  tag: "2.7.0-nvidia"
+  pullPolicy: IfNotPresent
+persistence:
+  enabled: true 
+  storageClass: local-path <co xml:id="co-pytorch-helm-hostfolder-localpath"/>
+gpu:
+  enabled: true
+  type: 'nvidia'
+  number: 1
+
+entrypointscript:
+  filename: "entrypoint.sh" <co xml:id="co-pytorch-helm-hostfolder-filename"/>
+  arguments: [] <co xml:id="co-pytorch-helm-hostfolder-arguments"/></screen>
+    <calloutlist>
+      <callout arearefs="co-pytorch-helm-hostfolder-appco">
+        <para>
+          Instructs &helm; to use credentials from the &sappco;. For
+          instructions on how to configure the image pull secrets for the
+          &sappco;, refer to the
+          <link xlink:href="https://docs.apps.rancher.io/get-started/authentication/">
+          official documentation</link>.
+        </para>
+      </callout>
+      <callout arearefs="co-pytorch-helm-hostfolder-localpath">
+        <para>
+          Use <literal>local-path</literal> storage only for testing purposes.
+          For production use, we recommend using a storage solution suitable for
+          persistent storage, such as &sstorage;.
+        </para>
+      </callout>
+      <callout arearefs="co-pytorch-helm-hostfolder-filename">
+        <para>
+          The file will be mounted and accessible at
+          <filename>/workspace/entrypoint.sh</filename>.
+        </para>
+      </callout>
+      <callout arearefs="co-pytorch-helm-hostfolder-arguments">
+        <para>
+          Add custom command-line arguments if needed.
+        </para>
+      </callout>
+    </calloutlist>
+  </example>
+  <example xml:id="pytorch-chart-example-git-public">
+    <title>Git repository clone: public with no authentication</title>
+<screen># pytorch_custom_overrides.yaml
+runtimeClassName: nvidia
+global:
+  imagePullSecrets:
+    - application-collection <co xml:id="co-pytorch-helm-git-public-appco"/>
+image:
+  registry: dp.apps.rancher.io  
+  repository: containers/pytorch
+  tag: "2.7.0-nvidia"
+  pullPolicy: IfNotPresent
+persistence:
+  enabled: true 
+  storageClass: local-path <co xml:id="co-pytorch-helm-git-public-localpath"/>
+gpu:
+  enabled: true
+  type: 'nvidia'
+  number: 1
+
+gitClone:
+  enabled: true
+  repository: "github.com/<replaceable>YOUR_ORGANIZATOIN</replaceable>/<replaceable>YOUR_REPO</replaceable>" <co xml:id="co-pytorch-helm-git-public-repo"/>
+  revision: "main" <co xml:id="co-pytorch-helm-git-public-revision"/></screen>
+    <calloutlist>
+      <callout arearefs="co-pytorch-helm-git-public-appco">
+        <para>
+          Instructs &helm; to use credentials from the &sappco;. For
+          instructions on how to configure the image pull secrets for the
+          &sappco;, refer to the
+          <link xlink:href="https://docs.apps.rancher.io/get-started/authentication/">
+          official documentation</link>.
+        </para>
+      </callout>
+      <callout arearefs="co-pytorch-helm-git-public-localpath">
+        <para>
+          Use <literal>local-path</literal> storage only for testing purposes.
+          For production use, we recommend using a storage solution suitable for
+          persistent storage, such as &sstorage;.
+        </para>
+      </callout>
+      <callout arearefs="co-pytorch-helm-git-public-repo">
+        <para>
+          Do not specify the protocol, such as <literal>https://</literal>.
+        </para>
+      </callout>
+      <callout arearefs="co-pytorch-helm-git-public-revision">
+        <para>
+          Specify a branch name, a tag name or a commit.
+        </para>
+      </callout>
+    </calloutlist>
+  </example>
+  <example xml:id="pytorch-chart-example-git-private">
+    <title>Git repository clone: private with authentication</title>
+<screen># pytorch_custom_overrides.yaml
+runtimeClassName: nvidia
+global:
+  imagePullSecrets:
+    - application-collection <co xml:id="co-pytorch-helm-git-private-appco"/>
+image:
+  registry: dp.apps.rancher.io  
+  repository: containers/pytorch
+  tag: "2.7.0-nvidia"
+  pullPolicy: IfNotPresent
+persistence:
+  enabled: true 
+  storageClass: local-path <co xml:id="co-pytorch-helm-git-private-localpath"/>
+gpu:
+  enabled: true
+  type: 'nvidia'
+  number: 1
+
+gitClone:
+  enabled: true
+  repository: "github.com/<replaceable>YOUR_ORGANIZATOIN</replaceable>/<replaceable>YOUR_REPO</replaceable>" <co xml:id="co-pytorch-helm-git-private-repo"/>
+  revision: "main" <co xml:id="co-pytorch-helm-git-private-revision"/>
+  secretName: "<replaceable>MY_GIT_CREDENTIALS</replaceable>" <co xml:id="co-pytorch-helm-git-private-secret"/></screen>
+    <calloutlist>
+      <callout arearefs="co-pytorch-helm-git-private-appco">
+        <para>
+          Instructs &helm; to use credentials from the &sappco;. For
+          instructions on how to configure the image pull secrets for the
+          &sappco;, refer to the
+          <link xlink:href="https://docs.apps.rancher.io/get-started/authentication/">
+          official documentation</link>.
+        </para>
+      </callout>
+      <callout arearefs="co-pytorch-helm-git-private-localpath">
+        <para>
+          Use <literal>local-path</literal> storage only for testing purposes.
+          For production use, we recommend using a storage solution suitable for
+          persistent storage, such as &sstorage;.
+        </para>
+      </callout>
+      <callout arearefs="co-pytorch-helm-git-private-repo">
+        <para>
+          Do not specify the protocol, such as <literal>https://</literal>.
+        </para>
+      </callout>
+      <callout arearefs="co-pytorch-helm-git-private-revision">
+        <para>
+          Specify a branch name, a tag name or a commit.
+        </para>
+      </callout>
+      <callout arearefs="co-pytorch-helm-git-private-secret">
+        <para>
+          Specify a preconfigured secret with username and password (or token).
+        </para>
+      </callout>
+    </calloutlist>
+  </example>
+</topic>
