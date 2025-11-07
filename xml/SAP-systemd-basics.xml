@@ -1,0 +1,1614 @@
+<?xml version="1.0"?>
+<article xmlns="http://docbook.org/ns/docbook" version="5.2" xml:id="systemd-services" xml:lang="en">
+  <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Introduction to <systemitem class="daemon">systemd</systemitem> Basics</title>
+      <revhistory xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" xml:id="rh-systemd-services">
+        <revision><date>2025-11-04</date>
+          <revdescription>
+            <para>
+              Initial version
+            </para>
+          </revdescription>
+        </revision>
+      </revhistory>
+
+      
+      <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+
+      
+      <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="series" its:translate="no">Products &amp; Solutions</meta>
+
+      
+      <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="task" its:translate="no">
+        <phrase>Administration</phrase>
+        <phrase>Configuration</phrase>
+      </meta>
+
+      
+      <dm:docmanager xmlns:dm="urn:x-suse:ns:docmanager" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <dm:bugtracker>
+          <dm:url>https://bugzilla.suse.com/enter_bug.cgi</dm:url>
+          <dm:component>Documentation</dm:component>
+          <dm:product os="sles;sles4sap">SUSE Linux Enterprise Server 16.0</dm:product>
+          
+          <dm:assignee>amrita.sakthivel@suse.com</dm:assignee>
+        </dm:bugtracker>
+        <dm:translation>yes</dm:translation>
+      </dm:docmanager>
+
+      
+      <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="architecture" its:translate="no">
+        <phrase>AMD64/Intel&#xA0;64</phrase>
+        <phrase>POWER</phrase>
+        <phrase>IBM&#xA0;Z</phrase>
+        <phrase>AArch64</phrase>
+      </meta>
+
+      
+      <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="productname" its:translate="no">
+        <productname os="sles;sles4sap" version="16.0"><phrase><phrase os="sles4sap">SUSE Linux Enterprise Server for SAP applications</phrase></phrase></productname>
+        
+      </meta>
+
+      
+      <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="title" its:translate="yes">Managing <systemitem class="daemon">systemd</systemitem> services</meta>
+      <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="social-descr" its:translate="yes"><systemitem class="daemon">systemd</systemitem> service management, dependency tracking, and more.</meta>
+
+      
+      <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="description" its:translate="yes">Basics of <systemitem class="daemon">systemd</systemitem>, including service management, dependency tracking, logging, resource management, socket activation and system control</meta>
+
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <variablelist>
+          <varlistentry>
+            <term>WHAT?</term>
+            <listitem>
+              <para>
+                <systemitem class="daemon">systemd</systemitem> is used to manage system settings and services.
+                <systemitem class="daemon">systemd</systemitem> organizes tasks into components called <emphasis>units</emphasis> and groups of units into <emphasis>targets</emphasis>.
+
+              </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>WHY?</term>
+            <listitem>
+              <para>
+                Learn about the basics of <systemitem class="daemon">systemd</systemitem>, which include essential functionalities such as service management,
+                dependency tracking, logging, resource management, socket activation and system control. </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>EFFORT</term>
+            <listitem>
+              <para>
+                20 minutes of reading time.
+              </para>
+            </listitem>
+          </varlistentry>
+            <varlistentry>
+            <term>REQUIREMENTS</term>
+              <listitem>
+                <itemizedlist>
+                  <listitem>
+                    <para>
+                      Basic understanding of Linux commands
+                    </para>
+                  </listitem>
+                  <listitem>
+                  <para>
+                   Basic understanding of Linux processes, daemons, and control groups
+                  </para>
+                  </listitem>
+                    </itemizedlist>
+              </listitem>
+            </varlistentry>
+        </variablelist>
+      </abstract>
+    </info>
+  <section role="concept" xml:lang="en" version="5.2" xml:id="about-systemd"><info>
+    <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">What is <systemitem class="daemon">systemd</systemitem>?</title>
+  </info>
+   
+    <para>
+      <systemitem class="daemon">systemd</systemitem> is a system and service manager for Linux operating systems. It is the default initialization system for major Linux distributions.
+      <systemitem class="daemon">systemd</systemitem> is not directly initiated by the user, but installed through the <filename>/sbin/init </filename> and started during the early boot.
+      <systemitem class="daemon">systemd</systemitem> acts as the init system that brings up and maintains user space services when run as the first process on boot (PID 1).
+      PID 1 is known as <emphasis>init</emphasis> and is the first Linux user-mode process created.
+      It runs until the system shutdown.
+      </para>
+      <para><systemitem class="daemon">systemd</systemitem> owns PID 1, and is started directly by the kernel. All other processes are started directly
+       by <systemitem class="daemon">systemd</systemitem> or one of its child processes. <systemitem class="daemon">systemd</systemitem> mounts the host's file system and manages temporary files.
+       It is backward compatible with the SysV init scripts. SysV is an initialization system that predates <systemitem class="daemon">systemd</systemitem>.</para>
+
+        <para>In <systemitem class="daemon">systemd</systemitem>, a unit is a resource that the system knows how to operate on and manage. This is
+            the primary object that the <systemitem class="daemon">systemd</systemitem> tools use. These resources are defined with configuration files called unit files.</para>
+         <para><command>systemctl</command> is the central management tool for controlling the init system. It is used to
+        examine and control the state of the <systemitem class="daemon">systemd</systemitem> system and service manager.</para>
+        <para>Targets in <systemitem class="daemon">systemd</systemitem> are groups of related units that act as synchronization points during a system boot.
+          Target unit files have a <literal>.target</literal> file extension. Target units group together various <systemitem class="daemon">systemd</systemitem>
+          units through a chain of dependencies.
+        </para>
+        <para>For troubleshooting, you can use <command>journalctl</command>, which is
+         used to query and display log messages from the <systemitem class="daemon">systemd</systemitem> journal.</para>
+         <para>For more information on <systemitem class="daemon">systemd</systemitem>, you can refer to <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://systemd.io"/> and <command>man 1 systemd</command>.</para>
+    </section>
+  <section role="concept" xml:lang="en" version="5.2" xml:id="boot-process"><info>
+    <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">About the <systemitem class="daemon">systemd</systemitem> boot process </title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+
+      <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+        <para>
+      The first step in the boot process is to load the Linux kernel, which is the main component of the Linux operating system.
+      Once the kernel is loaded, it initializes the hardware and starts the <systemitem class="daemon">systemd</systemitem> process, which is the first
+      process that runs on the system.
+        </para>
+      </abstract>
+    </info>
+  
+    <section xml:id="linux-boot-process">
+      <title>Linux boot process</title>
+      <para>The Linux boot process is the initial stage of the operating system's startup.
+        It is the process by which the operating system loads the memory, initializes the components and
+        prepares to execute user applications.</para>
+        <para>The Linux boot process is divided into four main stages:</para>
+      <variablelist>
+      <varlistentry>
+        <term>Stage 1: BIOS</term>
+        <listitem>
+          <para>
+           When you power on your computer, your computer starts BIOS (Basic Input/Output System) and
+           performs a POST (Power On Self Test). This is an integrity check that probes the hardware functionality of
+           components such as hard disks, SSD, keyboard, RAM, USB ports and any other hardware.
+           If the hardware works as expected, the boot process moves on to the next stage.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Stage 2: The boot loader</term>
+        <listitem>
+          <para> Once POST is complete, BIOS searches for and loads the boot loader program stored
+            in the MBR (Master Boot Record). The MBR is a 512-byte code that is usually located at <filename>/dev/sda</filename>
+            or <filename>/dev/hda</filename> depending on your hard drive architecture. The MBR can also be located
+            on a live USB or DVD installation of Linux. BIOS loads and executes this MBR code.</para>
+            <para>There are three main boot loaders in Linux: LILO, GRUB and GRUB2. The GRUB2 (Grand Unified Bootloader)
+              boot loader is the latest and primary boot loader in modern Linux distributions. The GRUB2 configuration file is
+              located at <filename> /boot/grub2/grub2.cfg</filename>. Once BIOS locates the GRUB2 boot loader, It executes and loads it into the main memory (RAM).</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Stage 3: Linux kernel initialization</term>
+        <listitem>
+          <para>The Linux kernel is the heart of the operating system. In your Linux
+            system, the kernel interfaces with the hardware, controls memory management
+            and manages processes. The boot loader loads the selected Linux kernel.
+            The kernel self extracts from a compressed version and mounts the root file system.
+            It then runs the <filename>/sbin/init</filename> program.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Stage 4: <systemitem class="daemon">systemd</systemitem></term>
+        <listitem>
+          <para>The kernel loads <systemitem class="daemon">systemd</systemitem>, which is a system and service manager for Linux operating systems. <systemitem class="daemon">systemd</systemitem> then runs
+           all the other initialization processes.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+      </section>
+
+      <section xml:id="systemd-linux-boot-process">
+        <title>Boot process with <systemitem class="daemon">systemd</systemitem> </title>
+      <para> Once the kernel loads <systemitem class="daemon">systemd</systemitem>, <systemitem class="daemon">systemd</systemitem> takes over and starts the other system services that are required
+        to bring the system up and running. This includes services such as networking service, the login manager, etc.</para>
+
+<para> The boot process is parallelized in the order in which specific target units are executed.
+  <systemitem class="daemon">systemd</systemitem> uses the <filename>/etc/systemd/system/default.target </filename> file to determine the target that the Linux system should boot into.
+  This file is a link to <filename>graphical.target</filename> which boots the graphical login manager.
+  <systemitem class="daemon">systemd</systemitem> activates all target units that are dependencies of <filename>default.target</filename> as well as recursively all dependencies of these dependencies.
+Once all the services are started, your system is ready to use and the login manager displays. You can now log in and start using the system.
+  </para>
+
+      </section>
+
+      <section xml:id="systemd-analyze-command">
+        <title>Analyzing the system boot process performance with the <command>systemd-analyze</command> command </title>
+      <para>Use the <command>systemd-analyze</command> command to analyze the performance of the system
+        boot process. The command can also be used to retrieve other state and tracing information
+        from the system and service manager. It is used to check that unit files are correct and also to access special functions
+        useful for advanced system manager debugging.
+      </para>
+          <para>Some examples include:</para>
+    <variablelist>
+      <varlistentry>
+        <term><emphasis>Viewing the time it takes for the system to boot</emphasis></term>
+        <listitem>
+<screen><prompt>&gt; </prompt>systemd-analyze time
+Startup finished in 3.404s (kernel) + 2.415s (initrd) + 13.125s (userspace) = 18.945s
+graphical.target reached after 13.117s in userspace
+</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+      <term><emphasis>Getting a high-level overview of the boot process, which includes
+        services that are started and the time it takes for each service to start</emphasis></term>
+      <listitem>
+<screen><prompt>&gt; </prompt>systemd-analyze critical-chain
+  The time when unit became active or started is printed after the "@" character.
+  The time the unit took to start is printed after the "+" character.
+
+  graphical.target @13.117s
+  &#x2514;&#x2500;multi-user.target @13.117s
+    &#x2514;&#x2500;getty.target @13.117s
+      &#x2514;&#x2500;getty@tty1.service @13.116s
+        &#x2514;&#x2500;plymouth-quit-wait.service @10.775s +2.338s
+          &#x2514;&#x2500;systemd-user-sessions.service @10.769s +3ms
+            &#x2514;&#x2500;remote-fs.target @10.764s
+              &#x2514;&#x2500;iscsi.service @10.747s +16ms
+                &#x2514;&#x2500;network-online.target @10.744s
+                  &#x2514;&#x2500;NetworkManager-wait-online.service @1.547s +9.197s
+                    &#x2514;&#x2500;NetworkManager.service @1.507s +37ms
+                      &#x2514;&#x2500;network-pre.target @1.504s
+                        &#x2514;&#x2500;wpa_supplicant.service @2.341s +5ms
+                          &#x2514;&#x2500;dbus.service @1.042s
+                            &#x2514;&#x2500;basic.target @1.036s
+                              &#x2514;&#x2500;sockets.target @1.036s
+                                &#x2514;&#x2500;snapd.socket @1.035s +590us
+                                  &#x2514;&#x2500;sysinit.target @1.030s
+                                    &#x2514;&#x2500;systemd-update-utmp.service @1.025s +5ms
+                                      &#x2514;&#x2500;auditd.service @976ms +47ms
+                                        &#x2514;&#x2500;systemd-tmpfiles-setup.service @964ms +9ms
+                                          &#x2514;&#x2500;local-fs.target @962ms
+                                            &#x2514;&#x2500;snapd.mounts.target @961ms
+                                              &#x2514;&#x2500;snap-core18-2796.mount @417ms +543ms
+                                                &#x2514;&#x2500;dev-loop9.device @961ms +628us
+</screen>
+<para>This command prints a tree of time-critical units either for each of the specified units or for the default target. The initialization of services might depend on socket activation and the parallel execution of units. Similar to the <command>blame</command>
+command, it displays the time taken by a unit to activate, which is not defined for units like device units that transition directly to active state. </para>
+</listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><emphasis>Viewing a list of services started during the boot process and displayed according to
+        the time taken by each service</emphasis></term>
+      <listitem>
+<screen><prompt>&gt; </prompt>systemd-analyze blame
+  9.197s NetworkManager-wait-online.service
+  4.002s fwupd.service
+  2.338s plymouth-quit-wait.service
+  1.282s dracut-pre-udev.service
+  1.062s sys-devices-platform-serial8250-tty-ttyS0.device
+  1.062s dev-ttyS0.device
+  1.061s dev-ttyS1.device
+  1.061s sys-devices-platform-serial8250-tty-ttyS1.device
+  1.060s dev-ttyS11.device
+  1.060s sys-devices-platform-serial8250-tty-ttyS11.device
+  1.059s sys-devices-platform-serial8250-tty-ttyS13.device
+  1.059s dev-ttyS13.device
+  1.059s sys-devices-platform-serial8250-tty-ttyS10.device
+  1.059s dev-ttyS10.device
+  1.058s sys-devices-platform-serial8250-tty-ttyS14.device
+  1.058s dev-ttyS14.device
+  1.058s dev-ttyS12.device
+  1.058s sys-devices-platform-serial8250-tty-ttyS12.device
+  1.056s sys-devices-platform-serial8250-tty-ttyS17.device
+</screen>
+<para>The initialization of one service might be slow because it is waiting for another service initialization to complete.
+It displays the time taken by a unit to activate, which is not defined for units
+like device units that transition directly to active state. This command does
+not display results for services with <literal>Type=simple</literal> because
+<systemitem class="daemon">systemd</systemitem> considers these services to be started immediately, hence the initialization delays
+cannot be analyzed.
+</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><emphasis>Generating a vector graphics file that displays the events that take place during the boot process
+            </emphasis></term>
+      <listitem>
+<screen><prompt>&gt; </prompt>systemd-analyze plot &gt; /temp/sample.svg
+</screen>
+<para>This command creates a SVG file in the <literal>temp</literal> directory.
+  The SVG file is a text file that defines a set of graphics vectors that applications
+  such as LibreOffice Draw use to generate a graph.</para>
+      </listitem>
+    </varlistentry>
+      </variablelist>
+      </section>
+ </section>
+  <section role="concept" xml:lang="en" version="5.2" xml:id="unit-file"><info>
+    <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">Structure of a unit file</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+     <para>
+In <systemitem class="daemon">systemd</systemitem>, a unit refers to any resource that the system knows how to operate on and manage.
+This is the primary object that the <systemitem class="daemon">systemd</systemitem> tools use. These resources are defined using configuration files
+called unit files. Administration is easier when you understand unit files when working with <systemitem class="daemon">systemd</systemitem>.
+Unit files use a simple declarative syntax that allows you to see easily the purpose and effects of a
+unit upon activation. Unit files have sections with directives, for example:
+      </para>
+    </abstract>
+      </info>
+  
+      <screen>
+        [Section]
+        Directive1=value
+        Directive2=value
+        . . .
+      </screen>
+  <para>Unit file types include the following sections:</para>
+  <variablelist>
+    <varlistentry>
+      <term><literal>[Unit]</literal></term>
+      <listitem>
+        <para>
+         The first section found in most unit files is the <literal>[Unit]</literal> section. This section is used to define
+         the metadata of the unit file and configure the relationship of the unit file to other unit files. This section is usually placed
+         at the top because it provides an overview of the unit file.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><literal>[Automount] / [Mount] / [Path] / [Service] / [Slice] / [Socket] /[Swap] / [Timer]</literal></term>
+      <listitem>
+        <para>
+          Sections containing directives that are specific to the respective type. See
+          <xref linkend="type-unit-file"/>
+          for a list of available types.
+          Note that the types <literal>device</literal>, <literal>target</literal>, <literal>snapshot</literal>
+          and <literal>scope</literal> do not have a type-specific section.
+         </para>
+      </listitem>
+    </varlistentry>
+
+       <varlistentry>
+      <term><literal>[Install]</literal></term>
+      <listitem>
+        <para>
+         This is often the last section in the unit file and is optional. This section is used to define the behavior of a unit file when
+         it is enabled or disabled. When you enable a unit file, it automatically starts at boot. Based on the specific unit,
+         there could be a dependency on other related units to work properly. For example, <systemitem class="resource">chrony</systemitem> requires
+         the directives <literal>After</literal>, <literal>Wants</literal>, and <literal>Before</literal>, which are all dependencies for
+         <systemitem class="resource">chrony</systemitem> to work with.
+        </para>
+              </listitem>
+    </varlistentry>
+    </variablelist>
+    <example xml:id="systemd-unit-file-example">
+      <title>A <systemitem class="daemon">systemd</systemitem> service file </title>
+      <screen>[Unit]
+Description=usbguard <co xml:id="systemd-unit-file-descr"/>
+
+[Service]
+ExecStart=/usr/sbin/usb-daemon <co xml:id="systemd-unit-file-exec"/>
+
+[Install]
+WantedBy=multi-user.target <co xml:id="systemd-unit-file-multiuser"/></screen>
+      </example>
+      <calloutlist>
+        <callout arearefs="systemd-unit-file-descr">
+          <para>
+            A brief and meaningful description explaining the service file's purpose.
+          </para>
+        </callout>
+        <callout arearefs="systemd-unit-file-exec">
+          <para>
+            Specifies the program to be executed when the service is started.
+          </para>
+        </callout>
+        <callout arearefs="systemd-unit-file-multiuser">
+          <para>
+            Starts a multi-user system with networking, and no graphical environment.
+            This directive allows you to specify a dependency relationship.
+          </para>
+        </callout>
+      </calloutlist>
+</section>
+  <section role="concept" xml:lang="en" version="5.2" xml:id="type-unit-file"><info>
+    <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">Unit file types</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+     <para>
+      You can determine the type of unit by its file extension. <systemitem class="daemon">systemd</systemitem> categorizes units according to the type of resource they describe.
+      </para>
+    </abstract>
+      </info>
+  
+
+  <para>Types of unit files available for <systemitem class="daemon">systemd</systemitem>:</para>
+  <variablelist>
+    <varlistentry>
+      <term><literal>.service</literal></term>
+      <listitem>
+        <para>
+          Describes how to manage a service or application.
+          This includes how to start or stop the service, reload its configuration file (if applicable),
+          under what conditions the service starts automatically, and the dependency or the hierarchy information for related unit files.
+         </para>
+               </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><literal>.scope</literal></term>
+      <listitem>
+        <para>
+         This unit file is automatically created by <systemitem class="daemon">systemd</systemitem> from the information received from the D-Bus interface
+         and is used to manage sets of system processes that are created externally.
+         </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><literal>.path</literal></term>
+      <listitem>
+        <para>
+       Defines a path for path-based activation.
+        By default, a <literal>.service</literal> unit file of the same base name is activated.
+        <literal>inotify</literal> is a kernel API that is used by programs
+        that want to be notified about changes to files.
+         </para>
+              </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><literal>.snapshot</literal></term>
+      <listitem>
+        <para>
+        The <command>systemctl snapshot</command> command automatically creates a <literal>.snapshot</literal> unit file.
+        This command creates temporary snapshots of the current state of the system.
+        You can modify the current state of the system after making changes. Snapshots are used for rolling back temporary states.
+        </para>
+              </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><literal>.timer</literal></term>
+      <listitem>
+        <para>
+        Defines a timer that is managed by <systemitem class="daemon">systemd</systemitem>. This is similar to a cron job for delayed or scheduled activation.
+        A unit file with the same name, but with file extension <filename>.service</filename> is started when the timer is reached.
+        </para>
+              </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><literal>.slice</literal></term>
+      <listitem>
+        <para>
+        Associate Linux Control Group nodes, which allow resources
+        to be assigned or restricted to any processes associated with the slice.
+         The name indicates the hierarchy within the control group tree. Units are placed in slices by default depending on their type.
+         </para>
+              </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><literal>.target</literal></term>
+      <listitem>
+        <para>
+         Provides synchronization for other units during a boot up or
+          a change in state, or brings the system to a new state. Other units specify their relation to targets
+          in order to sync with the target's operations.
+                </para>
+              </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><literal>.socket</literal></term>
+      <listitem>
+        <para>
+         Describes a network, an IPC socket, or a FIFO buffer that <systemitem class="daemon">systemd</systemitem> uses for socket-based activation.
+          There is an associated <literal>.service</literal> file that starts when an activity is seen on the socket that this unit defines.
+                </para>
+              </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><literal>.device</literal></term>
+      <listitem>
+        <para>
+        Defines a device that has been designated for <systemitem class="daemon">systemd</systemitem> management by <literal>udev</literal>
+        or <literal>sysfs</literal> file system. Not all devices have the <literal>.device</literal> file.
+        This unit file is required when ordering, mounting, or accessing a device.
+         </para>
+              </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><literal>.swap</literal></term>
+      <listitem>
+        <para>
+          Defines the swap space on the system.
+          The name of the unit file must reflect the device or file path of the space.
+          </para>
+              </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><literal>.mount</literal></term>
+      <listitem>
+        <para>
+         Defines a mount point on the system to be managed by <systemitem class="daemon">systemd</systemitem>.
+          This file is named after the mount path, with the slashes changed to dashes.
+          Entries within <filename>/etc/fstab</filename> can have units created automatically.
+                </para>
+              </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><literal>.automount</literal></term>
+      <listitem>
+        <para>
+         Defines a mount point that is automatically mounted. Name the file after
+         the mount point that it refers to. A matching <literal>.mount</literal> unit file is required
+         to define the specifics of the mount.
+         </para>
+              </listitem>
+    </varlistentry>
+    </variablelist>
+</section>
+  <section role="concept" xml:lang="en" version="5.2" xml:id="concept-unit-dependencies"><info>
+    <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">Unit dependencies and order</title>
+    
+    <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+      <para>
+<systemitem class="daemon">systemd</systemitem> has two types of dependencies: requirement and order dependencies. Requirement dependencies specify
+which other units must be either started or stopped when activating a unit.
+Order dependencies specify the order in which units must be started.
+      </para>
+    </abstract>
+  </info>
+  
+  <para> <emphasis>Unit dependencies</emphasis></para>
+  <para>Unit files have the dependencies feature. A unit may want or require one or more other units before it can run.
+    These dependencies are set in unit files with the directives <literal>Wants</literal> and <literal>Requires</literal>.</para>
+    <variablelist>
+      <varlistentry>
+        <term><literal>Wants</literal></term>
+        <listitem><para>For example, if unit A has <literal>Wants=unit B</literal>, when unit A is
+          run, unit B runs as well. But if unit B starts successfully or not, does not have an influence on unit A running
+          successfully.
+        </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>Requires</literal></term>
+        <listitem><para>If unit A has <literal>Requires=unit B</literal>, both units run but if unit B does not run successfully,
+         unit A is deactivated. It does not matter if the processes of unit A would have run successfully.
+        </para></listitem>
+      </varlistentry>
+    </variablelist>
+    <para><emphasis>Unit order</emphasis> </para>
+    <para>Without proper instructions, <systemitem class="daemon">systemd</systemitem> can run a group of units at the same time. Starting services in the right order
+      is important for a good functioning of the Linux system. You can arrange the order with the unit file directives <literal>Before</literal>
+       and <literal>After</literal>.</para>
+       <variablelist>
+        <varlistentry>
+          <term><literal>Before</literal></term>
+          <listitem><para>For example, if unit A has <literal>Before=unit B</literal>, when both units are run, unit A is executed fully
+            before unit B.
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>After</literal></term>
+          <listitem><para>If unit A has <literal>After=unit B</literal>, when both units are run, unit B is executed fully
+            before unit A.
+          </para></listitem>
+        </varlistentry>
+      </variablelist>
+</section>
+  <section role="concept" xml:lang="en" version="5.2" xml:id="concept-unit-logging"><info>
+    <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">Logging</title>
+    
+    <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    </info>
+  
+         <para>
+        Log files and journals are important for system administration. They give in-depth information about a system and are very important
+        for troubleshooting and auditing. Log files contain events and messages generated by the kernel, applications, and users that log into the system.
+ You can use the <command>journalctl</command> command to query the journal. This command views logs collected by <systemitem class="daemon">systemd</systemitem>.
+ The <literal>systemd-journald</literal> service handles <systemitem class="daemon">systemd</systemitem>'s log collection. <literal>systemd-journald</literal> saves the events and messages in a binary format.
+      </para>
+    </section>
+  <section role="concept" xml:lang="en" version="5.2" xml:id="concept-systemd-targets"><info>
+    <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion"><systemitem class="daemon">systemd</systemitem> targets</title>    
+    
+    <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">      
+      <para>
+     <systemitem class="daemon">systemd</systemitem> uses units and targets. A <systemitem class="daemon">systemd</systemitem> unit defines a service or action on the system, which consists of a name, type, and  configuration file.
+        A <systemitem class="daemon">systemd</systemitem> target combines several units and defines which services have to be started to reach the target.
+        On a server, for example, this is a state where the network is running and multiple users can log in.
+        These files are identified by the suffix <literal>.target</literal>.
+      </para>
+      <para>Similar to unit files, different targets may be nested via dependencies. For example, <literal>multi-user.target</literal> requires (among others) the targets
+        that set up login and user session services.
+      </para>
+    </abstract>
+  </info>
+  
+  <para>
+    Common <systemitem class="daemon">systemd</systemitem> targets:
+  </para>
+  <variablelist>
+    <varlistentry>
+      <term>
+        <literal>default.target</literal>
+      </term>
+      <listitem>
+        <para>Boots by default. The <literal>default.target</literal> file is a symbolic link to the
+        true target file, such as <literal>graphical.target</literal> for a desktop workstation. For a server, it is usually
+          <literal>graphical.target</literal>.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>
+        <literal>poweroff.target</literal>
+      </term>
+      <listitem>
+        <para>Shuts down and powers off the system.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>
+        <literal>rescue.target</literal>
+      </term>
+      <listitem>
+        <para>Target unit that pulls the base system and starts a rescue shell session.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>
+        <literal>multi-user.target</literal>
+      </term>
+      <listitem>
+        <para>Sets up a non-graphical (console) multi-user system.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>
+        <literal>graphical.target</literal>
+      </term>
+      <listitem>
+        <para>Uses a graphical multi-user system with network services.</para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>
+        <literal>reboot.target</literal>
+      </term>
+      <listitem>
+        <para>Shuts down and reboots the system.
+        </para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  <para>For more information on <systemitem class="daemon">systemd</systemitem> targets, refer to <emphasis>man 5 systemd.target</emphasis>
+        and <emphasis>man 7 systemd.special</emphasis>.
+  </para>
+</section>
+  <section role="concept" xml:lang="en" version="5.2" xml:id="systemd-as-a-regular-user"><info>
+    <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">Using <systemitem class="daemon">systemd</systemitem> as a regular user</title>
+    <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+<abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion"><para> You can use <systemitem class="daemon">systemd</systemitem> as a regular user for better security or when you do not have <systemitem class="username">root</systemitem> user privileges. Running an unprivileged service can be done by creating a <literal>user</literal>
+  service.</para></abstract>
+  </info>
+  
+  <para>When creating and using a user service, consider the following: </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+         User service sessions are terminated when the user's session ends. This can be overridden by using
+          the <command>loginctl enable-linger <replaceable>USERNAME</replaceable></command> command.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          User service files are located in <filename>/etc/systemd/user</filename> or <filename>$HOME/.config/systemd/user/</filename>.
+         </para>
+        </listitem>
+         <listitem>
+          <para>
+           You can control user services with the <command>systemctl --user</command> command.
+          </para>
+        </listitem>
+      </itemizedlist>
+          </section>
+  <section role="reference" xml:lang="en" version="5.2" xml:id="systemctl-commands"><info>
+    <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion"><command>systemctl</command> commands overview</title>
+    
+    <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="amrita.sakthivel@suse.com"/>
+    <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+      <para>
+        The <command>systemctl</command> command is used to examine and control
+        the state of <systemitem class="daemon">systemd</systemitem> and service manager.
+      </para>
+    </abstract>
+  </info>
+  
+  <para>
+    You can use the following common <command>systemctl</command> commands and
+    refer to the <emphasis>man systemctl</emphasis> page.
+  </para>
+  <section xml:id="systemctl-commands-view-information">
+    <title>Viewing <systemitem class="daemon">systemd</systemitem> information</title>
+    <para>
+      To view information about <systemitem class="daemon">systemd</systemitem> components, you can use the following
+      commands:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>systemctl list-units</term>
+        <listitem>
+          <para>
+            Lists the <systemitem class="daemon">systemd</systemitem> units. You can use the optional arguments:
+            <command>--state=running</command> to show the active units and
+            <command>--type=service</command> to show the exited and active
+            units.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>systemctl list-unit-files</term>
+        <listitem>
+          <para>
+            Lists the <systemitem class="daemon">systemd</systemitem> units and the status, such as static,
+            generated, disabled, alias, masked, and enabled.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>systemctl list-dependencies</term>
+        <listitem>
+          <para>
+            Lists the dependency tree.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>systemctl list-dependencies <replaceable>UNIT_FILE</replaceable></term>
+        <listitem>
+          <para>
+            Lists the dependencies of a unit file.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="systemctl-commands-managing-services">
+    <title>Managing <systemitem class="daemon">systemd</systemitem> services</title>
+    <para>
+      The <command>systemctl</command> command enables you to perform the
+      following tasks with services.
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>systemctl status <replaceable>SERVICE</replaceable></term>
+        <listitem>
+          <para>
+            Checks the status of the specific service.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>systemctl show <replaceable>SERVICE</replaceable></term>
+        <listitem>
+          <para>
+            Displays the service information.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>systemctl start <replaceable>SERVICE</replaceable></term>
+        <listitem>
+          <para>
+            Instead of manually starting the service, use the
+            <command>start</command> command. When a change is made to the
+            configuration file, the related service must be started again.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>systemctl stop <replaceable>SERVICE</replaceable></term>
+        <listitem>
+          <para>
+            Stops a specific running service.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>systemctl restart <replaceable>SERVICE</replaceable></term>
+        <listitem>
+          <para>
+            Instead of manually restarting the service, use the
+            <command>restart</command> command. When a change is made to the
+            configuration file, the related service must be restarted again.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>systemctl enable <replaceable>SERVICE</replaceable></term>
+        <listitem>
+          <para>
+            Enables the service on boot.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>systemctl disable <replaceable>SERVICE</replaceable></term>
+        <listitem>
+          <para>
+            Disables the service on boot.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>systemctl reload-or-restart <replaceable>SERVICE</replaceable></term>
+        <listitem>
+          <para>
+            Reload the service if it supports reloading, otherwise it restarts
+            the service. If the service is not running, it is restarted.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>systemctl mask <replaceable>SERVICE</replaceable></term>
+        <listitem>
+          <para>
+            When a service is masked, this means the unit file is symlinked to
+            <filename>/dev/null</filename>. A symlink for a masked service is
+            created from <filename>/etc/systemd/system</filename> to point to
+            <filename>/dev/null</filename>. This makes it impossible to load
+            the service even if another enabled service requires it. It must be
+            stopped manually, or it continues to run in the background. You can
+            use <command>--runtime</command> option to only mask temporarily
+            until the next reboot of the system.
+          </para>
+<screen>Created symlink /etc/systemd/system/FOSSLinux.service &#x2192; /dev/null.</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>systemctl unmask <replaceable>SERVICE</replaceable></term>
+        <listitem>
+          <para>
+            Unmasks the service. It is effective when the system is started or
+            restarted manually.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="systemctl-commands-managing-states">
+    <title>Managing system states</title>
+    <para>
+      The <command>systemctl</command> command enables you to perform power
+      management processes on your system, like restarting, shutting down and
+      so on, as described below.
+    </para>
+    
+    <variablelist>
+      <varlistentry>
+        <term>systemctl reboot</term>
+        <listitem>
+          <para>
+            Reboots the system <literal>reboot.target</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>systemctl poweroff</term>
+        <listitem>
+          <para>
+            Powers off the system <literal>poweroff.target</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>systemctl emergency</term>
+        <listitem>
+          <para>
+            Goes into the emergency mode <literal>emergency.target</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>systemctl default</term>
+        <listitem>
+          <para>
+            Goes back to default target <literal>multi-user.target</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      
+    </variablelist>
+  </section>
+</section>
+  <section xml:lang="en" role="reference" version="5.1" xml:id="systemd-troubleshooting"><info>
+    <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink"><systemitem class="daemon">systemd</systemitem> troubleshooting</title>
+</info>
+  
+<para>You can use the following troubleshooting tips to identify and resolve issues
+  with <systemitem class="daemon">systemd</systemitem> services and ensure a smooth system operation.
+  </para>
+
+  <variablelist>
+    <varlistentry>
+      <term><emphasis>Check the syntax of your <systemitem class="daemon">systemd</systemitem> unit file with the
+        <command>systemd-analyze verify <replaceable>SERVICE</replaceable></command></emphasis></term>
+      <listitem> <para>Before starting or enabling a <systemitem class="daemon">systemd</systemitem> service, check the syntax of the unit file to ensure there are no errors.
+        For example: </para>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemd-analyze verify /etc/systemd/system/my-custom-service.service</screen>
+<para>The command analyzes the unit file and reports any syntax errors, missing files, or other issues.
+  You must fix any reported issues before enabling and starting the service.</para>
+</listitem>
+       </varlistentry>
+        <varlistentry>
+      <term><emphasis>Check the logs for your service with the <command>
+        journalctl -u <replaceable>SERVICE</replaceable></command> command</emphasis></term>
+      <listitem>
+        <para>
+          If you experience any issue with a <systemitem class="daemon">systemd</systemitem> service, check the service's log.
+          For example:
+        </para>
+
+<screen><prompt>&gt; </prompt><command>sudo</command>  journalctl -u my-custom-service.service</screen>
+<para>The command displays logs for the specified service, including any error messages, warnings, or other relevant information.
+  You can use these logs to identify and fix issues with the service.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><emphasis>Use the <command>systemd-analyze plot</command> command to visualize the boot process</emphasis></term>
+      <listitem>
+        <para>
+          If a service is causing issues during the boot process, you can use the
+          <command>systemd-analyze plot command</command> to visualize the boot process and identify issues.
+          For example:
+        </para>
+
+<screen><prompt>&gt; </prompt><command>sudo</command> systemd-analyze plot &gt; boot-plot.svg</screen>
+<para>The command creates an SVG file called <filename>boot-plot.svg</filename> that contains a graphical representation of the boot process and potential issues. This includes the start and stop time of each service. You can open this file in an SVG-compatible image viewer or Web browser to analyze services that are causing issues during the boot process.</para>
+        </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><emphasis>Troubleshoot failed services</emphasis></term>
+      <listitem> <para>To find out which services have failed and to inspect the log output: </para>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemctl --state=failed</screen>
+</listitem>
+       </varlistentry>
+       <varlistentry>
+        <term><emphasis>Check the runtime status of a service</emphasis></term>
+        <listitem> <para>To find out the current runtime status of a service:</para>
+  <screen><prompt>&gt; </prompt><command>sudo</command> systemctl status <replaceable>SERVICE</replaceable></screen>
+  </listitem>
+         </varlistentry>
+       <varlistentry>
+       <term><emphasis>Shutdown or reboot takes long</emphasis></term>
+      <listitem> <para>If the shutdown or reboot takes long, it could be a service that is not exiting. <systemitem class="daemon">systemd</systemitem>
+        waits for some time for each service to exit before trying to terminate it.
+        A common issue is a suspended service or a stalled shutdown. To find out, use the following:
+      </para>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemctl poweroff
+  Failed to power off system via logind: There's already a shutdown or sleep operation in progress
+</screen>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-jobs</screen>
+<para>You can cancel the running and waiting jobs, and again shut down or reboot: </para>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemctl cancel</screen>
+ <screen><prompt>&gt; </prompt><command>sudo</command> systemctl stop systemd-suspend.service</screen>
+</listitem>
+       </varlistentry>
+  </variablelist>
+</section>
+  <section role="concept" xml:lang="en" version="5.2" xml:id="best-practices"><info>
+        <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion"><systemitem class="daemon">systemd</systemitem> best practices</title>
+        
+        <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content=" amrita.sakthivel@suse.com " its:translate="no"/>
+        <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+            <para>
+            You can follow some of the best practices to ensure efficient <systemitem class="daemon">systemd</systemitem> services that are equipped to handle different situations.
+            </para>
+            </abstract>
+        </info>
+       
+        <variablelist>
+          <varlistentry>
+            <term><emphasis>Check the runtime status of a service</emphasis></term>
+            <listitem>
+              <para>To find out the current runtime status of a service:</para>
+               <screen><prompt>&gt; </prompt><command>sudo</command> systemctl status <replaceable>SERVICE</replaceable></screen>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><emphasis>Use absolute path in your <systemitem class="daemon">systemd</systemitem> unit file</emphasis></term>
+            <listitem>
+              <para>
+               Use an absolute path for executable files and required files, such as configuration files or scripts in your
+               <systemitem class="daemon">systemd</systemitem> unit file. <systemitem class="daemon">systemd</systemitem> does not rely on the user's environment variables like <literal>$PATH</literal> to locate files.
+              </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><emphasis>Use the ExecReload directive</emphasis></term>
+            <listitem>
+              <para>
+              Use the <emphasis>ExecReload</emphasis> directive in the <literal>[SERVICE]</literal> section when you want to define a specific command
+              that should be executed when you reload a service with the <command>systemctl reload</command> command.
+              This is useful for services that can dynamically reload their configuration without a restart.
+              </para>
+<screen>[Service]
+ExecStart=<replaceable>PATH_TO_EXECUTABLE</replaceable>
+ExecReload=<emphasis>PATH_TO_RELOAD_SCRIPT</emphasis></screen>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><emphasis>Use the RestartSec directive </emphasis></term>
+            <listitem>
+              <para>
+               Use the <emphasis>RestartSec</emphasis> directive in the <literal>[SERVICE]</literal> section when you want to
+               define a delay (in seconds) before the service is restarted after a failure. This is useful for services that require
+               a specified time to release resources or prevent rapid restart loops that can cause high system load.
+               </para>
+<screen>[Service]
+ExecStart=<replaceable>PATH_TO_EXECUTABLE</replaceable>
+Restart=on-failure
+RestartSec=5 </screen>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><emphasis>Disable emergency mode on a remote machine</emphasis></term>
+            <listitem>
+              <para>
+               You can disable emergency mode on a remote machine, for example, a virtual machine hosted on Google Cloud.
+               If this mode is enabled, the machine is blocked from connecting to the network.
+               For example:
+               </para>
+               <screen><prompt>&gt; </prompt><command>sudo</command> systemctl mask emergency.service</screen>
+               <screen><prompt>&gt; </prompt><command>sudo</command> systemctl mask emergency.target</screen>
+            </listitem>
+          </varlistentry>
+            </variablelist>
+</section>
+  <section version="5.2" xml:id="legal-disclaimer"><info>
+    <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">Legal Notice</title>
+  </info>
+  
+  <para> Copyright&#xA9; 2006&#x2013;<?dbtimestamp format="Y"?>
+ SUSE LLC and contributors.
+  All rights reserved. </para>
+  <para>
+    Permission is granted to copy, distribute and/or modify this document under the terms of the
+    GNU Free Documentation License, Version 1.2 or (at your option) version 1.3; with the Invariant
+    Section being this copyright notice and license. A copy of the license version 1.2 is included
+    in the section entitled <quote>GNU Free Documentation License</quote>.
+  </para>
+  <para>
+    For SUSE trademarks, see <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.suse.com/company/legal/"/>. All other
+    third-party trademarks are the property of their respective owners. Trademark symbols (&#xAE;, &#x2122;
+    etc.) denote trademarks of SUSE and its affiliates. Asterisks (*) denote third-party
+    trademarks.
+  </para>
+  <para>
+    All information found in this book has been compiled with utmost attention to detail. However,
+    this does not guarantee complete accuracy.  Neither SUSE LLC, its affiliates, the authors, nor
+    the translators shall be held liable for possible errors or the consequences thereof.
+  </para>
+</section>
+  <appendix xmlns:its="http://www.w3.org/2005/11/its" version="5.2" role="legal" its:translate="no" xml:id="doc-gfdl-license"><info>
+   <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">GNU Free Documentation License</title>
+ </info>
+
+ 
+
+ <para>
+  Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc. 51 Franklin St,
+  Fifth Floor, Boston, MA 02110-1301 USA. Everyone is permitted to copy and
+  distribute verbatim copies of this license document, but changing it is not
+  allowed.
+ </para>
+
+ <bridgehead renderas="sect4">
+    0. PREAMBLE
+  </bridgehead>
+
+ <para>
+  The purpose of this License is to make a manual, textbook, or other
+  functional and useful document "free" in the sense of freedom: to assure
+  everyone the effective freedom to copy and redistribute it, with or without
+  modifying it, either commercially or non-commercially. Secondarily, this
+  License preserves for the author and publisher a way to get credit for their
+  work, while not being considered responsible for modifications made by
+  others.
+ </para>
+
+ <para>
+  This License is a kind of "copyleft", which means that derivative works of
+  the document must themselves be free in the same sense. It complements the
+  GNU General Public License, which is a copyleft license designed for free
+  software.
+ </para>
+
+ <para>
+  We have designed this License to use it for manuals for free software,
+  because free software needs free documentation: a free program should come
+  with manuals providing the same freedoms that the software does. But this
+  License is not limited to software manuals; it can be used for any textual
+  work, regardless of subject matter or whether it is published as a printed
+  book. We recommend this License principally for works whose purpose is
+  instruction or reference.
+ </para>
+
+ <bridgehead renderas="sect4">
+    1. APPLICABILITY AND DEFINITIONS
+  </bridgehead>
+
+ <para>
+  This License applies to any manual or other work, in any medium, that
+  contains a notice placed by the copyright holder saying it can be distributed
+  under the terms of this License. Such a notice grants a world-wide,
+  royalty-free license, unlimited in duration, to use that work under the
+  conditions stated herein. The "Document", below, refers to any such manual or
+  work. Any member of the public is a licensee, and is addressed as "you". You
+  accept the license if you copy, modify or distribute the work in a way
+  requiring permission under copyright law.
+ </para>
+
+ <para>
+  A "Modified Version" of the Document means any work containing the Document
+  or a portion of it, either copied verbatim, or with modifications and/or
+  translated into another language.
+ </para>
+
+ <para>
+  A "Secondary Section" is a named appendix or a front-matter section of the
+  Document that deals exclusively with the relationship of the publishers or
+  authors of the Document to the Document's overall subject (or to related
+  matters) and contains nothing that could fall directly within that overall
+  subject. (Thus, if the Document is in part a textbook of mathematics, a
+  Secondary Section may not explain any mathematics.) The relationship could be
+  a matter of historical connection with the subject or with related matters,
+  or of legal, commercial, philosophical, ethical or political position
+  regarding them.
+ </para>
+
+ <para>
+  The "Invariant Sections" are certain Secondary Sections whose titles are
+  designated, as being those of Invariant Sections, in the notice that says
+  that the Document is released under this License. If a section does not fit
+  the above definition of Secondary then it is not allowed to be designated as
+  Invariant. The Document may contain zero Invariant Sections. If the Document
+  does not identify any Invariant Sections then there are none.
+ </para>
+
+ <para>
+  The "Cover Texts" are certain short passages of text that are listed, as
+  Front-Cover Texts or Back-Cover Texts, in the notice that says that the
+  Document is released under this License. A Front-Cover Text may be at most 5
+  words, and a Back-Cover Text may be at most 25 words.
+ </para>
+
+ <para>
+  A "Transparent" copy of the Document means a machine-readable copy,
+  represented in a format whose specification is available to the general
+  public, that is suitable for revising the document straightforwardly with
+  generic text editors or (for images composed of pixels) generic paint
+  programs or (for drawings) some widely available drawing editor, and that is
+  suitable for input to text formatters or for automatic translation to a
+  variety of formats suitable for input to text formatters. A copy made in an
+  otherwise Transparent file format whose markup, or absence of markup, has
+  been arranged to thwart or discourage subsequent modification by readers is
+  not Transparent. An image format is not Transparent if used for any
+  substantial amount of text. A copy that is not "Transparent" is called
+  "Opaque".
+ </para>
+
+ <para>
+  Examples of suitable formats for Transparent copies include plain ASCII
+  without markup, Texinfo input format, LaTeX input format, SGML or XML using a
+  publicly available DTD, and standard-conforming simple HTML, PostScript or
+  PDF designed for human modification. Examples of transparent image formats
+  include PNG, XCF and JPG. Opaque formats include proprietary formats that can
+  be read and edited only by proprietary word processors, SGML or XML for which
+  the DTD and/or processing tools are not generally available, and the
+  machine-generated HTML, PostScript or PDF produced by some word processors
+  for output purposes only.
+ </para>
+
+ <para>
+  The "Title Page" means, for a printed book, the title page itself, plus such
+  following pages as are needed to hold, legibly, the material this License
+  requires to appear in the title page. For works in formats which do not have
+  any title page as such, "Title Page" means the text near the most prominent
+  appearance of the work's title, preceding the beginning of the body of the
+  text.
+ </para>
+
+ <para>
+  A section "Entitled XYZ" means a named subunit of the Document whose title
+  either is precisely XYZ or contains XYZ in parentheses following text that
+  translates XYZ in another language. (Here XYZ stands for a specific section
+  name mentioned below, such as "Acknowledgements", "Dedications",
+  "Endorsements", or "History".) To "Preserve the Title" of such a section when
+  you modify the Document means that it remains a section "Entitled XYZ"
+  according to this definition.
+ </para>
+
+ <para>
+  The Document may include Warranty Disclaimers next to the notice which states
+  that this License applies to the Document. These Warranty Disclaimers are
+  considered to be included by reference in this License, but only as regards
+  disclaiming warranties: any other implication that these Warranty Disclaimers
+  may have is void and has no effect on the meaning of this License.
+ </para>
+
+ <bridgehead renderas="sect4">
+    2. VERBATIM COPYING
+  </bridgehead>
+
+ <para>
+  You may copy and distribute the Document in any medium, either commercially
+  or non-commercially, provided that this License, the copyright notices, and
+  the license notice saying this License applies to the Document are reproduced
+  in all copies, and that you add no other conditions whatsoever to those of
+  this License. You may not use technical measures to obstruct or control the
+  reading or further copying of the copies you make or distribute. However, you
+  may accept compensation in exchange for copies. If you distribute a large
+  enough number of copies you must also follow the conditions in section 3.
+ </para>
+
+ <para>
+  You may also lend copies, under the same conditions stated above, and you may
+  publicly display copies.
+ </para>
+
+ <bridgehead renderas="sect4">
+    3. COPYING IN QUANTITY
+  </bridgehead>
+
+ <para>
+  If you publish printed copies (or copies in media that commonly have printed
+  covers) of the Document, numbering more than 100, and the Document's license
+  notice requires Cover Texts, you must enclose the copies in covers that
+  carry, clearly and legibly, all these Cover Texts: Front-Cover Texts on the
+  front cover, and Back-Cover Texts on the back cover. Both covers must also
+  clearly and legibly identify you as the publisher of these copies. The front
+  cover must present the full title with all words of the title equally
+  prominent and visible. You may add other material on the covers in addition.
+  Copying with changes limited to the covers, as long as they preserve the
+  title of the Document and satisfy these conditions, can be treated as
+  verbatim copying in other respects.
+ </para>
+
+ <para>
+  If the required texts for either cover are too voluminous to fit legibly, you
+  should put the first ones listed (as many as fit reasonably) on the actual
+  cover, and continue the rest onto adjacent pages.
+ </para>
+
+ <para>
+  If you publish or distribute Opaque copies of the Document numbering more
+  than 100, you must either include a machine-readable Transparent copy along
+  with each Opaque copy, or state in or with each Opaque copy a
+  computer-network location from which the general network-using public has
+  access to download using public-standard network protocols a complete
+  Transparent copy of the Document, free of added material. If you use the
+  latter option, you must take reasonably prudent steps, when you begin
+  distribution of Opaque copies in quantity, to ensure that this Transparent
+  copy will remain thus accessible at the stated location until at least one
+  year after the last time you distribute an Opaque copy (directly or through
+  your agents or retailers) of that edition to the public.
+ </para>
+
+ <para>
+  It is requested, but not required, that you contact the authors of the
+  Document well before redistributing any large number of copies, to give them
+  a chance to provide you with an updated version of the Document.
+ </para>
+
+ <bridgehead renderas="sect4">
+    4. MODIFICATIONS
+  </bridgehead>
+
+ <para>
+  You may copy and distribute a Modified Version of the Document under the
+  conditions of sections 2 and 3 above, provided that you release the Modified
+  Version under precisely this License, with the Modified Version filling the
+  role of the Document, thus licensing distribution and modification of the
+  Modified Version to whoever possesses a copy of it. In addition, you must do
+  these things in the Modified Version:
+ </para>
+
+ <orderedlist numeration="upperalpha" spacing="normal">
+  <listitem>
+   <para>
+    Use in the Title Page (and on the covers, if any) a title distinct from
+    that of the Document, and from those of previous versions (which should, if
+    there were any, be listed in the History section of the Document). You may
+    use the same title as a previous version if the original publisher of that
+    version gives permission.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    List on the Title Page, as authors, one or more persons or entities
+    responsible for authorship of the modifications in the Modified Version,
+    together with at least five of the principal authors of the Document (all
+    of its principal authors, if it has fewer than five), unless they release
+    you from this requirement.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    State on the Title page the name of the publisher of the Modified Version,
+    as the publisher.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Preserve all the copyright notices of the Document.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Add an appropriate copyright notice for your modifications adjacent to the
+    other copyright notices.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Include, immediately after the copyright notices, a license notice giving
+    the public permission to use the Modified Version under the terms of this
+    License, in the form shown in the Addendum below.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Preserve in that license notice the full lists of Invariant Sections and
+    required Cover Texts given in the Document's license notice.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Include an unaltered copy of this License.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Preserve the section Entitled "History", Preserve its Title, and add to it
+    an item stating at least the title, year, new authors, and publisher of the
+    Modified Version as given on the Title Page. If there is no section
+    Entitled "History" in the Document, create one stating the title, year,
+    authors, and publisher of the Document as given on its Title Page, then add
+    an item describing the Modified Version as stated in the previous sentence.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Preserve the network location, if any, given in the Document for public
+    access to a Transparent copy of the Document, and likewise the network
+    locations given in the Document for previous versions it was based on.
+    These may be placed in the "History" section. You may omit a network
+    location for a work that was published at least four years before the
+    Document itself, or if the original publisher of the version it refers to
+    gives permission.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    For any section Entitled "Acknowledgements" or "Dedications", Preserve the
+    Title of the section, and preserve in the section all the substance and
+    tone of each of the contributor acknowledgements and/or dedications given
+    therein.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Preserve all the Invariant Sections of the Document, unaltered in their
+    text and in their titles. Section numbers or the equivalent are not
+    considered part of the section titles.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Delete any section Entitled "Endorsements". Such a section may not be
+    included in the Modified Version.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Do not retitle any existing section to be Entitled "Endorsements" or to
+    conflict in title with any Invariant Section.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Preserve any Warranty Disclaimers.
+   </para>
+  </listitem>
+ </orderedlist>
+
+ <para>
+  If the Modified Version includes new front-matter sections or appendices that
+  qualify as Secondary Sections and contain no material copied from the
+  Document, you may at your option designate some or all of these sections as
+  invariant. To do this, add their titles to the list of Invariant Sections in
+  the Modified Version's license notice. These titles must be distinct from any
+  other section titles.
+ </para>
+
+ <para>
+  You may add a section Entitled "Endorsements", provided it contains nothing
+  but endorsements of your Modified Version by various parties--for example,
+  statements of peer review or that the text has been approved by an
+  organization as the authoritative definition of a standard.
+ </para>
+
+ <para>
+  You may add a passage of up to five words as a Front-Cover Text, and a
+  passage of up to 25 words as a Back-Cover Text, to the end of the list of
+  Cover Texts in the Modified Version. Only one passage of Front-Cover Text and
+  one of Back-Cover Text may be added by (or through arrangements made by) any
+  one entity. If the Document already includes a cover text for the same cover,
+  previously added by you or by arrangement made by the same entity you are
+  acting on behalf of, you may not add another; but you may replace the old
+  one, on explicit permission from the previous publisher that added the old
+  one.
+ </para>
+
+ <para>
+  The author(s) and publisher(s) of the Document do not by this License give
+  permission to use their names for publicity for or to assert or imply
+  endorsement of any Modified Version.
+ </para>
+
+ <bridgehead renderas="sect4">
+    5. COMBINING DOCUMENTS
+  </bridgehead>
+
+ <para>
+  You may combine the Document with other documents released under this
+  License, under the terms defined in section 4 above for modified versions,
+  provided that you include in the combination all of the Invariant Sections of
+  all of the original documents, unmodified, and list them all as Invariant
+  Sections of your combined work in its license notice, and that you preserve
+  all their Warranty Disclaimers.
+ </para>
+
+ <para>
+  The combined work need only contain one copy of this License, and multiple
+  identical Invariant Sections may be replaced with a single copy. If there are
+  multiple Invariant Sections with the same name but different contents, make
+  the title of each such section unique by adding at the end of it, in
+  parentheses, the name of the original author or publisher of that section if
+  known, or else a unique number. Make the same adjustment to the section
+  titles in the list of Invariant Sections in the license notice of the
+  combined work.
+ </para>
+
+ <para>
+  In the combination, you must combine any sections Entitled "History" in the
+  various original documents, forming one section Entitled "History"; likewise
+  combine any sections Entitled "Acknowledgements", and any sections Entitled
+  "Dedications". You must delete all sections Entitled "Endorsements".
+ </para>
+
+ <bridgehead renderas="sect4">
+    6. COLLECTIONS OF DOCUMENTS
+  </bridgehead>
+
+ <para>
+  You may make a collection consisting of the Document and other documents
+  released under this License, and replace the individual copies of this
+  License in the various documents with a single copy that is included in the
+  collection, provided that you follow the rules of this License for verbatim
+  copying of each of the documents in all other respects.
+ </para>
+
+ <para>
+  You may extract a single document from such a collection, and distribute it
+  individually under this License, provided you insert a copy of this License
+  into the extracted document, and follow this License in all other respects
+  regarding verbatim copying of that document.
+ </para>
+
+ <bridgehead renderas="sect4">
+    7. AGGREGATION WITH INDEPENDENT WORKS
+  </bridgehead>
+
+ <para>
+  A compilation of the Document or its derivatives with other separate and
+  independent documents or works, in or on a volume of a storage or
+  distribution medium, is called an "aggregate" if the copyright resulting from
+  the compilation is not used to limit the legal rights of the compilation's
+  users beyond what the individual works permit. When the Document is included
+  in an aggregate, this License does not apply to the other works in the
+  aggregate which are not themselves derivative works of the Document.
+ </para>
+
+ <para>
+  If the Cover Text requirement of section 3 is applicable to these copies of
+  the Document, then if the Document is less than one half of the entire
+  aggregate, the Document's Cover Texts may be placed on covers that bracket
+  the Document within the aggregate, or the electronic equivalent of covers if
+  the Document is in electronic form. Otherwise they must appear on printed
+  covers that bracket the whole aggregate.
+ </para>
+
+ <bridgehead renderas="sect4">
+    8. TRANSLATION
+  </bridgehead>
+
+ <para>
+  Translation is considered a kind of modification, so you may distribute
+  translations of the Document under the terms of section 4. Replacing
+  Invariant Sections with translations requires special permission from their
+  copyright holders, but you may include translations of some or all Invariant
+  Sections in addition to the original versions of these Invariant Sections.
+  You may include a translation of this License, and all the license notices in
+  the Document, and any Warranty Disclaimers, provided that you also include
+  the original English version of this License and the original versions of
+  those notices and disclaimers. In case of a disagreement between the
+  translation and the original version of this License or a notice or
+  disclaimer, the original version will prevail.
+ </para>
+
+ <para>
+  If a section in the Document is Entitled "Acknowledgements", "Dedications",
+  or "History", the requirement (section 4) to Preserve its Title (section 1)
+  will typically require changing the actual title.
+ </para>
+
+ <bridgehead renderas="sect4">
+    9. TERMINATION
+  </bridgehead>
+
+ <para>
+  You may not copy, modify, sublicense, or distribute the Document except as
+  expressly provided for under this License. Any other attempt to copy, modify,
+  sublicense or distribute the Document is void, and will automatically
+  terminate your rights under this License. However, parties who have received
+  copies, or rights, from you under this License will not have their licenses
+  terminated so long as such parties remain in full compliance.
+ </para>
+
+ <bridgehead renderas="sect4">
+    10. FUTURE REVISIONS OF THIS LICENSE
+  </bridgehead>
+
+ <para>
+  The Free Software Foundation may publish new, revised versions of the GNU
+  Free Documentation License from time to time. Such new versions will be
+  similar in spirit to the present version, but may differ in detail to address
+  new problems or concerns. See
+  <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.gnu.org/copyleft/"/>.
+ </para>
+
+ <para>
+  Each version of the License is given a distinguishing version number. If the
+  Document specifies that a particular numbered version of this License "or any
+  later version" applies to it, you have the option of following the terms and
+  conditions either of that specified version or of any later version that has
+  been published (not as a draft) by the Free Software Foundation. If the
+  Document does not specify a version number of this License, you may choose
+  any version ever published (not as a draft) by the Free Software Foundation.
+ </para>
+
+ <bridgehead renderas="sect4">
+    ADDENDUM: How to use this License for your documents
+  </bridgehead>
+
+<screen>Copyright (c) YEAR YOUR NAME.
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2
+or any later version published by the Free Software Foundation;
+with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+A copy of the license is included in the section entitled &#x201C;GNU
+Free Documentation License&#x201D;.</screen>
+
+ <para>
+  If you have Invariant Sections, Front-Cover Texts and Back-Cover Texts,
+  replace the &#x201C;with...Texts.&#x201D; line with this:
+ </para>
+
+<screen>with the Invariant Sections being LIST THEIR TITLES, with the
+Front-Cover Texts being LIST, and with the Back-Cover Texts being LIST.</screen>
+
+ <para>
+  If you have Invariant Sections without Cover Texts, or some other combination
+  of the three, merge those two alternatives to suit the situation.
+ </para>
+
+ <para>
+  If your document contains nontrivial examples of program code, we recommend
+  releasing these examples in parallel under your choice of free software
+  license, such as the GNU General Public License, to permit their use in free
+  software.
+</para>
+</appendix>
+</article>

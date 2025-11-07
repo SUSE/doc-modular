@@ -1,0 +1,1941 @@
+<?xml version="1.0"?>
+<article xmlns="http://docbook.org/ns/docbook" version="5.2" xml:id="systemd-timers" xml:lang="en">
+  <info>
+      <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Working with <systemitem class="daemon">systemd</systemitem> Timers</title>
+    
+      <revhistory xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" xml:id="rh-systemd-timers">
+        <revision><date>2025-11-04</date>
+          <revdescription>
+            <para>
+              Initial version
+            </para>
+          </revdescription>
+        </revision>
+      </revhistory>
+
+      
+      <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+
+      
+      <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="series" its:translate="no">Products &amp; Solutions</meta>
+
+      
+      <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="task" its:translate="no">
+        <phrase>Administration</phrase>
+        <phrase>Automation</phrase>
+        <phrase>Configuration</phrase>
+        <phrase>Maintenance</phrase>
+        <phrase>Troubleshooting</phrase>
+      </meta>
+
+      
+      <dm:docmanager xmlns:dm="urn:x-suse:ns:docmanager" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" its:translate="no">
+        <dm:bugtracker>
+          <dm:url>https://bugzilla.suse.com/enter_bug.cgi</dm:url>
+          <dm:component>Documentation</dm:component>
+          <dm:product os="slmicro">SUSE Linux Micro 6.2</dm:product>
+                    
+          <dm:assignee>amrita.sakthivel@suse.com</dm:assignee>
+        </dm:bugtracker>
+        <dm:translation>yes</dm:translation>
+      </dm:docmanager>
+
+      
+      <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="architecture" its:translate="no">
+        <phrase>AMD64/Intel&#xA0;64</phrase>
+        <phrase>POWER</phrase>
+        <phrase>IBM&#xA0;Z</phrase>
+        <phrase>AArch64</phrase>
+      </meta>
+
+      
+      <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="productname" its:translate="no">
+        <productname os="slmicro" version="6.2"><phrase><phrase os="slmicro">SUSE Linux Micro</phrase></phrase></productname>
+        
+        
+      </meta>
+
+      
+      <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="title" its:translate="yes">Working with <systemitem class="daemon">systemd</systemitem> Timers</meta>
+      <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="social-descr" its:translate="yes">Work with <systemitem class="daemon">systemd</systemitem> timers</meta>
+
+      
+      <meta xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its" name="description" its:translate="yes">How to create, maintain, test and troubleshoot <systemitem class="daemon">systemd</systemitem> timers, including migration from cron</meta>
+
+      <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+        <variablelist>
+          <varlistentry>
+            <term>WHAT?</term>
+            <listitem>
+              <para>
+                From running a backup script at regular intervals to starting a specific process as
+                soon as the machine boots, there are plenty of tasks that require scheduling on a
+                Linux system. <systemitem class="daemon">systemd</systemitem> timers provide a flexible mechanism for scheduling and
+                managing jobs and services.
+              </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>WHY?</term>
+            <listitem>
+              <para>
+                This article is intended to provide a complete overview of <systemitem class="daemon">systemd</systemitem> timers
+                covering creating, maintaining, testing, troubleshooting and migrating from cron.
+              </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>EFFORT</term>
+            <listitem>
+              <para>
+                It takes 10 minutes to create an example <systemitem class="daemon">systemd</systemitem> timer. You need up to 30
+                minutes to fully understand how <systemitem class="daemon">systemd</systemitem> timers work.
+              </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>REQUIREMENTS</term>
+            <listitem>
+              <itemizedlist>
+                <listitem>
+                  <para>
+                    Basic understanding of <systemitem class="daemon">systemd</systemitem>.
+                  </para>
+                </listitem>
+                <listitem>
+                  <para>
+                    <systemitem class="username">root</systemitem> or sudo privileges. To use <systemitem class="daemon">systemd</systemitem> timers as a regular user, refer
+                    to <xref linkend="systemd-timer-user"/> first.
+                  </para>
+                </listitem>
+              </itemizedlist>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+      </abstract>
+    </info>
+  <section role="concept" xml:lang="en" version="5.2" xml:id="systemd-timer-concept"><info>
+    <title xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">The <systemitem class="daemon">systemd</systemitem> timer concept</title>
+    <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/>
+    <abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+      <para>
+        <systemitem class="daemon">systemd</systemitem> timer units provide a mechanism for scheduling jobs on Linux. The execution time
+        of these jobs can be based on the time and date or on events.
+      </para>
+    </abstract>
+  </info>
+  
+  <para>
+    <systemitem class="daemon">systemd</systemitem> timer units are identified by the <filename class="extension">.timer</filename> file
+    name extension. Each timer file requires a corresponding service file it controls. In other
+    words, a timer file activates and manages the corresponding service file. <systemitem class="daemon">systemd</systemitem> timers
+    support the following features:
+  </para>
+  <itemizedlist>
+    <listitem>
+      <para>
+        Jobs scheduled using a timer unit can depend on other <systemitem class="daemon">systemd</systemitem> services. Timer units are
+        treated as regular <systemitem class="daemon">systemd</systemitem> services, so can be managed with <command>systemctl</command>.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        Timers can be real-time (being triggered on calendar events) or monotonic (being triggered
+        at a specified time elapsed from a certain starting point).
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        Time units are logged to the system journal, which makes it easier to monitor and
+        troubleshoot them.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        Timers use the centralized <systemitem class="daemon">systemd</systemitem> management services.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        If the system is off during the expected execution time, the timer is executed once the
+        system is running again.
+      </para>
+    </listitem>
+  </itemizedlist>
+</section>
+  <section role="task" xml:lang="en" version="5.2" xml:id="systemd-create-timer"><info>
+        <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Creating a timer</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/><abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+      <para>
+        The following example shows how to set up a timer that triggers the
+        <literal>helloworld.sh</literal> shell script after boot time and repeats its execution
+        every 24 hours relative to its activation time. It also runs Monday to Friday at 10 a.m.
+      </para>
+    </abstract></info>
+  
+  <section>
+    <title><emphasis>Hello World</emphasis> example</title>
+    <procedure>
+      <step>
+        <para>
+          Create an executable file <filename>/usr/local/bin/helloworld.sh</filename> with the
+          following content:
+        </para>
+<screen>#!/bin/sh
+  # This is bash program to display Hello World
+  echo " Hello World "
+</screen>
+        <para>
+          This is an executable <literal>.sh</literal> file containing the commands you want <systemitem class="daemon">systemd</systemitem> to run and manage.
+        </para>
+      </step>
+      <step>
+        <para>
+          Create the file <filename>/etc/systemd/system/helloworld.service</filename> with the
+          following content:
+        </para>
+<screen>[Unit]
+Description="Hello World script"
+
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh
+</screen>
+        <para>
+          This is a <systemitem class="daemon">systemd</systemitem> service file that tells <systemitem class="daemon">systemd</systemitem> which application to run.
+        </para>
+      </step>
+      <step>
+        <para>
+          Create the file <filename>/etc/systemd/system/helloworld.timer</filename> with the
+          following content:
+        </para>
+<screen>[Unit]
+Description="Run helloworld.service 5min after boot and every 24 hours relative to activation time"
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=24h
+OnCalendar=Mon..Fri *-*-* 10:00
+Unit=helloworld.service
+
+[Install]
+WantedBy=multi-user.target
+</screen>
+        <para>
+          This is the timer file that controls the activation of the respective service file.
+        </para>
+      </step>
+      <step>
+        <para>
+          Verify that the files you created above contain no errors:
+        </para>
+<screen><prompt>&gt; </prompt>systemd-analyze verify /etc/systemd/system/helloworld.*</screen>
+        <para>
+          If the command returns no output, the files have passed the verification successfully.
+        </para>
+      </step>
+      <step>
+        <para>
+          Start the timer:
+        </para>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemctl start helloworld.timer</screen>
+        <para>
+          Activates the timer for the current session only.
+        </para>
+      </step>
+      <step>
+        <para>
+          Enable the timer to make sure that it is activated on boot:
+        </para>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemctl enable helloworld.timer</screen>
+      </step>
+    </procedure>
+  </section>
+  <section>
+    <title>The example explained</title>
+    <example xml:id="systemd-timer-example-service">
+      <title>The service file</title>
+<screen>[Unit]
+Description="Hello World script"<co xml:id="systemd-timer-example-service-descr"/>
+
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh<co xml:id="systemd-timer-example-service-exec"/></screen>
+      <calloutlist>
+        <callout arearefs="systemd-timer-example-service-descr">
+          <para>
+            A brief description explaining the service file's purpose.
+          </para>
+        </callout>
+        <callout arearefs="systemd-timer-example-service-exec">
+          <para>
+            The application to execute.
+          </para>
+        </callout>
+      </calloutlist>
+      <para>
+        The <literal>[Unit]</literal> and <literal>[Service]</literal> sections are the minimum
+        sections required for a service file to work. <systemitem class="daemon">systemd</systemitem> service files normally contain an
+        <literal>[Install]</literal> section that determines one or more targets for a service to
+        load. This section is not required in service files for timers, since this information is
+        provided with the timer file. For advanced configuration, refer to
+        <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/reference-managing-systemd-targets-systemctl/reference-systemctl-managing-targets.html">Managing
+        <systemitem class="daemon">systemd</systemitem> targets with systemctl</link>.
+      </para>
+    </example>
+    <example xml:id="systemd-timer-example-timer">
+      <title>The timer file</title>
+<screen>[Unit]
+Description="Run helloworld.service 5min after boot and every 24 hours relative to activation time"<co xml:id="systemd-timer-example-timer-descr"/>
+
+[Timer]
+OnBootSec=5min<co xml:id="systemd-timer-example-timer-onboot"/>
+OnUnitActiveSec=24h<co xml:id="systemd-timer-example-timer-onunit"/>
+OnCalendar=Mon..Fri *-*-* 10:00<co xml:id="systemd-timer-example-timer-oncal"/>
+Unit=helloworld.service<co xml:id="systemd-timer-example-timer-unit"/>
+
+[Install]
+WantedBy=multi-user.target<co xml:id="systemd-timer-example-timer-wanted"/></screen>
+      <calloutlist>
+        <callout arearefs="systemd-timer-example-timer-descr">
+          <para>
+            A brief description explaining the timer file's purpose.
+          </para>
+        </callout>
+        <callout arearefs="systemd-timer-example-timer-onboot">
+          <para>
+            Specifies a timer that triggers the service five minutes after the system boot. See
+            <xref linkend="systemd-timer-types-monotonic"/> for details.
+          </para>
+        </callout>
+        <callout arearefs="systemd-timer-example-timer-onunit">
+          <para>
+            Specifies a timer that triggers the service 24 hours after the service has been
+            activated (that is, the timer triggers the service once a day). See
+            <xref linkend="systemd-timer-types-realtime"/> for details.
+          </para>
+        </callout>
+        <callout arearefs="systemd-timer-example-timer-oncal">
+          <para>
+            Specifies a timer that triggers the service at fixed points in time (in this example,
+            Monday to Friday at 10 a.m.). See <xref linkend="systemd-timer-types-realtime"/> for
+            details.
+          </para>
+        </callout>
+        <callout arearefs="systemd-timer-example-timer-unit">
+          <para>
+            The service file to execute.
+          </para>
+        </callout>
+        <callout arearefs="systemd-timer-example-timer-wanted">
+          <para>
+            The <systemitem class="daemon">systemd</systemitem> target in which the timer gets activated. For more information on
+            <systemitem class="daemon">systemd</systemitem> targets, refer to
+            <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/reference-managing-systemd-targets-systemctl/reference-systemctl-managing-targets.html">Managing
+            <systemitem class="daemon">systemd</systemitem> targets with systemctl</link>.
+          </para>
+        </callout>
+      </calloutlist>
+    </example>
+  </section>
+</section>
+  <section role="reference" xml:lang="en" version="5.2" xml:id="systemd-timer-manage"><info>
+        <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Managing timers</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/><abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+      <para>
+        You can manage timers using the <command>systemctl</command> command.
+      </para>
+    </abstract></info>
+  
+  <variablelist>
+    <varlistentry>
+      <term>Starting and stopping timers</term>
+      <listitem>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemctl start <replaceable>TIMER</replaceable>.timer
+<prompt>&gt; </prompt><command>sudo</command> systemctl restart <replaceable>TIMER</replaceable>.timer
+<prompt>&gt; </prompt><command>sudo</command> systemctl stop <replaceable>TIMER</replaceable>.timer</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>Enabling and disabling timers</term>
+      <listitem>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemctl enable <replaceable>TIMER</replaceable>.timer
+<prompt>&gt; </prompt><command>sudo</command> systemctl disable <replaceable>TIMER</replaceable>.timer</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>Showing the timer file contents</term>
+      <listitem>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemctl cat <replaceable>TIMER</replaceable>.timer</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>Checking on a specific timer</term>
+      <listitem>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemctl status <replaceable>TIMER</replaceable>.timer</screen>
+        <example>
+          <title>Timer Status</title>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemctl status helloworld.timer
+&#x25CF; helloworld.timer - "Run helloworld.service 5min after boot and every 24 hours
+relative to activation time"<co xml:id="systemd-timer-status-1"/>
+Loaded: loaded (/etc/systemd/system/helloworld.timer; disabled; vendor preset: disabled)<co xml:id="systemd-timer-status-2"/>
+Active: active (waiting) since Tue 2022-10-26 18:35:41 CEST; 6s ago<co xml:id="systemd-timer-status-3"/>
+Trigger: Wed 2022-10-27 18:35:41 CEST; 23h left<co xml:id="systemd-timer-status-4"/>
+Triggers: &#x25CF; helloworld.service<co xml:id="systemd-timer-status-5"/>
+<co xml:id="systemd-timer-status-6"/>
+Oct 26 18:35:41 neo systemd[1]: Started "Run helloworld.service 5min after boot and every 24 hours relative to activation time".<co xml:id="systemd-timer-status-7"/></screen>
+          <calloutlist>
+            <callout arearefs="systemd-timer-status-1">
+              <para>
+                The timer's file name and description.
+              </para>
+            </callout>
+            <callout arearefs="systemd-timer-status-2">
+              <para>
+                Lists whether a timer has been successfully parsed and is kept in memory (loaded),
+                shows the full path to the timer file, and shows whether the timer is being started
+                at boot time (enabled) or not (disabled). The first value shows the current system
+                configuration, the second value the vendor preset.
+              </para>
+            </callout>
+            <callout arearefs="systemd-timer-status-3">
+              <para>
+                Indicates whether the timer is active (waiting to trigger events) or inactive. If
+                active, it also shows the time that has passed since the last activation (6 seconds
+                in this example).
+              </para>
+            </callout>
+            <callout arearefs="systemd-timer-status-4">
+              <para>
+                Date and time the timer is triggered next.
+              </para>
+            </callout>
+            <callout arearefs="systemd-timer-status-5">
+              <para>
+                Name of the service file the timer triggers.
+              </para>
+            </callout>
+            <callout arearefs="systemd-timer-status-6">
+              <para>
+                Optional line pointing to documentation (for example, man pages). If not available,
+                an empty line is shown (as in this example).
+              </para>
+            </callout>
+            <callout arearefs="systemd-timer-status-7">
+              <para>
+                Latest journal entry created by the timer.
+              </para>
+            </callout>
+          </calloutlist>
+        </example>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  <para>
+    To list all timers available on the system, use <command>systemctl list-timers</command>. The
+    following options are available:
+  </para>
+  <variablelist>
+    <varlistentry>
+      <term>List all active timers:</term>
+      <listitem>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>List all timers including inactive ones:</term>
+      <listitem>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers --all</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>List all timers matching a pattern:</term>
+      <listitem>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers <replaceable>PATTERN</replaceable>
+<prompt>&gt; </prompt><command>sudo</command> systemctl list-timers --all <replaceable>PATTERN</replaceable></screen>
+        <para>
+          <replaceable>PATTERN</replaceable> must be a name or a shell globbing expression. The
+          operators <literal>*</literal>, <literal>?</literal>, and <literal>[]</literal> may be
+          used. Refer to <command>man 7 glob</command> for more information on globbing patterns.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>List timers matching a certain state:</term>
+      <listitem>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers --state=<replaceable>STATE</replaceable></screen>
+        <para>
+          <replaceable>STATE</replaceable> takes the following values: <literal>active</literal>,
+          <literal>failed</literal>, <literal>load</literal>, <literal>sub</literal>. See
+          <command>man systemctl</command> for details.
+        </para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  <example>
+    <title>Listing timers</title>
+    <para>
+      Running any <command>systemctl list-timers</command> results in a table similar to the
+      one below. In this example, all active timers matching the pattern
+      <literal>snapper*</literal> are listed:
+    </para>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemctl list-timers snapper*
+NEXT<co xml:id="systemd-timer-list-next"/>                       LEFT<co xml:id="systemd-timer-list-left"/>      LAST<co xml:id="systemd-timer-list-last"/>                        PASSED<co xml:id="systemd-timer-list-passed"/>   UNIT<co xml:id="systemd-timer-list-unit"/>                  ACTIVATES<co xml:id="systemd-timer-list-activates"/>
+
+-----------------------------------------------------------------------------------------------------------------------------
+Tue 2022-10-26 19:00:00 CEST 39min left Tue 2022-10-26 18:00:29 CEST 19min ago snapper-timeline.timer snapper-timeline.service
+Wed 2022-10-27 08:33:04 CEST 14h   left Tue 2022-10-26 08:33:04 CEST 9h ago    snapper-cleanup.timer  snapper-cleanup.service</screen>
+    <calloutlist>
+      <callout arearefs="systemd-timer-list-next">
+        <para>
+          The point in time when the timer runs next.
+        </para>
+      </callout>
+      <callout arearefs="systemd-timer-list-left">
+        <para>
+          The time left till the next timer run.
+        </para>
+      </callout>
+      <callout arearefs="systemd-timer-list-last">
+        <para>
+          The point in time when the timer ran last.
+        </para>
+      </callout>
+      <callout arearefs="systemd-timer-list-passed">
+        <para>
+          Time elapsed since the last timer run.
+        </para>
+      </callout>
+      <callout arearefs="systemd-timer-list-unit">
+        <para>
+          The name of the timer unit.
+        </para>
+      </callout>
+      <callout arearefs="systemd-timer-list-activates">
+        <para>
+          The name of the service the timer activates.
+        </para>
+      </callout>
+    </calloutlist>
+  </example>
+</section>
+  <section role="reference" xml:lang="en" version="5.2" xml:id="systemd-timer-types"><info>
+        <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Timer types</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/><abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+      <para>
+        <systemitem class="daemon">systemd</systemitem> supports two types of timers: real-time (based on calendar) and monotonic (based
+        on events). Although timers are normally persistent, <systemitem class="daemon">systemd</systemitem> also allows to set up
+        transient timers that are only valid for the current session.
+      </para>
+    </abstract></info>
+  
+  <variablelist>
+    <varlistentry xml:id="systemd-timer-types-realtime">
+      <term>Real-time timer</term>
+      <listitem>
+        <para>
+          Real-time timers are triggered by calendar events. They are defined using the option
+          <literal>OnCalendar</literal>.
+        </para>
+        <para>
+          You can specify when to trigger an event based on date and time. Use the following
+          template:
+        </para>
+<screen>OnCalendar=DayOfWeek<co xml:id="systemd-timer-real-dayofweek"/> Year-Month-Day<co xml:id="systemd-timer-real-date"/> Hour:Minute:Second<co xml:id="systemd-timer-real-time"/></screen>
+        <calloutlist>
+          <callout arearefs="systemd-timer-real-dayofweek">
+            <para>
+              Day of week. Possible values are <literal>Sun</literal>,
+              <literal>Mon</literal>, <literal>Tue</literal>,
+              <literal>Wed</literal>, <literal>Thu</literal>, <literal>Fri</literal>, <literal>Sat</literal>.
+              Leave out to ignore the day of the week.
+            </para>
+          </callout>
+          <callout arearefs="systemd-timer-real-date">
+            <para>
+              Date. Specify month and day by two digits, year by four digits. Each value can be
+              replaced by the wildcard <literal>*</literal> to match every occurrence.
+            </para>
+          </callout>
+          <callout arearefs="systemd-timer-real-time">
+            <para>
+              Time. Specify each value by two digits. Each value can be replaced by the wildcard
+              <literal>*</literal> to match every occurrence.
+            </para>
+          </callout>
+        </calloutlist>
+        <para>
+          Applies to all values: Use two dots to define a continuous range
+          (<literal>Mon..Fri</literal>). Use a comma to delimit a list of separate values
+          (<literal>Mon,Wed,Fri</literal>).
+        </para>
+        <example>
+          <title>Real-time timer examples</title>
+          <itemizedlist>
+            <listitem>
+              <para>
+                6 p.m. every Friday:
+              </para>
+<screen>OnCalendar=Fri *-*-* 18:00:00</screen>
+            </listitem>
+            <listitem>
+              <para>
+                5 a.m. every day:
+              </para>
+<screen>OnCalendar=Mon..Sun *-*-* 5:00:00</screen>
+            </listitem>
+            <listitem>
+              <para>
+                1 a.m. and 3 a.m. on Sundays and Tuesdays:
+              </para>
+<screen>OnCalendar=Tue,Sun *-*-* 01,03:00:00</screen>
+            </listitem>
+            <listitem>
+              <para>
+                Single date:
+              </para>
+<screen>OnCalendar=Mo..Sun 2023-09-23 00:00:01</screen>
+            </listitem>
+            <listitem>
+              <para>
+                To specify triggers at different times, you can create more than one OnCalendar
+                entry in a single timer file:
+              </para>
+<screen>OnCalendar=Mon..Fri *-*-* 10:00
+OnCalendar=Sat,Sun *-*-* 22:00</screen>
+            </listitem>
+          </itemizedlist>
+        </example>
+        <para>
+          For a full list of available features and options, refer to <command>man 7
+          systemd.time</command> that offers additional information on the following topics:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              shorten the syntax and use abbreviations
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              specify repetitions
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              find specific days in a month (last day of month, last Sunday, etc.)
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              apply time zones
+            </para>
+          </listitem>
+        </itemizedlist>
+      </listitem>
+    </varlistentry>
+    <varlistentry xml:id="systemd-timer-types-monotonic">
+      <term>Monotonic timers</term>
+      <listitem>
+        <para>
+          Monotonic timers are triggered at a specified time elapsed from a certain event, such as
+          a system boot or system unit activation event. Values are defined as time units (minutes,
+          hours, days, months, years, etc.). The following units are supported:
+          <literal>usec</literal>, <literal>msec</literal>, <literal>seconds</literal>,
+          <literal>minutes</literal>, <literal>hours</literal>, <literal>days</literal>,
+          <literal>weeks</literal>, <literal>months</literal>, <literal>years</literal>. There are
+          several options for defining monotonic timers:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              <literal>OnActiveSec</literal>: time after unit activation
+            </para>
+<screen>OnActiveSec=50minutes</screen>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>OnBootSec</literal>: time after system boot
+            </para>
+<screen>OnBootSec=10hours</screen>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>OnStartupSec</literal>: time after the service manager is started. For
+              system services, this is almost equal to <literal>OnActiveSec</literal>. Use this for
+              user services where the service manager is started at user login.
+            </para>
+<screen>OnStartupSec=5minutes 20seconds</screen>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>OnUnitActiveSec</literal>: time after the corresponding service was last
+              activated
+            </para>
+<screen>OnUnitActiveSec=10seconds</screen>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>OnUnitInactiveSec</literal>: time after the corresponding service was last
+              deactivated
+            </para>
+<screen>OnUnitInactiveSec=2hours 15minutes 18 seconds</screen>
+          </listitem>
+        </itemizedlist>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>Transient timers</term>
+      <listitem>
+        <para>
+          Transient timers are temporary timers that are only valid for the current session. Using
+          these timers, you can either use an existing service file or start a program directly.
+          Transient timers are invoked by running <command>systemd-run</command>.
+        </para>
+        <para>
+          The following example runs the <filename>helloworld.service</filename> unit every two
+          hours:
+        </para>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemd-run --on-active="2hours" --unit="helloworld.service"</screen>
+        <para>
+          To run a command directly, use the following syntax. In this example, the script
+          <filename>/usr/local/bin/helloworld.sh</filename> is called directly:
+        </para>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemd-run --on-active="2hours" /usr/local/bin/helloworld.sh</screen>
+        <para>
+          If the command takes parameters, add them separated by space:
+        </para>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemd-run --on-active="2hours" /usr/local/bin/helloworld.sh --language=pt_BR</screen>
+        <para>
+          Transient timers can be monotonic or real-time. The following switches are supported and
+          work as described in <xref linkend="systemd-timer-types-monotonic" xrefstyle="select:title"/>:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              <option>--on-active</option>
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <option>--on-startup</option>
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <option>--on-unit-active</option>
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <option>--on-unit-inactive</option>
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <option>--on-calendar</option>
+            </para>
+          </listitem>
+        </itemizedlist>
+        <para>
+          For more information, refer to <command>man 1 systemd-run</command>.
+        </para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+</section>
+  <section role="task" xml:lang="en" version="5.2" xml:id="systemd-timer-test"><info>
+        <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Testing calendar entries</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/><abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+      <para>
+        <systemitem class="daemon">systemd</systemitem> provides a tool for testing and creating calendar timer entries for real-time
+        timers: <command>systemd-analyze calendar</command>. It accepts the same argument as the
+        <literal>OnCalendar</literal> entry required to set up real-time timers.
+      </para>
+    </abstract></info>
+  
+  <para>
+    You can concatenate several arguments separated by space. If the term to test is correct, the
+    output shows you when the timer is triggered next (in local time and UTC). It also
+    shows the string in <literal>Normalized form</literal>, and it is recommended to use that string
+    in the timer file. Consider the following examples:
+  </para>
+<screen><prompt>&gt; </prompt>systemd-analyze calendar "Tue,Sun *-*-* 01,03:00:00"
+Normalized form: Tue,Sun *-*-* 01,03:00:00
+Next elapse: Sun 2021-10-31 01:00:00 CEST
+(in UTC): Sat 2021-10-30 23:00:00 UTC
+From now: 3 days left
+
+<prompt>&gt; </prompt>systemd-analyze calendar "Mon..Fri *-*-* 10:00" "Sat,Sun *-*-* 22:00"
+Original form: Mon..Fri *-*-* 10:00
+Normalized form: Mon..Fri *-*-* 10:00:00
+Next elapse: Thu 2021-10-28 10:00:00 CEST
+(in UTC): Thu 2021-10-28 08:00:00 UTC
+From now: 19h left
+
+Original form: Sat,Sun *-*-* 22:00
+Normalized form: Sat,Sun *-*-* 22:00:00
+Next elapse: Sat 2021-10-30 22:00:00 CEST
+(in UTC): Sat 2021-10-30 20:00:00 UTC
+From now: 3 days left</screen>
+  <para>
+    For recurring timers, use the <option>&#x2013;iterations <replaceable>N</replaceable></option> switch
+    to list trigger times, then test whether they work as expected. The argument
+    <replaceable>N</replaceable> specifies the number of iterations you would like to test. The
+    following example string triggers every 8 hours (starting at 00:00:00) on Sundays:
+  </para>
+<screen><prompt>&gt; </prompt>systemd-analyze calendar --iterations 5 "Sun *-*-* 0/08:00:00"
+Original form: Sun *-*-* 0/08:00:00
+Normalized form: Sun *-*-* 00/8:00:00
+Next elapse: Sun 2021-10-31 00:00:00 CEST
+(in UTC): Sat 2021-10-30 22:00:00 UTC
+From now: 3 days left
+Iter. #2: Sun 2021-10-31 08:00:00 CET
+(in UTC): Sun 2021-10-31 07:00:00 UTC
+From now: 3 days left
+Iter. #3: Sun 2021-10-31 16:00:00 CET
+(in UTC): Sun 2021-10-31 15:00:00 UTC
+From now: 4 days left
+Iter. #4: Sun 2021-11-07 00:00:00 CET
+(in UTC): Sat 2021-11-06 23:00:00 UTC
+From now: 1 week 3 days left
+Iter. #5: Sun 2021-11-07 08:00:00 CET
+(in UTC): Sun 2021-11-07 07:00:00 UTC
+From now: 1 week 3 days left</screen>
+</section>
+  <section role="task" xml:lang="en" version="5.2" xml:id="systemd-mailto"><info>
+        <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Getting e-mail notifications when a timer fails</title>
+        <abstract xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">
+          <para>
+            <systemitem class="daemon">systemd</systemitem> does not offer a feature similar to cron's MAILTO. The procedure below
+            describes a workaround to enable e-mail notifications when a timer fails.
+          </para>
+          <para>
+            The procedure consists of the following steps:
+          </para>
+          <orderedlist>
+            <listitem>
+              <para>
+                Create a script that sends an e-mail.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Create a <systemitem class="daemon">systemd</systemitem> service file running the e-mail script.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Test the e-mail service file.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                From the service that the timer controls, call the created e-mail service file via
+                <literal>OnFailure</literal>.
+              </para>
+            </listitem>
+          </orderedlist>
+        </abstract>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/></info>
+  
+  <procedure>
+    <para>
+      In the following example, we are using the <command>mailx</command> command from package
+      <package>mailx</package>. It requires the Postfix e-mail server to be installed and correctly
+      configured.
+    </para>
+    <step>
+      <para>
+        Create the script <filename class="directory">/usr/local/bin/send_systemd_email</filename>.
+      </para>
+      <substeps>
+        <step>
+          <para>
+            The script requires two parameters: <literal>$1</literal>, the e-mail
+            address, and <literal>$2</literal>, the name of the service file for which the failure
+            notification is received. Both parameters are supplied by the unit file running
+            the mail script.
+          </para>
+<screen>#!/bin/sh
+systemctl status --full "$2" | mailx -S sendwait\
+ -s "Service failure for $2" -r root@$HOSTNAME $1
+</screen>
+        </step>
+        <step>
+          <para>
+            Make sure the script is executable:
+          </para>
+<screen><prompt>&gt; </prompt><command>sudo</command> chmod 755 /usr/local/bin/send_systemd_email</screen>
+        </step>
+      </substeps>
+    </step>
+    <step>
+      <para>
+        Create the file
+        <filename>/etc/systemd/system/send_email_to_<replaceable>USER</replaceable>@.service</filename>.
+      </para>
+<screen>[Unit]
+Description=Send systemd status information by email for %i to <replaceable>USER</replaceable>
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/send_systemd_email <replaceable>EMAIL_ADDRESS</replaceable> %i
+User=root
+Group=systemd-journal
+</screen>
+      <para>
+        Replace <replaceable>USER</replaceable> and <replaceable>EMAIL_ADDRESS</replaceable> in the
+        file with the login and e-mail address of the user that should receive the e-mail.
+        <literal>%i</literal> is the name of the service that has failed (it is passed on to
+        the e-mail service by the <literal>%n</literal> parameter).
+      </para>
+    </step>
+    <step>
+      <para>
+        Verify the service file and fix the reported issues:
+      </para>
+<screen><prompt>&gt; </prompt>systemd-analyze verify /etc/systemd/system/send_email_to_<replaceable>USER</replaceable>@.service</screen>
+      <para>
+        If the command returns no output, the file has passed the verification successfully.
+      </para>
+    </step>
+    <step>
+      <para>
+        To verify the complete procedure, start the service using the <literal>dbus</literal>
+        instance for testing. (You can use any other service that is currently running. dbus is
+        used in this example because the service is guaranteed to run on any installation.)
+      </para>
+<screen><prompt>&gt; </prompt><command>sudo</command> systemctl start send_email_to_<replaceable>USER</replaceable>@dbus.service</screen>
+      <para>
+        If successful, <replaceable>EMAIL_ADDRESS</replaceable> receives an e-mail with the
+        subject <literal>Service failure for dbus</literal> containing dbus status messages in the
+        body. (This is just a test, there is no problem with the dbus service. You can
+        safely delete the e-mail, no action is required).
+      </para>
+      <para>
+        If the test e-mail has been successfully sent, proceed by integrating it into your service
+        file.
+      </para>
+    </step>
+    <step>
+      <para>
+        To add an e-mail notification to the service, add an <literal>OnFailure</literal> option to
+        the <literal>Unit</literal> section of the service file for which you would like to get
+        notified in the event of failure:
+      </para>
+<screen>[Unit]
+Description="Hello World script"
+OnFailure<co xml:id="systemd-mailto-onfailure"/>=send_email_to_<replaceable>USER</replaceable><co xml:id="systemd-mailto-user"/>@%n<co xml:id="systemd-mailto-name"/>.service
+
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh
+</screen>
+      <calloutlist>
+        <callout arearefs="systemd-mailto-onfailure">
+          <para>
+            The <literal>OnFailure</literal> option takes a service as an argument.
+          </para>
+        </callout>
+        <callout arearefs="systemd-mailto-user">
+          <para>
+            Replace the part of the service unit file name with the login name.
+          </para>
+        </callout>
+        <callout arearefs="systemd-mailto-name">
+          <para>
+            Specifies the name of the service (<literal>helloworld</literal> in this example). This
+            name is available in the e-mail service file as %i.
+          </para>
+        </callout>
+      </calloutlist>
+    </step>
+    <result>
+      <para>
+        You have successfully set up the failure notification for <systemitem class="daemon">systemd</systemitem> services.
+      </para>
+    </result>
+  </procedure>
+  <tip>
+    <title>Sending e-mail notifications to multiple users</title>
+    <para>
+      The e-mail service file has the recipient's e-mail address hard-coded. To send notification
+      e-mails to a different user, copy the e-mail service file, and replace the user login in the
+      file name and the e-mail address within the copy.
+    </para>
+    <para>
+      To send a failure notification to several recipients simultaneously, add the respective
+      service files to the service file (use spaces as a separator):
+    </para>
+<screen>OnFailure=send_email_to_tux@%n.service send_email_to_wilber@%n.service</screen>
+  </tip>
+</section>
+  <section role="task" xml:lang="en" version="5.2" xml:id="systemd-timer-user"><info>
+        <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Using timers as a regular user</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/><abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+      <para>
+        <systemitem class="daemon">systemd</systemitem> timers can also be used by regular users. It helps you to automate recurring
+        tasks like backups, processing images, or moving data to the cloud.
+      </para>
+    </abstract></info>
+  
+  <para>
+    The same procedures and tasks as for system-wide timers are valid. However, the following
+    differences apply:
+  </para>
+  <itemizedlist>
+    <listitem>
+      <para>
+        Timer and service files must be placed in <filename>~/.config/systemd/user/</filename>.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        All <command>systemctl</command> and <command>journalctl</command> commands must be run
+        with the <option>--user</option> switch. <command>systemd-analyze</command> does
+        <emphasis>not</emphasis> require this option.
+      </para>
+      <para>
+        As a regular user, you must provide the path to the unit files, as in the examples below.
+        Otherwise, if a system-wide timer with the same name exists, it would be executed or listed
+        instead.
+      </para>
+<screen><prompt>&gt; </prompt>systemctl --user start ~/.config/systemd/user/helloworld.timer
+<prompt>&gt; </prompt>systemctl --user enable ~/.config/systemd/user/helloworld.timer
+<prompt>&gt; </prompt>systemctl --user list-timers
+<prompt>&gt; </prompt>journalctl --user -u helloworld.*
+<prompt>&gt; </prompt>systemd-analyze verify ~/.config/systemd/user/helloworld.timer</screen>
+    </listitem>
+  </itemizedlist>
+  <important>
+    <title>User timers only run during an active session</title>
+    <para>
+      As with other <systemitem class="daemon">systemd</systemitem> services started as a regular user, user timers only run when the
+      user is logged in. Instead, to start user timers at boot time and keep them running after
+      logout, enable <emphasis>lingering</emphasis> for each affected user:
+    </para>
+<screen>sudo loginctl enable-linger <replaceable>USER</replaceable></screen>
+    <para>
+      For more information, refer to <command>man 1 loginctl</command>.
+    </para>
+  </important>
+  <important>
+    <title>Environment variables are not inherited</title>
+    <para>
+      The <systemitem class="daemon">systemd</systemitem> user instance does not inherit environment variables set by scripts like
+      <filename>~/.profile</filename> or <filename>~/.bashrc</filename>. To check the <systemitem class="daemon">systemd</systemitem>
+      environment, run <command>systemctl --user show-environment</command>.
+    </para>
+    <para>
+      To import any variables missing in the <systemitem class="daemon">systemd</systemitem> environment, specify the following command
+      at the end of your <filename>~/.bashrc</filename>:
+    </para>
+<screen>systemctl --user import-environment <replaceable>VARIABLE1</replaceable> <replaceable>VARIABLE2</replaceable></screen>
+  </important>
+</section>
+  <section role="task" xml:lang="en" version="5.2" xml:id="systemd-timer-catchup"><info>
+        <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Migrating from cron to <systemitem class="daemon">systemd</systemitem> timers</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/><abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+      <para>
+        All cron jobs can be migrated to <systemitem class="daemon">systemd</systemitem> timers. Find
+        instructions and an example here.
+      </para>
+    </abstract></info>
+  
+  <procedure>
+    <step>
+      <para>
+        Create a service file executing the script. See
+        <xref linkend="systemd-timer-example-service"/> for details.
+      </para>
+    </step>
+    <step>
+      <para>
+        Create a timer file executing the service file. See
+        <xref linkend="systemd-timer-example-timer"/> for general instructions.
+      </para>
+      <substeps>
+        <step>
+          <para>
+            Convert calendar entries. Time is specified differently in cron and <systemitem class="daemon">systemd</systemitem>. Use
+            the patterns below as a conversion template:
+          </para>
+<screen>Cron:               Minute Hour Day Month DayOfWeek
+systemd: OnCalendar=DayOfWeek Year-Month-Day Hour:Minute:Second</screen>
+          <para>
+            To test the converted calendar entry, follow the instructions in
+            <xref linkend="systemd-timer-test"/>.
+          </para>
+        </step>
+        <step>
+          <para>
+            Convert cron nicknames (<literal>@<replaceable>NICK</replaceable></literal>):
+          </para>
+<screen>Cron     : <systemitem class="daemon">systemd</systemitem> timer
+-------- : ----------------------------
+@reboot  : OnBootSec=1s
+@yearly  : OnCalendar=*-01-01 00:00:00
+@annually: OnCalendar=*-01-01 00:00:00
+@monthly : OnCalendar=*-*-01 00:00:00
+@weekly  : OnCalendar=Sun *-*-* 00:00:00
+@daily   : OnCalendar=*-*-* 00:00:00
+@hourly  : OnCalendar=*-*-* *:00:00</screen>
+        </step>
+        <step>
+          <para>
+            Convert variable assignments. The <systemitem class="daemon">systemd</systemitem> variable assignment must go into the
+            <literal>[Service]</literal> section. You cannot convert
+            <envar>MAILTO</envar> this way&#x2014;refer to the next step for this.
+          </para>
+<screen>cron: <replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>
+systemd: Environment="<replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>"</screen>
+        </step>
+        <step>
+          <para>
+            Set up e-mail notifications to replace cron's MAILTO feature by following the
+            instructions in <xref linkend="systemd-mailto"/>.
+          </para>
+        </step>
+      </substeps>
+    </step>
+  </procedure>
+  <example>
+    <title>cron to <systemitem class="daemon">systemd</systemitem> timer migration</title>
+    <para>
+      Here are the crontab entries which call the script <literal>helloworld.sh</literal> 5
+      minutes after booting and at 10 o'clock each Monday to Friday:
+    </para>
+<screen>@reboot sleep 300 &amp;&amp; /usr/local/bin/helloworld.sh
+0 10 * * * 1-5 /usr/local/bin/helloworld.sh</screen>
+    <para>
+      The <systemitem class="daemon">systemd</systemitem> service file (<filename>helloworld.service</filename>) calling the script
+      looks like this:
+    </para>
+<screen>[Unit]
+Description="Hello World script"
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh</screen>
+    <para>
+      The timer file (<filename>helloworld.timer</filename>) looks like this:
+    </para>
+<screen>[Unit]
+Description="Run helloworld.service 5min after boot and at 10am every Mon-Fri"
+[Timer]
+OnBootSec=5min
+OnCalendar=Mon..Fri *-*-* 10:00
+Unit=helloworld.service
+[Install]
+WantedBy=multi-user.target</screen>
+  </example>
+</section>
+  <section role="task" xml:lang="en" version="5.2" xml:id="systemd-timer-troubleshoot"><info>
+        <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">Troubleshooting and FAQs</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/><abstract xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion">
+      <para>
+        Learn how to debug and troubleshoot <systemitem class="daemon">systemd</systemitem> timers that have failed. Find answers to
+        frequently asked questions on <systemitem class="daemon">systemd</systemitem> timers.
+      </para>
+    </abstract></info>
+  
+  <section>
+    <title>Avoiding errors</title>
+    <para>
+      To avoid errors with <systemitem class="daemon">systemd</systemitem> timers, make sure to follow these best practices:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Verify that the executable you specify in the service with <literal>ExecStart</literal>
+          runs correctly.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Check the syntax of the service and timer files by running <command>systemd-analyze
+          verify <replaceable>FILE</replaceable></command>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Check execution times of calendar entries by running <command>systemd-analyze calendar
+          <replaceable>CALENDER_ENTRY</replaceable></command>.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section>
+    <title>Event is not triggered</title>
+    <para>
+      When you activate a timer that contains non-critical errors, <systemitem class="daemon">systemd</systemitem> silently ignores them.
+      For example:
+    </para>
+    <example>
+      <title><systemitem class="daemon">systemd</systemitem> timer file cutout containing a non-fatal error</title>
+<screen>[Timer]
+OnBootSec=5min
+OnClendar=Mon..Fri 10:00
+Unit=helloworld.service
+</screen>
+      <para>
+        Line 3 contains a syntax error (<literal>OnClendar</literal> instead of
+        <literal>OnCalendar</literal>). Since the <literal>[Timer]</literal> section contains a
+        second timer entry (OnBoot), the error is not critical and is silently ignored. As a
+        consequence, the Monday to Friday trigger is not executed. The only way to detect the
+        error is to use the command <command>systemd-analyze verify</command>:
+      </para>
+<screen><prompt role="root"># </prompt> systemd-analyze verify /etc/systemd/system/helloworld.timer
+/etc/systemd/system/helloworld.timer:7: Unknown key name 'OnClendar' in section 'Timer', ignoring.</screen>
+    </example>
+  </section>
+  <section>
+    <title>Checking the system journal for errors</title>
+    <para>
+      As with every <systemitem class="daemon">systemd</systemitem> service, events and actions triggered by timers are logged with the
+      system journal. If a trigger does not behave as expected, check the log messages with
+      <command>journalctl</command>. To filter the journal for relevant information, use the
+      <option>-u</option> switch to specify the <systemitem class="daemon">systemd</systemitem> timers and service files. Use this option
+      to show the log entries for the timer <emphasis>and</emphasis> the corresponding service
+      file:
+    </para>
+<screen>sudo journalctl -u  helloworld.timer -u helloworld.service</screen>
+    <para>
+      or shorter (if applicable):
+    </para>
+<screen>sudo journalctl -u  helloworld.*</screen>
+    <para>
+      <command>journalctl</command> is a tool that supports many options and filters. Please refer
+      to <command>man 1 journalctl</command> for in-depth information. The following options are
+      useful for troubleshooting timers:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <option>-b</option>: Only show entries for the current boot.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <option>-S today</option>: Only show entries from today.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <option>-x</option>: Show help texts alongside the log entry.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <option>-f</option>: Start with the most recent entries and continuously print the log as
+          new entries get added. Useful to check triggers that occur in short intervals. Exit with
+          <keycombo><keycap function="control"/><keycap>C</keycap></keycombo>.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section>
+    <title><systemitem class="daemon">systemd</systemitem> timer: catching up on missed runs</title>
+    <para>
+      If a <systemitem class="daemon">systemd</systemitem> timer was inactive or the system was off during the
+      expected execution time, missed events can optionally be triggered
+      immediately when the timer is activated again. To enable this, add the
+      configuration option <literal>Persistent=true</literal> to the
+      <literal>[Timer]</literal> section:
+    </para>
+    <screen>[Timer]
+OnCalendar=Mon..Fri 10:00
+Persistent=true
+Unit=helloworld.service</screen>
+  </section>
+  <section>
+    <title>How to migrate from cron to <systemitem class="daemon">systemd</systemitem> timers?</title>
+    <para>
+      All cron jobs can be migrated to <systemitem class="daemon">systemd</systemitem> timers. Here are general instructions on migrating
+      a cron job:
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Create a service file executing the script. See
+          <xref linkend="systemd-timer-example-service"/> for details.
+        </para>
+      </step>
+      <step>
+        <para>
+          Create a timer file executing the service file. See
+          <xref linkend="systemd-timer-example-timer"/> for general instructions.
+        </para>
+        <substeps>
+          <step>
+            <para>
+              Convert calendar entries. Time is specified differently in cron and <systemitem class="daemon">systemd</systemitem>. Use
+              the patterns below as a conversion template:
+            </para>
+<screen>Cron:               Minute Hour Day Month DayOfWeek
+systemd: OnCalendar=DayOfWeek Year-Month-Day Hour:Minute:Second</screen>
+            <para>
+              To test the converted calendar entry, follow the instructions in
+              <xref linkend="systemd-timer-test"/>.
+            </para>
+          </step>
+          <step>
+            <para>
+              Convert cron nicknames (<literal>@<replaceable>NICK</replaceable></literal>):
+            </para>
+<screen>Cron     : <systemitem class="daemon">systemd</systemitem> timer
+-------- : ----------------------------
+@reboot  : OnBootSec=1s
+@yearly  : OnCalendar=*-01-01 00:00:00
+@annually: OnCalendar=*-01-01 00:00:00
+@monthly : OnCalendar=*-*-01 00:00:00
+@weekly  : OnCalendar=Sun *-*-* 00:00:00
+@daily   : OnCalendar=*-*-* 00:00:00
+@hourly  : OnCalendar=*-*-* *:00:00</screen>
+          </step>
+          <step>
+            <para>
+              Convert variable assignments. The <systemitem class="daemon">systemd</systemitem> variable assignment must go into the
+              <literal>[Service]</literal> section. You cannot convert
+              <envar>MAILTO</envar> this way&#x2014;refer to the next step for this.
+            </para>
+<screen>cron: <replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>
+systemd: Environment="<replaceable>VARIABLE</replaceable>=<replaceable>VALUE</replaceable>"</screen>
+          </step>
+          <step>
+            <para>
+              Set up e-mail notifications to replace cron's MAILTO feature by following the
+              instructions in <xref linkend="systemd-mailto"/>.
+            </para>
+          </step>
+        </substeps>
+      </step>
+    </procedure>
+    <example>
+      <title>cron to <systemitem class="daemon">systemd</systemitem> timer migration</title>
+      <para>
+        Here are the crontab entries which call the script <literal>helloworld.sh</literal> 5
+        minutes after booting and at 10 o'clock each Monday to Friday:
+      </para>
+<screen>@reboot sleep 300 &amp;&amp; /usr/local/bin/helloworld.sh
+0 10 * * * 1-5 /usr/local/bin/helloworld.sh</screen>
+      <para>
+        The <systemitem class="daemon">systemd</systemitem> service file (<filename>helloworld.service</filename>) calling the script
+        looks like this:
+      </para>
+<screen>[Unit]
+Description="Hello World script"
+[Service]
+ExecStart=/usr/local/bin/helloworld.sh</screen>
+      <para>
+        The timer file (<filename>helloworld.timer</filename>) looks like this:
+      </para>
+<screen>[Unit]
+Description="Run helloworld.service 5min after boot and at 10am every Mon-Fri"
+[Timer]
+OnBootSec=5min
+OnCalendar=Mon..Fri *-*-* 10:00
+Unit=helloworld.service
+[Install]
+WantedBy=multi-user.target</screen>
+    </example>
+  </section>
+</section>
+  <section role="glue" xml:lang="en" version="5.2" xml:id="systemd-timers-more-info"><info>
+        <title xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" xmlns:its="http://www.w3.org/2005/11/its">For more information</title>
+      <meta xmlns:its="http://www.w3.org/2005/11/its" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:trans="http://docbook.org/ns/transclusion" name="maintainer" content="fs@suse.com" its:translate="no"/></info>
+  
+  <itemizedlist>
+    <listitem>
+      <para>
+        For a full reference on <systemitem class="daemon">systemd</systemitem> timers including advanced configuration options (like
+        delays or handling clock or time zone changes), refer to <command>man 5
+        systemd.timer</command>.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/concept-systemd/concept-systemd.html">Basic
+        <systemitem class="daemon">systemd</systemitem> concepts</link>
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/reference-systemctl-start-stop-services/reference-systemctl-start-stop-services.html">Starting
+        and stopping <systemitem class="daemon">systemd</systemitem> services</link>
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/reference-systemctl-enable-disable-services/reference-systemctl-enable-disable-services.html">Enabling
+        and disabling <systemitem class="daemon">systemd</systemitem> services</link>
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/task-debug-failed-systemd-services/index.html">Debugging
+        failed <systemitem class="daemon">systemd</systemitem> services</link>
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://documentation.suse.com/smart/systems-management/html/task-send-termination-signals-systemd/task-send-termination-signals-systemd.html">Sending
+        termination signals to <systemitem class="daemon">systemd</systemitem> services</link>
+      </para>
+    </listitem>
+  </itemizedlist>
+</section>
+  <section version="5.2" xml:id="legal-disclaimer"><info>
+    <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">Legal Notice</title>
+  </info>
+  
+  <para> Copyright&#xA9; 2006&#x2013;<?dbtimestamp format="Y"?>
+ SUSE LLC and contributors.
+  All rights reserved. </para>
+  <para>
+    Permission is granted to copy, distribute and/or modify this document under the terms of the
+    GNU Free Documentation License, Version 1.2 or (at your option) version 1.3; with the Invariant
+    Section being this copyright notice and license. A copy of the license version 1.2 is included
+    in the section entitled <quote>GNU Free Documentation License</quote>.
+  </para>
+  <para>
+    For SUSE trademarks, see <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.suse.com/company/legal/"/>. All other
+    third-party trademarks are the property of their respective owners. Trademark symbols (&#xAE;, &#x2122;
+    etc.) denote trademarks of SUSE and its affiliates. Asterisks (*) denote third-party
+    trademarks.
+  </para>
+  <para>
+    All information found in this book has been compiled with utmost attention to detail. However,
+    this does not guarantee complete accuracy.  Neither SUSE LLC, its affiliates, the authors, nor
+    the translators shall be held liable for possible errors or the consequences thereof.
+  </para>
+</section>
+  <appendix xmlns:its="http://www.w3.org/2005/11/its" version="5.2" role="legal" its:translate="no" xml:id="doc-gfdl-license"><info>
+   <title xmlns:xi="http://www.w3.org/2001/XInclude" xmlns:xlink="http://www.w3.org/1999/xlink">GNU Free Documentation License</title>
+ </info>
+
+ 
+
+ <para>
+  Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc. 51 Franklin St,
+  Fifth Floor, Boston, MA 02110-1301 USA. Everyone is permitted to copy and
+  distribute verbatim copies of this license document, but changing it is not
+  allowed.
+ </para>
+
+ <bridgehead renderas="sect4">
+    0. PREAMBLE
+  </bridgehead>
+
+ <para>
+  The purpose of this License is to make a manual, textbook, or other
+  functional and useful document "free" in the sense of freedom: to assure
+  everyone the effective freedom to copy and redistribute it, with or without
+  modifying it, either commercially or non-commercially. Secondarily, this
+  License preserves for the author and publisher a way to get credit for their
+  work, while not being considered responsible for modifications made by
+  others.
+ </para>
+
+ <para>
+  This License is a kind of "copyleft", which means that derivative works of
+  the document must themselves be free in the same sense. It complements the
+  GNU General Public License, which is a copyleft license designed for free
+  software.
+ </para>
+
+ <para>
+  We have designed this License to use it for manuals for free software,
+  because free software needs free documentation: a free program should come
+  with manuals providing the same freedoms that the software does. But this
+  License is not limited to software manuals; it can be used for any textual
+  work, regardless of subject matter or whether it is published as a printed
+  book. We recommend this License principally for works whose purpose is
+  instruction or reference.
+ </para>
+
+ <bridgehead renderas="sect4">
+    1. APPLICABILITY AND DEFINITIONS
+  </bridgehead>
+
+ <para>
+  This License applies to any manual or other work, in any medium, that
+  contains a notice placed by the copyright holder saying it can be distributed
+  under the terms of this License. Such a notice grants a world-wide,
+  royalty-free license, unlimited in duration, to use that work under the
+  conditions stated herein. The "Document", below, refers to any such manual or
+  work. Any member of the public is a licensee, and is addressed as "you". You
+  accept the license if you copy, modify or distribute the work in a way
+  requiring permission under copyright law.
+ </para>
+
+ <para>
+  A "Modified Version" of the Document means any work containing the Document
+  or a portion of it, either copied verbatim, or with modifications and/or
+  translated into another language.
+ </para>
+
+ <para>
+  A "Secondary Section" is a named appendix or a front-matter section of the
+  Document that deals exclusively with the relationship of the publishers or
+  authors of the Document to the Document's overall subject (or to related
+  matters) and contains nothing that could fall directly within that overall
+  subject. (Thus, if the Document is in part a textbook of mathematics, a
+  Secondary Section may not explain any mathematics.) The relationship could be
+  a matter of historical connection with the subject or with related matters,
+  or of legal, commercial, philosophical, ethical or political position
+  regarding them.
+ </para>
+
+ <para>
+  The "Invariant Sections" are certain Secondary Sections whose titles are
+  designated, as being those of Invariant Sections, in the notice that says
+  that the Document is released under this License. If a section does not fit
+  the above definition of Secondary then it is not allowed to be designated as
+  Invariant. The Document may contain zero Invariant Sections. If the Document
+  does not identify any Invariant Sections then there are none.
+ </para>
+
+ <para>
+  The "Cover Texts" are certain short passages of text that are listed, as
+  Front-Cover Texts or Back-Cover Texts, in the notice that says that the
+  Document is released under this License. A Front-Cover Text may be at most 5
+  words, and a Back-Cover Text may be at most 25 words.
+ </para>
+
+ <para>
+  A "Transparent" copy of the Document means a machine-readable copy,
+  represented in a format whose specification is available to the general
+  public, that is suitable for revising the document straightforwardly with
+  generic text editors or (for images composed of pixels) generic paint
+  programs or (for drawings) some widely available drawing editor, and that is
+  suitable for input to text formatters or for automatic translation to a
+  variety of formats suitable for input to text formatters. A copy made in an
+  otherwise Transparent file format whose markup, or absence of markup, has
+  been arranged to thwart or discourage subsequent modification by readers is
+  not Transparent. An image format is not Transparent if used for any
+  substantial amount of text. A copy that is not "Transparent" is called
+  "Opaque".
+ </para>
+
+ <para>
+  Examples of suitable formats for Transparent copies include plain ASCII
+  without markup, Texinfo input format, LaTeX input format, SGML or XML using a
+  publicly available DTD, and standard-conforming simple HTML, PostScript or
+  PDF designed for human modification. Examples of transparent image formats
+  include PNG, XCF and JPG. Opaque formats include proprietary formats that can
+  be read and edited only by proprietary word processors, SGML or XML for which
+  the DTD and/or processing tools are not generally available, and the
+  machine-generated HTML, PostScript or PDF produced by some word processors
+  for output purposes only.
+ </para>
+
+ <para>
+  The "Title Page" means, for a printed book, the title page itself, plus such
+  following pages as are needed to hold, legibly, the material this License
+  requires to appear in the title page. For works in formats which do not have
+  any title page as such, "Title Page" means the text near the most prominent
+  appearance of the work's title, preceding the beginning of the body of the
+  text.
+ </para>
+
+ <para>
+  A section "Entitled XYZ" means a named subunit of the Document whose title
+  either is precisely XYZ or contains XYZ in parentheses following text that
+  translates XYZ in another language. (Here XYZ stands for a specific section
+  name mentioned below, such as "Acknowledgements", "Dedications",
+  "Endorsements", or "History".) To "Preserve the Title" of such a section when
+  you modify the Document means that it remains a section "Entitled XYZ"
+  according to this definition.
+ </para>
+
+ <para>
+  The Document may include Warranty Disclaimers next to the notice which states
+  that this License applies to the Document. These Warranty Disclaimers are
+  considered to be included by reference in this License, but only as regards
+  disclaiming warranties: any other implication that these Warranty Disclaimers
+  may have is void and has no effect on the meaning of this License.
+ </para>
+
+ <bridgehead renderas="sect4">
+    2. VERBATIM COPYING
+  </bridgehead>
+
+ <para>
+  You may copy and distribute the Document in any medium, either commercially
+  or non-commercially, provided that this License, the copyright notices, and
+  the license notice saying this License applies to the Document are reproduced
+  in all copies, and that you add no other conditions whatsoever to those of
+  this License. You may not use technical measures to obstruct or control the
+  reading or further copying of the copies you make or distribute. However, you
+  may accept compensation in exchange for copies. If you distribute a large
+  enough number of copies you must also follow the conditions in section 3.
+ </para>
+
+ <para>
+  You may also lend copies, under the same conditions stated above, and you may
+  publicly display copies.
+ </para>
+
+ <bridgehead renderas="sect4">
+    3. COPYING IN QUANTITY
+  </bridgehead>
+
+ <para>
+  If you publish printed copies (or copies in media that commonly have printed
+  covers) of the Document, numbering more than 100, and the Document's license
+  notice requires Cover Texts, you must enclose the copies in covers that
+  carry, clearly and legibly, all these Cover Texts: Front-Cover Texts on the
+  front cover, and Back-Cover Texts on the back cover. Both covers must also
+  clearly and legibly identify you as the publisher of these copies. The front
+  cover must present the full title with all words of the title equally
+  prominent and visible. You may add other material on the covers in addition.
+  Copying with changes limited to the covers, as long as they preserve the
+  title of the Document and satisfy these conditions, can be treated as
+  verbatim copying in other respects.
+ </para>
+
+ <para>
+  If the required texts for either cover are too voluminous to fit legibly, you
+  should put the first ones listed (as many as fit reasonably) on the actual
+  cover, and continue the rest onto adjacent pages.
+ </para>
+
+ <para>
+  If you publish or distribute Opaque copies of the Document numbering more
+  than 100, you must either include a machine-readable Transparent copy along
+  with each Opaque copy, or state in or with each Opaque copy a
+  computer-network location from which the general network-using public has
+  access to download using public-standard network protocols a complete
+  Transparent copy of the Document, free of added material. If you use the
+  latter option, you must take reasonably prudent steps, when you begin
+  distribution of Opaque copies in quantity, to ensure that this Transparent
+  copy will remain thus accessible at the stated location until at least one
+  year after the last time you distribute an Opaque copy (directly or through
+  your agents or retailers) of that edition to the public.
+ </para>
+
+ <para>
+  It is requested, but not required, that you contact the authors of the
+  Document well before redistributing any large number of copies, to give them
+  a chance to provide you with an updated version of the Document.
+ </para>
+
+ <bridgehead renderas="sect4">
+    4. MODIFICATIONS
+  </bridgehead>
+
+ <para>
+  You may copy and distribute a Modified Version of the Document under the
+  conditions of sections 2 and 3 above, provided that you release the Modified
+  Version under precisely this License, with the Modified Version filling the
+  role of the Document, thus licensing distribution and modification of the
+  Modified Version to whoever possesses a copy of it. In addition, you must do
+  these things in the Modified Version:
+ </para>
+
+ <orderedlist numeration="upperalpha" spacing="normal">
+  <listitem>
+   <para>
+    Use in the Title Page (and on the covers, if any) a title distinct from
+    that of the Document, and from those of previous versions (which should, if
+    there were any, be listed in the History section of the Document). You may
+    use the same title as a previous version if the original publisher of that
+    version gives permission.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    List on the Title Page, as authors, one or more persons or entities
+    responsible for authorship of the modifications in the Modified Version,
+    together with at least five of the principal authors of the Document (all
+    of its principal authors, if it has fewer than five), unless they release
+    you from this requirement.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    State on the Title page the name of the publisher of the Modified Version,
+    as the publisher.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Preserve all the copyright notices of the Document.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Add an appropriate copyright notice for your modifications adjacent to the
+    other copyright notices.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Include, immediately after the copyright notices, a license notice giving
+    the public permission to use the Modified Version under the terms of this
+    License, in the form shown in the Addendum below.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Preserve in that license notice the full lists of Invariant Sections and
+    required Cover Texts given in the Document's license notice.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Include an unaltered copy of this License.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Preserve the section Entitled "History", Preserve its Title, and add to it
+    an item stating at least the title, year, new authors, and publisher of the
+    Modified Version as given on the Title Page. If there is no section
+    Entitled "History" in the Document, create one stating the title, year,
+    authors, and publisher of the Document as given on its Title Page, then add
+    an item describing the Modified Version as stated in the previous sentence.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Preserve the network location, if any, given in the Document for public
+    access to a Transparent copy of the Document, and likewise the network
+    locations given in the Document for previous versions it was based on.
+    These may be placed in the "History" section. You may omit a network
+    location for a work that was published at least four years before the
+    Document itself, or if the original publisher of the version it refers to
+    gives permission.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    For any section Entitled "Acknowledgements" or "Dedications", Preserve the
+    Title of the section, and preserve in the section all the substance and
+    tone of each of the contributor acknowledgements and/or dedications given
+    therein.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Preserve all the Invariant Sections of the Document, unaltered in their
+    text and in their titles. Section numbers or the equivalent are not
+    considered part of the section titles.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Delete any section Entitled "Endorsements". Such a section may not be
+    included in the Modified Version.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Do not retitle any existing section to be Entitled "Endorsements" or to
+    conflict in title with any Invariant Section.
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    Preserve any Warranty Disclaimers.
+   </para>
+  </listitem>
+ </orderedlist>
+
+ <para>
+  If the Modified Version includes new front-matter sections or appendices that
+  qualify as Secondary Sections and contain no material copied from the
+  Document, you may at your option designate some or all of these sections as
+  invariant. To do this, add their titles to the list of Invariant Sections in
+  the Modified Version's license notice. These titles must be distinct from any
+  other section titles.
+ </para>
+
+ <para>
+  You may add a section Entitled "Endorsements", provided it contains nothing
+  but endorsements of your Modified Version by various parties--for example,
+  statements of peer review or that the text has been approved by an
+  organization as the authoritative definition of a standard.
+ </para>
+
+ <para>
+  You may add a passage of up to five words as a Front-Cover Text, and a
+  passage of up to 25 words as a Back-Cover Text, to the end of the list of
+  Cover Texts in the Modified Version. Only one passage of Front-Cover Text and
+  one of Back-Cover Text may be added by (or through arrangements made by) any
+  one entity. If the Document already includes a cover text for the same cover,
+  previously added by you or by arrangement made by the same entity you are
+  acting on behalf of, you may not add another; but you may replace the old
+  one, on explicit permission from the previous publisher that added the old
+  one.
+ </para>
+
+ <para>
+  The author(s) and publisher(s) of the Document do not by this License give
+  permission to use their names for publicity for or to assert or imply
+  endorsement of any Modified Version.
+ </para>
+
+ <bridgehead renderas="sect4">
+    5. COMBINING DOCUMENTS
+  </bridgehead>
+
+ <para>
+  You may combine the Document with other documents released under this
+  License, under the terms defined in section 4 above for modified versions,
+  provided that you include in the combination all of the Invariant Sections of
+  all of the original documents, unmodified, and list them all as Invariant
+  Sections of your combined work in its license notice, and that you preserve
+  all their Warranty Disclaimers.
+ </para>
+
+ <para>
+  The combined work need only contain one copy of this License, and multiple
+  identical Invariant Sections may be replaced with a single copy. If there are
+  multiple Invariant Sections with the same name but different contents, make
+  the title of each such section unique by adding at the end of it, in
+  parentheses, the name of the original author or publisher of that section if
+  known, or else a unique number. Make the same adjustment to the section
+  titles in the list of Invariant Sections in the license notice of the
+  combined work.
+ </para>
+
+ <para>
+  In the combination, you must combine any sections Entitled "History" in the
+  various original documents, forming one section Entitled "History"; likewise
+  combine any sections Entitled "Acknowledgements", and any sections Entitled
+  "Dedications". You must delete all sections Entitled "Endorsements".
+ </para>
+
+ <bridgehead renderas="sect4">
+    6. COLLECTIONS OF DOCUMENTS
+  </bridgehead>
+
+ <para>
+  You may make a collection consisting of the Document and other documents
+  released under this License, and replace the individual copies of this
+  License in the various documents with a single copy that is included in the
+  collection, provided that you follow the rules of this License for verbatim
+  copying of each of the documents in all other respects.
+ </para>
+
+ <para>
+  You may extract a single document from such a collection, and distribute it
+  individually under this License, provided you insert a copy of this License
+  into the extracted document, and follow this License in all other respects
+  regarding verbatim copying of that document.
+ </para>
+
+ <bridgehead renderas="sect4">
+    7. AGGREGATION WITH INDEPENDENT WORKS
+  </bridgehead>
+
+ <para>
+  A compilation of the Document or its derivatives with other separate and
+  independent documents or works, in or on a volume of a storage or
+  distribution medium, is called an "aggregate" if the copyright resulting from
+  the compilation is not used to limit the legal rights of the compilation's
+  users beyond what the individual works permit. When the Document is included
+  in an aggregate, this License does not apply to the other works in the
+  aggregate which are not themselves derivative works of the Document.
+ </para>
+
+ <para>
+  If the Cover Text requirement of section 3 is applicable to these copies of
+  the Document, then if the Document is less than one half of the entire
+  aggregate, the Document's Cover Texts may be placed on covers that bracket
+  the Document within the aggregate, or the electronic equivalent of covers if
+  the Document is in electronic form. Otherwise they must appear on printed
+  covers that bracket the whole aggregate.
+ </para>
+
+ <bridgehead renderas="sect4">
+    8. TRANSLATION
+  </bridgehead>
+
+ <para>
+  Translation is considered a kind of modification, so you may distribute
+  translations of the Document under the terms of section 4. Replacing
+  Invariant Sections with translations requires special permission from their
+  copyright holders, but you may include translations of some or all Invariant
+  Sections in addition to the original versions of these Invariant Sections.
+  You may include a translation of this License, and all the license notices in
+  the Document, and any Warranty Disclaimers, provided that you also include
+  the original English version of this License and the original versions of
+  those notices and disclaimers. In case of a disagreement between the
+  translation and the original version of this License or a notice or
+  disclaimer, the original version will prevail.
+ </para>
+
+ <para>
+  If a section in the Document is Entitled "Acknowledgements", "Dedications",
+  or "History", the requirement (section 4) to Preserve its Title (section 1)
+  will typically require changing the actual title.
+ </para>
+
+ <bridgehead renderas="sect4">
+    9. TERMINATION
+  </bridgehead>
+
+ <para>
+  You may not copy, modify, sublicense, or distribute the Document except as
+  expressly provided for under this License. Any other attempt to copy, modify,
+  sublicense or distribute the Document is void, and will automatically
+  terminate your rights under this License. However, parties who have received
+  copies, or rights, from you under this License will not have their licenses
+  terminated so long as such parties remain in full compliance.
+ </para>
+
+ <bridgehead renderas="sect4">
+    10. FUTURE REVISIONS OF THIS LICENSE
+  </bridgehead>
+
+ <para>
+  The Free Software Foundation may publish new, revised versions of the GNU
+  Free Documentation License from time to time. Such new versions will be
+  similar in spirit to the present version, but may differ in detail to address
+  new problems or concerns. See
+  <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="https://www.gnu.org/copyleft/"/>.
+ </para>
+
+ <para>
+  Each version of the License is given a distinguishing version number. If the
+  Document specifies that a particular numbered version of this License "or any
+  later version" applies to it, you have the option of following the terms and
+  conditions either of that specified version or of any later version that has
+  been published (not as a draft) by the Free Software Foundation. If the
+  Document does not specify a version number of this License, you may choose
+  any version ever published (not as a draft) by the Free Software Foundation.
+ </para>
+
+ <bridgehead renderas="sect4">
+    ADDENDUM: How to use this License for your documents
+  </bridgehead>
+
+<screen>Copyright (c) YEAR YOUR NAME.
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2
+or any later version published by the Free Software Foundation;
+with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
+A copy of the license is included in the section entitled &#x201C;GNU
+Free Documentation License&#x201D;.</screen>
+
+ <para>
+  If you have Invariant Sections, Front-Cover Texts and Back-Cover Texts,
+  replace the &#x201C;with...Texts.&#x201D; line with this:
+ </para>
+
+<screen>with the Invariant Sections being LIST THEIR TITLES, with the
+Front-Cover Texts being LIST, and with the Back-Cover Texts being LIST.</screen>
+
+ <para>
+  If you have Invariant Sections without Cover Texts, or some other combination
+  of the three, merge those two alternatives to suit the situation.
+ </para>
+
+ <para>
+  If your document contains nontrivial examples of program code, we recommend
+  releasing these examples in parallel under your choice of free software
+  license, such as the GNU General Public License, to permit their use in free
+  software.
+</para>
+</appendix>
+</article>
