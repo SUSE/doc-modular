@@ -204,15 +204,15 @@
           </listitem>
           <listitem>
             <para>
-              &milvus; metrics and traces can be scraped by the OpenTelemetry
+              &milvus; metrics and traces can be scraped by the &otelemetry;
               Collector with simple configurations, provided below. The same is
               true for GPU metrics.
             </para>
           </listitem>
           <listitem>
             <para>
-              To get information from &owui; or &ollama;, you must have a
-              specific instrumentation set. It can be an application
+              To get information from &owui;, &ollama; or &vllm;, you must have
+              a specific instrumentation set. It can be an application
               instrumented with the &openlit; SDK or other form of
               instrumentation following the same patterns.
             </para>
@@ -516,9 +516,21 @@ config:
           - job_name: 'milvus'
             scrape_interval: 15s
             metrics_path: '/metrics'
- 
             static_configs:
               - targets: ['<replaceable>MILVUS_SERVICE_NAME</replaceable>.<replaceable>SUSE_AI_NAMESPACE</replaceable>.svc.cluster.local:9091'] <co xml:id="co-obs-otel-namespace"/>
+          - job_name: 'vllm'
+            scrape_interval: 10s
+            scheme: http
+            kubernetes_sd_configs:
+              - role: service
+            relabel_configs:
+              - source_labels: [__meta_kubernetes_namespace]
+                action: keep
+                regex: '<replaceable>VLLM_NAMESPACE</replaceable>' <co xml:id="co-obs-vllm-namespace"/>
+
+              - source_labels: [__meta_kubernetes_service_name]
+                action: keep
+                regex: '.*<replaceable>VLLM_RELEASE_NAME</replaceable>.*' <co xml:id="co-obs-vllm-releasename"/>
   exporters:
     otlp:
       endpoint: https://<replaceable>OPEN_TELEMETRY_COLLECTOR_NAME</replaceable>.suse-observability.svc.cluster.local:4317 <co xml:id="co-obs-otel-collector3"/>
@@ -604,6 +616,13 @@ config:
               Configure the &milvus; service and namespace for the &prometheus;
               scraper. Because &milvus; will be installed in subsequent steps,
               you can return to this step and edit the endpoint if necessary.
+            </para>
+          </callout>
+          <callout arearefs="co-obs-vllm-namespace co-obs-vllm-releasename">
+            <para>
+              Update to match the values in the
+              <xref  linkend="vllm-installing"
+              xrefstyle="template: &vllm; deployment section"/>.
             </para>
           </callout>
           <callout arearefs="co-obs-otel-collector3">
@@ -722,10 +741,10 @@ subjects:
     </para>
     <para>
       By following the instructions in the document referenced above, you will
-      be able to retrieve all relevant telemetry data from &owui;, &ollama; and
-      &milvus; by simply applying specific configuration to their &helm; chart
-      values. You can find links for advanced use cases (auto-instrumentation
-      with OTEL Operator) at the end of the document.
+      be able to retrieve all relevant telemetry data from &owui;, &ollama;,
+      &milvus; and &vllm; by simply applying specific configuration to their
+      &helm; chart values. You can find links for advanced use cases
+      (auto-instrumentation with OTEL Operator) at the end of the document.
     </para>
   </section>
 </topic>
