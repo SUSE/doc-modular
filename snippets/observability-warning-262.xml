@@ -1,0 +1,47 @@
+<!-- include like this:
+<xi:include href="../snippets/observability-warning-262.xml"/>
+-->
+<!DOCTYPE warning [
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+  %entities;
+]>
+<warning xmlns="http://docbook.org/ns/docbook"  version="5.2"
+xmlns:xi="http://www.w3.org/2001/XInclude"
+xmlns:xlink="http://www.w3.org/1999/xlink">
+  <title>&sobservability; version 2.6.2 and above</title>
+  <para>
+    With &sobservability; version 2.6.2, a change of the standard behavior broke
+    the &vllm; monitoring performed by the extension. To fix it, update
+    <filename>otel-values.yaml</filename> to include the following additions. No
+    changes are required for people using &sobservability; version 2.6.1 and
+    below.
+  </para>
+  <itemizedlist>
+    <listitem>
+      <para>
+        Add a new processor.
+      </para>
+<screen>config:
+  processors:
+    ... # same as before
+    transform:
+      metric_statements:
+        - context: metric
+          statements:
+            - replace_pattern(name, "^vllm:", "vllm_")</screen>
+    </listitem>
+    <listitem>
+      <para>
+        Modify the metrics pipeline to perform the transformation defined above:
+      </para>
+<screen>config:
+  service:
+    pipelines:
+      ... # same as before
+      metrics:
+        receivers: [otlp, spanmetrics, prometheus]
+        processors: [transform, memory_limiter, resource, batch]
+        exporters: [debug, otlp]</screen>
+    </listitem>
+  </itemizedlist>
+</warning>
