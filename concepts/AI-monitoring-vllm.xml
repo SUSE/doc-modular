@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="ai-monitoring-vllm"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Monitoring &vllm;</title>
+    <meta name="maintainer" content="tbazant@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        &vllm; is monitored by scraping its &prometheus;-compatible metrics
+        endpoints. The &sobservability; Extension uses these metrics to
+        visualize &vllm;'s status and activity.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="ai-monitoring-vllm-scraping">
+    <title>Metrics Scraping (recommended)</title>
+    <para>
+      Add the following job to the <literal>scrape_configs</literal> section of
+      your &otelemetry; Collector's configuration. This configures the collector
+      to scrape the <filename>/metrics</filename> endpoint from all &vllm;
+      services every 10 seconds. Remember that you can have several jobs
+      defined, so if you defined other jobs&mdash;such as &milvus;&mdash;you can
+      just append the new job to your list. If you have deployed &vllm;'s
+      services with non-default values, you can easily change the service
+      discovery rules.
+    </para>
+    <tip>
+      <para>
+        Before using the following example, replace the
+        <replaceable>VLLM_NAMESPACE</replaceable> and
+        <replaceable>VLLM_RELEASE_NAME</replaceable> placeholders with the
+        actual values you used while deploying &vllm;.
+      </para>
+    </tip>
+<screen>config:
+  receivers:
+    prometheus:
+      config:
+        scrape_configs:
+          - job_name: 'vllm'
+            scrape_interval: 10s
+            scheme: http
+            kubernetes_sd_configs:
+              - role: service
+            relabel_configs:
+              - source_labels: [__meta_kubernetes_namespace]
+                action: keep
+                regex: '<replaceable>VLLM_NAMESPACE</replaceable>'
+
+              - source_labels: [__meta_kubernetes_service_name]
+                action: keep
+                regex: '.*<replaceable>VLLM_RELEASE_NAME</replaceable>.*'</screen>
+    <xi:include href="../snippets/observability-warning-262.xml"/>
+  </section>
+</topic>
