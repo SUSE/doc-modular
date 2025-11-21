@@ -48,7 +48,7 @@
       the &mlflow; container image.
     </para>
   </section>
-  <section xml:id="mlflow-installing-procedure">
+  <section xml:id="mlflow-installing-kubernetes">
     <title>Installing &mlflow; using &helm; on a &kube; cluster</title>
     <procedure>
       <xi:include href="../snippets/ai-library-requirement.xml"/>
@@ -275,6 +275,110 @@ suse-private-ai  pen-webui nginx suse-ollama-webui    10.0.3.184  80, 443   8h</
 <screen>&prompt.user;<command>helm uninstall mlflow -n <replaceable>SUSE_AI_NAMESPACE</replaceable></command></screen>
     </section>
   </section>
+  <section xml:id="mlflow-installing-docker">
+    <title>Installing &mlflow; using &docker;</title>
+    <para>
+      There are two ways to install &mlflow; using &docker;:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          By downloading and running &mlflow; container directly.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          By creating a &mlflow; &docker; compose YAML file.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <procedure>
+      <title>Installing &mlflow; using a &docker; container</title>
+      <step>
+        <para>
+          Download the &mlflow; container.
+        </para>
+<screen>&prompt.user;<command>docker pull dp.apps.rancher.io/containers/mlflow:2.20.2</command></screen>
+      </step>
+      <step performance="optional">
+        <para>
+          Verify the downloaded image.
+        </para>
+<screen>&prompt.user;<command>docker images</command>
+REPOSITORY                           TAG    IMAGE ID     CREATED      SIZE
+dp.apps.rancher.io/containers/mlflow 2.20.2 d984124afc22 33 hours ago 715MB</screen>
+      </step>
+      <step>
+        <para>
+          Run the &mlflow; server by starting the container at port 5000.
+        </para>
+<screen>&prompt.user;<command> docker run -p 5000:5000 \
+  dp.apps.rancher.io/containers/mlflow:2.20.2 mlflow server \
+  --host 0.0.0.0 --port 5000</command>
+[2025-11-27 18:34:15 +0000] [12] [INFO] Starting gunicorn 23.0.0
+[2025-11-27 18:34:15 +0000] [12] [INFO] Listening at: http://0.0.0.0:5000 (12)
+[2025-11-27 18:34:15 +0000] [12] [INFO] Using worker: sync
+[2025-11-27 18:34:15 +0000] [13] [INFO] Booting worker with pid: 13
+[2025-11-27 18:34:15 +0000] [14] [INFO] Booting worker with pid: 14
+[2025-11-27 18:34:15 +0000] [15] [INFO] Booting worker with pid: 15
+[2025-11-27 18:34:15 +0000] [16] [INFO] Booting worker with pid: 16</screen>
+      </step>
+    </procedure>
+    <procedure>
+      <title>Installing &mlflow; using a &docker; compose YAML file</title>
+      <step>
+        <para>
+          Create a <filename>docker-compose.yaml</filename> file with the
+          following content:
+        </para>
+<screen>services:
+  mlflow:
+    image: dp.apps.rancher.io/containers/mlflow:2.20.2
+    container_name: mlflow
+    restart: always
+    ports:
+      - "5000:5000"
+    command:
+      - /usr/bin/mlflow
+      - server
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "5000"</screen>
+      </step>
+      <step>
+        <para>
+          Run &mlflow; using the following command:
+        </para>
+<screen>&prompt.user;<command>docker-compose up -d</command>
+[...]
+[+] Running 2/2
+ \u2714 Network &exampleuser;_default  Created                0.0s 
+ \u2714 Container mlflow      Started                         4s</screen>
+      </step>
+      <step performance="optional">
+        <para>
+          Verify that the container is running.
+        </para>
+<screen><command>(venv) &exampleuser;@localhost:~[] docker ps</command>
+CONTAINER ID IMAGE    ...     STATUS          PORTS                     NAMES
+1e58723cb3d  mlflow:2.20.2 23 Up 23 seconds   0.0.0.0:5000->5000/tcp... mlflow</screen>
+      </step>
+      <step performance="optional">
+        <para>
+          Follow the logs to ensure that &mlflow; server has started correctly.
+        </para>
+<screen>&prompt.user;<command>(venv) &exampleuser;@localhost:~[] docker-compose logs -f</command>
+mlflow [2025-11-01 00:56:54 +0000] [3] [INFO] Starting gunicorn 23.0.0
+mlflow [2025-11-01 00:56:54 +0000] [3] [INFO] Listening at: http://0.0.0.0:5000 (13)
+mlflow [2025-11-01 00:56:54 +0000] [3] [INFO] Using worker: sync
+mlflow [2025-11-01 00:56:54 +0000] [4] [INFO] Booting worker with pid: 4
+mlflow [2025-11-01 00:56:54 +0000] [5] [INFO] Booting worker with pid: 5
+mlflow [2025-11-01 00:56:55 +0000] [6] [INFO] Booting worker with pid: 6
+mlflow [2025-11-01 00:56:55 +0000] [7] [INFO] Booting worker with pid: 7</screen>
+      </step>
+    </procedure>
+  </section>
   <section xml:id="mlflow-accessing">
     <title>Accessing &mlflow; Web UI</title>
     <para>
@@ -287,9 +391,11 @@ suse-private-ai  pen-webui nginx suse-ollama-webui    10.0.3.184  80, 443   8h</
     </para>
     <para>
       To access &mlflow; via &ingress;, add a corresponding line to your
-      <filename>/etc/hosts</filename>&mdash;such as <literal>10.0.3.184
-      suse-mflow</literal>&mdash;and point your Web browser to
-      <literal>http://suse-mlflow</literal>.
+      <filename>/etc/hosts</filename>, for example:
+    </para>
+<screen>10.0.3.184 suse-mflow</screen>
+    <para>
+      Then point your Web browser to <literal>http://suse-mlflow</literal>.
     </para>
     <figure xml:id="fg-mlflow-webui">
       <title>&mlflow; Web UI</title>
@@ -305,9 +411,7 @@ suse-private-ai  pen-webui nginx suse-ollama-webui    10.0.3.184  80, 443   8h</
       </mediaobject>
     </figure>
     <tip>
-      <title>
-        For more information
-      </title>
+      <title>For more information</title>
       <para>
         Explore &mlflow; core features, model training, tracing (observability)
         and more by following the
