@@ -1,0 +1,363 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="concept-about-journald"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>About journald</title>
+    <meta name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        systemd uses journald as its logging system. All system events are written to the journal, a system service managed by systemd-journald.service (journald).  This allows you to search and manage all system logs. It collects and stores logging data by maintaining structured indexed journals based on logging information received from the kernel, user processes, standard input, and system service errors.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    The systemd-journald service is enabled by default.
+  </para>
+  <screen>&prompt.sudo; systemctl status systemd-journald
+systemd-journald.service - Journal Service
+   Loaded: loaded (/usr/lib/systemd/system/systemd-journald.service; static)
+   Active: active (running) since Tue 2025-10-21 00:00:00 CET; 21 min ago
+TriggeredBy: systemd-journald-audit.socket
+		 systemd-journald.socket
+             systemd-journald-audit.dev-log.socket
+     Docs: man:systemd-journald.service(8)
+           man:journald.conf(5)
+ Main PID: 624 (systemd-journal)
+    Tasks: 1
+ FD Store: 8 (limit:4224)
+	CPU:116ms
+   CGroup: /system.slice/systemd-journald.service
+           └─413 /usr/lib/systemd/systemd-journald
+[...]</screen>
+  <para>The journal records nearly every type of event generated on the system, including Kernel messages, Initrd (initial RAM disk) messages, Service startup/shutdown, Application events, and Authentication and session data.</para>
+  <para>Journal allows centralization and unification of logs from all sources, and it records events in structured manner which in turn helps identifying errors and in crash recovery. </para>
+  <para>journald collects log data from several sources simultaneously logs are then managed in a structured, binary format within files in /run/log/journal/ by default. Because the /run/ directory is volatile by nature, log data is lost at reboot. To make the log data persistent, create the directory /var/log/journal/ and make sure it has the correct access modes and ownership, so the systemd-journald service can store its data. To switch to persistent logging, execute the following commands:</para>
+  <para>Hence, all log data stored in <path>/run/log/journal/</path> are flushed into <path>/var/log/journal/</path>.<para>
+  <screen>sudo  mkdir /var/log/journal
+sudo  systemd-tmpfiles --create --prefix=/var/log/journal
+sudo  journalctl --flush</screen>
+  <section><title>Journal entry structure</title>
+  <para>Log entry in the journal is a data structure containing the log message and numerous metadata fields,  such as time stamp, source fields, systemd fields,  kernel fields, and priority level.</para>
+<itemizedlist><listitem><para>Timestamp: The exact time the event occurred.</para></listitem>
+<listitem><para>Source Fields</para>
+<itemizedlist>
+  <listitem><para>_PID: Process ID of the sender.</para></listitem>
+  <listitem><para>_UID/_GID: User/Group ID of the sender.</para></listitem>
+  <listitem><para>_EXE: Path to the executable.</para></listitem>
+  <listitem><para>_COMM: Name of the executable.</para></listitem>
+</itemizedlist>
+</listitem>
+<listitem><para>System Fields</para>
+<itemizedlist>
+  <listitem><para>_SYSTEMD_UNIT: The systemd unit (service) that generated the log (e.g., sshd.service).</para></listitem>
+  <listitem><para>_BOOT_ID: A unique identifier for the specific system boot session.</para></listitem>
+</itemizedlist>
+</listitem>
+<listitem><para>Kernel Fields</para>
+<itemizedlist>
+  <listitem><para>_TRANSPORT: How the message was logged (e.g., kernel, syslog, stdout).</para></listitem>
+</itemizedlist>
+</listitem><listitem><para>Priority level: A numeric value indicating the severity of the message (0=emerg, 7=debug).</para></listitem>
+</itemizedlist>
+</section>
+ <sect1 xml:id="sec-journalctl-usage">
+  <title><command>journalctl</command> usage</title>
+
+  <para>
+   Running the <command>journalctl</command> command without any options displays all logged messages, usually starting from the oldest, and pipes the output through a pager (like less) for easy navigation.
+  </para>
+<para>Listed below are the common  useful options to enhance the default <command>journalctl</command> behavior. All switches are described in the <command>journalctl</command> man page, man 1 <command>journalctl</command>. </para>
+  <tip>
+   <title>Messages related to a specific executable</title>
+   <para>
+    To show all journal messages related to a specific executable, specify the
+    full path to the executable:
+   </para>
+<screen>&prompt.sudo;journalctl /usr/lib/systemd/systemd</screen>
+  </tip>
+
+  <variablelist>
+   <varlistentry>
+    <term>-f</term>
+    <listitem>
+     <para>
+      Shows only the most recent journal messages, and prints new log entries
+      as they are added to the journal.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term/>
+    <listitem>
+     <para>
+      Prints the messages and jumps to the end of the journal, so that the
+      latest entries are visible within the pager.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>-r</term>
+    <listitem>
+     <para>
+      Prints the messages of the journal in reverse order, so that the latest
+      entries are listed first.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>-k</term>
+    <listitem>
+     <para>
+      Shows only kernel messages. This is equivalent to the field match
+      <literal>_TRANSPORT=kernel</literal> (see
+      <xref linkend="sec-journalctl-filter-fields"/>).
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>-u</term>
+    <listitem>
+     <para>
+      Shows only messages for the specified &systemd; unit. This is equivalent
+      to the field match
+      <literal>_SYSTEMD_UNIT=<replaceable>UNIT</replaceable></literal> (see
+      <xref linkend="sec-journalctl-filter-fields"/>).
+     </para>
+<screen>&prompt.sudo;journalctl -u apache2
+[...]
+Jun 03 10:07:11 pinkiepie systemd[1]: Starting The Apache Webserver...
+Jun 03 10:07:12 pinkiepie systemd[1]: Started The Apache Webserver.</screen>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+  <para/>
+ </sect1>
+  <sect1 xml:id="sec-journalctl-filter">
+  <title>Filtering the journal output</title>
+
+  <para>
+   When called without switches, <command>journalctl</command> shows the full
+   content of the journal, the oldest entries listed first. The output can be
+   filtered by specific switches and fields.
+  </para>
+
+  <sect2 xml:id="sec-journalctl-filter-boot">
+   <title>Filtering based on a boot number</title>
+   <para>
+    <command>journalctl</command> can filter messages based on a specific
+    system boot. To list all available boots, run
+   </para>
+<screen>&prompt.sudo;journalctl --list-boots
+-1 097ed2cd99124a2391d2cffab1b566f0 Mon 2014-05-26 08:36:56 EDT—Fri 2014-05-30 05:33:44 EDT
+ 0 156019a44a774a0bb0148a92df4af81b Fri 2014-05-30 05:34:09 EDT—Fri 2014-05-30 06:15:01 EDT</screen>
+   <para>
+    The first column lists the boot offset: <literal>0</literal> for the
+    current boot, <literal>-1</literal> for the previous one,
+    <literal>-2</literal> for the one before that, etc. The second column
+    contains the boot ID followed by the limiting time stamps of the specific
+    boot.
+   </para>
+   <para>
+    Show all messages from the current boot:
+   </para>
+<screen>&prompt.sudo;journalctl -b</screen>
+   <para>
+    If you need to see journal messages from the previous boot, add an offset
+    parameter. The following example outputs the previous boot messages:
+   </para>
+<screen>&prompt.sudo;journalctl -b -1</screen>
+   <para>
+    Another way is to list boot messages based on the boot ID. For this
+    purpose, use the _BOOT_ID field:
+   </para>
+<screen>&prompt.sudo;journalctl _BOOT_ID=156019a44a774a0bb0148a92df4af81b</screen>
+  </sect2>
+
+  <sect2 xml:id="sec-journalctl-filter-time">
+   <title>Filtering based on time interval</title>
+   <para>
+    You can filter the output of <command>journalctl</command> by specifying the
+    starting and/or ending date. The date specification should be of the format
+    <literal>2014-06-30 9:17:16</literal>. If the time part is omitted, midnight
+    is assumed. If seconds are omitted, <literal>:00</literal> is assumed. If
+    the date part is omitted, the current day is assumed. Instead of numeric
+    expression, you can specify the keywords <literal>yesterday</literal>,
+    <literal>today</literal> or <literal>tomorrow</literal>. They refer to
+    midnight of the day before the current day, of the current day, or of the
+    day after the current day. If you specify <literal>now</literal>, it refers
+    to the current time. You can also specify relative times prefixed with
+    <literal>-</literal> or <literal>+</literal>, referring to times before or
+    after the current time.
+   </para>
+   <para>
+    Show only new messages since now, and update the output continuously:
+   </para>
+<screen>&prompt.sudo;journalctl --since "now" -f</screen>
+   <para>
+    Show all messages since last midnight till 3:20am:
+   </para>
+<screen>&prompt.sudo;journalctl --since "today" --until "3:20"</screen>
+  </sect2>
+
+  <sect2 xml:id="sec-journalctl-filter-fields">
+   <title>Filtering based on fields</title>
+   <para>
+    You can filter the output of the journal by specific fields. The syntax of
+    a field to be matched is <literal>FIELD_NAME=MATCHED_VALUE</literal>, such
+    as <literal>_SYSTEMD_UNIT=httpd.service</literal>. You can specify multiple
+    matches in a single query to filter the output messages even more. See
+    <command>man 7 systemd.journal-fields</command> for a list of default
+    fields.
+   </para>
+   <para>
+    Show messages produced by a specific process ID:
+   </para>
+<screen>&prompt.sudo;journalctl _PID=1039</screen>
+   <para>
+    Show messages belonging to a specific user ID:
+   </para>
+<screen># journalctl _UID=1000</screen>
+   <para>
+    Show messages from the kernel ring buffer (the same as
+    <command>dmesg</command> produces):
+   </para>
+<screen>&prompt.sudo;journalctl _TRANSPORT=kernel</screen>
+   <para>
+    Show messages from the service's standard or error output:
+   </para>
+<screen>&prompt.sudo;journalctl _TRANSPORT=stdout</screen>
+   <para>
+    Show messages produced by a specified service only:
+   </para>
+<screen>&prompt.sudo;journalctl _SYSTEMD_UNIT=avahi-daemon.service</screen>
+   <para>
+    If two different fields are specified, only entries that match both
+    expressions at the same time are shown:
+   </para>
+<screen>&prompt.sudo;journalctl _SYSTEMD_UNIT=avahi-daemon.service _PID=1488</screen>
+   <para>
+    If two matches refer to the same field, all entries matching either
+    expression are shown:
+   </para>
+<screen>&prompt.sudo;journalctl _SYSTEMD_UNIT=avahi-daemon.service _SYSTEMD_UNIT=dbus.service</screen>
+   <para>
+    You can use the <literal>+</literal> separator to combine two expressions in
+    a logical <literal>OR</literal>. The following example shows all messages
+    from the Avahi service process with the process ID 1480 together with all
+    messages from the D-Bus service:
+   </para>
+<screen>&prompt.sudo;journalctl _SYSTEMD_UNIT=avahi-daemon.service _PID=1480 + _SYSTEMD_UNIT=dbus.service</screen>
+  </sect2>
+   <sect1 xml:id="sec-journalctl-investigate">
+  <title>Investigating &systemd; errors</title>
+
+  <para>
+   This section introduces a simple example to illustrate how to find and fix
+   the error reported by &systemd; during <command>apache2</command> start-up.
+  </para>
+
+  <procedure>
+   <step>
+    <para>
+     Try to start the apache2 service:
+    </para>
+<screen># systemctl start apache2
+Job for apache2.service failed. See 'systemctl status apache2' and 'journalctl -xn' for details.</screen>
+   </step>
+   <step>
+    <para>
+     Let us see what the service's status says:
+    </para>
+<screen>&prompt.sudo;systemctl status apache2
+apache2.service - The Apache Webserver
+   Loaded: loaded (/usr/lib/systemd/system/apache2.service; disabled)
+   Active: failed (Result: exit-code) since Tue 2014-06-03 11:08:13 CEST; 7min ago
+  Process: 11026 ExecStop=/usr/sbin/start_apache2 -D SYSTEMD -DFOREGROUND \
+           -k graceful-stop (code=exited, status=1/FAILURE)</screen>
+    <para>
+     The ID of the process causing the failure is 11026.
+    </para>
+   </step>
+   <step>
+    <para>
+     Show the verbose version of messages related to process ID 11026:
+    </para>
+<screen>&prompt.sudo;journalctl -o verbose _PID=11026
+[...]
+MESSAGE=AH00526: Syntax error on line 6 of /etc/apache2/default-server.conf:
+[...]
+MESSAGE=Invalid command 'DocumenttRoot', perhaps misspelled or defined by a module
+[...]</screen>
+   </step>
+   <step>
+    <para>
+     Fix the typo inside <filename>/etc/apache2/default-server.conf</filename>,
+     start the apache2 service, and print its status:
+    </para>
+<screen>&prompt.sudo;systemctl start apache2 &amp;&amp; systemctl status apache2
+apache2.service - The Apache Webserver
+   Loaded: loaded (/usr/lib/systemd/system/apache2.service; disabled)
+   Active: active (running) since Tue 2014-06-03 11:26:24 CEST; 4ms ago
+  Process: 11026 ExecStop=/usr/sbin/start_apache2 -D SYSTEMD -DFOREGROUND
+           -k graceful-stop (code=exited, status=1/FAILURE)
+ Main PID: 11263 (httpd2-prefork)
+   Status: "Processing requests..."
+   CGroup: /system.slice/apache2.service
+           ├─11263 /usr/sbin/httpd2-prefork -f /etc/apache2/httpd.conf -D [...]
+           ├─11280 /usr/sbin/httpd2-prefork -f /etc/apache2/httpd.conf -D [...]
+           ├─11281 /usr/sbin/httpd2-prefork -f /etc/apache2/httpd.conf -D [...]
+           ├─11282 /usr/sbin/httpd2-prefork -f /etc/apache2/httpd.conf -D [...]
+           ├─11283 /usr/sbin/httpd2-prefork -f /etc/apache2/httpd.conf -D [...]
+           └─11285 /usr/sbin/httpd2-prefork -f /etc/apache2/httpd.conf -D [...]
+</screen>
+   </step>
+  </procedure>
+ </sect1>
+ <section class="sect1" data-id-title="Journald configuration" id="sec-journalctl-config"><div class="titlepage"><div><div><div class="title-container"><h2 class="title"><span class="title-number-name"><span class="title-number">21.5 </span><span class="title-name">Journald configuration</span></span> <a class="permalink" href="cha-journalctl.html#sec-journalctl-config" title="Permalink">#</a></h2><div class="icons"><a class="icon-reportbug" target="_blank" title="Report an issue"> </a><a class="icon-editsource" href="https://github.com/SUSE/doc-sle/edit/main/xml/journalctl.xml" target="_blank" title="Edit source document"> </a></div></div></div></div></div><p>
+   The behavior of the systemd-journald service can be adjusted by modifying
+   <code class="filename">/etc/systemd/journald.conf</code>. This section introduces
+   only basic option settings. For a complete file description, see
+   <code class="command">man 5 journald.conf</code>. You need to restart the journal for
+   the changes to take effect with
+  </p><div class="verbatim-wrap"><pre class="screen"><code class="prompt user">&gt; </code><code class="command">sudo</code> systemctl restart systemd-journald</pre></div><section class="sect2" data-id-title="Changing the journal size limit" id="sec-journalctl-config-systemmaxuse"><div class="titlepage"><div><div><div class="title-container"><h3 class="title"><span class="title-number-name"><span class="title-number">21.5.1 </span><span class="title-name">Changing the journal size limit</span></span> <a class="permalink" href="cha-journalctl.html#sec-journalctl-config-systemmaxuse" title="Permalink">#</a></h3><div class="icons"><a class="icon-reportbug" target="_blank" title="Report an issue"> </a><a class="icon-editsource" href="https://github.com/SUSE/doc-sle/edit/main/xml/journalctl.xml" target="_blank" title="Edit source document"> </a></div></div></div></div></div><p>
+    If the journal log data is saved to a persistent location (see
+    <a class="xref" href="cha-journalctl.html#sec-journalctl-persistent" title="21.1. Making the journal persistent">Section 21.1, “Making the journal persistent”</a>), it uses up to 10% of the file
+    system the <code class="filename">/var/log/journal</code> resides on. For example,
+    if <code class="filename">/var/log/journal</code> is located on a 30 GB
+    <code class="filename">/var</code> partition, the journal may use up to 3 GB of
+    the disk space. To change this limit, change (and uncomment) the
+    <code class="option">SystemMaxUse</code> option:
+   </p><div class="verbatim-wrap"><pre class="screen">SystemMaxUse=50M</pre></div></section><section class="sect2" data-id-title="Forwarding the journal to /dev/ttyX" id="sec-journalctl-config-ttypath"><div class="titlepage"><div><div><div class="title-container"><h3 class="title"><span class="title-number-name"><span class="title-number">21.5.2 </span><span class="title-name">Forwarding the journal to <code class="filename">/dev/ttyX</code></span></span> <a class="permalink" href="cha-journalctl.html#sec-journalctl-config-ttypath" title="Permalink">#</a></h3><div class="icons"><a class="icon-reportbug" target="_blank" title="Report an issue"> </a><a class="icon-editsource" href="https://github.com/SUSE/doc-sle/edit/main/xml/journalctl.xml" target="_blank" title="Edit source document"> </a></div></div></div></div></div><p>
+    You can forward the journal to a terminal device to inform you about system
+    messages on a preferred terminal screen, for example,
+    <code class="literal">/dev/tty12</code>. Change the following journald options to
+   </p><div class="verbatim-wrap"><pre class="screen">ForwardToConsole=yes
+TTYPath=/dev/tty12</pre></div></section><section class="sect2" data-id-title="Forwarding the journal to syslog facility" id="sec-journalctl-config-forwardtosyslog"><div class="titlepage"><div><div><div class="title-container"><h3 class="title"><span class="title-number-name"><span class="title-number">21.5.3 </span><span class="title-name">Forwarding the journal to syslog facility</span></span> <a class="permalink" href="cha-journalctl.html#sec-journalctl-config-forwardtosyslog" title="Permalink">#</a></h3><div class="icons"><a class="icon-reportbug" target="_blank" title="Report an issue"> </a><a class="icon-editsource" href="https://github.com/SUSE/doc-sle/edit/main/xml/journalctl.xml" target="_blank" title="Edit source document"> </a></div></div></div></div></div><p>
+    Journald is backward compatible with traditional syslog implementations
+    such as <code class="systemitem">rsyslog</code>. Make sure the following is valid:
+   </p><div class="itemizedlist"><ul class="itemizedlist"><li class="listitem"><p>
+      rsyslog is installed.
+     </p><div class="verbatim-wrap"><pre class="screen"><code class="prompt user">&gt; </code><code class="command">sudo</code> rpm -q rsyslog
+rsyslog-7.4.8-2.16.x86_64</pre></div></li><li class="listitem"><p>
+      rsyslog service is enabled.
+     </p><div class="verbatim-wrap"><pre class="screen"><code class="prompt user">&gt; </code><code class="command">sudo</code> systemctl is-enabled rsyslog
+enabled</pre></div></li><li class="listitem"><p>
+      Forwarding to syslog is enabled in
+      <code class="filename">/etc/systemd/journald.conf</code>.
+     </p><div class="verbatim-wrap"><pre class="screen">ForwardToSyslog=yes</pre></div></li></ul></div></section>
+    </section>
+</topic>
