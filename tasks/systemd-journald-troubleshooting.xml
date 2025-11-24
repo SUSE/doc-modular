@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="cockpit-troubleshooting-selinux"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Troubleshooting &systemd; errors</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+     <para>
+   This section introduces a simple example to illustrate how to find and fix
+   the error reported by &systemd; during <command>apache2</command> start-up.
+  </para>
+    </abstract>
+  </info>
+<procedure>
+   <step>
+    <para>
+     Try to start the apache2 service:
+    </para>
+<screen># systemctl start apache2
+Job for apache2.service failed. See 'systemctl status apache2' and 'journalctl -xn' for details.</screen>
+   </step>
+   <step>
+    <para>
+     Let us see what the service's status says:
+    </para>
+<screen>&prompt.sudo;systemctl status apache2
+apache2.service - The Apache Webserver
+   Loaded: loaded (/usr/lib/systemd/system/apache2.service; disabled)
+   Active: failed (Result: exit-code) since Tue 2014-06-03 11:08:13 CEST; 7min ago
+  Process: 11026 ExecStop=/usr/sbin/start_apache2 -D SYSTEMD -DFOREGROUND \
+           -k graceful-stop (code=exited, status=1/FAILURE)</screen>
+    <para>
+     The ID of the process causing the failure is 11026.
+    </para>
+   </step>
+   <step>
+    <para>
+     Show the verbose version of messages related to process ID 11026:
+    </para>
+<screen>&prompt.sudo;journalctl -o verbose _PID=11026
+[...]
+MESSAGE=AH00526: Syntax error on line 6 of /etc/apache2/default-server.conf:
+[...]
+MESSAGE=Invalid command 'DocumenttRoot', perhaps misspelled or defined by a module
+[...]</screen>
+   </step>
+   <step>
+    <para>
+     Fix the typo inside <filename>/etc/apache2/default-server.conf</filename>,
+     start the apache2 service, and print its status:
+    </para>
+<screen>&prompt.sudo;systemctl start apache2 &amp;&amp; systemctl status apache2
+apache2.service - The Apache Webserver
+   Loaded: loaded (/usr/lib/systemd/system/apache2.service; disabled)
+   Active: active (running) since Tue 2014-06-03 11:26:24 CEST; 4ms ago
+  Process: 11026 ExecStop=/usr/sbin/start_apache2 -D SYSTEMD -DFOREGROUND
+           -k graceful-stop (code=exited, status=1/FAILURE)
+ Main PID: 11263 (httpd2-prefork)
+   Status: "Processing requests..."
+   CGroup: /system.slice/apache2.service
+           ├─11263 /usr/sbin/httpd2-prefork -f /etc/apache2/httpd.conf -D [...]
+           ├─11280 /usr/sbin/httpd2-prefork -f /etc/apache2/httpd.conf -D [...]
+           ├─11281 /usr/sbin/httpd2-prefork -f /etc/apache2/httpd.conf -D [...]
+           ├─11282 /usr/sbin/httpd2-prefork -f /etc/apache2/httpd.conf -D [...]
+           ├─11283 /usr/sbin/httpd2-prefork -f /etc/apache2/httpd.conf -D [...]
+           └─11285 /usr/sbin/httpd2-prefork -f /etc/apache2/httpd.conf -D [...]
+</screen>
+   </step>
+  </procedure>
+</topic>
