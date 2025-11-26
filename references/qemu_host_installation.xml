@@ -50,8 +50,8 @@
     <procedure>
       <step>
         <para>
-	install the <package>patterns-server-kvm_server</package> and
-	<package>patterns-server-kvm_tools</package>. Refer to <xref linkend="virt-components-installation-patterns"/>
+        install the <package>patterns-server-kvm_server</package> and
+        <package>patterns-server-kvm_tools</package>. Refer to <xref linkend="virt-components-installation-patterns"/>
         </para>
       </step>
       <step>
@@ -59,7 +59,7 @@
           Create a <guimenu>Network Bridge</guimenu>. If you do
           not plan to dedicate an additional physical network card to your
           virtual guests, network bridge is a standard way to connect the guest
-	  machines to the network. Refer to <xref linkend="libvirt-networks-bridged"/>.
+          machines to the network. Refer to <xref linkend="libvirt-networks-bridged"/>.
         </para>
       </step>
       <step>
@@ -73,12 +73,12 @@
         <para>
           Check if the module is loaded into memory:
         </para>
-	<screen>&prompt.user;lsmod | grep kvm
+        <screen>&prompt.user;lsmod | grep kvm
 kvm_amd               237568  20
 kvm                  1376256  17 kvm_amd</screen>
         <para>
-		Now the &kvm; host is ready to serve &kvm; &vmguest;s. <!-- TOFIX For more
-		information, see <xref linkend="cha-qemu-running"/>. -->
+                Now the &kvm; host is ready to serve &kvm; &vmguest;s. <!-- TOFIX For more
+                information, see <xref linkend="cha-qemu-running"/>. -->
         </para>
       </step>
     </procedure>
@@ -99,8 +99,8 @@ kvm                  1376256  17 kvm_amd</screen>
       <para>
         Examples included in this section assume basic knowledge of the
         <command>qemu-system-<replaceable>ARCH</replaceable></command> command
-	line options. <!-- TOFIX For more information, see
-	<xref linkend="cha-qemu-running"/>. -->
+        line options. <!-- TOFIX For more information, see
+        <xref linkend="cha-qemu-running"/>. -->
       </para>
     </tip>
 
@@ -410,120 +410,187 @@ Virtual Function [8086:10ca] (rev 01)
     </section>
 
     <section xml:id="kvm-qemu-virtfs">
-      <title>VirtFS: sharing directories between host and guests</title>
+     <title>VirtFS: sharing directories between host and guests</title>
+     <para>
+      &vmguest;s normally run in a separate computing space&mdash;they are
+      provided their own memory range, dedicated CPUs, and file system space.
+      The ability to share parts of the &vmhost;'s file system makes the
+      virtualization environment more flexible by simplifying mutual data
+      exchange. Network file systems, such as CIFS and NFS, have been the
+      traditional way of sharing directories. But as they are not
+      specifically designed for virtualization purposes, they suffer from
+      major performance and feature issues.
+     </para>
+     <note>
       <para>
-        &vmguest;s normally run in a separate computing space&mdash;they are
-        provided their own memory range, dedicated CPUs, and file system space.
-        The ability to share parts of the &vmhost;'s file system makes the
-        virtualization environment more flexible by simplifying mutual data
-        exchange. Network file systems, such as CIFS and NFS, have been the
-        traditional way of sharing directories. But as they are not
-        specifically designed for virtualization purposes, they suffer from
-        major performance and feature issues.
+       <emphasis>SELinux Requirement:</emphasis> For <literal>security_model=mapped</literal>,
+       configure SELinux context:
       </para>
+       <screen>&prompt.root; semanage fcontext -a -t virtiofsd_t "/tmp(/.*)?"
+&prompt.root; restorecon -Rv /tmp</screen>
+     </note>
+
+     <section xml:id="virtiofs-host-configuration">
+      <title>Host Configuration</title>
       <para>
-        &kvm; introduces a new optimized method called
-        <emphasis>VirtFS</emphasis> (sometimes called <quote>file system
-        pass-through</quote>). VirtFS uses a paravirtual file system driver,
-        which avoids converting the guest application file system operations
-        into block device operations, and then again into host file system
-        operations.
+       There is nothing special to do with form the host side, be sure that
+       <package>virtiofsd</package> is installed. The &vmguest; xml libvirt
+       file should have a configuration like:
       </para>
-      <para>
-        You typically use VirtFS for the following situations:
-      </para>
-      <itemizedlist mark="bullet" spacing="normal">
-        <listitem>
-          <para>
-            To access a shared directory from several guests, or to provide
-            guest-to-guest file system access.
-          </para>
-        </listitem>
-        <listitem>
-          <para>
-            To replace the virtual disk as the root file system to which the
-            guest's RAM disk connects during the guest boot process.
-          </para>
-        </listitem>
-        <listitem>
-          <para>
-            To provide storage services to different customers from a single
-            host file system in a cloud environment.
-          </para>
-        </listitem>
-      </itemizedlist>
-      <section xml:id="kvm-qemu-virtfs-implement">
-        <title>Implementation</title>
+      <screen>
+&lt;filesystem type="virtiofs" accessmode="mapped"/&gt;
+       &lt;driver="virtiofs"/&gt;
+       &lt;source dir="/tmp"/&gt;
+       &lt;target dir="/mnt/hosttmp"/&gt;
+       &lt;alias name="fs0"/&gt;
+       &lt;address type="pci" domain="0x0000" bus="0x01" slot="0x00" function="0x0"/&gt;
+              &lt;/filesystem&gt;</screen>
+      <section xml:id="virtiofs-accessmodes">
+       <title>Access Mode Options for virtiofs</title>
+       <para>
+        The <literal>accessmode</literal> attribute in the <literal>&lt;filesystem&gt;</literal> element
+        defines how guest file permissions map to host permissions. Only two values are valid:
+       </para>
+       <table>
+        <title>virtiofs Access Mode Options</title>
+        <tgroup cols="3">
+         <colspec colname="mode" colwidth="1*"/>
+         <colspec colname="description" colwidth="2*"/>
+         <colspec colname="security_impact" colwidth="2*"/>
+         <thead>
+          <row>
+           <entry><literal>accessmode</literal></entry>
+           <entry>Description</entry>
+           <entry>Security Implications</entry>
+          </row>
+         </thead>
+         <tbody>
+          <row>
+           <entry><literal>mapped</literal></entry>
+           <entry>
+            <para>
+             The default mode. Maps guest UIDs/GIDs to host UIDs/GIDs using a translation table.
+             Guest files appear as if owned by a dedicated "virtiofs" user on the host (typically UID 1000).
+            </para>
+            <para>
+             Example: Guest user <literal>uid=1000</literal> writes to host <literal>/tmp</literal> →
+             Host file appears as owned by <literal>virtiofsd</literal> user (not the guest user).
+            </para>
+           </entry>
+           <entry>
+            <para>
+             <emphasis>Recommended for all environments</emphasis>.
+            </para>
+            <para>
+             Prevents guest users from directly accessing host user accounts.
+            </para>
+            <para>
+             <emphasis>Does not require matching host users</emphasis>.
+            </para>
+           </entry>
+          </row>
+          <row>
+           <entry><literal>passthrough</literal></entry>
+           <entry>
+            <para>
+             Guest UIDs/GIDs are used directly on the host. The guest must have matching users on the host.
+            </para>
+            <para>
+             Example: Guest user <literal>uid=1000</literal> writes to host <literal>/tmp</literal> →
+             Host file appears as owned by the user with <literal>uid=1000</literal>.
+            </para>
+           </entry>
+           <entry>
+            <para>
+             <emphasis>Only for trusted guests</emphasis> (e.g., same-tenant cloud environments).
+            </para>
+            <para>
+             <emphasis>Requires matching host users</emphasis> (e.g., host must have <literal>useradd -u 1000 guestuser</literal>).
+            </para>
+            <para>
+             <emphasis>Security risk:</emphasis> Compromised guest can directly access host user accounts.
+            </para>
+           </entry>
+          </row>
+          <row>
+           <entry><literal>none</literal></entry>
+           <entry>
+            <para>
+             <emphasis>Invalid value</emphasis> (common documentation error).
+            </para>
+            <para>
+             <literal>virtiofsd</literal> rejects this option with error:
+             <literal>security_model=none is not supported</literal>.
+            </para>
+            <para>
+             <emphasis>Always use <literal>mapped</literal> (default) or <literal>passthrough</literal></emphasis>.
+            </para>
+           </entry>
+           <entry>
+            <para>
+             <emphasis>Causes immediate configuration failure</emphasis>.
+            </para>
+           </entry>
+          </row>
+         </tbody>
+        </tgroup>
+       </table>
+       <note>
         <para>
-          In &qemu;, the implementation of VirtFS is simplified by defining two
-          types of devices:
+         <emphasis>Key Configuration Rule:</emphasis>
+         <literal>accessmode='mapped'</literal> must match the host's
+         <literal>security_model=mapped</literal> in <literal>virtiofsd</literal>.
+         Mismatched modes cause mount failures with errors like:
+         <literal>Failed to set security context: Operation not permitted</literal>.
         </para>
-        <itemizedlist mark="bullet" spacing="normal">
-          <listitem>
-            <para>
-              <literal>virtio-9p</literal> device which transports protocol
-              messages and data between the host and the guest.
-            </para>
-          </listitem>
-          <listitem>
-            <para>
-	    <literal>virtio-fs</literal> (Virtual I/O File System) is a shared file
-	    system mechanism designed to enable high-performance, secure file sharing
-	    between a host system and virtual machines (VMs).
-            </para>
-          </listitem>
-        </itemizedlist>
-        <example xml:id="ex-qemu-virtfs-host">
-          <title>Exporting host's file system with VirtFS</title>
-<screen>&prompt.sudo;qemu-system-x86_64 [...] \
--fsdev local,id=exp1<co xml:id="co-virtfs-host-id"/>,path=/tmp/<co xml:id="co-virtfs-host-path"/>,security_model=mapped<co xml:id="co-virtfs-host-sec-model"/> \
--device virtio-9p-pci,fsdev=exp1<co xml:id="co-virtfs-host-fsdev"/>,mount_tag=v_tmp<co xml:id="co-virtfs-host-mnt-tag"/></screen>
-          <calloutlist>
-            <callout arearefs="co-virtfs-host-id">
-              <para>
-                Identification of the file system to be exported.
-              </para>
-            </callout>
-            <callout arearefs="co-virtfs-host-path">
-              <para>
-                File system path on the host to be exported.
-              </para>
-            </callout>
-            <callout arearefs="co-virtfs-host-sec-model">
-              <para>
-                Security model to be used&mdash;<literal>mapped</literal> keeps
-                the guest file system modes and permissions isolated from the
-                host, while <literal>none</literal> invokes a
-                <quote>pass-through</quote> security model in which permission
-                changes on the guest's files are reflected on the host as well.
-              </para>
-            </callout>
-            <callout arearefs="co-virtfs-host-fsdev">
-              <para>
-                The exported file system ID defined before with <literal>-fsdev
-                id=</literal> .
-              </para>
-            </callout>
-            <callout arearefs="co-virtfs-host-mnt-tag">
-              <para>
-                Mount tag used later on the guest to mount the exported file
-                system.
-              </para>
-            </callout>
-          </calloutlist>
-          <para>
-            Such an exported file system can be mounted on the guest as
-            follows:
-          </para>
-<screen>&prompt.sudo;mount -t 9p -o trans=virtio v_tmp /mnt</screen>
-          <para>
-            where <literal>v_tmp</literal> is the mount tag defined earlier
-            with <literal>-device mount_tag=</literal> and
-            <literal>/mnt</literal> is the mount point where you want to mount
-            the exported file system.
-          </para>
-        </example>
+       </note>
       </section>
+     </section>
+     <section xml:id="virtiofs-guest-configuration">
+      <title>Guest Configuration</title>
+      <para>
+       On the guest, load the kernel module and mount the file system:
+      </para>
+      <example>
+      <title>Guest Mount Command</title>
+       <screen>&prompt.root; modprobe virtiofs
+&prompt.root; mount -t virtiofs -o dax,cache=none host_tmp /mnt/hosttmp</screen>
+       <para>
+        <emphasis>Required options:</emphasis>
+      </para>
+        <itemizedlist>
+         <listitem>
+          <para><literal>virtiofs</literal></para>
+         </listitem>
+         <listitem>
+          <para><literal>dax</literal>: Enables direct access for performance (recommended)</para>
+         </listitem>
+         <listitem>
+          <para><literal>cache=none</literal>: Matches host configuration to prevent data loss</para>
+         </listitem>
+        </itemizedlist>
+      </example>
+      <note>
+       <para>
+        <emphasis>Guest Kernel Check:</emphasis> Verify module is loaded:
+       </para>
+        <screen>&prompt.sudo; lsmod | grep virtiofs</screen>
+      </note>
+     </section>
+     <section xml:id="troubleshooting">
+      <title>Troubleshooting Common Issues</title>
+      <itemizedlist>
+       <listitem>
+        <para><literal>Permission denied</literal>: Check SELinux context (see <xref linkend="virtiofs-host-configuration"/>)</para>
+       </listitem>
+       <listitem>
+        <para><literal>Mount fails with 9p</literal>: Verify you used <literal>-t virtiofs</literal> (not <literal>9p</literal>)</para>
+       </listitem>
+       <listitem>
+        <para>Guest writes not syncing: Add <literal>cache=none</literal> to mount options</para>
+       </listitem>
+      </itemizedlist>
+     </section>
     </section>
 
     <section xml:id="kvm-qemu-ksm">
