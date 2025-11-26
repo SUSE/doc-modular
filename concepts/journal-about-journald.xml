@@ -20,22 +20,31 @@
     <meta name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        <command>systemd</command> uses <command>journald</command> as its logging system. All system events are written to the journal, a system service managed by <command>systemd-journald</command> service.  This allows you to search and manage all system logs. It collects and stores logging data by maintaining structured indexed journals based on logging information received from the kernel, user processes, standard input, and system service errors.
-      </para>
-    </abstract>
-  </info>
+        <command>systemd</command> uses <command>journald</command> as its logging system. The <command>systemd-journald</command> service is enabled by default.</para>
+    <para>All system events are written to the journal, a system service managed by <command>systemd-journald</command> service. This allows you to search and manage all system logs. It collects and stores logging data by maintaining structured indexed journals based on logging information received from the kernel, user processes, standard input, and system service errors. The journal records nearly every type of event generated on the system, including kernel messages, initrd (initial RAM disk) messages, service startup/shutdown, application events, and authentication and session data. Journal allows centralization and unification of logs from all sources, and it records events in structured manner which in turn helps identifying errors and in crash recovery.</para>
+   <para><command>journalctl</command> is the command-line tool to view and analyze the logs from the <command>systemd-journald</command> service.</para></abstract>
+  
+   </info>
+  <section xml:id="sec-journalctl-managing">
+  <title><command>journalctl</command>: configuration and structure</title>
+
   <para>
-    The <command>systemd-journald</command> service is enabled by default.
+   This section describes the <command>journalctl</command> location, configuring the location for persistent logs, and the <command>journalctl</command> entry structure.
   </para>
-  <para>The journal records nearly every type of event generated on the system, including Kernel messages, Initrd (initial RAM disk) messages, Service startup/shutdown, Application events, and Authentication and session data. Journal allows centralization and unification of logs from all sources, and it records events in structured manner which in turn helps identifying errors and in crash recovery.</para>
-  <para>The <command>journald</command> command collects log data from several sources simultaneously logs are then managed in a structured, binary format within files in <filename>/run/log/journal/</filename> by default. Because the <filename>/run/ directory</filename> is volatile by nature, log data is lost at reboot. To make the log data persistent, create the directory <filename>/var/log/journal/</filename> and make sure it has the correct access modes and ownership, so the <command>systemd-journald</command> service can store its data. To switch to persistent logging, execute the following commands:</para>
+<itemizedlist>
+<listitem><para>Verify the logs location:</para>
+<screen>&prompt.sudo; ls /var/log/journal
+&prompt.sudo; ls /run/log/journal
+</screen>
+  <para>The <command>journald</command> command collects log data from several sources simultaneously logs and are then managed in a structured, binary format within files in <filename>/run/log/journal/</filename> by default. Because the <filename>/run/ directory</filename> is volatile by nature, log data is lost at reboot. To make the log data persistent, create a directory <filename>/var/log/journal/</filename> so the <command>systemd-journald</command> service can store its data. To switch to persistent logging across reboots, create <filename>/var/log/journal</filename>:</para>
   <screen>&prompt.sudo;  mkdir /var/log/journal
 &prompt.sudo;  systemd-tmpfiles --create --prefix=/var/log/journal
 &prompt.sudo;  journalctl --flush</screen>
 <para>All log data stored in <filename>/run/log/journal/</filename> are flushed into <filename>/var/log/journal/</filename>.</para>
-  <section>
-   <title>Journal entry structure</title>
-  <para>Log entry in the journal is a data structure containing the log message and numerous metadata fields,  such as time stamp, source fields, systemd fields,  kernel fields, and priority level.</para>
+</listitem>
+<listitem><para>View the journal entry structure:</para>
+<screen>&prompt.sudo; journalctl -n 1 -o verbose</screen>
+<para>Log entry in the journal is a data structure containing the log message and  metadata fields:</para>
 <itemizedlist><listitem><para>Timestamp: The exact time the event occurred.</para></listitem>
 <listitem><para>Source Fields</para>
 <itemizedlist>
@@ -57,85 +66,17 @@
 </itemizedlist>
 </listitem><listitem><para>Priority level: A numeric value indicating the severity of the message (0=emerg, 7=debug).</para></listitem>
 </itemizedlist>
+</listitem>
+</itemizedlist>
 </section>
- <section xml:id="sec-journalctl-usage">
-  <title><command>journalctl</command> usage</title>
-
-  <para>
-   Running the <command>journalctl</command> without any options displays all logged messages, usually starting from the oldest, and pipes the output through a pager (like less) for easy navigation.
-  </para>
-<para>Listed below are the common  useful options to enhance the default <command>journalctl</command> behavior. All switches are described in the <command>journalctl</command> man page, man 1 <command>journalctl</command>. </para>
-  <tip>
-   <title>Messages related to a specific executable</title>
-   <para>
-    To show all journal messages related to a specific executable, specify the
-    full path to the executable:
-   </para>
-<screen>&prompt.sudo;journalctl /usr/lib/systemd/systemd</screen>
-  </tip>
-
-  <variablelist>
-   <varlistentry>
-    <term>-f</term>
-    <listitem>
-     <para>
-      Shows only the most recent journal messages, and prints new log entries
-      as they are added to the journal.
-     </para>
-    </listitem>
-   </varlistentry>
-   <varlistentry>
-    <term/>
-    <listitem>
-     <para>
-      Prints the messages and jumps to the end of the journal, so that the
-      latest entries are visible within the pager.
-     </para>
-    </listitem>
-   </varlistentry>
-   <varlistentry>
-    <term>-r</term>
-    <listitem>
-     <para>
-      Prints the messages of the journal in reverse order, so that the latest
-      entries are listed first.
-     </para>
-    </listitem>
-   </varlistentry>
-   <varlistentry>
-    <term>-k</term>
-    <listitem>
-     <para>
-      Shows only kernel messages. This is equivalent to the field match
-      <literal>_TRANSPORT=kernel</literal> (see
-      <xref linkend="sec-journalctl-filter-fields"/>).
-     </para>
-    </listitem>
-   </varlistentry>
-   <varlistentry>
-    <term>-u</term>
-    <listitem>
-     <para>
-      Shows only messages for the specified &systemd; unit. This is equivalent
-      to the field match
-      <literal>_SYSTEMD_UNIT=<replaceable>UNIT</replaceable></literal> (see
-      <xref linkend="sec-journalctl-filter-fields"/>).
-     </para>
-<screen>&prompt.sudo;journalctl -u apache2</screen>
-    </listitem>
-   </varlistentry>
-  </variablelist>
-  <para/>
-</section>
-  <section xml:id="sec-journalctl-filter">
+<section xml:id="sec-journalctl-filter">
   <title>Filtering the journal output</title>
 
   <para>
-   When called without switches, <command>journalctl</command> shows the full
+   This section describes how to refine the search in logs according to boot numbers, for specific time interval or to view specific data fields.
    content of the journal, the oldest entries listed first. The output can be
    filtered by specific switches and fields.
   </para>
-
   <section xml:id="sec-journalctl-filter-boot">
    <title>Filtering based on a boot number</title>
    <para>
