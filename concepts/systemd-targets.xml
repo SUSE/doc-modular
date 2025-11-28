@@ -15,22 +15,26 @@
   xmlns:xlink="http://www.w3.org/1999/xlink"
   xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>&systemd; targets</title>    <!-- can be changed via merge in the assembly -->
+    <title>Understanding &systemd; targets</title>    <!-- can be changed via merge in the assembly -->
     <!--add author's email address-->
     <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
     <abstract>      <!-- can be changed via merge in the assembly -->
       <para>
      &systemd; uses units and targets. A &systemd; unit defines a service or action on the system, which consists of a name, type, and  configuration file.
-        A &systemd; target combines several units and defines which services have to be started to reach the target.
+     </para>
+    </abstract>
+    </info>
+     <section xml:id="systemd-what-are-targets">
+<title>What are &systemd; targets?</title>
+      <para>
+     A &systemd; target combines several units and defines which services have to be started to reach the target.
         On a server, for example, this is a state where the network is running and multiple users can log in.
         These files are identified by the suffix <literal>.target</literal>.
       </para>
       <para>Similar to unit files, different targets may be nested via dependencies. For example, <literal>multi-user.target</literal> requires (among others) the targets
         that set up login and user session services.
       </para>
-    </abstract>
-  </info>
-  <para>
+    <para>
     Common &systemd; targets:
   </para>
   <variablelist>
@@ -87,7 +91,121 @@
       </listitem>
     </varlistentry>
   </variablelist>
-  <para>For more information on &systemd; targets, refer to <emphasis>man 5 systemd.target</emphasis>
-        and <emphasis>man 7 systemd.special</emphasis>.
+ </section>
+<section xml:id="systemd-set-targets">
+<title>Setting up a &systemd; target</title>
+<para>To set up a &systemd; target, you need to create a new target unit file and define any required dependencies.
+  A target is a group of unit files that manages the state of services. A target can be used to control groups of services
+  or define system states.</para>
+  <procedure>
+    <step>
+    <para>Create a new file with the <literal>.target</literal> extension in <filename>/etc/systemd/system/</filename>. </para>
+    <para>For example:</para>
+    <screen>&prompt.sudo; <command>vi /etc/systemd/system/test.target</command></screen>
+  </step>
+  <step>
+    <para>Define the target with basic configuration.</para>
+    <para>For example:</para>
+<screen>[Unit]
+Description= Test target
+Requires=multi-user.target
+After=multi-user.target
+
+[Install]
+WantedBy=multi-user.target
+</screen>
+<itemizedlist>
+<listitem>
+  <para>
+   <emphasis>Requires:</emphasis> specifies that <literal>multi-user.target</literal> must be reached
+   for <literal>test.target</literal>  to be active.
   </para>
+</listitem>
+<listitem>
+  <para>
+    <emphasis>After:</emphasis> specifies that this target starts after the <literal>multi-user.target</literal>.
+       </para>
+</listitem>
+     <listitem>
+      <para>
+        <emphasis>WantedBy:</emphasis> specifies that this target should be a part of <literal>multi-user.target</literal>.
+      </para>
+      </listitem>
+      </itemizedlist>
+  </step>
+  <step>
+    <para>Set permissions for the target file. </para>
+    <para>For example:</para>
+    <screen>&prompt.sudo; <command>chmod 644 /etc/systemd/system/test.target
+    </command></screen> </step>
+    <step>
+    <para>Link the required services to the target file. Create a <literal>.wants</literal> directory and then create
+    symbolic links to the services you want to include in your custom target.</para>
+    <para>For example:</para>
+    <screen>&prompt.sudo; <command>mkdir -p /etc/systemd/system/custom.target.wants/ </command></screen>
+    <screen>&prompt.sudo; <command>ln -s /etc/systemd/system/test.service /etc/systemd/system/custom.target.wants/
+    </command></screen>
+  </step>
+  <step>
+    <para>Reload &systemd;. </para>
+    <para>For example:</para>
+    <screen>&prompt.sudo; <command>systemctl daemon-reload</command></screen> </step>
+    <step>
+      <para>Start and enable the target. </para>
+      <para>For example:</para>
+      <screen>&prompt.sudo; <command>systemctl start test.target</command></screen>
+      <screen>&prompt.sudo; <command>systemctl enable test.target</command></screen>
+    </step>
+    <step>
+      <para>Verify the status of the custom target. </para>
+      <para>For example:</para>
+      <screen>&prompt.sudo; <command>systemctl status test.target</command></screen>
+      </step>
+      <step>
+        <para>Verify all the units that are part of this target. </para>
+        <para>For example:</para>
+        <screen>&prompt.sudo; <command>systemctl list-dependencies test.target </command></screen>
+        </step>
+       <step><para>Your custom &systemd; target is set up and configured.</para></step>
+      </procedure>
+      <para>You can use the following common configuration options: </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+           <emphasis>Description:</emphasis> human-readable description of the target.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <emphasis>Documentation:</emphasis> URIs to documentation.</para>
+        </listitem>
+             <listitem>
+              <para>
+                <emphasis>AllowIsolate:</emphasis>
+                If set to <literal>true</literal>, this unit can be used with the <command>systemctl isolate</command> command.
+              </para>
+              </listitem>
+              <listitem>
+                <para>
+                  <emphasis>Wants:</emphasis>
+                  Units that can be started but is not mandatory.
+                </para>
+                </listitem>
+                <listitem>
+                  <para>
+                    <emphasis>After/Before:</emphasis>
+                    the order of the dependency.
+                  </para>
+                  </listitem>
+                  <listitem>
+                    <para>
+                      <emphasis>Conflicts:</emphasis>
+                      units that should not be active while this target is active.
+                    </para>
+                    </listitem>
+              </itemizedlist>
+<para>For more information on &systemd; targets, refer to <emphasis>man 5 systemd.target</emphasis>
+  and <emphasis>man 7 systemd.special</emphasis>.
+</para>
+</section>
 </topic>
