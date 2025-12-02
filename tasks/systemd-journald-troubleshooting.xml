@@ -26,58 +26,59 @@ in the assembly -->
   </para>
       </abstract>
   </info>
+  <section><title>View &systemd; errors</title>
 <procedure>
-  <title>Troubleshoot <command>journalctl</command> errors</title>
-  <step><para>Identify the severity and content of the error.The errors are marked with priority level:</para>
-<itemizedlist><listitem><para><guimenu>0-2</guimenu>: <command>emerg, alert, crit</command>: Critical issues, system collapse imminent.</para></listitem>
+  <step><para>View the list of failed &systemd; units:</para>
+  <screen>systemctl --failed</screen>
+<para>The list of all failed services appear.</para></step>
+  <step><para>Identify the severity and content of the error.</para>
+    <screen>journalctl -p 0..7 -b</screen>
+    <para>The list of errors with priority level <literal>0 to 7</literal> appears. The errors are marked with priority level:
+    </para>
+    <itemizedlist>
+  <listitem><para><guimenu>0-2</guimenu>: <command>emerg, alert, crit</command>: Critical issues, system collapse imminent.</para></listitem>
   <listitem><para><guimenu>3</guimenu>: <command>err (Error)</command>: A service or application failed to complete a requested operation.</para></listitem>
-   <listitem><para><guimenu>4</guimenu>: <command>warning </command>: Something undesirable happened but is not an immediate failure.</para></listitem>
- <listitem><para><guimenu>5-7</guimenu>: <command>notice, info, debug</command>: Normal operational information and developer diagnostics.</para></listitem></itemizedlist>
+  <listitem><para><guimenu>4</guimenu>: <command>warning </command>: Something undesirable happened but is not an immediate failure.</para></listitem>
+  <listitem><para><guimenu>5-7</guimenu>: <command>notice, info, debug</command>: Normal operational information and developer diagnostics.</para></listitem>
+</itemizedlist>
 </step>
-<step><para>Identify the failing unit using the following command:</para>
+<step><para>View the error log for the failing service using the following command:</para>
 <screen>journalctl -u &lt;failing_service_name&gt;</screen>
 <para>The lines preceding the termination message includes information on the error.</para>
-<itemizedlist><listitem><para><guimenu>Exit Status</guimenu>: f a service stops, look for a message like Process xxx exited with status 1/FAILURE. A status of 0 is success. Any non-zero status indicates an error. </para></listitem>
+<itemizedlist>
+  <listitem><para><guimenu>Exit Status</guimenu>: f a service stops, look for a message like Process xxx exited with status 1/FAILURE. A status of 0 is success. Any non-zero status indicates an error. </para></listitem>
   <listitem><para><guimenu>Configuration Errors</guimenu>: Messages containing phrases like No such file or directory, Permission denied, or Address already in use usually point to a problem in the service's configuration file</para></listitem>
-   <listitem><para><guimenu>Out-of-Memory (OOM)</guimenu>: Out-of-Memory (OOM)</para></listitem>
- </itemizedlist></step>
+  <listitem><para><guimenu>Out-of-Memory (OOM)</guimenu>: Out-of-Memory (OOM)</para></listitem>
+ </itemizedlist>
+</step>
 <step><para>Use detailed views of logs to get detailed information on the error.</para>
 <screen>journalctl -xe</screen>
-<para>To view all messages from the Apache service during the current boot, with detailed explanations, run the following command:</para>
+<para>For example, to view all messages from the Apache service during the current boot, with detailed explanations, run the following command:</para>
 <screen>journalctl -u httpd.service -b -xe</screen></step>
 </procedure>
+</section>
 <section>
-  <title>Troubleshoot apache2 error</title>
+  <title>Troubleshoot &systemd; error</title>
 <procedure>
     <para>
-   This section introduces a simple example to illustrate how to find and fix
-   the error reported by &systemd; during <command>apache2</command> start-up.
-  </para>
+   This section introduces an example to illustrate how to find and fix
+   the error reported by &systemd; during <command>apache2</command> start-up.</para>
     <step>
-    <para>
-     Try to start the apache2 service:
-    </para>
-<screen># systemctl start apache2
+    <para>Start the apache2 service:</para>
+<screen>systemctl start apache2
 Job for apache2.service failed. See 'systemctl status apache2' and 'journalctl -xn' for details.</screen>
    </step>
-   <step>
-    <para>
-     Let us see what the service's status says:
-    </para>
+   <step><para>View the service status:</para>
 <screen>&prompt.sudo;systemctl status apache2
 apache2.service - The Apache Webserver
    Loaded: loaded (/usr/lib/systemd/system/apache2.service; disabled)
    Active: failed (Result: exit-code) since Tue 2025-09-03 11:08:13 EDT; 7min ago
   Process: 11026 ExecStop=/usr/sbin/start_apache2 -D SYSTEMD -DFOREGROUND \
            -k graceful-stop (code=exited, status=1/FAILURE)</screen>
-    <para>
-     The ID of the process causing the failure is 11026.
-    </para>
+    <para>The ID of the process causing the failure is 11026.</para>
    </step>
    <step>
-    <para>
-     Show the verbose version of messages related to process ID 11026:
-    </para>
+    <para>View the verbose version of messages related to process ID 11026:</para>
 <screen>&prompt.sudo;journalctl -o verbose _PID=11026
 [...]
 MESSAGE=AH00526: Syntax error on line 6 of /etc/apache2/default-server.conf:
@@ -85,11 +86,7 @@ MESSAGE=AH00526: Syntax error on line 6 of /etc/apache2/default-server.conf:
 MESSAGE=Invalid command 'DocumenttRoot', perhaps misspelled or defined by a module
 [...]</screen>
    </step>
-   <step>
-    <para>
-     Fix the typo inside <filename>/etc/apache2/default-server.conf</filename>,
-     start the apache2 service, and print its status:
-    </para>
+   <step><para>Fix the typo inside <filename>/etc/apache2/default-server.conf</filename>, start the apache2 service, and print its status:</para>
 <screen>&prompt.sudo;systemctl start apache2 &amp;&amp; systemctl status apache2
 apache2.service - The Apache Webserver
    Loaded: loaded (/usr/lib/systemd/system/apache2.service; disabled)
