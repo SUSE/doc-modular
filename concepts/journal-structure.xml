@@ -23,7 +23,7 @@
     <meta name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
     <abstract><!-- can be changed via merge in the assembly -->
       <para>
-       Journal is a  centralization and unification of logs from all sources, and it stores events in structured manner which in turn helps identifying errors and in crash recovery.
+       Journal is a centralization and unification of logs from all sources, and it stores events in structured manner which in turn helps identifying errors and in crash recovery.
       </para>
     </abstract>
   </info>
@@ -33,13 +33,119 @@
       By default, <literal>journald</literal> stores the collected data in the volatile memory in
       <filename>/run/log/journal</filename>, so after reboot the data is lost.
     </para>
+    <para>
+      If <literal>systemd-journald</literal> is configured to store the logs in a persistent
+      manner, you can find the journal in <filename>/var/log/journal</filename>. Ensure that the
+      directoy exists:
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Check if the directory exist:
+        </para>
+          <screen>&prompt.sudo;<command>ls /var/log</command>
+...        
+journal                             
+...
+
+          </screen>
+        
+      </step>
+      <step>
+        <para>If the <filename>/var/log/journal</filename> directory does not exist, create
+        it:</para>
+        <screen>&prompt.sudo;<command>mkdir /var/log/journal</command>     
+        </screen>
+      </step>
+      <step>
+        <para>
+          Set correct ownership and access perimissions:
+        </para>
+        <screen>&prompt.sudo;  systemd-tmpfiles --create --prefix=/var/log/journal</screen>
+      </step>
+      <step performance="optional">
+        <para>
+          To flush the data from RAM to the directory:
+        </para>
+        <screen>&prompt.sudo;  <command>journalctl --flush</command></screen>
+      </step>
+    </procedure>
+    <para>For details about
+      the service configuration, refer to <xref linkend="journal-configure-journald"/>.
+    </para>
   </section>
   <section xml:id="journal-what-it-is-structure">
-    <title>The structure of the journal</title>
+    <title>The journal logs structure</title>
     <para>
-      A paragraph of text, answering the question above and explaining the
-      mechanism behind foo bar.
+      The logs are stored in binary format across several files. To view the structure of a log
+      entry, proceed as follows:
     </para>
+    <screen>&prompt.sudo; <command>journalctl -n 1 -o verbose</command>
     
+    Fri 2025-12-05 10:52:53.284321 CET [s=5b7ae2e926794210bf832d014f5f560a;i=d49752&gt;
+    _UID=1000
+    _AUDIT_SESSION=3
+    _AUDIT_LOGINUID=1000
+    _SYSTEMD_OWNER_UID=1000
+    _SYSTEMD_UNIT=user@1000.service
+    _SYSTEMD_SLICE=user-1000.slice
+    _MACHINE_ID=d3489468c8534c5d81a2860cf9a2a20e
+    _RUNTIME_SCOPE=system
+    _SELINUX_CONTEXT=unconfined
+    PRIORITY=6
+    _TRANSPORT=syslog
+    _BOOT_ID=d095069bd59b4bc4bf67c8c71999243b
+   SYSLOG_IDENTIFIER=sudo
+    SYSLOG_TIMESTAMP=Dec  5 10:52:53 
+    _PID=25806
+    _COMM=sudo
+    _EXE=/usr/bin/sudo
+    _CMDLINE=sudo journalctl -n 1 -o verbose
+
+    ...
+    </screen>
+    <para>The log entry is a data structure containing the log message and metadata fields:</para>
+    <variablelist>
+      <varlistentry>
+        <term>Timestamp</term>
+        <listitem>
+          <para>
+The exact time the event occured
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Source Fields</term>
+        <listitem>
+          
+            <itemizedlist>
+  <listitem><para><literal>_PID</literal>: process ID of the sender</para></listitem>
+  <listitem><para><literal>_UID/_GID</literal>: User/Group ID of the sender</para></listitem>
+  <listitem><para><literal>_EXE</literal>: path to the executable</para></listitem>
+  <listitem><para><literal>_COMM</literal>: name of the executable</para></listitem>
+</itemizedlist>          
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>System Fields</term>
+        <listitem>
+          <itemizedlist>
+  <listitem><para><literal>_SYSTEMD_UNIT</literal>: The systemd unit (service) that generated the
+  log (for example, <literal>sshd.service</literal>)</para></listitem>
+  <listitem><para><literal>_BOOT_ID</literal>: A unique identifier for the specific system boot session</para></listitem>
+</itemizedlist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Kernel Fields</term>
+        <listitem><para><literal>_TRANSPORT</literal>: How the message was logged (e.g., kernel, syslog, stdout).</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Priority level</term>
+        <listitem>
+          <para>A numeric value indicating the severity of the message (0=emerg, 7=debug)</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
   </section>
 </topic>
