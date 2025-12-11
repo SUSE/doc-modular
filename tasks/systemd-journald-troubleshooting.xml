@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="cockpit-troubleshooting-selinux"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Troubleshooting &systemd; errors</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+     <para>
+   This section introduces ways to interpret and fix the log messages retrieved through <command>journalctl</command>.
+  </para>
+      </abstract>
+  </info>
+  <section><title>View &systemd; errors</title>
+<procedure>
+  <step><para>View the list of failed &systemd; units:</para>
+  <screen>systemctl --failed</screen>
+<para>The list of all failed services appears.</para></step>
+  <step><para>Identify the severity and content of the error.</para>
+    <screen>journalctl -p 0..7 -b</screen>
+    <para>The list of errors with priority levels <literal>0 to 7</literal> appears. The errors are marked with priority level:
+    </para>
+    <itemizedlist>
+  <listitem><para><guimenu>0-2</guimenu>: <command>emerg, alert, crit</command>: Critical issues, system collapse imminent.</para></listitem>
+  <listitem><para><guimenu>3</guimenu>: <command>err (Error)</command>: A service or application failed to complete a requested operation.</para></listitem>
+  <listitem><para><guimenu>4</guimenu>: <command>warning </command>: Something undesirable happened but is not an immediate failure.</para></listitem>
+  <listitem><para><guimenu>5-7</guimenu>: <command>notice, info, debug</command>: Normal operational information and developer diagnostics.</para></listitem>
+</itemizedlist>
+</step>
+<step><para>View the error log for the failing service using the following command:</para>
+<screen>journalctl -u &lt;failing_service_name&gt;</screen>
+<para>The lines preceding the termination message include information about the error.</para>
+<itemizedlist>
+  <listitem><para><guimenu>Exit Status</guimenu>: If a service stops, look for a message like <literal>Process xxx exited</literal> with status 1/FAILURE. A status of 0 indicates success. Any nonzero status indicates an error. </para></listitem>
+  <listitem><para><guimenu>Configuration Errors</guimenu>: Messages containing phrases like <literal>No such file or directory</literal>, <literal>Permission denied</literal> or <literal>Address already in use</literal> usually point to a problem in the service's configuration file.</para></listitem>
+  <listitem><para><guimenu>Out-of-Memory (OOM)</guimenu>: The service was terminated because
+   it exceeded memory limits.</para></listitem>
+ </itemizedlist>
+</step>
+<step><para>Use detailed views of logs to get detailed information about the error.</para>
+<screen>journalctl -xe</screen>
+<para>For example, to view all messages from the Apache service during the current boot with detailed explanations, run the following command:</para>
+<screen>journalctl -u httpd.service -b -xe</screen></step>
+</procedure>
+</section>
+<section>
+  <title>Troubleshoot &systemd; error</title>
+<procedure>
+    <para>
+   This section introduces an example to illustrate how to find and fix
+   the error reported by &systemd; during <command>apache2</command> start-up.</para>
+    <step>
+    <para>Start the apache2 service:</para>
+<screen>systemctl start apache2
+Job for apache2.service failed. See 'systemctl status apache2' and 'journalctl -xn' for details.</screen>
+   </step>
+   <step><para>View the service status:</para>
+<screen>&prompt.sudo;systemctl status apache2
+apache2.service - The Apache Webserver
+   Loaded: loaded (/usr/lib/systemd/system/apache2.service; disabled)
+   Active: failed (Result: exit-code) since Tue 2025-09-03 11:08:13 EDT; 7min ago
+  Process: 11026 ExecStop=/usr/sbin/start_apache2 -D SYSTEMD -DFOREGROUND \
+           -k graceful-stop (code=exited, status=1/FAILURE)</screen>
+    <para>The ID of the process causing the failure is 11026.</para>
+   </step>
+   <step>
+    <para>View the verbose version of messages related to process ID 11026:</para>
+<screen>&prompt.sudo;journalctl -o verbose _PID=11026
+[...]
+MESSAGE=AH00526: Syntax error on line 6 of /etc/apache2/default-server.conf:
+[...]
+MESSAGE=Invalid command 'DocumenttRoot', perhaps misspelled or defined by a module
+[...]</screen>
+   </step>
+   <step><para>Fix the typo inside <filename>/etc/apache2/default-server.conf</filename>, start the apache2 service, and print its status:</para>
+<screen>&prompt.sudo;systemctl start apache2 &amp;&amp; systemctl status apache2
+apache2.service - The Apache Webserver
+   Loaded: loaded (/usr/lib/systemd/system/apache2.service; disabled)
+   Active: active (running) since Tue 2025-09-03 11:26:24 EDT; 4ms ago
+  Process: 11026 ExecStop=/usr/sbin/start_apache2 -D SYSTEMD -DFOREGROUND
+           -k graceful-stop (code=exited, status=1/FAILURE)
+ Main PID: 11263 (httpd2-prefork)
+   Status: "Processing requests..."
+   CGroup: /system.slice/apache2.service
+           ├─11263 /usr/sbin/httpd2-prefork -f /etc/apache2/httpd.conf -D [...]
+           ├─11280 /usr/sbin/httpd2-prefork -f /etc/apache2/httpd.conf -D [...]
+           ├─11281 /usr/sbin/httpd2-prefork -f /etc/apache2/httpd.conf -D [...]
+           ├─11282 /usr/sbin/httpd2-prefork -f /etc/apache2/httpd.conf -D [...]
+           ├─11283 /usr/sbin/httpd2-prefork -f /etc/apache2/httpd.conf -D [...]
+           └─11285 /usr/sbin/httpd2-prefork -f /etc/apache2/httpd.conf -D [...]
+</screen>
+   </step>
+  </procedure>
+  </section>
+</topic>
