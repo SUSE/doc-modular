@@ -7,7 +7,7 @@
 
 <!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_storage_protection.xml -->
 
-<topic xml:id="ha-sbd-setting-up-diskbased"
+<topic xml:id="ha-sbd-setting-up-diskless"
  role="task" xml:lang="en"
  xmlns="http://docbook.org/ns/docbook" version="5.2"
  xmlns:its="http://www.w3.org/2005/11/its"
@@ -15,13 +15,14 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Setting up disk-based &sbd;</title>
+    <title>Setting up diskless &sbd;</title>
     <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        Disk-based &sbd; fences nodes by exchanging messages via shared block storage. It works
-        together with a watchdog on each node to ensure that misbehaving nodes are really stopped.
-        You can configure up to three &sbd; devices.
+        Diskless &sbd; fences nodes by using only the watchdog, without relying on a shared storage
+        device. However, diskless &sbd; cannot handle a split-brain scenario for a two-node cluster.
+        This configuration should only be used for clusters with more than two nodes, or in
+        combination with &qdevice; to help handle split-brain scenarios.
       </para>
       <para>
         This procedure explains how to configure &sbd; after the cluster is already installed and
@@ -30,14 +31,16 @@
     </abstract>
   </info>
 
-  <xi:include href="../snippets/ha-cluster-restart-warning.xml"/>
-    <warning>
-    <title>Overwriting existing data</title>
+  <important>
+    <title>Cluster restart required</title>
     <para>
-      Make sure any device you want to use for &sbd; does not hold any important data. Configuring
-      a device for use with &sbd; overwrites the existing data.
+      In this procedure, the setup script has to restart the cluster services before it can modify
+      the <literal>stonith-watchdog-timeout</literal>. Therefore, if any resources are running, you
+      must put the cluster into maintenance mode before running the script. This allows the services
+      managed by the resources to keep running while the cluster restarts. However, be aware that
+      the resources will not have cluster protection while in maintenance mode.
     </para>
-  </warning>
+  </important>
 
   <itemizedlist>
     <title>Requirements</title>
@@ -53,21 +56,11 @@
     </listitem>
     <listitem>
       <para>
-        Shared storage is configured and accessible on all nodes.
-      </para>
-    </listitem>
-    <listitem>
-      <para>
-        The path to the shared storage device is consistent across all nodes. Use stable device
-        names such as <filename>/dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></filename>.
-      </para>
-    </listitem>
-    <listitem>
-      <para>
         All nodes have a watchdog device, and the correct watchdog kernel module is loaded.
       </para>
     </listitem>
   </itemizedlist>
+
   <para>
     Perform this procedure on only one cluster node:
   </para>
@@ -79,19 +72,29 @@
     </step>
     <step>
       <para>
-        Run the &sbd; stage of the cluster setup script, using the option <option>--sbd-device</option>
-        (or <option>-s</option>) to specify the shared storage device:
+        Check whether any resources are running:
       </para>
-<screen>&prompt.user;<command>sudo crm cluster init sbd --sbd-device /dev/disk/by-id/<replaceable>DEVICE_ID</replaceable></command></screen>
+<screen>&prompt.user;<command>sudo crm status</command></screen>
+    </step>
+    <step>
+      <para>
+        If any resources are running, put the cluster into maintenance mode:
+      </para>
+<screen>&prompt.user;<command>sudo crm maintenance on</command></screen>
+      <para>
+        In this state, the cluster stops monitoring all resources. This allows the services
+        managed by the resources to keep running while the cluster restarts. However, be aware
+        that the resources will not have cluster protection while in maintenance mode.
+      </para>
+    </step>
+    <step>
+      <para>
+        Run the &sbd; stage of the cluster setup script, using the option <option>--enable-sbd</option>
+        (or <option>-S</option>) to specify diskless &sbd;:
+      </para>
+<screen>&prompt.user;<command>sudo crm cluster init sbd --enable-sbd </command></screen>
       <itemizedlist>
         <title>Additional options</title>
-        <listitem>
-          <para>
-            You can use <option>--sbd-device</option> (or <option>-s</option>) multiple times to
-            configure up to three &sbd; devices. Each &sbd; device must use a different shared
-            storage device.
-          </para>
-        </listitem>
         <listitem>
           <para>
             If multiple watchdogs are available, you can use the option <option>--watchdog</option>
@@ -102,14 +105,17 @@
         </listitem>
       </itemizedlist>
       <para>
-        The script initializes &sbd; on the shared storage device, creates a
-        <literal>fence_sbd</literal> cluster resource, and updates the &sbd; configuration
-        file and timeout settings. The script also checks whether it is safe to restart the cluster
-        services automatically. If any non-<literal>stonith</literal> resources are running, the
-        script warns you to restart the cluster services manually.
+        The script updates the &sbd; configuration file and restarts the cluster services, then
+        updates additional timeout settings. Unlike other node fencing mechanisms, diskless &sbd;
+        does not need a fence agent.
       </para>
     </step>
-    <xi:include href="../snippets/ha-cluster-restart-steps.xml"/>
+    <step>
+      <para>
+        If the cluster is still in maintenance mode, put it back into normal operation:
+      </para>
+<screen>&prompt.user;<command>sudo crm maintenance off</command></screen>
+    </step>
     <step>
       <para>
         Check the &sbd; configuration:
@@ -117,8 +123,8 @@
 <screen>&prompt.user;<command>sudo crm sbd configure show</command>
 </screen>
       <para>
-        The output of this command shows the &sbd; device's metadata, the enabled settings in the
-        <filename>/etc/sysconfig/sbd</filename> file, and the &sbd;-related cluster settings.
+        The output of this command shows the enabled settings in the
+        <filename>/etc/sysconfig/sbd</filename> file and the &sbd;-related cluster settings.
       </para>
     </step>
     <step>
@@ -128,7 +134,7 @@
 <screen>&prompt.user;<command>sudo crm sbd status</command></screen>
       <para>
         The output of this command shows the type of &sbd; configured, information about the &sbd;
-        watchdog, and the statuses of the &sbd; service, disk, and cluster resource.
+        watchdog, and the status of the &sbd; service.
       </para>
     </step>
   </procedure>
