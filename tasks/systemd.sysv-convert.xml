@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="systemd-convert-sysv" xml:lang="en"
+ role="task"
+ xmlns="http://docbook.org/ns/docbook" version="5.1"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+  <info>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <title>Converting SysV init to &systemd; </title>
+</info>
+<para>
+SysV init is the traditional initialization system used by older Linux distributions.
+It is often referred to as init. Converting a legacy SysV init script to a &systemd; service unit involves replacing a procedural shell script with a declarative configuration file.
+In the SysV model, services are managed via scripts in <filename>/etc/init.d/</filename> using case statements to handle start, stop and restart actions.
+In &systemd;, unit files are used and located at <filename>/etc/systemd/system/</filename> to define the service's behavior through key-value pairs.
+</para>
+<procedure>
+<step><para>Open your existing script in <filename>/etc/init.d/</filename>and look for the LSB (Linux Standard Base) header.
+ This block contains the configuration you need for your new unit file.</para></step>
+ <step><para>Create a new <literal>.service</literal> file at <filename>/etc/systemd/system/</filename> and use the gathered metadata.
+ </para></step>
+<step><para>Load and test the new service. Before finalizing, tell &systemd; to scan for the new file and then attempt to start it.
+</para></step>
+<step><para>Create the <literal>.service</literal> unit file using the metadata you gathered.</para></step>
+  <step><para>Enable the new service at boot:</para>
+  <screen>&prompt.sudo; <command>systemctl enable <replaceable>NEW_SERVICE</replaceable></command> </screen>
+ <para>You can now safely remove or move the old script from <filename>/etc/init.d/</filename> to prevent confusion.</para>
+</step>
+</procedure>
+<para>In the following example, <literal>boot.local</literal> and <literal>after.local</literal> are used. </para>
+  <example>
+  <title>Converting <literal>boot.local</literal> and <literal>after.local</literal> to &systemd;</title>
+  <para>The SysV init script files like <filename>/etc/init.d/boot.local</filename> and <filename>/etc/init.d/after.local</filename>
+   were used for running custom commands or scripts at the end of the boot process.</para>
+   <para>In a &systemd; environment, to run your own startup script,we recommended creating a custom &systemd; service unit file.
+The <literal>boot.local</literal> script typically runs very early in the boot process, while <literal>after.local</literal> runs later, after most system services are up.
+</para>
+  <procedure>
+  <step>
+ <para><emphasis role="bold">Create the scripts:</emphasis> Create script files with the commands and make them executable.
+For example:</para>
+<itemizedlist>
+<listitem><para>For <literal>boot.local</literal> actions, create <filename>/usr/local/bin/my.early-boot.sh</filename> </para></listitem>
+<listitem><para>For <literal>after.local</literal> actions, create <filename>/usr/local/bin/my.late-boot.sh</filename> </para></listitem>
+</itemizedlist>
+</step>
+<step>
+  <para><emphasis role="bold">Create the &systemd; unit files:</emphasis> Create the <literal>.service</literal> unit files in the <filename>/etc/systemd/system/</filename> directory.
+ For example:</para>
+ <itemizedlist>
+ <listitem><para>For <literal>boot.local</literal>, this service should run before basic system initialization.
+ Create a service file, <filename>/etc/systemd/system/my-early-boot.service</filename>:</para>
+<screen>[Unit]
+  Description=My early startup script
+  DefaultDependencies=no
+  After=basic.target
+  Before=basic.target sysinit.target shutdown.target
+
+  [Service]
+  Type=oneshot
+  ExecStart=/usr/local/bin/my-early-boot.sh
+  RemainAfterExit=yes
+
+  [Install]
+  WantedBy=basic.target
+</screen>
+<itemizedlist>
+ <listitem><para> <literal>Type=oneshot</literal> is suitable for scripts that run once and then exit.</para></listitem>
+ <listitem><para> <literal>DefaultDependencies=no</literal> and <literal> After/Before</literal> ensures it runs at an equivalent time to <literal>boot.local</literal>.
+ </para></listitem>
+</itemizedlist>
+</listitem>
+ <listitem><para>For <literal>after.local</literal>, this service should run later, typically when the multi-user environment is ready.
+If it depends on the network being up, add <literal>After=network-online.target</literal>. Create <filename>/etc/systemd/system/my-late-boot.service:</filename>:</para>
+<screen>[Unit]
+  Description=My late startup script
+  # Add After=network-online.target if your script needs network access
+  After=multi-user.target
+
+  [Service]
+  Type=oneshot
+  ExecStart=/usr/local/bin/my-late-boot.sh
+  RemainAfterExit=yes
+
+  [Install]
+  WantedBy=multi-user.target
+  </screen>
+</listitem>
+</itemizedlist>
+ </step>
+ <step>
+  <para><emphasis role="bold">Reload the &systemd; manager:</emphasis> After creating the files, reload the &systemd; manager configuration and enable your new services to run at boot:
+ </para>
+ <screen>&prompt.sudo; systemctl daemon-reload</screen>
+ <screen>&prompt.sudo; systemctl enable my-early-boot.service</screen>
+ <screen>&prompt.sudo; systemctl enable my-late-boot.service</screen>
+  </step>
+  <step>
+    <para><emphasis role="bold">Enable the services:</emphasis> Enable your new services to run at boot:
+   </para>
+   <screen>&prompt.sudo; systemctl enable my-early-boot.service</screen>
+   <screen>&prompt.sudo; systemctl enable my-late-boot.service</screen>
+    </step>
+ <step>
+  <para><emphasis role="bold">Verification:</emphasis> To verify that your new services are working as expected:</para>
+ <screen>&prompt.sudo; systemctl status my-early-boot.service</screen>
+ <screen>&prompt.sudo; systemctl status my-late-boot.service</screen>
+ <para>The expected output is that both should show <literal>Active: inactive (dead)</literal> with a successful exit code, because they are <literal>Type=oneshot</literal> and execute only once.
+</para>
+ </step>
+</procedure>
+</example>
+<para>&systemd; is now the default and only initialization system for <phrase os="sles">
+  &productname; 16</phrase> <phrase os="sle4sap"></phrase>.</para>
+</topic>
