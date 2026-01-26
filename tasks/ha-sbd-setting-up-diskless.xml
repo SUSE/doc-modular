@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_storage_protection.xml -->
+
+<topic xml:id="ha-sbd-setting-up-diskless"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Setting up diskless &sbd;</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Diskless &sbd; fences nodes by using only the watchdog, without a shared storage device.
+        However, diskless &sbd; cannot handle a split-brain scenario for a two-node cluster.
+        This configuration should only be used for clusters with more than two nodes, or in
+        combination with &qdevice; to help handle split-brain scenarios.
+      </para>
+      <para>
+        This procedure explains how to configure &sbd; after the cluster is already installed and
+        running, not during the initial cluster setup.
+      </para>
+    </abstract>
+  </info>
+
+  <important>
+    <title>Cluster restart required</title>
+    <para>
+      In this procedure, the setup script has to restart the cluster services before it can modify
+      the <literal>stonith-watchdog-timeout</literal>. Therefore, if any resources are running, you
+      must put the cluster into maintenance mode before running the script. This allows the services
+      managed by the resources to keep running while the cluster restarts. However, be aware that
+      the resources will not have cluster protection while in maintenance mode.
+    </para>
+  </important>
+
+  <itemizedlist>
+    <title>Requirements</title>
+    <listitem>
+      <para>
+        An existing &ha; cluster is already running.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        &sbd; is not configured yet.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        All nodes have a watchdog device, and the correct watchdog kernel module is loaded.
+      </para>
+    </listitem>
+  </itemizedlist>
+
+  <para>
+    Perform this procedure on only one cluster node:
+  </para>
+  <procedure>
+    <step>
+      <para>
+        Log in either as the &rootuser; user or as a user with <command>sudo</command> privileges.
+      </para>
+    </step>
+    <step>
+      <para>
+        Check whether any resources are running:
+      </para>
+<screen>&prompt.user;<command>sudo crm status</command></screen>
+    </step>
+    <step>
+      <para>
+        If any resources are running, put the cluster into maintenance mode:
+      </para>
+<screen>&prompt.user;<command>sudo crm maintenance on</command></screen>
+      <para>
+        In this state, the cluster stops monitoring all resources. This allows the services
+        managed by the resources to keep running while the cluster restarts. However, be aware
+        that the resources will not have cluster protection while in maintenance mode.
+      </para>
+    </step>
+    <step>
+      <para>
+        Run the &sbd; stage of the cluster setup script, using the option <option>--enable-sbd</option>
+        (or <option>-S</option>) to specify diskless &sbd;:
+      </para>
+<screen>&prompt.user;<command>sudo crm cluster init sbd --enable-sbd </command></screen>
+      <itemizedlist>
+        <title>Additional options</title>
+        <listitem>
+          <para>
+            If multiple watchdogs are available, you can use the option <option>--watchdog</option>
+            (or <option>-w</option>) to choose which watchdog to use. Specify either the device name
+            (for example, <literal>/dev/watchdog1</literal>) or the driver name (for example,
+            <literal>iTCO_wdt</literal>).
+          </para>
+        </listitem>
+      </itemizedlist>
+      <para>
+        The script updates the &sbd; configuration file and restarts the cluster services, then
+        updates additional timeout settings. Unlike other node fencing mechanisms, diskless &sbd;
+        does not need a fence agent.
+      </para>
+    </step>
+    <step>
+      <para>
+        If the cluster is still in maintenance mode, put it back into normal operation:
+      </para>
+<screen>&prompt.user;<command>sudo crm maintenance off</command></screen>
+    </step>
+    <step>
+      <para>
+        Check the &sbd; configuration:
+      </para>
+<screen>&prompt.user;<command>sudo crm sbd configure show</command>
+</screen>
+      <para>
+        The output of this command shows the enabled settings in the
+        <filename>/etc/sysconfig/sbd</filename> file and the &sbd;-related cluster settings.
+      </para>
+    </step>
+    <step>
+      <para>
+        Check the status of SBD:
+      </para>
+<screen>&prompt.user;<command>sudo crm sbd status</command></screen>
+      <para>
+        The output of this command shows the type of &sbd; configured, information about the &sbd;
+        watchdog, and the status of the &sbd; service.
+      </para>
+    </step>
+  </procedure>
+</topic>
