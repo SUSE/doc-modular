@@ -20,9 +20,52 @@
     <title>Configuring &kdump;</title>
     <abstract>
 <para>
-
-        </para>
-    </abstract>
-  </info>
-  <para></para>
+ To boot another kernel and preserve the data of the production kernel when the system crashes, you need to reserve a dedicated area of the system memory.
+ The production kernel never loads to this area because it must be always available. It is used for the capture kernel so that the memory pages of the production kernel can be preserved.
+</para>
+</abstract>
+</info>
+  <para>To use &kexec; with a capture kernel and to use &kdump; in any way, RAM needs to be allocated for the capture kernel.
+    To configure the reserved memory for the capture kernel, you must modify the <literal>crashkernel=</literal> parameter within the GRUB configuration file.
+    This value defines the specific block of RAM sequestered for the secondary kernel and its optimal size is typically determined by the total physical memory available in the system.
+  </para>
+  <procedure>
+  <title>Calculating the allocation size</title>
+  <step><para>Find the base value for your system, run:</para>
+<screen>&prompt.sudo; kdumptool calibrate
+  Total: 49074
+  Low: 72
+  High: 180
+  MinLow: 72
+  MaxLow: 3085
+  MinHigh: 0
+  MaxHigh: 45824 </screen>
+ <itemizedlist>
+<listitem><para><emphasis role="bold">Total:</emphasis>Your total system RAM.</para></listitem>
+<listitem><para><emphasis role="bold">Low:</emphasis>The minimum memory required in the low memory zone (first 4GB) for the kernel to boot.</para></listitem>
+<listitem><para><emphasis role="bold">High:</emphasis>The recommended amount for the high memory zone. This covers the actual work of saving the crash dump.</para></listitem>
+<listitem><para><emphasis role="bold">MinLow/MaxLow:</emphasis>The safe range for the low reservation. You are currently at the absolute minimum.</para></listitem>
+<listitem><para><emphasis role="bold">MinHigh/MaxHigh:</emphasis></para></listitem>
+<listitem><para><emphasis role="bold">MaxHigh:</emphasis>he range available for high reservation.</para></listitem>
+ </itemizedlist>
+<para>All values are in megabytes. Note the <literal>Low</literal> value.</para>
+  </step>
+<step><para>Based on your system architecture, adapt the <literal>Low</literal> or <literal>High</literal> value from the previous step for the number of LUN kernel paths (paths to storage devices) attached to the system.
+ A sensible value in megabytes can be calculated using this formula: </para>
+<screen>&prompt.sudo; <replaceable>SIZE_LOW</replaceable> = <replaceable>RECOMMENDATION</replaceable> + (LUNs / 2)</screen>
+<screen>&prompt.sudo; <replaceable>SIZE_HIGH</replaceable> = <replaceable>RECOMMENDATION</replaceable> + (LUNs / 2)</screen>
+<itemizedlist>
+<listitem><para><emphasis role="bold">SIZE_LOW/SIZE_HIGH:</emphasis>The resulting value for Low/High.</para></listitem>
+<listitem><para><emphasis role="bold">RECOMMENDATION:</emphasis>The value recommended by the command<command>kdumptool calibrate</command>for Low/High.</para></listitem>
+<listitem><para><emphasis role="bold">LUNs:</emphasis>The maximum number of LUN kernel paths that you expect to ever create on your system.
+  Exclude multipath devices from this number, as these are ignored. To get the current number of LUNs available on your system, run:</para>
+<screen>cat /proc/scsi/scsi | grep Lun | wc -l</screen>
+</listitem>
+</itemizedlist>
+</step>
+<step><para>Set the values in the correct location. Append the following kernel option to your boot loader configuration:</para>
+<screen>crashkernel=<replaceable>SIZE_HIGH</replaceable>,high crashkernel= <replaceable>SIZE_LOW</replaceable>,low</screen>
+<screen>crashkernel= <replaceable>SIZE_LOW</replaceable></screen>
+</step>
+  </procedure>
       </topic>
