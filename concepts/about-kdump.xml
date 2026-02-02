@@ -33,6 +33,16 @@ system crash occurs. A vmcore file is a snapshot of your computer's system memor
  This allows the system to remain stable enough to save the volatile memory (RAM) into a persistent file, known as a vmcore.
  Without this tool, administrators are often left with nothing but a blank screen or a frozen console, making it nearly impossible to diagnose the root cause of intermittent or silent system crashes.</para>
  </section>
+ <section  xml:id="dual-kernel-kdump">
+  <title>Understanding the dual-kernel model</title>
+  <para>Dual-kernel model is the usage of a second, isolated kernel to handle a system crash safely. When the main system kernel fails, you can not trust it to write its own crash logs to disk—the memory that might be corrupted
+    because the kernel itself is no longer reliable. The dual-kernel approach solves this by jumping into a completely different environment.</para>
+ <para>The model relies on two distinct kernels residing in memory simultaneously:</para>
+ <itemizedlist>
+  <listitem><para><emphasis role="bold">The production (primary) kernel:</emphasis> is the kernel you use every day. It runs your applications and services.</para></listitem>
+  <listitem><para><emphasis role="bold">The capture (crash) kernel:</emphasis>is a lightweight, minimal kernel specifically compiled to run in a small, reserved area of RAM. It only wakes up when the primary kernel panics.</para></listitem>
+</itemizedlist>
+  </section>
   <section  xml:id="vmcore-file-kdump">
     <title>About the vmcore file</title>
      <para>
@@ -50,6 +60,20 @@ system crash occurs. A vmcore file is a snapshot of your computer's system memor
    </section>
       <section  xml:id="kexec-kdump">
     <title>What is &kexec;? </title>
-     <para></para>
-   </section>
+     <para>&kexec; is a system call that functions as a software-defined boot loader, allowing a running kernel to bypass the hardware BIOS/UEFI stage and directly hand over control to a new kernel.
+      By loading the secondary kernel's image and parameters into memory while the system is still active, &kexec; performs a warm-up boot that preserves the state of RAM and significantly reduces downtime.
+      This mechanism is the backbone of the &kdump; dual-kernel model, as it provides a reliable way to jump from a crashing production environment into a clean recovery environment for data capture.</para>
+  <para>The <literal>kexec-tools </literal> package contains a script called <literal>kexec-bootloader</literal>. This script reads the boot loader configuration and runs &kexec; using the same kernel options as the normal boot loader.
+  The most important component of &kexec; is the <command>/sbin/kexec</command> command. You can load a kernel with &kexec; in two ways:</para>
+<itemizedlist>
+<listitem><para>Load the kernel to the address space of a production kernel for a regular reboot:</para>
+<screen>&prompt.sudo; kexec -l <replaceable>KERNEL_IMAGE</replaceable> </screen>
+<para>You can later boot to this kernel with the command <command>kexec -e</command>.</para>
+</listitem>
+<listitem><para>Load the kernel to a reserved area of memory:</para>
+  <screen>&prompt.sudo; kexec -p <replaceable>KERNEL_IMAGE</replaceable> </screen>
+  <para>This kernel is booted automatically when the system crashes.</para>
+  </listitem>
+</itemizedlist>
+</section>
 </topic>
