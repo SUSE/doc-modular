@@ -29,7 +29,11 @@
               relationship between the resources. Positive values indicate that the
               resources should run on the same node. Negative values indicate that the
               resources should not run on the same node. The score is combined with
-              other factors to decide where to put the resource.
+              other factors to decide where to put the resource. You can set a score of either +inf or -inf, defining resources that must always or must never run on the same node.
+            You can also use non-infinite scores. In that case the colocation
+            is called <emphasis>advisory</emphasis> and the cluster may decide not
+            to follow them in favor of not stopping other resources if there is a
+            conflict.
         </para>
         <para>
         You can add colocation constraints using either &hawk; or &crmsh;.
@@ -52,47 +56,54 @@
           </step>
           <step>
             <para>
-            You can set a score of either +inf or -inf, defining
-            resources that must always or must never run on the same node.
-            You can also use non-infinite scores. In that case the colocation
-            is called <emphasis>advisory</emphasis> and the cluster may decide not
-            to follow them in favor of not stopping other resources if there is a
-            conflict.
+              Add a colocation constraint. The basic command requires a name, a score and at least two resources:
             </para>
+<screen>&prompt.user;<command>sudo crm configure colocation <replaceable>COLOCATION_NAME SCORE: RESOURCE1 RESOURCE2</replaceable></command></screen>
             <para>
-            For example, to always run the resources <literal>resource1</literal>
-            and <literal>resource2</literal> on the same host, use the following constraint:
+              The <replaceable>SCORE</replaceable> can be <literal>inf</literal>, <literal>-inf</literal> or a numeric value (positive or negative).
             </para>
-<screen>&prompt.user;<command>sudo crm configure colocation coloc-2resource inf: resource1 resource2</command></screen>
+            <variablelist>
+              <title>Additional options</title>
+              <varlistentry>
+                <term>Resource sets</term>
+                <listitem>
+                  <para>
+                    You can use square brackets to do something or other with multiple resources, and something about the options <literal>require-all</literal> and <literal>sequential</literal>.
+                  </para>
+<screen>&prompt.user;<command>sudo crm configure colocation res1-with-res2-res3 \
+  inf: res1 [ res2 res3 ]</command></screen>
+<!-- `crm configure colocation res1-with-res2-res3 inf: res1 [ res2 res3 ]` worked
+ but `crm configure colocation res1-with-res2-res3 inf: res1 ( res2 res3 )` didn't
+ but when you configure the same set with Hawk, it uses round () brackets -->
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>Roles</term>
+                <listitem>
+                  <para>
+                    You can require a role (<literal>Started</literal>, <literal>Stopped</literal>, <literal>Promoted</literal> or <literal>Promotable</literal>) for one or more resources. The colocation constraint only applies when the resource fulfills this role.
+                  </para>
+<screen>&prompt.user;<command>sudo crm configure colocation res1-with-promoted-clone2 \
+  inf: res1 clone2:Promoted</command></screen>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>Node attributes</term>
+                <listitem>
+                  <para>
+                    You can add a node attribute to colocate the resources on a group of nodes instead of one specific node. If the nodes have an attribute assigned, the resources in this constraint will all be placed on nodes with the same value for that attribute.
+                  </para>
+<screen>&prompt.user;<command>sudo crm configure colocation res1-res2-in-same-dc \
+  inf: res1 res2 node-attribute=datacenter</command></screen>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+          </step>
+          <step>
             <para>
-            For a primary/secondary configuration, it is necessary to know if the
-            current node is a primary in addition to running the resource locally.
+              Check the status to see which node the resources are now running on:
             </para>
-            <para>
-     If you want to use resource sets to replace a configuration of
-     colocation constraints, consider the following two examples:
-    </para>
-    <example>
-     <title>A chain of colocated resources</title>
-<screen>&lt;constraints&gt;
-    &lt;rsc_colocation id="coloc-1" rsc="B" with-rsc="A" score="INFINITY"/&gt;
-    &lt;rsc_colocation id="coloc-2" rsc="C" with-rsc="B" score="INFINITY"/&gt;
-    &lt;rsc_colocation id="coloc-3" rsc="D" with-rsc="C" score="INFINITY"/&gt;
-&lt;/constraints&gt;</screen>
-    </example>
-    <para>
-     The same configuration expressed by a resource set:
-    </para>
-<screen>&lt;constraints&gt;
-   &lt;rsc_colocation id="coloc-1" score="INFINITY" &gt;
-    &lt;resource_set id="colocated-set-example" sequential="true"&gt;
-     &lt;resource_ref id="A"/&gt;
-     &lt;resource_ref id="B"/&gt;
-     &lt;resource_ref id="C"/&gt;
-     &lt;resource_ref id="D"/&gt;
-    &lt;/resource_set&gt;
-   &lt;/rsc_colocation&gt;
-&lt;/constraints&gt;</screen>
+<screen>&prompt.user;<command>sudo crm status</command></screen>
           </step>
         </procedure>
       </listitem>
@@ -129,7 +140,7 @@
           </step>
           <step>
             <para>
-              Enter a numeric <guimenu>Score</guimenu> or select a value form the drop-down list:
+              Enter a numeric <guimenu>Score</guimenu> or select a value from the drop-down list:
             </para>
             <itemizedlist>
               <listitem>
@@ -170,10 +181,10 @@
           </step>
           <step performance="optional">
             <para>
-              If required, select a condition (<literal>Start</literal>, <literal>Stop</literal>,
-              <literal>Promote</literal> or <literal>Demote</literal>) from the drop-down list
-              next to a resource. The colocation constraint only applies to this resource when
-              it meets this condition.
+              If required, select a role (<literal>Started</literal>, <literal>Stopped</literal>,
+              <literal>Promoted</literal> or <literal>Promotable</literal>) from the drop-down list
+              next to a resource. The colocation constraint only applies when the resource
+              fulfills this role.
             </para>
           </step>
           <step performance="optional">
@@ -193,4 +204,17 @@
       </listitem>
     </varlistentry>
   </variablelist>
+  <itemizedlist>
+    <title>For more information</title>
+    <listitem>
+      <para>
+        <command>crm configure colocation --help</command>
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <command>crm configure help Resourcesets</command>
+      </para>
+    </listitem>
+  </itemizedlist>
 </topic>
