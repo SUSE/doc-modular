@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/adm_sudo.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="troubleshoot-kdump"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <title>Common troubleshooting &kdump; issues</title>
+    <abstract>
+<para>
+When troubleshooting &kdump;, the process usually fails at one of three stages: during boot (memory reservation), during the crash when the the dump does not start or during the save process when the file is not written.
+</para>
+    </abstract>
+  </info>
+  <para>Here are some common troubleshooting scenarios, you may encounter:</para>
+  <itemizedlist>
+ <listitem><para> The command <command>systemctl status kdump</command> gives an error <literal>kdump: failed to load kdump kernel</literal>  or <literal>No crashkernel reserved</literal>.</para>
+  <itemizedlist><listitem><para><emphasis role="bold">Cause:</emphasis>The main kernel did not set aside enough memory for the capture kernel.</para></listitem>
+    <listitem><para><emphasis role="bold">Fix:</emphasis>Check the current reserved memory; </para> <screen>at /proc/iomem | grep "Crash kernel"</screen> <para>If it is small, increase the <literal>crashkernel</literal> value in <filename>/etc/default/grub</filename>. Rebuild the GRUB config and reboot.</para></listitem>
+  </itemizedlist>
+</listitem>
+<listitem><para> The system crashes, the capture kernel boots, but the vmcore file is not found in <filename>/var/crash</filename> after the reboot.
+</para>
+  <itemizedlist><listitem><para><emphasis role="bold">Cause:</emphasis>The capture kernel is a minimal environment. If you are saving the dump to an NFS share, an SSH server or a specialized partition (like LVM or LUKS), the capture kernel may lack the drivers or network configuration to reach the destination.
+  </para></listitem>
+    <listitem><para><emphasis role="bold">Fix:</emphasis>Check <filename>/etc/kdump.conf</filename> to see where the dump is being sent. If you are using network storage, ensure the &kdump; service has pre-built the network into the initrd. Then run the command <command>mkdumprd -f</command> to refresh the capture kernel's drivers.
+     </para></listitem>
+  </itemizedlist>
+</listitem>
+<listitem><para> The dump starts, but the progress bar stops and the system reboots without a complete file.
+</para>
+  <itemizedlist><listitem><para><emphasis role="bold">Cause:</emphasis> A vmcore can be massive; equal to your RAM size. If your <literal>/var</literal>
+    partition is small, the dump fills the disk and fails.
+  </para></listitem>
+    <listitem><para><emphasis role="bold">Fix:</emphasis>Use compression and filtering;Ensure your <filename>/etc/kdump.conf</filename> has the line
+    <literal> core_collector makedumpfile -d 31 -c</literal>. Alternatively, you can can change the path in <literal> kdump.conf</literal> to a partition with more space.
+    </para></listitem>
+  </itemizedlist>
+</listitem>
+<listitem><para>The system freezes completely but the &kdump; kernel never boots.
+</para>
+  <itemizedlist><listitem><para><emphasis role="bold">Cause:</emphasis> This usually happens during a hard lockup, where the CPU is so stuck that it cannot even execute the instruction to switch to the &kdump; kernel.
+  It can also happen if secure boot is blocking &kexec; from loading an unsigned capture kernel. </para></listitem>
+    <listitem><para><emphasis role="bold">Fix:</emphasis> Enable the NMI watchdog in <filename>/etc/sysctl.conf (kernel.nmi_watchdog = 1)</filename> so the system can panic itself if it detects a freeze. You can
+also run <command> kexec -l KERNEL_PATH</command> command manually to see if it returns a permission denied or signature error.
+ </para></listitem>
+  </itemizedlist>
+</listitem>
+</itemizedlist>
+<para>You can also use the following quick status commands:</para>
+<itemizedlist>
+<listitem><para><emphasis role="bold"><literal>kdumpctl show / kdump-config show</literal></emphasis>: Overall health and memory reservation</para></listitem>
+<listitem><para><emphasis role="bold"><literal>cat /sys/kernel/kexec_crash_loaded</literal></emphasis>: <literal>1</literal> means 1 means the gun is loaded and ready to fire, <literal>0</literal> means it is not.</para></listitem>
+</itemizedlist>
+      </topic>
