@@ -37,6 +37,15 @@ Typical glue topics include the intro section to your article, the "For more inf
 "What's next" sections. Also use glue topics to add an additional layer of navigation to your 
 article. This is outlined in the `glue.xml` example file.
 
+## Abstracts
+Use the fixed abstract structure defined in the style guide to keep abstracts consistent across all articles:
+ 
+WHAT? — An objective definition of the product, feature, or solution.
+WHY? — The benefit or motivation: why the reader should care.
+EFFORT — Expected time investment and required background knowledge.
+GOAL — The concrete outcome after completing the article.
+
+Write abstracts as factual summaries. Avoid procedural language, promises or marketing phrasing.
 
 ## Naming and directory conventions
 
