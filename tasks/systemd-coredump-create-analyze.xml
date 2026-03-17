@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/adm_sudo.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="create-analyze-systemd-coredump"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <meta name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
+    <title>Creating and analyzing a core dump</title>
+    <abstract>
+<para>
+       You can create and analyze a core dump using systemd-coredump
+        </para>
+    </abstract>
+  </info>
+      <para>The following procedure uses Vim to trigger a segmentation fault (segfault) for testing purposes.</para>
+    <procedure>
+      <step>
+      <para>Enable debug repositories.</para>
+      <para>Ensure the <literal>debuginfo-pool</literal> and <literal>debuginfo-update</literal> repositories are active for your registration.</para>
+    </step>
+ <step><para>Install the debug information for Vim.</para>
+   <screen>&prompt.sudo; zypper install vim-debuginfo</screen>
+    </step>
+    <step><para>To trigger a crash, open a file with Vim, then from another terminal, send a SIGSEGV signal to the process:</para>
+      <screen>ps ax | grep vim
+# kill -s SIGSEGV &lt;PID&gt;</screen>
+        </step>
+        <step><para>Use coredumpctl; to verify the crash was captured:</para>
+          <screen>coredumpctl</screen>
+          <para>An asterisk <literal>*</literal> in the PRESENT column indicates the dump file is available on disk.</para>
+            </step>
+            <step><para>To view the stack trace and metadata of the latest crash:</para>
+              <screen>coredumpctl info</screen>
+              </step>
+              <step><para>To load a specific crash (for example, PID 2345) directly into the debugger:</para>
+              <screen>coredumpctl gdb 2345</screen>
+              </step>
+    </procedure>
+    <section><title>Managing Core Dump Storage</title>
+    <para>To minimize the storage of sensitive information, you can disable disk storage and log only to the journal by modifying <filename>/etc/systemd/coredump.conf</filename></para>
+  <itemizedlist><listitem><para><literal>Storage=none</literal> Dumps are logged in the journal but the memory image is not saved to disk.</para></listitem>
+  <listitem><para><literal>Storage=journal</literal> Cores are stored directly within the systemd journal.</para></listitem>
+  </itemizedlist>
+<para>Core dumps are not preserved after a system restart unless moved. To save a core dump to a permanent file:</para>
+<screen>coredumpctl -o my_app.dump dump &gt;PID&lt;</screen>
+</section>
+
+      </topic>
