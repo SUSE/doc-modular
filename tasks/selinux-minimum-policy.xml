@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/adm_sudo.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="switch-minimum-policy"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <title>Switching from <literal>targeted</literal> to <literal>minimum</literal> policy</title>
+    <abstract>
+     <para>This topic describes how to switch from targeted to minimum policy.</para>
+    </abstract>
+  </info>
+<para>
+  &productnameshort; &productnumber; is shipped with the <literal>targeted</literal> &selnx; policy by default.
+  The <literal>minimum</literal> policy is also included. The <literal>minimum</literal> policy in &selnx; is a lightweight configuration that secures only the most essential core system services. This provides a blank slate to specialize hardening or resource-constrained environments.
+ </para>
+
+ <procedure>
+  <title>How to switch from a <literal>targeted</literal> to a <literal>minimum</literal> policy</title>
+      <step>
+      <para>Check the current active policy:</para>
+<screen>&prompt.sudo; sestatus
+  SELinux status:                 enabled
+  SELinuxfs mount:                /sys/fs/selinux
+  SELinux root directory:         /etc/selinux
+  Loaded policy name:             targeted
+  Current mode:                   enforcing
+  Mode from config file:          enforcing
+  Policy MLS status:              enabled
+  Policy deny_unknown status:     allowed
+  Memory protection checking:     actual (secure)
+  Max kernel policy version:      33
+ </screen>
+ <para>Look for <literal>Loaded policy name: targeted</literal></para>
+    </step>
+<step><para>Install the minimum policy package:</para>
+<screen>&prompt.sudo; zypper install selinux-policy-minimum</screen>
+</step>
+<step><para>Edit the &selnx; configuration file to tell the kernel which policy to load at the next boot:</para>
+<screen>&prompt.sudo; vi /etc/selinux/config</screen>
+<para>Change the <literal>SELINUXTYPE</literal> variable from <literal>targeted</literal> to <literal>minimum</literal>.</para>
+</step>
+<step><para>Check if the <package>selinux-autorelabel</package> package is installed. If not, install it. A relabel is required to ensure all files have the correct security contexts assigned under the new policy framework:</para>
+<screen>&prompt.sudo; zypper info selinux-autorelabel</screen>
+<screen>&prompt.sudo; zypper install selinux-autorelabel</screen>
+  <screen>&prompt.sudo; touch /.autorelabel</screen>
+  </step>
+  <step><para>Reboot the system and verify the change:</para>
+<screen>&prompt.sudo; reboot</screen>
+<screen>&prompt.sudo; sestatus
+  SELinux status:                 enabled
+  SELinuxfs mount:                /sys/fs/selinux
+  SELinux root directory:         /etc/selinux
+  Loaded policy name:             minimum
+  Current mode:                   enforcing
+  Mode from config file:          enforcing
+  Policy MLS status:              enabled
+  Policy deny_unknown status:     allowed
+  Memory protection checking:     actual (secure)
+  Max kernel policy version:      33
+</screen>
+<para>Note that the <literal>SELINUXTYPE</literal> variable has changed from <literal>targeted</literal> to <literal>minimum</literal>.</para>
+    </step>
+    </procedure>
+
+      </topic>
