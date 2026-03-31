@@ -23,12 +23,31 @@
   </info>
 
   <para>
-    For example, you cannot mount a file system before the device is available to a system.
+    Instead of a score, order constraints have a <emphasis>kind</emphasis>. The kind can be one
+    of the following:
   </para>
+  <itemizedlist>
+  <listitem>
+  <para>
+    <literal>Mandatory</literal>: Resources <emphasis>must</emphasis> start in this order.
+  </para>
+    </listitem>
+    <listitem>
+      <para>
+        <literal>Optional</literal>: The start order is only a suggestion.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <literal>Serialize</literal>: A resource must finish starting before the next resource
+        can begin starting. This is useful for resources that put a high load on the node
+        during start-up, for example.
+      </para>
+    </listitem>
+  </itemizedlist>
   <para>
     You can add order constraints with the &crmshell; (&crmsh;) or with the &hawk; Web interface.
   </para>
-
   <variablelist role="tabs">
     <varlistentry>
       <term>&crmshell;</term>
@@ -42,11 +61,13 @@
           </step>
           <step>
             <para>
-              Add an order constraint. The basic command requires a name, a kind, and at least two resources:
+              Add an order constraint. The basic command requires a name, a kind, and at least
+              two resources:
             </para>
 <screen>&prompt.user;<command>sudo crm configure order <replaceable>ORDER_NAME KIND: RESOURCE1 RESOURCE2</replaceable></command></screen>
             <para>
-              The <replaceable>KIND</replaceable> can be <literal>Mandatory</literal>, <literal>Optional</literal> or <literal>Serialize</literal>.
+              The <replaceable>KIND</replaceable> can be <literal>Mandatory</literal>,
+              <literal>Optional</literal> or <literal>Serialize</literal>.
             </para>
             <variablelist>
               <title>Additional options</title>
@@ -54,30 +75,33 @@
                 <term>Resource sets</term>
                 <listitem>
                   <para>
-                    You can use round brackets to do something or other with multiple resources, and something about the options <literal>require-all</literal> and <literal>sequential</literal> to switch between <literal>AND</literal> and <literal>OR</literal> logic.
+                    You can use round brackets to group resources in an order constraint.
+                    In this example, <literal>res1</literal> must start first, and then
+                    <literal>res2</literal> and <literal>res3</literal> can start in any order:
                   </para>
-<screen>&prompt.user;<command>sudo crm configure order res1-before-res2-res3 \
-  Serialize: res1 ( res2 res3 )</command></screen>
+<screen>&prompt.user;<command>sudo crm configure order o-res1-first Mandatory: res1 ( res2 res3 )</command></screen>
                 </listitem>
               </varlistentry>
               <varlistentry>
                 <term>Symmetry</term>
                 <listitem>
                   <para>
-                    Most of the time you won't have to set this as the default is true
+                    In most cases, you should keep the default <literal>symmetrical=true</literal>,
+                    which means that resources stop in the reverse of their start order. However,
+                    if necessary you can change it to <literal>false</literal>.
                   </para>
-<screen>&prompt.user;<command>sudo crm configure order res1-before-res2 \
-  Mandatory: res1 res2 symmetrical=false</command></screen>
                 </listitem>
               </varlistentry>
               <varlistentry>
                 <term>Actions</term>
                 <listitem>
                   <para>
-                    You can require an action (<literal>start</literal>, <literal>stop</literal>, <literal>promote</literal> or <literal>demote</literal>) for one or more resources. The resource must perform this action before the resources after it can start.
+                    You can require a resource to perform an action (<literal>start</literal>,
+                    <literal>stop</literal>, <literal>promote</literal> or <literal>demote</literal>)
+                    before or after another resource starts. In this example, <literal>res1</literal>
+                    must start before <literal>clone2</literal> can be promoted:
                   </para>
-<screen>&prompt.user;<command>sudo crm configure order promoted-clone2-before-res1 \
-  Mandatory: clone2:promote res1</command></screen>
+<screen>&prompt.user;<command>sudo crm configure order o-res1-clone2 Mandatory: res1 clone2:promote</command></screen>
                 </listitem>
               </varlistentry>
             </variablelist>
@@ -121,28 +145,8 @@
           </step>
           <step>
             <para>
-              Select a <guimenu>Kind</guimenu> from the drop-down list:
+              Select a <guimenu>Kind</guimenu> from the drop-down list.
             </para>
-            <itemizedlist>
-              <listitem>
-              <para>
-                <literal>Mandatory</literal>: Resources <emphasis>must</emphasis> start in
-                this order.
-              </para>
-              </listitem>
-              <listitem>
-              <para>
-                <literal>Optional</literal>: The start order is only a suggestion.
-              </para>
-              </listitem>
-              <listitem>
-              <para>
-                <literal>Serialize</literal>: The first resource must finish starting before
-                the next resource can begin starting. This is useful for resources that put a
-                high load on the node during start-up, for example.
-              </para>
-              </listitem>
-            </itemizedlist>
           </step>
           <step>
             <para>
@@ -153,10 +157,14 @@
           <step>
             <para>
               From the drop-down list in the <guimenu>Resources</guimenu> section, select a
-              resource. A new drop-down list appears. Repeat this step to add more resources.
+              resource.
             </para>
             <para>
-              The resources will start in the order shown on the screen. To change the order,
+              A new drop-down list appears. Repeat this step to add more resources. The resources
+              will start in the order shown on the screen.
+            </para>
+            <para>
+              To change the order,
               click the up arrow icon to swap a resource with the one above it.
             </para>
             <para>
@@ -175,10 +183,10 @@
           </step>
           <step performance="optional">
             <para>
-              If required, select a condition (<literal>Start</literal>, <literal>Stop</literal>,
+              If required, select an action (<literal>Start</literal>, <literal>Stop</literal>,
               <literal>Promote</literal> or <literal>Demote</literal>) from the drop-down list
-              next to a resource. The resource must meet this condition before the resources
-              after it can start.
+              next to a resource. The resource must perform this action before or after another
+              resource starts, depending on the order.
             </para>
           </step>
           <step>
@@ -202,7 +210,12 @@
     </listitem>
     <listitem>
       <para>
-        <command>crm configure help Resourcesets</command>
+        <command>crm help Resourcesets</command>
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <link xlink:href="https://clusterlabs.org/projects/pacemaker/doc/3.0/Pacemaker_Explained/html/constraints.html#specifying-the-order-in-which-resources-should-start-stop"/>
       </para>
     </listitem>
   </itemizedlist>
