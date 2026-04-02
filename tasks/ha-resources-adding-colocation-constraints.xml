@@ -19,25 +19,19 @@
     <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
     <abstract>
       <xi:include href="../snippets/ha-resources-colocation-constraints.xml"/>
-        <para>
-          The score determines the location
-              relationship between the resources. Positive values indicate that the
-              resources should run on the same node. Negative values indicate that the
-              resources should not run on the same node. The score is combined with
-              other factors to decide where to put the resource. You can set a score of either +inf or -inf, defining resources that must always or must never run on the same node.
-            You can also use non-infinite scores. In that case the colocation
-            is called <emphasis>advisory</emphasis> and the cluster may decide not
-            to follow them in favor of not stopping other resources if there is a
-            conflict.
-        </para>
 
     </abstract>
   </info>
 
   <para>
+    Colocation constraints use a <emphasis>score</emphasis> to indicate how important the
+    constraint is. A score of <literal>INFINITY</literal> (positive or negative) means that
+    the constraint <emphasis>must</emphasis> be applied. The score can also be a non-infinite
+    number (positive or negative), which means the constraint is only a preference.
+  </para>
+  <para>
     You can add colocation constraints with the &crmshell; (&crmsh;) or with the &hawk; Web interface.
   </para>
-
   <variablelist role="tabs">
     <varlistentry>
       <term>&crmshell;</term>
@@ -51,11 +45,17 @@
           </step>
           <step>
             <para>
-              Add a colocation constraint. The basic command requires a name, a score and at least two resources:
+              Add a colocation constraint. The basic command requires a name, a score and at
+              least two resources:
             </para>
 <screen>&prompt.user;<command>sudo crm configure colocation <replaceable>COLOCATION_NAME SCORE: RESOURCE1 RESOURCE2</replaceable></command></screen>
             <para>
-              The <replaceable>SCORE</replaceable> can be <literal>inf</literal>, <literal>-inf</literal> or a numeric value (positive or negative).
+              The <replaceable>SCORE</replaceable> can be <literal>inf</literal>,
+              <literal>-inf</literal> or a number (positive or negative).
+            </para>
+            <para>
+              The cluster places the last resource on a node first, then places the other
+              resources based on that decision.
             </para>
             <variablelist>
               <title>Additional options</title>
@@ -63,12 +63,15 @@
                 <term>Resource sets</term>
                 <listitem>
                   <para>
-                    You can use square brackets to do something or other with multiple resources, and something about the options <literal>require-all</literal> and <literal>sequential</literal>.
+                    You can use square brackets to group resources in a colocation constraint.
+                    In this example, <literal>res1</literal> and <literal>res2</literal> must
+                    run on the same node as <literal>res3</literal>, but aren't otherwise dependent
+                    on each other:
                   </para>
-<screen>&prompt.user;<command>sudo crm configure colocation res1-with-res2-res3 \
-  inf: res1 [ res2 res3 ]</command></screen>
-<!-- `crm configure colocation res1-with-res2-res3 inf: res1 [ res2 res3 ]` worked
- but `crm configure colocation res1-with-res2-res3 inf: res1 ( res2 res3 )` didn't
+<screen>&prompt.user;<command>sudo crm configure colocation col-res1-2-with-res3 \
+  inf: [ res1 res2 ] res3</command></screen>
+<!-- `crm configure colocation col-res1-2-with-res3 inf: [ res1 res2 ] res3` worked
+ but `crm configure colocation col-res1-2-with-res3 inf: ( res1 res2 ) res3` didn't
  but when you configure the same set with Hawk, it uses round () brackets -->
                 </listitem>
               </varlistentry>
@@ -76,9 +79,13 @@
                 <term>Roles</term>
                 <listitem>
                   <para>
-                    You can require a role (<literal>Started</literal>, <literal>Stopped</literal>, <literal>Promoted</literal> or <literal>Promotable</literal>) for one or more resources. The colocation constraint only applies when the resource fulfills this role.
+                    You can require a role (<literal>Started</literal>, <literal>Stopped</literal>,
+                    <literal>Promoted</literal> or <literal>Promotable</literal>) for one or more
+                    resources. The colocation constraint only applies when the resource is in
+                    this role. In this example, <literal>res1</literal> must run on the same node
+                    where <literal>clone2</literal> is in the <literal>Promoted</literal> role:
                   </para>
-<screen>&prompt.user;<command>sudo crm configure colocation res1-with-promoted-clone2 \
+<screen>&prompt.user;<command>sudo crm configure colocation col-res1-with-promoted-clone2 \
   inf: res1 clone2:Promoted</command></screen>
                 </listitem>
               </varlistentry>
@@ -86,9 +93,12 @@
                 <term>Node attributes</term>
                 <listitem>
                   <para>
-                    You can add a node attribute to colocate the resources on a group of nodes instead of one specific node. If the nodes have an attribute assigned, the resources in this constraint will all be placed on nodes with the same value for that attribute.
+                    You can use a node attribute to colocate resources on a group of nodes instead
+                    of one node. In this example, <literal>res1</literal> and <literal>res2</literal>
+                    don't have to run on the same node, but must run on nodes with the same value
+                    for the <literal>datacenter</literal> node attribute:
                   </para>
-<screen>&prompt.user;<command>sudo crm configure colocation res1-res2-in-same-dc \
+<screen>&prompt.user;<command>sudo crm configure colocation col-res1-res2-in-same-dc \
   inf: res1 res2 node-attribute=datacenter</command></screen>
                 </listitem>
               </varlistentry>
@@ -152,11 +162,15 @@
           </step>
           <step>
             <para>
-              From the drop-down list in the <guimenu>Resources</guimenu> section, select a
-              resource. A new drop-down list appears. Repeat this step to add more resources.
+              From the drop-down list in the <guimenu>Resources</guimenu> section, select a resource.
             </para>
             <para>
-              The cluster first decides where to put the last resource, then places the other resources based on that decision. To change the order of the resources, click the up arrow icon to swap a resource with the one above it.
+              A new drop-down list appears. Repeat this step to add more resources.
+            </para>
+            <para>
+              The cluster places the last resource on a node first, then places the other resources
+              based on that decision. To change the order of the resources, click the up arrow icon
+              to swap a resource with the one above it.
             </para>
             <para>
               To remove a resource from the constraint, click the minus icon.
@@ -177,12 +191,15 @@
               If required, select a role (<literal>Started</literal>, <literal>Stopped</literal>,
               <literal>Promoted</literal> or <literal>Promotable</literal>) from the drop-down list
               next to a resource. The colocation constraint only applies when the resource
-              fulfills this role.
+              is in this role.
             </para>
           </step>
           <step performance="optional">
             <para>
-              You can add a <guimenu>Node Attribute</guimenu> to colocate the resources on a group of nodes instead of one specific node. If the nodes have an attribute assigned, the resources in this constraint will all be placed on nodes with the same value for that attribute.
+              You can add a <guimenu>Node Attribute</guimenu> to colocate the resources on a group
+              of nodes instead of one specific node. If the nodes have an attribute assigned, the
+              resources in this constraint will all be placed on nodes with the same value for
+              that attribute.
             </para>
           </step>
           <step>
@@ -207,6 +224,16 @@
     <listitem>
       <para>
         <command>crm help Resourcesets</command>
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <link xlink:href="https://clusterlabs.org/projects/pacemaker/doc/3.0/Pacemaker_Explained/html/constraints.html#placing-resources-relative-to-other-resources"/>
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <link xlink:href="https://clusterlabs.org/projects/pacemaker/doc/3.0/Pacemaker_Explained/html/constraints.html#colocating-sets-of-resources"/>
       </para>
     </listitem>
   </itemizedlist>
