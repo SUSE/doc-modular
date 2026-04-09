@@ -37,18 +37,33 @@
 </varlistentry>
 <varlistentry><term>ProcessSizeMax</term>
 <listitem><para>The maximum size of a core dump to be processed. The default size is <literal>2G</literal></para></listitem></varlistentry>
-<varlistentry><term>ExternalSizeMax</term><listitem><para>The maximum size for a dump stored on disk. The default size is <literal>2G</literal></para></listitem></varlistentry>
-<varlistentry><term>JournalSizeMax</term><listitem><para>The maximum size of core dumps that can be stored directly within the system journal (when Storage=journal is used). If a core dump exceeds this value, it will be ignored or handled according to other storage settings.</para></listitem></varlistentry>
-<varlistentry><term>MaxUse</term><listitem><para>The maximum amount of disk space the coredump storage (typically /var/lib/systemd/coredump/) is allowed to occupy. Once this limit is reached, older core dumps are automatically deleted to make room for new ones.</para></listitem></varlistentry>
-<varlistentry><term>KeepFree</term><listitem><para>The minimum amount of free disk space that must be maintained on the filesystem where core dumps are stored. <literal>systemd-coredump</literal> will stop saving new dumps if doing so would cause the available disk space to fall below this threshold.</para></listitem></varlistentry>
+<varlistentry><term>ExternalSizeMax</term>
+  <listitem><para>The maximum size for a dump stored on disk. The default size is <literal>2G</literal> and this also supports a value of infinity.</para></listitem></varlistentry>
+<varlistentry>
+  <term>JournalSizeMax</term>
+    <listitem><para>The maximum size of core dumps that can be stored directly within the system journal (when Storage=journal is used). If a core dump exceeds this value, it will be ignored or handled according to other storage settings.</para></listitem></varlistentry>
+<varlistentry>
+  <term>MaxUse</term>
+  <listitem><para>The maximum amount of disk space the coredump storage (typically <filename>/var/lib/systemd/coredump/</filename>) is allowed to occupy. This value supports absolute sizes in bytes (e.g., <literal>2G</literal>) or a percentage of the total filesystem size (e.g., <literal>10%</literal>). Once this limit is reached, older core dumps are automatically deleted to make room for new ones.</para>
+  <para>The size units are <literal>B</literal>, <literal>K</literal>, <literal>M</literal>, <literal>G</literal>, <literal>T</literal>, <literal>P</literal>, and <literal>E</literal>.</para>
+  </listitem></varlistentry>
+<varlistentry>
+  <term>KeepFree</term>
+  <listitem><para>The minimum amount of free disk space to maintain on the filesystem where core dumps are stored. This value can be specified in bytes (using suffixes such as K, M, G) or as a percentage of the total filesystem size (e.g., <literal>15%</literal>). <literal>systemd-coredump</literal> will stop saving new dumps if the available disk space would fall below this threshold.</para>
+  <para>The size units are <literal>B</literal>, <literal>K</literal>, <literal>M</literal>, <literal>G</literal>, <literal>T</literal>, <literal>P</literal>, and <literal>E</literal>.</para>
+  </listitem></varlistentry>
 </variablelist>
-<para>Size units are <literal>B</literal>, <literal>K</literal>, <literal>M</literal>, <literal>G</literal>, <literal>T</literal>, <literal>P</literal>, and <literal>E</literal>. The <literal>ExternalSizeMax</literal> also supports a value of infinity. </para>
+
 <note><para>A new instance of <literal>systemd-coredump</literal> is invoked for every crash. Configuration changes are applied immediately to the next crash; you do not need to restart any services.</para></note>
 <section><title>Managing Core Dump Storage</title>
-    <para>To minimize the storage of sensitive information, you can disable disk storage and log only to the journal by modifying <filename>/etc/systemd/coredump.conf</filename>. In systemd configuration, if a field is explicitly set to nothing or if the feature is disabled via none, the system defaults to <literal>external</literal>, logging only the basic event details to systemd-journald. You can control this behavior in <filename>/etc/systemd/coredump.conf</filename> with the Storage option:</para>
-    <itemizedlist><listitem><para><literal>Storage=none</literal> Dumps are logged in the journal but the memory image is not saved to disk.</para></listitem>
-  <listitem><para><literal>Storage=journal</literal> Cores are stored directly within the systemd journal.</para></listitem>
-  </itemizedlist>
+    <para>To minimize the storage of sensitive information or prevent disk exhaustion in <filename>/var/lib/systemd/coredump</filename>, you can modify the <filename>Storage=</filename> option in <filename>/etc/systemd/coredump.conf</filename>.</para>
+<note><para>If the <filename>Storage=</filename> field is omitted, set to an empty value, or set to an invalid string, systemd defaults to <literal>external</literal>.</para></note>
+<para>The available storage options are:</para>
+    <itemizedlist>
+      <listitem><para><literal>Storage=none</literal> he event is logged to the journal, but the memory image (the core dump itself) is discarded and files are not created in <filename>/var/lib/systemd/coredump</filename>.</para></listitem>
+      <listitem><para><literal>Storage=journal</literal> The core dump is compressed and stored directly within the systemd journal metadata and files are not created in <filename>/var/lib/systemd/coredump</filename>. The Storage is managed by journald.conf limits.</para></listitem>
+      <listitem><para><literal>Storage=external</literal> The event is logged to the journal, and the memory image is saved as a separate file. The files are created in <filename>/var/lib/systemd/coredump</filename>.</para></listitem>  
+    </itemizedlist>
 <para>As core dumps may not be preserved after a system restart (for example, if stored in volatile journal memory or a temporary directory), run the command below to save a core dump to a permanent file for later analysis:</para>
 <screen>coredumpctl -o my_app.dump dump &gt;PID&lt;</screen>
 <para>For more information, see <code>man systemd-coredump, man coredumpctl, man core, and man coredump.conf</code> for complete command and option listing.</para>
