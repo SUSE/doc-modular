@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="croups-io-controller"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+   <title>I/O Control with cgroups</title><!-- can be changed via merge in the assembly -->
+    <!--add author's email address-->
+    <meta name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+       The following section outlines how to prioritize, isolate, and throttle disk input/output (I/O) operations by using &systemd; to manage the Linux kernel's block I/O controller. It defines the mandatory file system and storage scheduler prerequisites, demonstrates how to enforce limits on both persistent services and transient scopes, and details critical behavioral nuances—such as direct versus buffered I/O—that impact resource distribution across the system.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="sec-cgroups-prerequisites">
+    <title>Prerequisites</title>
+    <para>
+      Before configuring I/O control, ensure your system meets the following 
+      requirements. These settings generally cannot be changed during runtime.
+    </para>
+
+    <section xml:id="sec-cgroups-filesystems">
+      <title>File System Support</title>
+      <para>
+        You must use a file system that supports cgroup writeback to enable accurate 
+        writeback charging. Supported file systems include:
+      </para>
+      <itemizedlist>
+        <listitem><para>Btrfs (v4.3+)</para></listitem>
+        <listitem><para>Ext4 (v4.3+)</para></listitem>
+        <listitem><para>XFS (v5.3+)</para></listitem>
+      </itemizedlist>
+    </section>
+
+    <section xml:id="sec-cgroups-block-io-scheduler">
+      <title>Block I/O Scheduler</title>
+      <para>
+        Proportional I/O control requires a specific scheduler. &suse; recommends 
+        the <literal>BFQ</literal> controller.
+      </para>
+      <para>
+        To verify the current scheduler for a device (for example, 
+        <filename>sda</filename>):
+      </para>
+<screen><command>cat /sys/class/block/sda/queue/scheduler</command>
+mq-deadline kyber bfq [none]</screen>
+      <para>
+        To switch the scheduler to <literal>BFQ</literal>:
+      </para>
+<screen><command>echo bfq &gt; /sys/class/block/sda/queue/scheduler</command></screen>
+      <note>
+        <para>
+          Apply this setting to the disk device itself, not a partition. The optimal way to set this attribute is a udev rule specific to the device. &productnameshort; 
+          includes <systemitem class="resource">udev</systemitem> rules that 
+          automatically enable BFQ for rotational drives. As an alternative to BFQ, the io.cost-based I/O controller operates independently of the I/O scheduler. However, this proportional control mechanism requires manual tuning of its cost-based model parameters.
+        </para>
+      </note>
+    </section>
+  </section>
+
+  <section xml:id="sec-cgroups-configure-control-quantities">
+    <title>Configuring Control Quantities</title>
+    <para>
+      Apply I/O limits permanently to services using <command>systemctl</command>:
+    </para>
+<screen><command>sudo systemctl set-property fast.service IOWeight=400</command>
+<command>sudo systemctl set-property slow.service IOWeight=50</command>
+<command>sudo systemctl set-property throttled.service IOReadBandwidthMax="/dev/sda 1M"</command></screen>
+    <para>
+      Alternatively, use <command>systemd-run</command> to apply limits to transient 
+      scopes:
+    </para>
+<screen><command>sudo systemd-run --scope -p IOWeight=400 high_prioritized_command</command></screen>
+  </section>
+
+  <section xml:id="sec-cgroups-control-behavior">
+    <title>I/O control behavior and expectations</title>
+    <para>
+        The following list items describe I/O control behavior, and what you
+        should expect under different conditions.
+      </para>
+    <itemizedlist>
+        <listitem>
+          <para>
+            I/O control works best for direct I/O operations (bypassing page
+            cache). The situations where the actual I/O is decoupled from the
+            caller (typically writeback via page cache) may manifest variously.
+            For example, delayed I/O control or even no observed I/O control
+            (consider little bursts or competing workloads that happen to never
+            <quote>meet,</quote> submitting I/O at the same time, and
+            saturating the bandwidth). For these reasons, the resulting ratio
+            of I/O throughput does not strictly follow the ratio of configured
+            weights.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            systemd performs scaling of configured weights (to adjust for
+            narrower BFQ weight range), hence the resulting throughput ratios
+            also differ.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The writeback activity depends on the amount of dirty pages,
+            besides the global sysctl knobs
+            (<filename>vm.dirty_background_ratio</filename> and
+            <filename>vm.dirty_ratio</filename>)). Memory limits of individual
+            cgroups come into play when the dirty limits are distributed among
+            cgroups, and this in turn may affect I/O intensity of affected
+            cgroups.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Not all storages are equal. The I/O control happens at the I/O
+            scheduler layer, which has ramifications for setups with devices
+            stacked on these that do no actual scheduling. Consider device
+            mapper logical volumes spanning multiple physical devices, MD RAID,
+            or even Btrfs RAID. I/O control over such setups may be
+            challenging.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            There is no separate setting for proportional I/O control of reads
+            and writes.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Proportional I/O control is only one of the policies that can
+            interact with each other (but responsible resource design perhaps
+            avoids that).
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The I/O device bandwidth is not the only shared resource on the I/O
+            path. Global file system structures are involved, which is relevant
+            when I/O control is meant to guarantee certain bandwidth; it does
+            not, and it may even lead to priority inversion (prioritized cgroup
+            waiting for a transaction of slower cgroup).
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            So far, we have been discussing only explicit I/O of file system
+            data, but swap-in and swap-out can also be controlled. Although if
+            such a need arises, it points to improperly provisioned memory
+            (or memory limits).
+          </para>
+        </listitem>
+      </itemizedlist>
+  </section>
+
+  <section xml:id="sec-cgroups-user-sessions">
+    <title>Resource Control in User Sessions</title>
+    <para>
+      &productnameshort; ships with a default &systemd; configuration that delegates no controllers for performance reasons.
+      To enable resource control within a user session, create a drop-in file 
+      at <filename>/etc/systemd/system/user@.service.d/60-delegate.conf</filename>:
+    </para>
+<screen>[Service]
+Delegate=pids memory</screen>
+    <para>
+      After modifying the configuration, notify the instances:
+    </para>
+<screen><command>sudo systemctl daemon-reload</command>
+<command>systemctl --user daemon-reexec</command></screen>
+<para>
+        Alternatively, the affected user may log out and log in instead of applying
+        the second line to restart their user instance.
+      </para>
+  </section>
+</topic>
