@@ -26,7 +26,7 @@
   <para>
    Every process is assigned to exactly one administrative control group (cgroup). These cgroups are organized into a unified hierarchical tree structure, allowing you to manage resource allocation for individual processes or entire branches of the hierarchy simultaneously. You can define specific limitations for system resources, including CPU, Memory, Disk I/O, and Network Bandwidth.</para>
   <para>
-   On &productnameshort;, &systemd; serves as the primary manager for cgroups, organizing all processes into logical units called slices. This integration provides a consistent interface for monitoring and setting resource properties across the OS.</para>
+   On &productname;, &systemd; serves as the primary manager for cgroups, organizing all processes into logical units called slices. This integration provides a consistent interface for monitoring and setting resource properties across the OS.</para>
  <para>To visualize your current system organization, use the <literal>systemd-cgls</literal> command to display the hierarchy tree.</para>
 <section><title>The Modern Unified Hierarchy (cgroup v2)</title>
   <para>The Linux kernel previously supported two API variants (v1 and v2). &productnameshort; exclusively utilizes the unified (v2) hierarchy as the default and recommended mode.</para>
@@ -39,7 +39,58 @@
 </variablelist>
 </section>
 <section><title>Legacy cgroup Support</title>
-<para><literal>cgroup v1</literal> is functionally obsolete in SLES 16.0. Many modern system features and container runtimes now require the unified v2 hierarchy to operate correctly. Use of the legacy mode should be restricted to environments with strict requirements for aging, incompatible applications.</para>
-<para>To force the system into the legacy hybrid hierarchy, you must append systemd.unified_cgroup_hierarchy=0 as a kernel command-line parameter in the GRUB 2 boot loader. For detailed instructions on modifying boot parameters, refer to the &productnameshort; Administration Guide.</para>
+<para><literal>cgroup v1</literal> is functionally obsolete in &productname;. Many modern system features and container runtimes now require the unified v2 hierarchy to operate correctly. Use of the legacy mode should be restricted to environments with strict requirements for aging, incompatible applications.</para>
+<para>To force the system into the legacy hybrid hierarchy, you must append <code>systemd.unified_cgroup_hierarchy=0</code> as a kernel command-line parameter in the GRUB 2 boot loader. For detailed instructions on modifying boot parameters, refer to the &productnameshort; Administration Guide.</para>
+</section>
+<section><title>Resource accounting</title>
+<para>Organizing processes into different <literal>cgroups</literal> can be used to obtain per-cgroup resource consumption data. Activating accounting for one unit also implicitly activates it for all units in the same slice and all parent slices.</para>
+<itemizedlist><listitem><para>For per-unit setting, use directives like <code>MemoryAccounting=</code>.</para></listitem>
+<listitem><para>For global setting, edit <filename>/etc/systemd/system.conf</filename> with <code>DefaultMemoryAccounting=</code>.</para></listitem>
+</itemizedlist>
+</section>
+<section><title>Setting resource limits</title>
+<para>Limitations to <literal>cgroups</literal> are primarily set with the <literal>systemctl</literal> set-property command.</para>
+<screen>systemctl set-property [--runtime] <replaceable>NAME</replaceable> <replaceable>PROPERTY1=VALUE</replaceable><replaceable>[PROPERTY2=VALUE]</replaceable></screen>
+<itemizedlist><listitem><para><literal>NAME</literal>: A &systemd; service, scope, or slice name.</para></listitem>
+<listitem><para><literal>--runtime</literal>: Optional. Use this if you do not want values to persist after reboot.</para></listitem>
+<listitem><para><literal>PROPERTY</literal>: Properties such as <literal>CPU</literal>, <literal>Memory</literal>, <literal>Tasks</literal>, <literal>I/O</literal>, and <literal>Network</literal>.</para></listitem>
+</itemizedlist>
+</section>
+<section id="sec-tuning-cgroups-tasksmax">
+  <title>Preventing Fork Bombs with <literal>TasksMax</literal></title>
+  <para>
+    <systemitem class="daemon">systemd</systemitem> supports configuring task count limits 
+    to prevent runaway processes from crashing the system. While upstream 
+    <systemitem class="daemon">systemd</systemitem> sets strict limits (typically 15% 
+    of the kernel global limit), &slea; defaults to <literal>infinity</literal> 
+    to provide maximum flexibility for diverse workloads.
+  </para>
+
+  <section id="sec-tasksmax-overriding-defaults">
+    <title>Overriding Defaults</title>
+    <para>
+      To prevent system crashes from unintended process proliferation, you can 
+      set a global default limit. For example, to set a limit of 256 tasks per 
+      unit, create a drop-in configuration file at 
+      <filename>/etc/systemd/system.conf.d/90-system-tasksmax.conf</filename>:
+    </para>
+<screen>[Manager]
+DefaultTasksMax=256</screen>
+    <para>
+      After creating the file, reload the <systemitem class="daemon">systemd</systemitem> 
+      manager configuration and verify the change:
+    </para>
+<screen><command>sudo systemctl daemon-reload</command>
+<command>systemctl show --property DefaultTasksMax</command>
+DefaultTasksMax=256</screen>
+    <important>
+      <para>
+        Setting this value too low can cause services like databases or web 
+        servers to fail with "Resource temporarily unavailable" errors. Always 
+        calibrate the <literal>TasksMax</literal> value based on the specific 
+        threading requirements of your application.
+      </para>
+    </important>
+  </section>
 </section>
 </topic>
