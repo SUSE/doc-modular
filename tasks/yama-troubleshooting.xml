@@ -25,9 +25,30 @@
 <para> Common troubleshooting scenarios include:</para>
   <variablelist>
     <varlistentry>
-      <term><emphasis>xx</emphasis></term>
-      <listitem> <para>xx</para>
+      <term><emphasis>Debuggers (GDB) Cannot Attach to processes</emphasis></term>
+      <listitem> <para>This is the most common issue. You try to debug a running process with GDB or strace and you get an <literal>Operation not permitted</literal> error, even if you own the process.
+   To resolve issues where a restrictive YAMA <literal>ptrace_scope</literal> (typically levels 1 or 2) prevents a debugger from attaching to a process, lower the kernel's security constraints. By checking the current status via <command>cat /proc/sys/kernel/yama/ptrace_scope</command> and subsequently updating it to 0 using the command <command>echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope</command> , you temporarily grant permissions for a user to debug their own non-privileged processes.
+   This adjustment effectively relaxes the system's <literal>ptrace</literal> restrictions, enabling standard debugging tools to function without being blocked by the Linux security module.
+   </para>
 </listitem>
  </varlistentry>
+ <varlistentry>
+  <term><emphasis>Permissions reverting After reboot</emphasis></term>
+  <listitem> <para>You manually set <literal>ptrace_scope</literal>  to 0 to allow development work, but every time the machine reboots, it switches back to 1, breaking your workflow.
+ Because the <literal>/proc</literal> file system is volatile, any manual changes to the YAMA <literal>ptrace_scope</literal> are lost upon reboot, as security-oriented distributions reset this value via default configuration files.
+ To make a permanent adjustment, modify the persistent configuration located at <literal>/etc/sysctl.d/10-ptrace.conf</literal> or a similar path by changing the value of <literal>kernel.yama.ptrace_scope </literal> from 1 to 0.
+ Save the file and apply the changes with <command>sudo sysctl -p</command>. This ensures that the relaxed debugging permissions remain active across system restarts.
+  </para>
+</listitem>
+</varlistentry>
+<varlistentry>
+  <term><emphasis>Admin only debugging (scope 2)</emphasis></term>
+  <listitem> <para>You are a developer with &sudo; access, but you still cannot attach to a process you started, even after trying to use <command>sudo gdb</command>.
+ When the YAMA <literal>ptrace_scope</literal>  is set to level 2 (Admin-only attach), the system enforces a strict security policy that prevents users and sometimes even root users from attaching to a process that is already running unless they possess specific capabilities like <literal>CAP_SYS_PTRACE</literal> .
+To bypass this restriction without lowering the system's global security level, initiate the process directly through the debugger rather than attempting to hook into a pre-existing PID.
+With the command <command>sudo gdb --args ./my_program</command>, the debugger acts as the parent process, establishing a legitimate relationship that permits full debugging control even under restrictive YAMA settings.
+  </para>
+</listitem>
+</varlistentry>
    </variablelist>
 </topic>
