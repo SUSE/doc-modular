@@ -36,7 +36,7 @@ According to their purpose, we dinstinguish between four topic types:
    * Reference: *informs* (e.g. list of options, table with config files, default settings) - [XML template](https://github.com/SUSE/doc-modular/blob/main/templates/references/reference.xml)
    * Glue: helps *navigate* (combines texts or structures that do not fit into any of the other categories): Typical glue topics are the "For more information" and the "What's next" sections. - [XML template](https://github.com/SUSE/doc-modular/blob/main/templates/glues/glue.xml)
 
-Articles are built by bundling these topics into assembly files - organizational units that structure the topics. The assemblies are used to build coherent and meaningful documents [XML template](https://github.com/SUSE/doc-modular/blob/main/templates/articles/assembly.xml).
+Articles are built by bundling these topics into assembly files - organizational units that structure the topics. The assemblies are used to build coherent and meaningful documents [XML template](https://github.com/SUSE/doc-modular/blob/main/templates/articles/assembly.asm.xml).
 
 # Tools
 

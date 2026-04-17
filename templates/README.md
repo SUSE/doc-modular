@@ -92,7 +92,7 @@ Where the particular parts have the following meaning:
 * `x86` - for x86-64
 * `ppc` - for IBM Power PC
 * `s390`- for IBM Z
-* `aarch` - for AArch64
+* `arm` - for Arm AArch64
 
 `<assembly file name>` is the assembly file name without the asm.xml part. 
 
