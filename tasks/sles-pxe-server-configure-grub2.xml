@@ -79,8 +79,8 @@
   <section xml:id="sles-pxe-server-configure-grub2-main-config">
     <title>Creating the &grub; configuration</title>
     <para>
-      The &grub; configuration file handles three main tasks: detecting the client's architecture, 
-      managing network interfaces and loading other configuration files. This modular 
+      The &grub; configuration file handles three main tasks: detecting the client's architecture,
+      managing network interfaces and loading other configuration files. This modular
       approach provides flexibility for different deployment scenarios.
     </para>
     <procedure xml:id="proc-create-main-grub-config">
@@ -662,6 +662,70 @@ EOF
         </step>
       </procedure>
     </section>
+  </section>
+  <section xml:id="sles-pxe-server-grub2-troubleshoot-multi-env">
+   <title>Multi-environment subdirectory setups</title>
+   <para>
+    If you want to serve multiple independent PXE environments from subdirectories under one TFTP root (for example,
+    <filename>/srv/tftpboot/<replaceable>ENV1</replaceable>/boot/...</filename> and
+    <filename>/srv/tftpboot/<replaceable>ENV2</replaceable>/boot/...</filename>), the standard
+    <filename>/boot</filename> prefix used throughout this guide must be replaced with your custom
+    prefix consistently in all of the following places. Missing even one will cause boot failures.
+   </para>
+   <itemizedlist>
+    <listitem>
+     <para>
+       <emphasis role="bold">DHCP boot filename</emphasis>&mdash;the boot filename delivered to the
+       client must include the custom prefix. For example,
+       <filename>/<replaceable>ENV1</replaceable>/boot/grub2/x86_64-efi/bootx64.efi</filename>.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      <emphasis role="bold">nginx location alias</emphasis>&mdash;the <literal>location /boot</literal>
+      block in <filename>/etc/nginx/nginx.conf</filename> must be updated to expose the custom
+      prefix path.
+     </para>
+     </listitem>
+     <listitem>
+      <para>
+       <emphasis role="bold"><filename>grub.cfg</filename> source paths</emphasis>&mdash;the hardcoded
+       absolute paths inside <filename>/srv/tftpboot/boot/grub2/grub.cfg</filename>:
+      </para>
+<screen>source "${config}/${net_default_mac}/grub.cfg"</screen>
+<screen>source "${prefix}/menu.cfg"</screen>
+      <para>
+       Both must be updated to use the custom prefix.
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+       <emphasis role="bold"><filename>menu.cfg</filename> paths</emphasis>&mdash;all
+       <filename>/boot/images/...</filename> paths inside <filename>menu.cfg</filename> must be
+       updated to use the custom prefix.
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+       <emphasis role="bold">Per-MAC host configurations</emphasis>&mdash;if you use machine-specific configurations, the
+       <literal>source "/boot/grub2/menu.cfg"</literal> line inside each per-MAC <filename>grub.cfg</filename> must also be updated to use the custom prefix.
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+       <emphasis role="bold">&selnx; file context</emphasis>&mdash;run <command>restorecon</command> on your custom path:
+      </para>
+<screen>&prompt.sudo;<command>restorecon -Rv /srv/tftpboot/<replaceable>ENV1</replaceable></command></screen>
+     </listitem>
+     <listitem>
+      <para>
+       <emphasis role="bold">&selnx; policy</emphasis>&mdash; running <command>setsebool -P
+       httpd_serve_cobbler_files=1</command> only covers the standard <filename>/boot</filename>
+       path. A custom &selnx; policy is required for a non-standard prefix. Use <command>ausearch -m avc -ts recent</command>
+       to identify denials and create the appropriate policy module.
+      </para>
+     </listitem>
+   </itemizedlist>
   </section>
   <section xml:id="sles-pxe-server-configure-grub2-next-steps">
     <title>Next steps</title>
