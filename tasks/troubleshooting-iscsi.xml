@@ -20,11 +20,88 @@
     <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
     <abstract>
       <para>
-
+Effectively troubleshooting an iSCSI environment begins with recognizing that most disruptions stem from a handful of common known issues, ranging from basic network reachability and firewall blockages on port 3260 to more nuanced configuration errors like IQN mismatches, incorrect CHAP authentication credentials, and MTU inconsistencies that trigger intermittent packet loss.
       </para>
     </abstract>
   </info>
     <para>
+The following are some known issues and possible solutions for iSCSI target and iSCSI initiator:
  </para>
-
+<variablelist>
+<varlistentry>
+<term>Portal error when setting up target LUNs on an iSCSI LIO target server</term>
+<listitem>
+  <para>
+    When adding or editing an iSCSI LIO target group, you get an error:
+   </para>
+<screen>Problem setting network portal <replaceable>IP_ADDRESS</replaceable>:3260</screen>
+   <para>
+    The <filename>/var/log/YasT2/y2log</filename> log file contains the
+    following error:
+   </para>
+<screen>find: `/sys/kernel/config/target/iscsi': No such file or directory</screen>
+   <para>
+    This problem occurs if the iSCSI LIO Target Server software is not
+    currently running. To resolve this issue, exit &yast;, manually start iSCSI
+    LIO at the command line with <command>systemctl start targetcli</command>,
+    then try again.
+   </para>
+   <para>
+    You can also enter the following to check if <command>configfs</command>,
+    <command>iscsi_target_mod</command>, and <command>target_core_mod</command>
+    are loaded. A sample response is shown.
+   </para>
+<screen>&prompt.sudo;lsmod | grep iscsi
+iscsi_target_mod      295015  0
+target_core_mod       346745  4
+iscsi_target_mod,target_core_pscsi,target_core_iblock,target_core_file
+configfs               35817  3 iscsi_target_mod,target_core_mod
+scsi_mod              231620  16
+iscsi_target_mod,target_core_pscsi,target_core_mod,sg,sr_mod,mptctl,sd_mod,
+scsi_dh_rdac,scsi_dh_emc,scsi_dh_alua,scsi_dh_hp_sw,scsi_dh,libata,mptspi,
+mptscsih,scsi_transport_spi</screen>
+</listitem>
+</varlistentry>
+<varlistentry><term>iSCSI LIO targets are not visible from other systems</term>
+  <listitem><para>If you use a firewall on the target server, you must open the iSCSI port
+    that you are using to allow other systems to see the iSCSI LIO targets.
+   TCP port 3260 is the port number for the iSCSI protocol, as defined by IANA (Internet Assigned Numbers Authority).
+  </para></listitem></varlistentry>
+  <varlistentry><term>Data packets dropped for iSCSI traffic</term>
+    <listitem><para> A firewall might drop packets if it gets too busy. The default for the SUSE
+      Firewall is to drop packets after three minutes. If you find that iSCSI
+      traffic packets are being dropped, consider configuring the SUSE Firewall
+      to queue packets instead of dropping them when it gets too busy.
+    </para></listitem></varlistentry>
+    <varlistentry><term>Using iSCSI volumes with LVM</term>
+      <listitem><para>Use the troubleshooting tips in this section when using LVM on iSCSI
+        targets.</para></listitem></varlistentry>
+        <varlistentry><term>Check if the iSCSI initiator discovery occurs at boot</term>
+          <listitem><para>When you set up the iSCSI Initiator, ensure that you enable discovery at
+            boot time so that udev can discover the iSCSI devices at boot time and set
+            up the devices to be used by LVM.</para></listitem></varlistentry>
+            <varlistentry><term>Check that iSCSI target discovery occurs at boot</term>
+              <listitem><para>Remember that <filename>udev</filename> provides the default setup for
+                devices. Ensure that all of the applications that create devices are
+                started at boot time so that <command>udev</command> can recognize and
+                assign devices for them at system start-up. If the application or service
+                is not started until later, <command>udev</command> does not create the
+                device automatically as it would at boot time.</para></listitem></varlistentry>
+                <varlistentry><term>iSCSI targets are mounted when the configuration file is set to manual</term>
+                  <listitem><para> When Open-iSCSI starts, it can mount the targets even if the
+                    <literal>node.startup</literal> option is set to manual in the
+                    <filename>/etc/iscsi/iscsid.conf</filename> file if you manually modified
+                    the configuration file.
+                   </para>
+                   <para>
+                    Check the
+                    <filename>/etc/iscsi/nodes/<replaceable>TARGET_NAME</replaceable>/<replaceable>IP_ADDRESS</replaceable>,<replaceable>PORT</replaceable>/default</filename>
+                    file. It contains a <literal>node.startup</literal> setting that overrides
+                    the <filename>/etc/iscsi/iscsid.conf</filename> file. Setting the mount
+                    option to manual by using the &yast; interface also sets
+                    <literal>node.startup = manual</literal> in the
+                    <filename>/etc/iscsi/nodes/<replaceable>TARGET_NAME</replaceable>/<replaceable>IP_ADDRESS</replaceable>,<replaceable>PORT</replaceable>/default
+                    </filename>files.
+                  </para></listitem></varlistentry>
+              </variablelist>
 </topic>
