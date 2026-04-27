@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="targetcli-iscsiadm-iscsi" role="concept" xml:lang="en"
+  xmlns="http://docbook.org/ns/docbook" version="5.2"
+  xmlns:its="http://www.w3.org/2005/11/its"
+  xmlns:xi="http://www.w3.org/2001/XInclude"
+  xmlns:xlink="http://www.w3.org/1999/xlink"
+  xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Understanding <command>targetcli</command> and <command>iscsiadm</command> command-line utilities </title>    <!-- can be changed via merge in the assembly -->
+    <!--add author's email address-->
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>      <!-- can be changed via merge in the assembly -->
+      <para>
+To understand the ecosystem of Linux storage networking, it is essential to distinguish between the two pillars of the iSCSI framework; <command>targetcli</command>  <command>iscsiadm</command> command-line utilities.
+        </para>
+</abstract>
+</info>
+<para>
+While they both facilitate the transmission of SCSI commands over IP networks, they operate on opposite ends of the connection. <command>targetcli</command> is the administration tool for the Linux-IO (LIO) target subsystem, used on the server-side to define, export, and manage the physical or virtual storage volumes that will be shared.
+In contrast, <command>iscsiadm</command> is the primary utility for the Open-iSCSI project, functioning on the client-side (the initiator) to discover, log into, and manage the remote disks provided by the target.
+</para>
+<section xml:id="about-targetcli">
+<title>The <command>targetcli</command> command-line utility </title>
+<para> The <command>targetcli</command> tool is the primary command-line administration tool used to configure and manage the LIO (Linux-IO) target subsystem, which is the standard open-source storage target for the Linux kernel.
+ It operates as an interactive shell with a hierarchical file-system-like structure and allows system administrators to export local storage resources—such as physical disks, files, or LVM (Logical Volumes) to remote clients via various fabrics, most notably iSCSI.
+ It provides a unified interface to define back stores, creates IQNs (iSCSI Qualified Names), and establishes ACLs (Access Control Lists).</para>
+<para> Similar to a conventional shell, you can traverse the <command>targetcli</command> functional hierarchy using the <command>cd</command> command and
+  list contents with the <command>ls</command> command. While each directory has its own set of commands, these commands that are available in
+  all directories. You can use the <command>help</command> command in any directory to view a
+  list of available commands or information about any command in particular.</para>
+  <para>
+    The <systemitem>targetcli</systemitem> tool is part of the
+    <package>targetcli-fb</package> package. This package is available in the
+    official &productname; software repository, and it can be installed using
+    the following command:
+   </para>
+
+ <screen>&prompt.sudo;zypper install targetcli-fb</screen>
+ <para>
+  To switch to the <literal>targetcli</literal> shell, run the <command>targetcli</command> as
+  root:
+ </para>
+
+<screen>&prompt.sudo;targetcli</screen>
+<para>
+  You can then run the <command>ls</command> command to see the default
+  configuration.
+ </para>
+
+<screen>/&gt; ls
+o- / ............................ [...]
+ o- backstores ................. [...]
+ | o- block ..... [Storage Objects: 0]
+ | o- fileio .... [Storage Objects: 0]
+ | o- pscsi ..... [Storage Objects: 0]
+ | o- ramdisk ... [Storage Objects: 0]
+ | o- rbd ....... [Storage Objects: 0]
+ o- iscsi ............... [Targets: 0]
+ o- loopback ............ [Targets: 0]
+ o- vhost ............... [Targets: 0]
+ o- xen-pvscsi .......... [Targets: 0]
+/&gt;</screen>
+<para>
+  targetcli supports the following back-ends:
+ </para>
+
+ <itemizedlist>
+  <listitem>
+   <para>
+    <literal>fileio</literal>, local image file
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    <literal>block</literal>, block storage on a dedicated disk or partition
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    <literal>pscsi</literal>, SCSI pass-through devices
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    <literal>ramdisk</literal>, memory-based back-end
+   </para>
+  </listitem>
+  <listitem>
+   <para>
+    <literal>rbd</literal>, Ceph RADOS block devices
+   </para>
+  </listitem>
+ </itemizedlist>
+ <example>
+  <title>Set up a local image file as a software target</title>
+  <screen>/backstores/fileio create test-disc <replaceable>/alt</replaceable>/test.img 1G</screen>
+
+  <para>
+   This creates a 1&nbsp;GB <filename>test.img</filename> image in the
+   specified location (in this case <filename>/alt</filename>). Run
+   <command>ls</command>, and you should see the following result:
+  </para>
+
+<screen>/&gt; ls
+o- / ........................................................... [...]
+  o- backstores ................................................ [...]
+  | o- block .................................... [Storage Objects: 0]
+  | o- fileio ................................... [Storage Objects: 1]
+  | | o- test-disc ... [/alt/test.img (1.0GiB) write-back deactivated]
+  | |   o- alua ......     .......................... [ALUA Groups: 1]
+  | |     o- default_tg_pt_gp      .... [ALUA state: Active/optimized]
+  | o- pscsi .................................... [Storage Objects: 0]
+  | o- ramdisk .................................. [Storage Objects: 0]
+  | o- rbd ...................................... [Storage Objects: 0]
+  o- iscsi .............................................. [Targets: 0]
+  o- loopback ........................................... [Targets: 0]
+  o- vhost .............................................. [Targets: 0]
+  o- xen-pvscsi ......................................... [Targets: 0]
+/&gt;</screen>
+ </example>
+</section>
+<section xml:id="about-iscsiadm">
+  <title>The <command>iscsiadm</command> command-line utility</title>
+  <para>The <command>iscsiadm</command> tool is used in Linux environments to manage and administer the Open-iSCSI implementation, acting as the primary interface for configuring and managing iSCSI connections.
+    It allows administrators to discover targets on a network, log in or out of specific storage portals, and manage a local database of persistent iSCSI nodes.
+    By communicating with the <literal>iscsid</literal> daemon, it facilitates the mapping of remote block storage devices over an IP network, making remote disks appear as local SCSI devices, such as <filename>/dev/sdb</filename> to the operating system.</para>
+    <para>
+      Both the discovery and the configuration of iSCSI connections require a
+      running iscsid. When running the discovery the first time, the internal
+      database of the iSCSI initiator is created in the directory
+      <filename>/etc/iscsi/</filename>.
+     </para>
+     <para>
+      If your discovery is password protected, provide the authentication
+      information to iscsid. Because the internal database does not exist when
+      doing the first discovery, it cannot be used now. Instead, the
+      configuration file <filename>/etc/iscsid.conf</filename> must be edited to
+      provide the information. To add your password information for the
+      discovery, add the following lines to the end of
+      <filename>/etc/iscsid.conf</filename>:
+     </para>
+  <screen>discovery.sendtargets.auth.authmethod = CHAP
+  discovery.sendtargets.auth.username = <replaceable>USERNAME</replaceable>
+  discovery.sendtargets.auth.password = <replaceable>PASSWORD</replaceable></screen>
+     <para>
+      The discovery stores all received values in an internal persistent
+      database. In addition, it displays all detected targets. Run this discovery
+      with the following command:</para>
+<screen>&prompt.sudo;iscsiadm <option>-m discovery --type=st --portal=<replaceable>TARGET_IP</replaceable></option></screen>
+<screen>10.44.171.99:3260,1 iqn.2006-02.com.example.iserv:systems</screen>
+<para>
+  To discover the available targets on an <literal>iSNS</literal> server:
+ </para>
+<screen>sudo iscsiadm --mode discovery --type isns --portal <replaceable>TARGET_IP</replaceable></screen>
+<para>For each target defined on the iSCSI target, one line appears.</para>
+<para>
+  The special <option>--login</option> option of <command>iscsiadm</command>
+  creates all needed devices:
+ </para>
+<screen>&prompt.sudo;iscsiadm -m node -n iqn.2006-02.com.example.iserv:systems --login</screen>
+ <para>
+The newly generated devices show up in the output of <command>lsscsi</command> and can now be mounted.</para>
+<para>
+  All information discovered by the iSCSI initiator is stored in two
+  database files that reside in <filename>/etc/iscsi</filename>. There is one
+  database for the discovery of targets and one for the discovered nodes.
+  When accessing a database, you first must select if you want to get your
+  data from the discovery or from the node database. Do this with the
+  <option>-m discovery</option> and <option>-m node</option> parameters of
+  <command>iscsiadm</command>. Using <command>iscsiadm</command> with one of
+  these parameters gives an overview of the stored records:
+ </para>
+<screen>&prompt.sudo;iscsiadm -m discovery 10.44.171.99:3260,1 iqn.2006-02.com.example.iserv:systems
+</screen>
+<para>
+  The target name in this example is
+  <literal>iqn.2006-02.com.example.iserv:systems</literal>. This name is
+  needed for all actions that relate to this special data set. To examine the
+  content of the data record with the ID
+  <literal>iqn.2006-02.com.example.iserv:systems</literal>, use the following
+  command:
+ </para>
+<screen>&prompt.sudo;iscsiadm -m node --targetname iqn.2006-02.com.example.iserv:systems
+node.name = iqn.2006-02.com.example.iserv:systems
+node.transport_name = tcp
+node.tpgt = 1
+node.active_conn = 1
+node.startup = manual
+node.session.initial_cmdsn = 0
+node.session.reopen_max = 32
+node.session.auth.authmethod = CHAP
+node.session.auth.username = joe
+node.session.auth.password = ********
+node.session.auth.username_in = <replaceable>EMPTY</replaceable>
+node.session.auth.password_in = <replaceable>EMPTY</replaceable>
+node.session.timeo.replacement_timeout = 0
+node.session.err_timeo.abort_timeout = 10
+node.session.err_timeo.reset_timeout = 30
+node.session.iscsi.InitialR2T = No
+node.session.iscsi.ImmediateData = Yes
+....</screen>
+<para>
+ To edit the value of one of these variables, use the command
+  <command>iscsiadm</command> with the <option>update</option> operation. For
+  example, if you want iscsid to log in to the iSCSI target when it
+  initializes, set the variable <option>node.startup</option> to the value
+  <option>automatic</option>:
+ </para>
+<screen>sudo iscsiadm -m node -n iqn.2006-02.com.example.iserv:systems \
+-p ip:port --op=update --name=node.startup --value=automatic</screen>
+ <para>
+  Remove obsolete data sets with the <command>delete</command> command, for example:
+ </para>
+<screen>&prompt.sudo;iscsiadm -m node -n iqn.2006-02.com.example.iserv:systems \
+-p ip:port --op=delete</screen>
+<para>
+  To get a list of all discovered targets, run the <command>sudo iscsiadm -m
+  node</command> command.
+ </para>
+ <important>
+  <title>No confirmation</title>
+  <para>
+   Use this option with caution because it deletes the record without any
+   additional confirmation prompt.
+  </para>
+ </important>
+ </section>
+</topic>
