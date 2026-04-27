@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_resource_constraints.xml -->
+
+<topic xml:id="ha-resources-adding-colocation-constraints"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Adding colocation constraints</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <xi:include href="../snippets/ha-resources-colocation-constraints.xml"/>
+    </abstract>
+  </info>
+
+  <para>
+    Colocation constraints use a <emphasis>score</emphasis> to indicate how important the
+    constraint is. A score of <literal>INFINITY</literal> (positive or negative) means that
+    the constraint <emphasis>must</emphasis> be applied. The score can also be a non-infinite
+    number (positive or negative), which means the constraint is only a preference.
+  </para>
+  <important>
+    <title>Resource start order</title>
+    <para>
+      Colocation constraints <emphasis>don't</emphasis> affect the order in which the resources
+      start. If you want resources to run on the same node <emphasis>and</emphasis> start in a
+      specific order, create a resource group.
+    </para>
+  </important>
+  <para>
+    You can add colocation constraints with the &crmshell; (&crmsh;) or with the &hawk; Web interface.
+  </para>
+  <variablelist role="tabs">
+    <varlistentry>
+      <term>&crmshell;</term>
+      <listitem>
+        <xi:include href="../snippets/ha-crmsh-procedure-intro.xml"/>
+        <procedure>
+          <step>
+            <para>
+              Log in either as the &rootuser; user or as a user with <command>sudo</command> privileges.
+            </para>
+          </step>
+          <step>
+            <para>
+              Add a colocation constraint. The basic command requires a name, a score and at
+              least two resources:
+            </para>
+<screen>&prompt.user;<command>sudo crm configure colocation <replaceable>COLOCATION_NAME SCORE: RESOURCE1 RESOURCE2</replaceable></command></screen>
+            <para>
+              The <replaceable>SCORE</replaceable> can be <literal>inf</literal>,
+              <literal>-inf</literal> or a number (positive or negative).
+            </para>
+            <para>
+              <replaceable>RESOURCE2</replaceable> is assigned to a node <emphasis>first</emphasis>,
+              and <replaceable>RESOURCE1</replaceable> is placed relative to
+              <replaceable>RESOURCE2</replaceable>.
+            </para>
+            <variablelist>
+              <title>Additional options</title>
+              <varlistentry>
+                <term>Resource sets</term>
+                <listitem>
+                  <para>
+                    You can use square brackets to group resources in a colocation constraint.
+                    In this example, <literal>res1</literal> and <literal>res2</literal> must
+                    run on the same node as <literal>res3</literal>, but aren't otherwise dependent
+                    on each other:
+                  </para>
+<screen>&prompt.user;<command>sudo crm configure colocation res1-2-with-res3 \
+  inf: [ res1 res2 ] res3</command></screen>
+<!-- `crm configure colocation col-res1-2-with-res3 inf: [ res1 res2 ] res3` worked
+ but `crm configure colocation col-res1-2-with-res3 inf: ( res1 res2 ) res3` didn't
+ but when you configure the same set with Hawk, it uses round () brackets -->
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>Roles</term>
+                <listitem>
+                  <para>
+                    You can require a role (<literal>Started</literal>, <literal>Stopped</literal>,
+                    <literal>Promoted</literal> or <literal>Promotable</literal>) for one or more
+                    resources. The colocation constraint only applies when the resource is in
+                    this role. In this example, <literal>res1</literal> must run on the same node
+                    where <literal>clone2</literal> is in the <literal>Promoted</literal> role:
+                  </para>
+<screen>&prompt.user;<command>sudo crm configure colocation res1-with-pr-clone2 \
+  inf: res1 clone2:Promoted</command></screen>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>Node attributes</term>
+                <listitem>
+                  <para>
+                    You can use a node attribute to colocate resources on a group of nodes instead
+                    of one node. In this example, <literal>res1</literal> and <literal>res2</literal>
+                    don't have to run on the same node, but must run on nodes with the same value
+                    for the <literal>datacenter</literal> node attribute:
+                  </para>
+<screen>&prompt.user;<command>sudo crm configure colocation res1-2-same-dc \
+  inf: res1 res2 node-attribute=datacenter</command></screen>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+          </step>
+          <step>
+            <para>
+              Check the status to see which node the resources are now running on:
+            </para>
+<screen>&prompt.user;<command>sudo crm status</command></screen>
+          </step>
+        </procedure>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>&hawk;</term>
+      <listitem>
+        <xi:include href="../snippets/ha-hawk-procedure-intro.xml"/>
+        <procedure>
+          <step>
+            <para>
+              In a Web browser, go to
+              <literal>https://<replaceable>HAWKSERVER</replaceable>:7630/</literal>
+              and log in.
+            </para>
+          </step>
+          <step>
+            <para>
+              From the left navigation bar, select <menuchoice><guimenu>Configuration</guimenu>
+              <guimenu>Add Constraint</guimenu></menuchoice>.
+            </para>
+          </step>
+          <step>
+            <para>
+              Click <guimenu>Colocation</guimenu>.
+            </para>
+          </step>
+          <step>
+            <para>
+              Enter a unique <guimenu>Constraint ID</guimenu>.
+            </para>
+          </step>
+          <step>
+            <para>
+              Enter a numeric <guimenu>Score</guimenu> or select a value from the drop-down list:
+            </para>
+            <itemizedlist>
+              <listitem>
+              <para>
+                <literal>Always</literal> sets the score to <literal>INFINITY</literal>, which
+                means that the resources must run on the same node.
+              </para>
+              </listitem>
+              <listitem>
+              <para>
+                <literal>Never</literal> sets the score to <literal>-INFINITY</literal>, which
+                means that the resources must run on different nodes.
+              </para>
+              </listitem>
+            </itemizedlist>
+          </step>
+          <step>
+            <para>
+              From the drop-down list in the <guimenu>Resources</guimenu> section, select a resource.
+            </para>
+            <para>
+              A new drop-down list appears. Repeat this step to add more resources.
+            </para>
+            <para>
+              The resource that appears <emphasis>last</emphasis> in the list is assigned to a
+              node <emphasis>first</emphasis>, and the other resources are placed relative to that
+              resource. To change the order of the resources, click the up arrow icon to swap a
+              resource with the one above it.
+            </para>
+            <para>
+              To remove a resource from the constraint, click the minus icon.
+            </para>
+          </step>
+          <step performance="optional">
+            <para>
+              To create a resource set, click the chain icon to link a resource to the
+              one above it. You can link multiple resources into a set or create
+              multiple resource sets.
+            </para>
+            <para>
+              To remove a resource from the set, click the scissors icon.
+            </para>
+          </step>
+          <step performance="optional">
+            <para>
+              If required, select a role (<literal>Started</literal>, <literal>Stopped</literal>,
+              <literal>Promoted</literal> or <literal>Promotable</literal>) from the drop-down list
+              next to a resource. The colocation constraint only applies when the resource
+              is in this role.
+            </para>
+          </step>
+          <step performance="optional">
+            <para>
+              You can add a <guimenu>Node Attribute</guimenu> to colocate the resources on a group
+              of nodes instead of one specific node. If the nodes have an attribute assigned, the
+              resources in this constraint will all be placed on nodes with the same value for
+              that attribute.
+            </para>
+          </step>
+          <step>
+            <para>
+              Click <guimenu>Create</guimenu> to finish the configuration.
+            </para>
+            <para>
+              A message at the top of the screen shows if the action was successful.
+            </para>
+          </step>
+        </procedure>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  <itemizedlist>
+    <title>For more information</title>
+    <listitem>
+      <para>
+        <command>crm configure help colocation</command>
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <command>crm help Resourcesets</command>
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <link xlink:href="https://clusterlabs.org/projects/pacemaker/doc/3.0/Pacemaker_Explained/html/constraints.html#placing-resources-relative-to-other-resources"/>
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <link xlink:href="https://clusterlabs.org/projects/pacemaker/doc/3.0/Pacemaker_Explained/html/constraints.html#colocating-sets-of-resources"/>
+      </para>
+    </listitem>
+  </itemizedlist>
+</topic>
