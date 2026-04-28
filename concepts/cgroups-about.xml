@@ -8,7 +8,7 @@
 <!-- point back to this document with a similar comment added to your legacy doc piece -->
 <!-- refer to README.md for file and id naming conventions -->
 <!-- metadata is dealt with on the assembly level -->
-<topic xml:id="concept-about-cgroups"
+<topic xml:xml:id="concept-about-cgroups"
  role="concept" xml:lang="en"
  xmlns="http://docbook.org/ns/docbook" version="5.2"
  xmlns:its="http://www.w3.org/2005/11/its"
@@ -16,7 +16,7 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>About Kernel Control groups</title>
+    <title>Understanding kernel control groups</title>
     <meta name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
     <abstract>
       <para>Kernel control groups provide a hierarchical framework for organizing processes to strictly monitor, isolate, and limit their consumption of system resources like CPU, memory, and I/O.
@@ -28,17 +28,17 @@
   <para>
    On &productname;, &systemd; serves as the primary manager for cgroups, organizing all processes into logical units called slices. This integration provides a consistent interface for monitoring and setting resource properties across the OS.</para>
  <para>To visualize your current system organization, use the <literal>systemd-cgls</literal> command to display the hierarchy tree.</para>
-<section><title>The Modern Unified Hierarchy (cgroup v2)</title>
+<section><title>Modern unified hierarchy (cgroup v2)</title>
   <para>The Linux kernel previously supported two API variants (v1 and v2). &productnameshort; exclusively utilizes the unified (v2) hierarchy as the default and recommended mode.</para>
-  <variablelist><varlistentry><term>Unified (v2)</term>
+  <variablelist><varlistentry><term>Unified hierarchy (cgroup v2)</term>
   <listitem><para>A single hierarchy where all resource controllers are managed under a unified structure, providing better consistency and easier resource accounting.</para></listitem>
   </varlistentry>
-<varlistentry><term>Hybrid/Legacy (v1)</term>
+<varlistentry><term>Hybrid/Legacy cgroup support (v1)</term>
 <listitem><para>In this mode controllers are spread across multiple v1 hierarchies—is considered legacy in &productnameshort; .</para></listitem>
 </varlistentry>
 </variablelist>
 </section>
-<section><title>Legacy cgroup Support</title>
+<section><title>Legacy <literal>cgroup</literal> support</title>
 <para><literal>cgroup v1</literal> is functionally obsolete in &productname;. Many modern system features and container runtimes now require the unified v2 hierarchy to operate correctly. Use of the legacy mode should be restricted to environments with strict requirements for aging, incompatible applications.</para>
 <para>To force the system into the legacy hybrid hierarchy, you must append <code>systemd.unified_cgroup_hierarchy=0</code> as a kernel command-line parameter in the GRUB 2 boot loader. For detailed instructions on modifying boot parameters, refer to the &productnameshort; Administration Guide.</para>
 </section>
@@ -48,6 +48,7 @@
 <listitem><para>For global setting, edit <filename>/etc/systemd/system.conf</filename> with <code>DefaultMemoryAccounting=</code>.</para></listitem>
 </itemizedlist>
 </section>
+
 <section><title>Setting resource limits</title>
 <para>Limitations to <literal>cgroups</literal> are primarily set with the <literal>systemctl</literal> set-property command.</para>
 <screen>systemctl set-property [--runtime] <replaceable>NAME</replaceable> <replaceable>PROPERTY1=VALUE</replaceable><replaceable>[PROPERTY2=VALUE]</replaceable></screen>
@@ -56,41 +57,212 @@
 <listitem><para><literal>PROPERTY</literal>: Properties such as <literal>CPU</literal>, <literal>Memory</literal>, <literal>Tasks</literal>, <literal>I/O</literal>, and <literal>Network</literal>.</para></listitem>
 </itemizedlist>
 </section>
-<section id="sec-tuning-cgroups-tasksmax">
-  <title>Preventing Fork Bombs with <literal>TasksMax</literal></title>
+<section xml:id="sec-tuning-cgroups-tasksmax">
+  <title>Preventing fork bombs with <literal>TasksMax</literal></title>
   <para>
-    <systemitem class="daemon">systemd</systemitem> supports configuring task count limits 
-    to prevent runaway processes from crashing the system. While upstream 
-    <systemitem class="daemon">systemd</systemitem> sets strict limits (typically 15% 
-    of the kernel global limit), &slea; defaults to <literal>infinity</literal> 
-    to provide maximum flexibility for diverse workloads.
+    <systemitem class="daemon">systemd</systemitem> provides the <literal>TasksMax</literal> 
+    parameter to limit the number of tasks (processes and threads) within a unit or slice. 
+    This serves as a critical defense against <quote>fork bombs</quote> and runaway 
+    processes that could otherwise exhaust the system's Process ID (PID) pool.
+  </para>
+  <para>
+    While upstream <systemitem class="daemon">systemd</systemitem> defaults to 15% 
+    of the kernel global limit (viewable via <command>sysctl kernel.pid_max</command>), 
+    &slea; overrides this behavior to provide maximum compatibility for high-performance 
+    workloads.
   </para>
 
-  <section id="sec-tasksmax-overriding-defaults">
-    <title>Overriding Defaults</title>
+  <section xml:id="sec-tasksmax-identifying-defaults">
+    <title>Identifying default <literal>TasksMax</literal> values</title>
     <para>
-      To prevent system crashes from unintended process proliferation, you can 
-      set a global default limit. For example, to set a limit of 256 tasks per 
-      unit, create a drop-in configuration file at 
-      <filename>/etc/systemd/system.conf.d/90-system-tasksmax.conf</filename>:
+      In &slea;, the default <literal>TasksMax</literal> value for both system units 
+      and user slices is set to <literal>infinity</literal>. This means no restriction 
+      is enforced by default. These overrides are located in the following vendor 
+      configuration files:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          System units: <filename>/usr/lib/systemd/system.conf.d/25-defaults-SLE.conf</filename>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          User slices: <filename>/usr/lib/systemd/system/user-.slice.d/25-defaults-SLE.conf</filename>
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      To verify the effective <literal>DefaultTasksMax</literal> on your system, run:
+    </para>
+<screen><command>systemctl show --property DefaultTasksMax</command></screen>
+    <important>
+      <para>
+        While <literal>infinity</literal> prevents service disruption due to reaching 
+        task limits, it leaves the system vulnerable to resource exhaustion. We 
+        recommend setting explicit limits for critical production services.
+      </para>
+    </important>
+  </section>
+
+  <section xml:id="sec-tasksmax-overriding">
+    <title>Overriding the <literal>DefaultTasksMax</literal> value</title>
+    <para>
+      To set a global default limit for all system units, create a drop-in file at 
+      <filename>/etc/systemd/system.conf.d/90-system-tasksmax.conf</filename>. For 
+      example, to limit each unit to 256 tasks:
     </para>
 <screen>[Manager]
 DefaultTasksMax=256</screen>
     <para>
-      After creating the file, reload the <systemitem class="daemon">systemd</systemitem> 
-      manager configuration and verify the change:
+      Apply the configuration and verify the change:
     </para>
 <screen><command>sudo systemctl daemon-reload</command>
-<command>systemctl show --property DefaultTasksMax</command>
-DefaultTasksMax=256</screen>
-    <important>
+<command>systemctl show --property DefaultTasksMax</command></screen>
+
+    <section>
+      <title>Setting per-service limits</title>
       <para>
-        Setting this value too low can cause services like databases or web 
-        servers to fail with "Resource temporarily unavailable" errors. Always 
-        calibrate the <literal>TasksMax</literal> value based on the specific 
-        threading requirements of your application.
+        Specific applications, such as large databases, often require more tasks 
+        than the global default. You can override the limit for a specific service 
+        (for example, MariaDB) using <command>systemctl set-property</command>:
       </para>
-    </important>
+<screen><command>sudo systemctl set-property mariadb.service TasksMax=8192</command></screen>
+      <para>
+        This command creates a persistent drop-in file at 
+        <filename>/etc/systemd/system/mariadb.service.d/50-TasksMax.conf</filename>. 
+        Verify the new limit in the <literal>Tasks:</literal> line of the service status:
+      </para>
+<screen>Tasks: 30 (limit: 8192)</screen>
+    </section>
+  </section>
+
+  <section xml:id="sec-tasksmax-user-sessions">
+    <title>Configuring task limits for user sessions</title>
+    <para>
+      User sessions often require higher limits than system services. To set a 
+      custom default for all users, create 
+      <filename>/etc/systemd/system/user-.slice.d/40-user-taskmax.conf</filename>:
+    </para>
+<screen>[Slice]
+TasksMax=16284</screen>
+    <tip>
+      <para>
+        If a <literal>TasksMax</literal> limit is too restrictive, the system logs 
+        will report errors such as <literal>Failed to fork (Resource temporarily 
+        unavailable)</literal>. Incrementally increase the limit until the 
+        workload stabilizes.
+      </para>
+    </tip>
+  </section>
+</section>
+<section xml:id="sec-control-io-cgroups">
+  <title>I/O Control with cgroups</title>
+  <para>
+    Use the Linux kernel block I/O controller to prioritize or throttle I/O operations. 
+    By leveraging <systemitem class="daemon">systemd</systemitem> to configure cgroups, 
+    you can manage disk resources across the system. This section also describes common 
+    pitfalls associated with proportional I/O control.
+  </para>
+
+  <section id="sec-cgroups-prerequisites">
+    <title>Prerequisites</title>
+    <para>
+      Before configuring I/O control, ensure your system meets the following 
+      requirements. These settings generally cannot be changed during runtime.
+    </para>
+
+    <section xml:id="sec-cgroups-filesystems">
+      <title>File System Support</title>
+      <para>
+        You must use a file system that supports cgroup writeback to enable accurate 
+        writeback charging. Supported file systems in &slea; 15 SP3 and later include:
+      </para>
+      <itemizedlist>
+        <listitem><para>Btrfs (v4.3+)</para></listitem>
+        <listitem><para>Ext4 (v4.3+)</para></listitem>
+        <listitem><para>XFS (v5.3+)</para></listitem>
+      </itemizedlist>
+    </section>
+
+    <section xml:id="sec-cgroups-block-io-scheduler">
+      <title>Block I/O Scheduler</title>
+      <para>
+        Proportional I/O control requires a specific scheduler. &suse; recommends 
+        the <literal>BFQ</literal> controller.
+      </para>
+      <para>
+        To verify the current scheduler for a device (for example, 
+        <filename>sda</filename>):
+      </para>
+<screen><command>cat /sys/class/block/sda/queue/scheduler</command>
+mq-deadline kyber bfq [none]</screen>
+      <para>
+        To switch the scheduler to <literal>BFQ</literal>:
+      </para>
+<screen><command>echo bfq &gt; /sys/class/block/sda/queue/scheduler</command></screen>
+      <note>
+        <para>
+          Apply this setting to the disk device itself, not a partition. &slea; 
+          includes <systemitem class="resource">udev</systemitem> rules that 
+          automatically enable BFQ for rotational drives.
+        </para>
+      </note>
+    </section>
+  </section>
+
+  <section xml:id="sec-cgroups-configure-control-quantities">
+    <title>Configuring Control Quantities</title>
+    <para>
+      Apply I/O limits permanently to services using <command>systemctl</command>:
+    </para>
+<screen><command>sudo systemctl set-property fast.service IOWeight=400</command>
+<command>sudo systemctl set-property slow.service IOWeight=50</command>
+<command>sudo systemctl set-property throttled.service IOReadBandwidthMax="/dev/sda 1M"</command></screen>
+    <para>
+      Alternatively, use <command>systemd-run</command> to apply limits to transient 
+      scopes:
+    </para>
+<screen><command>sudo systemd-run --scope -p IOWeight=400 high_prioritized_command</command></screen>
+  </section>
+
+  <section xml:id="sec-cgroups-control-behavior">
+    <title>I/O Control Behavior and Expectations</title>
+    <variablelist>
+      <varlistentry>
+        <term>Direct vs. Buffered I/O</term>
+        <listitem>
+          <para>
+            I/O control is most effective for direct I/O. Decoupled I/O (like 
+            writeback via page cache) may result in delayed or unobserved control.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Hardware Variations</term>
+        <listitem>
+          <para>
+            I/O control occurs at the scheduler layer. Complex setups like MD RAID, 
+            Device Mapper, or Btrfs RAID may not support scheduling as expected.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+
+  <section xml:id="sec-cgroups-user-sessions">
+    <title>Resource Control in User Sessions</title>
+    <para>
+      To enable resource control within a user session, create a drop-in file 
+      at <filename>/etc/systemd/system/user@.service.d/60-delegate.conf</filename>:
+    </para>
+<screen>[Service]
+Delegate=pids memory</screen>
+    <para>
+      After modifying the configuration, notify the instances:
+    </para>
+<screen><command>sudo systemctl daemon-reload</command>
+<command>systemctl --user daemon-reexec</command></screen>
   </section>
 </section>
 </topic>
