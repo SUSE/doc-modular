@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_resource_constraints.xml -->
+
+<topic xml:id="ha-resources-adding-location-constraints"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Adding location constraints</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <xi:include href="../snippets/ha-resources-location-constraints.xml"/>
+
+    </abstract>
+  </info>
+
+  <para>
+    Location constraints use a <emphasis>score</emphasis> to indicate how important the constraint
+    is. A score of <literal>INFINITY</literal> (positive or negative) means that the constraint
+    <emphasis>must</emphasis> be applied. The score can also be a non-infinite number (positive or
+    negative), which means the constraint is only a preference. You can also add multiple location
+    constraints with different scores to create an order of node preference.
+  </para>
+  <para>
+    You can add location constraints with the &crmshell; (&crmsh;) or with the &hawk; Web interface.
+  </para>
+
+  <variablelist role="tabs">
+    <varlistentry>
+      <term>&crmshell;</term>
+      <listitem>
+        <xi:include href="../snippets/ha-crmsh-procedure-intro.xml"/>
+        <procedure>
+          <step>
+            <para>
+              Log in either as the &rootuser; user or as a user with <command>sudo</command> privileges.
+            </para>
+          </step>
+          <step>
+            <para>
+              Add a location constraint. The basic command requires a name, at least one resource,
+              a score, and a node:
+            </para>
+<screen>&prompt.user;<command>sudo crm configure location <replaceable>LOCATION_NAME RESOURCE SCORE: NODE</replaceable></command></screen>
+            <para>
+              The <replaceable>SCORE</replaceable> can be <literal>inf</literal>,
+              <literal>-inf</literal> or a number (positive or negative).
+            </para>
+            <variablelist>
+              <title>Additional options</title>
+              <varlistentry>
+                <term>Resource sets</term>
+                <listitem>
+                  <para>
+                    You can use curly brackets to include multiple resources in a location
+                    constraint. In this example, <literal>res1</literal> and <literal>res2</literal>
+                    must both run on node <literal>&node1;</literal>:
+                  </para>
+<screen>&prompt.user;<command>sudo crm configure location res1-2-&node1; { res1 res2 } inf: &node1;</command></screen>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>Resource patterns</term>
+                <listitem>
+                  <para>
+                    You can use a resource pattern (a regular expression between two slashes)
+                    to refer to multiple resources. If you add new resources with the same name
+                    pattern, they will also be included in the location constraint. In this
+                    example, any resources beginning with <literal>res</literal> must run on
+                    node <literal>&node1;</literal>:
+              </para>
+<screen>&prompt.user;<command>sudo crm configure location all-res-&node1; /res.*/ inf: &node1;</command></screen>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>Resource discovery</term>
+                <listitem>
+                  <para>
+                    In most cases, you should keep the default
+                    <literal>resource-discovery=always</literal>. This means that the cluster
+                    checks whether the resource is already running, to help avoid unwanted
+                    instances of the resource. However, if necessary you can change it to
+                    <literal>never</literal> or <literal>exclusive</literal>.
+                  </para>
+                </listitem>
+              </varlistentry>
+              <varlistentry>
+                <term>Rules</term>
+                <listitem>
+                  <para>
+                    Instead of specifying a single node, you can use a rule to refer to multiple
+                    nodes. If you add more nodes that meet the rule, they will also be included
+                    in the location constraint. In this example, <literal>res1</literal> can't
+                    run on any node where the custom node attribute <literal>memory</literal>
+                    is less that <literal>4096</literal>:
+                  </para>
+<screen>&prompt.user;<command>sudo crm configure location res1-no-small-nodes res1 \
+  rule -inf: memory lt 4096</command></screen>
+                </listitem>
+              </varlistentry>
+            </variablelist>
+          </step>
+          <step>
+            <para>
+              Check the status to see which node the resources are now running on:
+            </para>
+<screen>&prompt.user;<command>sudo crm status</command></screen>
+          </step>
+        </procedure>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>&hawk;</term>
+      <listitem>
+        <xi:include href="../snippets/ha-hawk-procedure-intro.xml"/>
+        <procedure>
+          <step>
+            <para>
+              In a Web browser, go to
+              <literal>https://<replaceable>HAWKSERVER</replaceable>:7630/</literal>
+              and log in.
+            </para>
+          </step>
+          <step>
+            <para>
+              From the left navigation bar, select <menuchoice><guimenu>Configuration</guimenu>
+              <guimenu>Add Constraint</guimenu></menuchoice>.
+            </para>
+          </step>
+          <step>
+            <para>
+              Click <guimenu>Location</guimenu>.
+            </para>
+          </step>
+          <step>
+            <para>
+              Enter a unique <guimenu>Constraint ID</guimenu>.
+            </para>
+          </step>
+          <step>
+            <para>
+              Select one or more <guimenu>Resources</guimenu> to apply the constraint to.
+            </para>
+            <para>
+              To remove a resource from the constraint, press <keycap function="control"/> and
+              click the resource again.
+            </para>
+          </step>
+          <step>
+            <para>
+              Enter a numeric <guimenu>Score</guimenu> or select a value from the drop-down list:
+            </para>
+            <itemizedlist>
+              <listitem>
+              <para>
+                <literal>Always</literal> sets the score to <literal>INFINITY</literal>, which
+                means that the resources must run on the specified node.
+              </para>
+              </listitem>
+              <listitem>
+              <para>
+                <literal>Never</literal> sets the score to <literal>-INFINITY</literal>, which
+                means that the resources must <emphasis>not</emphasis> run on the specified node.
+              </para>
+              </listitem>
+              <listitem>
+              <para>
+                <literal>Advisory</literal> sets the score to <literal>0</literal>, which disables
+                the constraint. This can be useful if you want to you enable resource discovery but
+                do not want to constrain the resources.
+              </para>
+              </listitem>
+            </itemizedlist>
+          </step>
+          <step>
+            <para>
+              Select a <guimenu>Node</guimenu> to apply the constraint to.
+            </para>
+          </step>
+          <step performance="optional">
+            <para>
+              Click the <guimenu>Advanced</guimenu> tab if you need to set further parameters.
+            </para>
+          </step>
+          <step performance="optional">
+            <para>
+              In most cases, you should keep the option <guimenu>Resource Discovery</guimenu>
+              enabled. This means that the cluster checks whether the resource is already running,
+              to help avoid unwanted instances of the resource. If you do need to change this
+              option, select a new value from the drop-down list.
+            </para>
+          </step>
+          <step performance="optional">
+            <para>
+              Instead of specifying a single node, you can use a <guimenu>Rule</guimenu> to refer
+              to multiple nodes. If you add more nodes that meet the rule, they will also be
+              included in the location constraint. Configure the rule with the following settings:
+            </para>
+            <itemizedlist>
+              <listitem>
+                <para>
+                  Add a <guimenu>Score</guimenu> for the rule.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  Optionally, select a <guimenu>Role</guimenu> from the drop-down list.
+                  The rule will only apply when the resource is in this role.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  If you intend to add multiple expressions, select a
+                  <guimenu>Boolean Operator</guimenu> from the drop-down list.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  Add one or more <guimenu>Expressions</guimenu>. Select an expression type
+                  from the drop-down list, then click the plus icon.
+                </para>
+                <para>
+                  The required fields for that expression type appear. This could be a node's
+                  <literal>uname</literal>, or a custom node attribute and value. Fill in the fields
+                  and select an operation (such as =, &lt;, &gt;, etc.) to create the expression.
+                </para>
+              </listitem>
+            </itemizedlist>
+          </step>
+          <step>
+            <para>
+              Click <guimenu>Create</guimenu> to finish the configuration.
+            </para>
+            <para>
+              A message at the top of the screen shows if the action was successful.
+            </para>
+          </step>
+        </procedure>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+    <itemizedlist>
+    <title>For more information</title>
+    <listitem>
+      <para>
+        <command>crm configure help location</command>
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <command>crm help Resourcesets</command>
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <command>crm help RuleExpressions</command>
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <link xlink:href="https://clusterlabs.org/projects/pacemaker/doc/3.0/Pacemaker_Explained/html/constraints.html#deciding-which-nodes-a-resource-can-run-on"/>
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <link xlink:href="https://clusterlabs.org/projects/pacemaker/doc/3.0/Pacemaker_Explained/html/rules.html"/>
+      </para>
+    </listitem>
+  </itemizedlist>
+</topic>
