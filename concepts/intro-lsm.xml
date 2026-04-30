@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="intro-lsm"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>About the Linux Security Module Framework</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+The LSM (Linux Security Module) framework is a modular architecture within the Linux kernel that allows for the implementation of various security models, primarily MAC (Mandatory Access Control).
+   </para>
+    </abstract>
+  </info>
+    <para>
+Rather than hard-coding a specific security policy into the kernel, LSM provides a set of hooks at every critical system call,such as opening files, creating sockets, or starting processes that allow security modules like &selnx;, AppArmor, or Yama to verify actions.
+When a process attempts a sensitive operation, the kernel triggers these hooks to ask the loaded security module for permission; if the module's specific policy denies the request, the action is blocked even if the user has root privileges.
+This framework ensures that Linux remains flexible, allowing users to choose or stack different security layers based on their specific needs for system hardening.
+  </para>
+<para> The Linux security module framework includes the following modules:</para>
+<itemizedlist>
+<listitem><para><emphasis role="bold">Lockdown:</emphasis> The Lockdown module is a LSM, designed to strengthen the boundary between user-space processes and the kernel by restricting access to features that could allow even a root user to modify the running kernel image.
+ It operates in two primary modes:</para>
+ <itemizedlist>
+  <listitem><para><emphasis>integrity:</emphasis> which blocks features that allow user-space to modify the kernel such as, unsigned module loading or direct memory access via <filename>/dev/mem</filename>.</para></listitem>
+  <listitem><para><emphasis>confidentiality:</emphasis> which extends these restrictions to prevent users from extracting sensitive information from kernel memory such as RSA private keys.</para></listitem>
+</itemizedlist>
+  </listitem>
+  <listitem><para><emphasis role="bold">Landlock:</emphasis>The Landlock module empowers unprivileged processes to restrict their own access rights, effectively creating a tailored sandbox without requiring administrative or root privileges.
+    Unlike traditional security modules that enforce system-wide policies, Landlock allows an application developer to define a safe subset of the file system that the program is permitted to access, blocking any unauthorized file reads, writes, or executions outside of that scope.</para></listitem>
+    <listitem><para><emphasis role="bold">Capability:</emphasis> breaks down the traditionally all-or-nothing power of the root user into distinct and granular privileges. Instead of granting a process full administrative control, Linux assigns specific capabilities such as <literal>CAP_NET_BIND_SERVICE</literal> to open low-numbered ports.</para></listitem>
+    <listitem><para><emphasis role="bold">&selnx;:</emphasis> is a robust LSM module that implements a MAC (Mandatory Access Control) architecture, moving beyond the traditional user-owner permission model. It works by assigning security labels (contexts) to every process, file, and network port on the system, and then enforces a central policy that dictates exactly how these entities can interact.</para></listitem>
+  </itemizedlist>
+  <section xml:id="how-does-lsm-work">
+    <title>How LSM works? </title>
+    <para>Whenever a process tries to access an object like opening a file, sending a network packet, or creating a directory, the kernel first performs its standard  DAC (Discretionary Access Control). This is the basic root versus user or <literal>read/write/execute</literal> permission check.
+If the DAC allows it, the LSM framework then steps in:</para>
+<itemizedlist>
+<listitem>
+<para>The kernel calls a hook which is a redirection point.</para>
+</listitem>
+<listitem>
+  <para>The Security Module, for example &selnx; checks its own specific policy.</para>
+  </listitem>
+  <listitem>
+    <para>The security module then returns a decision; <literal>Allowed</literal> or <literal>Denied</literal>.</para>
+    </listitem>
+</itemizedlist>
+<para>You can check which security modules are currently initialized on your Linux system:</para>
+<screen>cat /sys/kernel/security/lsm
+lockdown,capability,landlock,yama,selinux,bpf,ima,evm
+</screen>
+    </section>
+    <section xml:id="imp-lsm">
+      <title>Why is LSM important? </title>
+      <para>Before LSM was introduced, users who want to add a new security feature to Linux had to hack the kernel code directly.
+    LSM solved this by:</para>
+    <itemizedlist>
+ <listitem><para><emphasis role="bold">Standardization:</emphasis> It created a stable interface so security developers did not have to rewrite their code every time the kernel updated.</para></listitem>
+ <listitem><para><emphasis role="bold">Modularity:</emphasis> It allows users to choose the security model that fits their needs, for example, AppArmor for ease of use or &selnx; for high-security environments.</para></listitem>
+ <listitem><para><emphasis role="bold">Stacking:</emphasis> Modern kernels allow you to stack multiple modules, so you can run something like Yama to protect against <literal>ptrace</literal> attacks alongside AppArmor.</para></listitem>
+</itemizedlist>
+     </section>
+ </topic>
