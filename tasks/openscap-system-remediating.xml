@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-unversioned/blob/main/openscap/xml/article_openscap.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<topic xml:id="openscap-system-remediating"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Remediating Vulnerabilities</title>
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Apply fixes to bring your &suselinux; system into compliance with a security profile using
+        <command>oscap</command>, &ssg; shell scripts, or Ansible playbooks.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="openscap-system-remediating-intro">
+    <title>Introduction</title>
+    <para>
+      After scanning your system, you can remediate identified policy violations automatically or
+      manually. The &ssg; provides fix scripts in two formats — shell scripts and Ansible playbooks
+      — that <command>oscap</command> can apply directly, or that you can review and run
+      independently.
+    </para>
+    <important>
+      <title>Automatic remediation not always available</title>
+      <para>
+        Automatic remediation is not offered for fixes that are too disruptive to apply safely on a
+        running system. Such rules must be remediated manually.
+      </para>
+    </important>
+    <para>
+      The overall remediation process is as follows:
+    </para>
+    <procedure>
+      <step>
+        <para>
+          <command>oscap</command> scans the system and marks each failing rule as a candidate for
+          remediation.
+        </para>
+      </step>
+      <step>
+        <para>
+          For each failing rule, <command>oscap</command> locates the corresponding
+          <tag class="element">xccdf:fix</tag> element in the XCCDF file, prepares the environment,
+          and executes the fix script.
+        </para>
+      </step>
+      <step>
+        <para>
+          After executing the fix, <command>oscap</command> re-evaluates the rule to confirm
+          whether the fix was successful.
+        </para>
+      </step>
+      <step>
+        <para>
+          All remediation results are stored in an output XCCDF file.
+        </para>
+      </step>
+    </procedure>
+    <note>
+      <para>
+        Remediation must be run more than once. Rules are applied in alphabetical order, some rules
+        have dependencies on others, and the system may need to be restarted between passes for
+        changes to take effect.
+      </para>
+    </note>
+  </section>
+  <section xml:id="openscap-system-remediating-fly">
+    <title>Remediating on the fly</title>
+    <para>
+      The simplest approach is to scan and remediate in a single command using the
+      <option>--remediate</option> option. The system is first scanned, and then
+      <command>oscap</command> immediately attempts to fix each failing rule.
+    </para>
+    <warning>
+      <title>Usage of the <option>--skip-rule</option> option</title>
+      <para>
+        Always use <option>--skip-rule</option> to skip the rule
+        <literal>xccdf_org.ssgproject.content_rule_accounts_authorized_local_users</literal> unless
+        you have explicitly configured the variable
+        <literal>var_accounts_authorized_local_users_regex</literal>. Failing to do so may prevent
+        <command>sudo</command> from working after a reboot.
+      </para>
+    </warning>
+<screen>&prompt.sudo;<command>oscap xccdf eval --remediate \
+  --profile xccdf_org.ssgproject.content_profile_hipaa \
+  --results /tmp/results.xml \
+  --report /tmp/report.html \
+  --skip-rule xccdf_org.ssgproject.content_rule_accounts_authorized_local_users \
+  /usr/share/xml/scap/ssg/content/ssg-sle16-ds.xml</command></screen>
+<screen>&prompt.sudo;<command>reboot</command></screen>
+    <para>
+      In the resulting <filename>/tmp/results.xml</filename> file, the first
+      <tag class="element">TestResult</tag> element contains the scan results before remediation.
+      The second <tag class="element">TestResult</tag> element contains the results after
+      remediation, where a rule result of <literal>fixed</literal> indicates a successful fix, and
+      <literal>error</literal> indicates that the fix was not successful.
+    </para>
+  </section>
+  <section xml:id="openscap-system-remediating-post-scan">
+    <title>Remediating after scanning</title>
+    <para>
+      Alternatively, you can separate the scan and remediation into two steps. This allows you to
+      review the scan results before applying any fixes.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Scan the system and save the results:
+        </para>
+<screen>&prompt.sudo;<command>oscap xccdf eval \
+  --profile xccdf_org.ssgproject.content_profile_hipaa \
+  --results /tmp/results.xml \
+  /usr/share/xml/scap/ssg/content/ssg-sle16-ds.xml</command></screen>
+        <para>
+          The results are stored in a <tag class="element">TestResult</tag> element in
+          <filename>/tmp/results.xml</filename>. The system is evaluated only — no changes are made
+          at this stage.
+        </para>
+      </step>
+      <step>
+        <para>
+          Run remediation using the results file from the previous step as input:
+        </para>
+<screen>&prompt.sudo;<command>oscap xccdf remediate \
+  --results /tmp/results.xml \
+  /tmp/results.xml</command></screen>
+        <para>
+          <command>oscap</command> creates a new <tag class="element">xccdf:TestResult</tag>
+          element in the same file, inheriting data from the first result and applying fixes only
+          to the rules that failed in the initial scan.
+        </para>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="openscap-system-remediating-review">
+    <title>Generating remediation scripts for review</title>
+    <para>
+      To inspect the remediation instructions before applying them, use <command>oscap xccdf
+      generate fix</command> to save the fix content to a file without executing it.
+    </para>
+    <para>
+      To generate a shell script:
+    </para>
+<screen>&prompt.user;<command>oscap xccdf generate fix \
+  --template urn:xccdf:fix:script:sh \
+  --profile xccdf_org.ssgproject.content_profile_hipaa \
+  --output my-remediation-script.sh \
+  /usr/share/xml/scap/ssg/content/ssg-sle16-ds.xml</command></screen>
+    <para>
+      To generate an Ansible playbook:
+    </para>
+<screen>&prompt.user;<command>oscap xccdf generate fix \
+  --template urn:xccdf:fix:script:ansible \
+  --profile xccdf_org.ssgproject.content_profile_hipaa \
+  --output my-remediation-playbook.yml \
+  /usr/share/xml/scap/ssg/content/ssg-sle16-ds.xml</command></screen>
+  </section>
+  <section xml:id="openscap-system-remediating-shell-scripts">
+    <title>Remediating with SSG shell scripts</title>
+    <para>
+      The &ssg; ships pre-built shell scripts for each supported profile. These can be used for
+      straightforward remediation without conditions or tailoring.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          List the available shell scripts:
+        </para>
+<screen>&prompt.user;<command>ls -l /usr/share/scap-security-guide/bash/</command></screen>
+        <para>
+          Script names follow the format
+          <filename>sle16-script-<replaceable>PROFILE-NAME</replaceable>.sh</filename>. The
+          supported profile names are: <literal>anssi_bp28_minimal</literal>,
+          <literal>anssi_bp28_intermediary</literal>, <literal>anssi_bp28_enhanced</literal>,
+          <literal>anssi_bp28_high</literal>, <literal>hipaa</literal>, and
+          <literal>pci-dss-4</literal>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Make the script executable:
+        </para>
+<screen>&prompt.sudo;<command>chmod +x sle16-script-<replaceable>PROFILE-NAME</replaceable>.sh</command></screen>
+      </step>
+      <step>
+        <para>
+          Run the script:
+        </para>
+<screen>&prompt.sudo;<command>./sle16-script-<replaceable>PROFILE-NAME</replaceable>.sh</command></screen>
+      </step>
+    </procedure>
+    <note>
+      <para>
+        Within each script, rules follow the format: <literal># BEGIN fix
+        (<replaceable>N</replaceable>/<replaceable>TOTAL</replaceable>) for
+        <replaceable>RULE-ID</replaceable></literal> through to <literal># END fix for
+        <replaceable>RULE-ID</replaceable></literal>. Rules that contain a line ending with
+        <literal>IS MISSING!</literal> have no automatic remediation and must be applied manually.
+      </para>
+    </note>
+  </section>
+  <section xml:id="openscap-system-remediating-ansible">
+    <title>Remediating with Ansible playbooks</title>
+    <para>
+      The &ssg; also ships Ansible playbooks for each supported profile. The
+      <package>ansible</package> package is available from &ph;. Install it with:
+    </para>
+<screen>&prompt.sudo;<command>zypper install ansible</command></screen>
+    <procedure>
+      <step>
+        <para>
+          List the available Ansible playbooks:
+        </para>
+<screen>&prompt.user;<command>ls -l /usr/share/scap-security-guide/ansible/</command></screen>
+        <para>
+          Playbook names follow the format
+          <filename>sle16-playbook-<replaceable>PROFILE-NAME</replaceable>.yml</filename>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Create an inventory file <filename>ansible_inventory.yml</filename> with the following
+          content:
+        </para>
+<screen>all:
+  hosts:
+    localhost
+  vars:
+    ansible_connection: local</screen>
+      </step>
+      <step>
+        <para>
+          Run the playbook:
+        </para>
+<screen>&prompt.sudo;<command>ansible-playbook -i ansible_inventory.yml \
+  sle16-playbook-<replaceable>PROFILE-NAME</replaceable>.yml</command></screen>
+      </step>
+      <step>
+        <para>
+          To skip specific rules during execution, use the <option>--tags</option> option. Find the
+          tag for a rule by searching for it in the playbook file. For example:
+        </para>
+<screen>&prompt.sudo;<command>ansible-playbook -i ansible_inventory.yml \
+  sle16-playbook-<replaceable>PROFILE-NAME</replaceable>.yml \
+  --tags "package_aide_installed,aide_build_database"</command></screen>
+      </step>
+    </procedure>
+    <note>
+      <para>
+        You may need to repeat the remediation steps more than once. Some rules require a system
+        restart to take effect, and rules are executed in alphabetical order, which means
+        dependencies between rules may not be resolved in a single pass.
+      </para>
+    </note>
+  </section>
+  <section xml:id="openscap-system-remediating-customizing">
+    <title>Customizing the &ssg; with SCAP Workbench</title>
+    <para>
+      If the available profiles do not fully match your requirements, you can create a customized
+      profile using SCAP Workbench and save it as a tailoring file. The tailoring file can then be
+      applied with <command>oscap</command> using the <option>--tailoring-file</option> option.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Start SCAP Workbench:
+        </para>
+<screen>&prompt.sudo;<command>scap-workbench</command></screen>
+      </step>
+      <step>
+        <para>
+          Select <literal>SLE16</literal> as the target system variant, then select <guilabel>Load
+          Content</guilabel>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Select a base profile from the <guilabel>Profile</guilabel> drop-down list, then select
+          <guilabel>Customize</guilabel>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Set a unique ID for the custom profile in the following format:
+          <literal>xccdf_<replaceable>REVERSE-DNS</replaceable>_profile_<replaceable>PROFILE-NAME</replaceable></literal>.
+          For example:
+          <literal>xccdf_org.<replaceable>mycompany</replaceable>_profile_<replaceable>server</replaceable></literal>.
+        </para>
+        <warning>
+          <para>
+            The profile ID cannot be changed after it is set in SCAP Workbench.
+          </para>
+        </warning>
+      </step>
+      <step>
+        <para>
+          Deselect any rules you do not want to include, then select <guilabel>OK</guilabel>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Save the customization as a tailoring file: select <guilabel>Select customization
+          file</guilabel> &gt; <guilabel>Open</guilabel> &gt; <guilabel>Save customization
+          only</guilabel>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Apply the tailoring file with <command>oscap</command>:
+        </para>
+<screen>&prompt.sudo;<command>oscap xccdf eval \
+  --profile xccdf_org.<replaceable>mycompany</replaceable>_profile_<replaceable>server</replaceable> \
+  --tailoring-file <replaceable>ssg-sle16-ds-tailoring.xml</replaceable> \
+  --report /tmp/report.html \
+  /usr/share/xml/scap/ssg/content/ssg-sle16-ds.xml</command></screen>
+      </step>
+    </procedure>
+  </section>
+</topic>
