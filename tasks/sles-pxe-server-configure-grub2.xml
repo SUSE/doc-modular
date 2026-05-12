@@ -79,8 +79,8 @@
   <section xml:id="sles-pxe-server-configure-grub2-main-config">
     <title>Creating the &grub; configuration</title>
     <para>
-      The &grub; configuration file handles three main tasks: detecting the client's architecture, 
-      managing network interfaces and loading other configuration files. This modular 
+      The &grub; configuration file handles three main tasks: detecting the client's architecture,
+      managing network interfaces and loading other configuration files. This modular
       approach provides flexibility for different deployment scenarios.
     </para>
     <procedure xml:id="proc-create-main-grub-config">
@@ -124,6 +124,8 @@ export ifcfg
 #export sconsole
 
 # Load machine-specific configuration if available
+set config="/boot/config"
+export config
 if [ -s "${config}/${net_default_mac}/grub.cfg" ]; then
   ## Source a host specific configuration of grub menu:
   source "${config}/${net_default_mac}/grub.cfg"
@@ -217,6 +219,21 @@ EOF
         installer system.
        </para>
     </note>
+    <note>
+     <title>Using HTTP for kernel and initrd loading</title>
+     <para>
+      By default, &grub; loads <filename>linux</filename> and <filename>initrd</filename> using the
+      same protocol it booted from. If your setup uses HTTP boot, you can explicitly specify the
+      HTTP server for loading these files:
+     </para>
+<screen>menuentry 'SLES-16.0 Online Installation' {
+linux  (http,pxe.example.net)/boot/images/SLES-16.0/${arch}/linux showopts root=live:http://pxe.example.net/boot/images/SLES-16.0/${arch}/squashfs.img ${ipcfg} ${sconsole} ${autoinstall}
+initrd (http,pxe.example.net)/boot/images/SLES-16.0/${arch}/initrd
+}</screen>
+     <para>
+      Note that hardcoding the HTTP server address will break TFTP-only setups where HTTP is not available.
+     </para>
+    </note>
   </section>
   <section xml:id="sles-pxe-server-configure-grub2-machine-specific">
     <title>Machine-specific configurations</title>
@@ -245,7 +262,7 @@ EOF
         </para>
 <screen>&prompt.sudo;<command>cat &gt; /srv/tftpboot/boot/config/aa:bb:cc:dd:ee:ff/grub.cfg &lt;&lt; 'EOF'</command>
 # Machine-specific configuration for aa:bb:cc:dd:ee:ff
-set default='SLES-16.0 Full Installation'
+set default='SLES-16.0 Local Installation'
 
 # Activate the menu-entry after 5sec timeout
 set timeout=5
