@@ -20,48 +20,34 @@
     <title>Common troubleshooting &kdump; issues</title>
     <abstract>
 <para>
+Testing and troubleshooting &kdump; is a critical process to ensure that your system can successfully capture a vmcore file during a kernel crash, which is often the only way to diagnose system crashes.
 When troubleshooting &kdump;, the process usually fails at one of three stages: during boot (memory reservation), during the crash when the the dump does not start or during the save process when the file is not written.
 </para>
     </abstract>
   </info>
-  <para>Here are some common troubleshooting scenarios, you may encounter:</para>
-  <itemizedlist>
- <listitem><para> The command <command>systemctl status kdump</command> gives an error <literal>kdump: failed to load kdump kernel</literal>  or <literal>No crashkernel reserved</literal>.</para>
-  <itemizedlist><listitem><para><emphasis role="bold">Cause:</emphasis>The main kernel did not set aside enough memory for the capture kernel.</para></listitem>
-    <listitem><para><emphasis role="bold">Fix:</emphasis>Check the current reserved memory; </para> <screen>at /proc/iomem | grep "Crash kernel"</screen> <para>If it is small, increase the <literal>crashkernel</literal> value in <filename>/etc/default/grub</filename>. Rebuild the GRUB config and reboot.</para></listitem>
-  </itemizedlist>
-</listitem>
-<listitem><para> The system crashes, the capture kernel boots, but the vmcore file is not found in <filename>/var/crash</filename> after the reboot.
-</para>
-  <itemizedlist><listitem><para><emphasis role="bold">Cause:</emphasis>The capture kernel is a minimal environment. If you are saving the dump to an NFS share, an SSH server or a specialized partition (like LVM or LUKS), the capture kernel may lack the drivers or network configuration to reach the destination.
-  </para></listitem>
-    <listitem><para><emphasis role="bold">Fix:</emphasis>Check <filename>/etc/kdump.conf</filename> to see where the dump is being sent. If you are using network storage, ensure the &kdump; service has pre-built the network into the initrd. Then run the command <command>mkdumprd -f</command> to refresh the capture kernel's drivers.
-     </para></listitem>
-  </itemizedlist>
-</listitem>
-<listitem><para> The dump starts, but the progress bar stops and the system reboots without a complete file.
-</para>
-  <itemizedlist><listitem><para><emphasis role="bold">Cause:</emphasis> A vmcore can be massive; equal to your RAM size. If your <literal>/var</literal>
-    partition is small, the dump fills the disk and fails.
-  </para></listitem>
-    <listitem><para><emphasis role="bold">Fix:</emphasis>Use compression and filtering;Ensure your <filename>/etc/kdump.conf</filename> has the line
-    <literal> core_collector makedumpfile -d 31 -c</literal>. Alternatively, you can can change the path in <literal> kdump.conf</literal> to a partition with more space.
-    </para></listitem>
-  </itemizedlist>
-</listitem>
-<listitem><para>The system freezes completely but the &kdump; kernel never boots.
-</para>
-  <itemizedlist><listitem><para><emphasis role="bold">Cause:</emphasis> This usually happens during a hard lockup, where the CPU is so stuck that it cannot even execute the instruction to switch to the &kdump; kernel.
-  It can also happen if secure boot is blocking &kexec; from loading an unsigned capture kernel. </para></listitem>
-    <listitem><para><emphasis role="bold">Fix:</emphasis> Enable the NMI watchdog in <filename>/etc/sysctl.conf (kernel.nmi_watchdog = 1)</filename> so the system can panic itself if it detects a freeze. You can
-also run <command> kexec -l KERNEL_PATH</command> command manually to see if it returns a permission denied or signature error.
- </para></listitem>
-  </itemizedlist>
-</listitem>
-</itemizedlist>
-<para>You can also use the following quick status commands:</para>
-<itemizedlist>
-<listitem><para><emphasis role="bold"><literal>kdumpctl show / kdump-config show</literal></emphasis>: Overall health and memory reservation</para></listitem>
-<listitem><para><emphasis role="bold"><literal>cat /sys/kernel/kexec_crash_loaded</literal></emphasis>: <literal>1</literal> means 1 means the gun is loaded and ready to fire, <literal>0</literal> means it is not.</para></listitem>
-</itemizedlist>
+  <section xml:id="testing-kdump">
+  <title>Testing &kdump;</title>
+  <para>It is advisable to test &kdump; after configuring it by simulating a kernel crash.
+Otherwise you may only find out that it does not work when an actual kernel crash occurs,leaving you with no possibility to debug the crash.
+Ensure no critical workloads are running and no unsaved data is present on the system. Additionally, ensure to
+sync and unmount file systems:</para>
+<screen>echo s &gt; /proc/sysrq-trigger</screen>
+<screen>echo u &gt; /proc/sysrq-trigger </screen>
+<para>Then you can simulate a kernel crash:</para>
+<screen>echo c &gt; /proc/sysrq-trigger</screen>
+<para>Verify by checking if there is a  new directory created under your <literal>KDUMP_SAVEDIR</literal> which is <filename>/var/crash</filename> by default. This contains the dmesg and
+vmcore of the crashed kernel.
+  </para>
+  </section>
+  <section xml:id="troubleshooting-kdump">
+    <title>Troubleshooting &kdump;</title>
+    <para>One of the most common reasons &kdump; fails is that the amount of crash kernel
+      memory reserved is insufficient. Different system configurations may require
+      more memory than estimated by <command>kdumptool calibrate</command> and set up automatically in
+      the boot loader config by the <literal>kdump-commandline.service</literal>.</para>
+      <para>During &kdump;, if you see error messages mentioning low memory and invoking the
+Out of Memory (OOM) killer, this is the likely cause. In case, you don't see such messages, trying with increased crash kernel reservation is a good
+first step.
+        </para>
+  </section>
       </topic>
