@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/adm_sudo.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="configure-kdump"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <title>Installing and configuring &kdump;</title>
+    <abstract><para>This topic covers how to install and configure &kdump;.</para></abstract>
+    </info>
+<para>To install &kdump;;</para>
+ <screen>&prompt.sudo; <command>zypper install kdump </command> </screen>
+ <para>This command downloads the following packages:</para>
+ <itemizedlist>
+<listitem><para><command>kdump</command></para></listitem>
+<listitem><para><command>kexec-tools</command></para></listitem>
+<listitem><para><command>makedumpfile</command></para></listitem>
+ </itemizedlist>
+ <para>&kdump; recommends:</para>
+ <itemizedlist>
+<listitem><para>To store the vmcore file remotely:</para>
+<itemizedlist>
+<listitem><para>Install the <package>cifs-utils</package> package to store on Samba stores. </para></listitem>
+<listitem><para>Install the <package>lftp</package> package to store on FTP / SFTP servers. </para></listitem>
+<listitem><para> Install the <package>nfs-client</package> package to store on NFS servers.</para></listitem>
+<listitem><para> Install the <package>openssh-clients</package> package to store over SSH.</para></listitem>
+</itemizedlist>
+</listitem>
+<listitem><para>The <literal>mailx</literal> utility to enable sending notifications when a crash dump is saved. </para></listitem>
+ </itemizedlist>
+ <section xml:id="kdump-non-transact">
+  <title>Configuring &kdump; for non-transactional systems</title>
+  <procedure>
+    <step>
+        <para>Configure and enable the &kdump; memory reservation:</para>
+        <substeps>
+            <step>
+                <para>To use &kdump;, a specific amount of system memory (RAM)—often referred to as crashkernel memory must be permanently reserved at boot time for the capture kernel and initramfs.
+Add <literal>crashkernel= kernel</literal> to the production kernel's command-line arguments.</para>
+            </step>
+            <step>
+                <para>&kdump; includes automated tools to calculate exactly how much memory needs to be reserved:</para>
+<screen>&prompt.user; kdumptool calibrate</screen>
+<screen>&prompt.user; kdumptool commandline</screen>
+            </step>
+       <step><para>Enable and immediately start the &kdump; service:</para>
+<screen>&prompt.sudo; systemctl enable --now kdump </screen>
+<para>When the systemctl command triggers the main <literal>kdump.service</literal>, it automatically calls a helper service named <literal>kdump-commandline.service</literal>  before attempting to load the kernel.
+This helper service verifies if the current kernel command line contains the expected <literal>crashkernel= options</literal>. If they are missing, automatically updates the boot loader configuration to apply the settings on the next boot sequence.</para>
+      </step>
+<step><para>Reboot to fully activate &kdump;</para>
+<screen>&prompt.sudo; reboot</screen>
+<para>Once booted, the production kernel reserves the designated crashkernel memory, allowing the &kdump; service to load successfully and remain active to capture system panics.</para>
+</step>
+</substeps>
+</step>
+<step><para>Build the capture Initramfs:</para>
+<substeps>
+<step><para>Ensure the specialized crash dump initial ramdisk (initramfs) is successfully built so the capture kernel has the necessary drivers to load upon a crash.</para></step>
+<step><para>Check the output of the configuration service to ensure it successfully modified the boot loader:</para>
+<screen>&prompt.sudo; journalctl -u kdump-commandline.service</screen>
+<para>Verify the output:</para>
+<screen>Started Check and update kdump options on the kernel command line.
+  Kdump expects these crashkernel= values on the kernel command line: crashkernel=72M,low crashkernel=443M,high
+  No crashkernel= found in /proc/cmdline. Kdump can't be started.
+  Updated the command line options in the bootloader.
+  Changes will take effect on next boot.</screen>
+</step>
+<step><para>If the logs confirm the boot loader was updated, reboot the machine to apply the allocated memory changes and initialize &kdump;:</para>
+<screen>&prompt.sudo; reboot</screen>
+</step>
+</substeps>
+</step>
+</procedure>
+<para><emphasis role="bold">Other configurations:</emphasis></para>
+<para>The <filename>/etc/sysconfig/kdump</filename> file is the primary configuration file for managing the &kdump; service.
+  It includes essential options such as:</para>
+  <itemizedlist>
+<listitem><para> <literal>KDUMP_CRASHKERNEL</literal> for defining reserved crash memory size</para></listitem>
+<listitem><para> <literal>KDUMP_VERBOSE</literal> for increasing debugging log levels</para></listitem>
+<listitem><para> <literal>KDUMP_SAVEDIR</literal> for specifying the core dump (vmcore) storage location </para></listitem>
+</itemizedlist>
+<para>For more information, refer <literal>man kdump(5)</literal> and <literal>man kdump(7)</literal>.</para>
+<para>Any modifications made to this configuration file require a manual restart of the &kdump; service to take effect. However, if any changes are made specifically to the <literal>KDUMP_CRASHKERNEL</literal>  memory allocation size, a full system reboot is required because these settings alter the system's core boot parameters.</para>
+</section>
+ <section xml:id="kdump-transact">
+  <title>Configuring &kdump; for transactional systems </title>
+  <para>On a transactional (read-only) file system, the standard <literal>kdump-commandline.service</literal> is unable to directly modify the boot loader configuration.
+    To properly configure &kdump; in these specialized environments, administrators must use the <literal>transactional-update setup-kdump</literal> tool instead.
+    Executing this command handles the entire configuration process by automatically installing &kdump;, disabling <literal>KDUMP_UPDATE_BOOTLOADER</literal>, and running the necessary calibration and command-line tools to update the boot loader within a new system snapshot.</para>
+ <para>If the automatically calculated memory allocation estimated by the calibration tool proves to be insufficient for your system requirements, you can manually override the settings.
+  To specify custom memory sizes directly on a transactional system, you can append the crashkernel parameter to the command by running:</para>
+  <screen>&prompt.sudo; transactional-update setup-kdump [--crashkernel=low,high]</screen>
+  <para><emphasis role="bold">Other configurations:</emphasis></para>
+  <para>Just as with non-transactional systems, modifying the <filename>/etc/sysconfig/kdump </filename> configuration file on a transactional system requires the &kdump; service to be manually restarted for the changes to take effect.
+    However, if your modifications alter the crashkernel memory allocation size, you must perform an additional step to ensure the changes are safely written to the read-only environment; you need to execute the <command>transactional-update run kdumptool commandline -u</command> command. This applies the new memory settings directly to the boot loader configuration so they can take physical effect during the next system boot.</para>
+</section>
+      </topic>
