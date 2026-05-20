@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+<!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+%entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="migration-guide-sle16-base-system"
+       role="concept" xml:lang="en"
+       xmlns="http://docbook.org/ns/docbook" version="5.2"
+       xmlns:its="http://www.w3.org/2005/11/its"
+       xmlns:xi="http://www.w3.org/2001/XInclude"
+       xmlns:xlink="http://www.w3.org/1999/xlink"
+       xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Base system and boot process changes</title>
+    <!-- can be changed via merge in the assembly -->
+    <!--add author's email address-->
+    <meta name="maintainer" content="daria.vladykina@suse.com" its:translate="no"/>
+    <abstract>
+      <!-- can be changed via merge in the assembly -->
+      <para>
+        Several foundational aspects of the operating system have changed in &suselinux;&nbsp;16,
+        affecting the boot process, configuration file layout, temporary storage behavior and
+        service management. Review this section carefully before migrating, as some changes require
+        adjustments to existing scripts and applications.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="migration-boot-loaders">
+    <title>Supported boot loaders</title>
+    <para>
+      &suselinux;&nbsp;16 ships &grub; version 2.12. BLS and <literal>systemd-boot</literal> are
+      not used in 16.0 but may be added in future releases. On &amd64;/&intel64;, full disk
+      encryption is supported using PCR to unlock the disk, provided the system has a TPM v2.1 or
+      later chip.
+    </para>
+  </section>
+  <section xml:id="migration-configuration-files">
+    <title>How to manage configuration files with the <filename>/usr/etc</filename> transition</title>
+    <para>
+      &suselinux;&nbsp;16 continues the ongoing migration of vendor-supplied default configuration
+      from <filename>/etc</filename> to <filename>/usr/etc</filename>. This separation allows
+      administrator customization in <filename>/etc</filename> to survive maintenance updates
+      without being overwritten.
+    </para>
+    <para>
+      To customize the configuration of a service, you have three options (using a hypothetical
+      tool <literal>frobnicator</literal> as an example):
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Place a full copy of the configuration file in <filename>/etc/frob.conf</filename>. This
+          takes precedence over the vendor default in <filename>/usr/etc/frob.conf</filename>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Place drop-in files in <filename>/etc/frob.d</filename>. The tool loads
+          <filename>/usr/etc/frob.conf</filename> first, then applies the drop-ins.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Do not modify <filename>/usr/etc/frob.conf</filename> directly&nbsp;maintenance updates
+          may overwrite it.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <important>
+      <title>Blind updates to <filename>/etc</filename></title>
+      <para>
+        Tools that blindly create or overwrite files in <filename>/etc</filename> can produce
+        unexpected results. For example, creating an empty
+        <filename>/etc/ssh/sshd_config</filename> file may lock you out of SSH access. Review the
+        full list of affected packages at
+        <link
+    xlink:href="https://en.opensuse.org/openSUSE:Packaging_UsrEtc"></link>.
+      </para>
+    </important>
+  </section>
+  <section xml:id="migration-tmp-directory">
+    <title>How is the <filename>/tmp</filename> directory managed in &suselinux;&nbsp;16?</title>
+    <para>
+      In &slea;&nbsp;15, <filename>/tmp</filename> was a regular directory or Btrfs subvolume. In
+      &suselinux;&nbsp;16, <filename>/tmp</filename> uses <literal>tmpfs</literal>, which stores
+      data in RAM and/or swap space.
+    </para>
+    <important>
+      <title><filename>/tmp</filename> is not persistent across reboots</title>
+      <para>
+        Any data written to <filename>/tmp</filename> is lost on reboot. Adapt applications that
+        write persistent data to <filename>/tmp</filename> to use a different location such as
+        <filename>/var/cache</filename>.
+      </para>
+    </important>
+    <warning>
+      <title>Do not oversize <literal>tmpfs</literal></title>
+      <para>
+        Setting <literal>tmpfs</literal> beyond the sum of physical RAM and swap can cause deadlock
+        situations. Size <filename>/tmp</filename> accordingly.
+      </para>
+    </warning>
+  </section>
+  <section xml:id="migration-sysv-init">
+    <title>Are SysV init scripts supported in &suselinux;&nbsp;16?</title>
+    <para>
+      &slea;&nbsp;15 used &systemd; as the default but retained compatibility for third-party SysV
+      init scripts. &suselinux;&nbsp;16 completes the transition: SysV init scripts are removed.
+      All services must use standard &systemd; units.
+    </para>
+  </section>
+  <section xml:id="migration-transactional-updates">
+    <title>Are transactional updates supported in &suselinux;&nbsp;16?</title>
+    <para>
+      Transactional updates are not supported on &suselinux;&nbsp;16. This feature is supported on
+      &slem;.
+    </para>
+  </section>
+</topic>
