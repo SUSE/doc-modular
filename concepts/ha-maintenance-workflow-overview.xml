@@ -15,19 +15,19 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Cluster maintenance modes and workflows</title>
+    <title>&ha; maintenance modes</title>
     <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
     <abstract>
       <para>
-         To perform maintenance tasks on the cluster nodes, you might need to stop the resources running on that node, to move them, or to shut down or reboot the node. It might also be necessary to temporarily take over the control of resources from the cluster, or even to stop the cluster service while resources remain running.
-         This chapter explains how to manually take down a cluster node without negative side-effects. It also gives an overview of different options the cluster stack provides for executing maintenance tasks. If you don't protect the cluster before performing maintenance tasks, you risk unwanted side effects such as resources not starting in an orderly fashion, unsynchronized CIBs across the cluster nodes, or even data loss.
+        A &ha; cluster regularly monitors the resources it manages. While under cluster management, the application or service that a resource represents must <emphasis>not</emphasis> be started or stopped from outside the cluster. This means that if you need to manually touch a resource, you need to release it from cluster management first. Resources are also vulnerable if something goes wrong when you make changes to the cluster nodes or infrastructure. You must protect the cluster and its resources before performing maintenance tasks or you risk unwanted side effects such as resource errors, unsynchronized CIBs, or even data loss.
       </para>
     </abstract>
   </info>
-  <section xml:id="ha-maintenance-workflow-steps">
-    <title>General workflow</title>
+
+  <section xml:id="ha-maintenance-workflow-basic-steps">
+    <title>Basic steps</title>
     <para>
-      To do testing or maintenance work on the cluster, nodes or individual resources, follow these general steps:
+      These are the basic steps for performing any maintenance tasks in a &ha; cluster:
    </para>
     <procedure xml:id="pro-ha-maintenance-workflow-steps">
       <step>
@@ -42,7 +42,7 @@
       </step>
       <step>
         <para>
-          Perform your maintenance tasks or tests on the cluster, nodes or individual resources.
+          Perform your maintenance tasks or tests on the cluster, node or individual resource.
         </para>
       </step>
       <step>
@@ -52,6 +52,7 @@
       </step>
     </procedure>
   </section>
+
   <section xml:id="ha-maintenance-workflow-modes">
     <title>Administrative modes</title>
     <para>
@@ -65,8 +66,7 @@
           <para>
             Stopping the cluster services means stopping &pace; and &corosync;. In this mode, the
             cluster is <emphasis>no longer running</emphasis>, either entirely or just on one node.
-            Use this mode when you need to manage infrastructure, such as storage, networking or
-            hardware.
+            Use this mode when you need to manage infrastructure, such as storage or networking.
           </para>
           <itemizedlist>
             <listitem>
@@ -74,12 +74,20 @@
                 <emphasis role="bold">For the whole cluster:</emphasis> Stopping the cluster
                 services on all nodes at once allows you to shut down a cluster while avoiding
                 the mass migration of resources that would happen if you shut down each node one
-                by one. When this mode is used in combination with maintenance mode, the resources continue to run but have no cluster protection. When this mode is used on its own, all resources are stopped. However, this doesn't guarantee a graceful shutdown&mdash;if stopping a resource fails or times out, the node is fenced.
+                by one. When this mode is used on its own, all the resources stop. However, this
+                doesn't guarantee a graceful shutdown&mdash;if stopping a resource fails or
+                times out, the resource's node is fenced. Alternatively, you can avoid resource
+                downtime by using this mode in combination with maintenance mode.
               </para>
             </listitem>
             <listitem>
               <para>
-                <emphasis role="bold">For one node:</emphasis> Stopping the cluster services on just one node allows the resources to move to another node. If no other node is eligible to run a resource, the resource stops. However, if stopping a resource fails or times out, the node is fenced. Therefore, we recommend using this mode in combination with standby mode or maintenance mode.
+                <emphasis role="bold">For one node:</emphasis> Stopping the cluster services on
+                just one node allows the rest of the cluster to continue running while you perform
+                maintenance tasks on the offline node. Any resources that were running on it move
+                to another node. If location constraints prevent resources from moving, the
+                resources stop. However, if stopping a resource fails or times out, the node is
+                fenced. Therefore, we recommend using this mode in combination with standby mode.
               </para>
             </listitem>
           </itemizedlist>
@@ -90,28 +98,32 @@
         <listitem>
           <para>
             In maintenance mode, the cluster stops managing the resources and won't start, stop or
-            monitor them. Use this mode when you need to manually manage applications or services
-            without interference from the cluster. However, be aware that the resources won't have
-            cluster protection while in maintenance mode.
+            monitor them. However, be aware that the resources won't have cluster protection while
+            in maintenance mode.
           </para>
           <itemizedlist>
             <listitem>
               <para>
                 <emphasis role="bold">For the whole cluster:</emphasis> Cluster maintenance mode
-                puts <emphasis>all</emphasis> the resources into maintenance mode at once.
+                puts <emphasis>all</emphasis> the resources into maintenance mode at once. If you
+                stop the cluster services while in this mode, most resources can continue to run
+                even while the cluster is offline. This allows you to make cluster configuration
+                changes with minimal resource downtime. However, any resources that depend on
+                &corosync;, such as &dlm;, might need to be stopped.
               </para>
             </listitem>
             <listitem>
               <para>
                 <emphasis role="bold">For one node:</emphasis> Node maintenance mode puts all the
-                resources that are running on a specific node into maintenance mode at once.
+                resources that are running on a specific node into maintenance mode at once. However, don't shut down or reboot the node while in this mode, because the resources don't have cluster protection and won't move to another node.
               </para>
             </listitem>
             <listitem>
               <para>
                 <emphasis role="bold">For one resource:</emphasis> Resource maintenance mode puts
-                a single resource into maintenance mode. You can also use this mode for resource
-                groups and clones.
+                a single resource into maintenance mode. Use this mode when you need to manually
+                manage an application or service without interference from the cluster. You can
+                also put resource groups and clones into maintenance mode.
               </para>
             </listitem>
           </itemizedlist>
@@ -122,9 +134,11 @@
         <listitem>
           <para>
             When a <emphasis role="bold">node</emphasis> is in standby mode, it can't run resources.
-            The resources move to another node. If no other node is eligible to run a resource,
-            the resource stops. This mode is useful for gracefully evacuating a node before
-            stopping the cluster services.
+            Any resources that were running on it move to another node. If location constraints
+            prevent resources from moving, the resources stop. Unlike stopping the cluster services,
+            standby mode gives the resources more time to move or stop successfully because they
+            aren't limited by the shutdown timeout of the cluster services. Therefore, this mode
+            is useful for gracefully evacuating a node before stopping the cluster services.
           </para>
         </listitem>
       </varlistentry>
@@ -141,10 +155,11 @@
       </varlistentry>
     </variablelist>
   </section>
+
   <section xml:id="ha-maintenance-workflow-more-info">
     <title>For more information</title>
     <para>
-
+      For more information, see <link xlink:href="https://clusterlabs.org/projects/pacemaker/doc/3.0/Pacemaker_Administration/html/administrative.html"/>.
     </para>
   </section>
 </topic>
