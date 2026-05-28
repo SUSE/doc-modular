@@ -37,6 +37,15 @@ Typical glue topics include the intro section to your article, the "For more inf
 "What's next" sections. Also use glue topics to add an additional layer of navigation to your 
 article. This is outlined in the `glue.xml` example file.
 
+## Abstracts
+Use the fixed abstract structure defined in the style guide to keep abstracts consistent across all articles:
+ 
+WHAT? — An objective definition of the product, feature, or solution.
+WHY? — The benefit or motivation: why the reader should care.
+EFFORT — Expected time investment and required background knowledge.
+GOAL — The concrete outcome after completing the article.
+
+Write abstracts as factual summaries. Avoid procedural language, promises or marketing phrasing.
 
 ## Naming and directory conventions
 
@@ -83,7 +92,7 @@ Where the particular parts have the following meaning:
 * `x86` - for x86-64
 * `ppc` - for IBM Power PC
 * `s390`- for IBM Z
-* `aarch` - for AArch64
+* `arm` - for Arm AArch64
 
 `<assembly file name>` is the assembly file name without the asm.xml part. 
 
@@ -177,7 +186,7 @@ you keep both docs in sync. This is done using a plain XML comment.
 
 Add some search engine-related information to your file:
 1. `title`- 29-55 characters
-1. `description` - max. 150 characters
+1. `description` - max. 155 characters
 
 ### Search
 
