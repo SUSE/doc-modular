@@ -19,10 +19,22 @@
     <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        TODO
+        Stopping the cluster services means stopping &pace; and &corosync;. In this mode, the
+        cluster is <emphasis>no longer running</emphasis> on the node. The node's resources either
+        move to another node, or stop if constraints prevent them from moving. However, if stopping
+        a resource fails or times out, the node is fenced. Therefore, we recommend using this mode
+        in combination with standby mode.
       </para>
     </abstract>
   </info>
+
+  <warning>
+    <title>Don't stop cluster services in maintenance mode</title>
+    <para>
+      Stopping the cluster services while in single-node maintenance mode can lead to concurrency
+      violations, where resources mistakenly run on multiple nodes instead of only one.
+    </para>
+  </warning>
 
   <para>
     Perform this procedure on the node you want to stop:
@@ -39,9 +51,23 @@
         Check the status of the cluster:
       </para>
 <screen>&prompt.user;<command>sudo crm status</command></screen>
-      <para>
-        If the node is in <literal>maintenance</literal> mode, the resources will keep running even when the cluster services stop, but will stop if you reboot the node. If the node is in <literal>standby</literal> mode, all the resources have moved to other nodes, so you can safely reboot the node. If the node is in neither mode, the resources will attempt to move to other nodes when you stop the cluster services, but could be caught by a short shutdown timeout, and then you'd have a bad time.
-      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            If the node is in <literal>maintenance</literal> mode: Don't stop the cluster services.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            If the node is in <literal>standby</literal> mode: The resources have either moved to other nodes or stopped, so you can safely stop the cluster services.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            If the node isn't in either mode: When you stop the cluster services, the resources will attempt to move to other nodes. If they can't move, they will stop. However, if any resources fail to stop before the shutdown timeout, the node will be fenced.
+          </para>
+        </listitem>
+      </itemizedlist>
     </step>
     <step>
       <para>
