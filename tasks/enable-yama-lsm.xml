@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="enable-yama-lsm"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>How do I enable and configure Yama?</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+        Yama is built into most modern kernels, so you don't run it like a program. Instead, you configure its <literal>ptrace_scope</literal> .
+      </para>
+    </abstract>
+  </info>
+ <procedure>
+  <title>Setting Yama security levels</title>
+  <step><para>Verify that your kernel was compiled with Yama support. Check for the existence of the Yama configuration file:
+  </para>
+<screen>ls /proc/sys/kernel/yama/ptrace_scope</screen>
+<para>If this file exists, Yama is active. If you get a <literal>No such file or directory</literal> error, Yama is likely not compiled into your kernel or not enabled as a security module at boot.
+</para>
+</step>
+<step><para>To see which mode your system is currently using, read the value of the <literal>ptrace_scope</literal> file:
+</para>
+<screen>cat /proc/sys/kernel/yama/ptrace_scope</screen>
+<itemizedlist>
+<listitem><para>0: Classic permissions (Least secure).</para></listitem>
+<listitem><para>1: Restricted (Default on most systems; can only trace children).</para></listitem>
+<listitem><para>2: Admin-only (Requires root).</para></listitem>
+<listitem><para>3: Disabled (Highest security; cannot be changed without reboot).</para></listitem>
+</itemizedlist>
+</step>
+<step><para>You can change the security level temporarily to see how it affects your tools, for example, <literal>strace</literal>:</para>
+<screen>&prompt.sudo; sh -c 'echo 2  /proc/sys/kernel/yama/ptrace_scope'</screen>
+<para> If the level is already set to 3, you cannot lower it using this method. Level 3 is a lockdown mode that persists until the next system reboot.
+</para>
+<screen>sleep 100 &amp; </screen>
+<para>Note the PID.</para>
+<para>Open a separate terminal and try to attach to it: <literal>strace -p <replaceable>PID_NO</replaceable></literal>.
+If Yama level 1 is active, you will see: <literal>attach: ptrace: Operation not permitted</literal>.
+  </para>
+</step>
+<step><para> Edit the sysctl configuration to make the Yama level permanent: </para>
+<screen>&prompt.sudo; vi /etc/sysctl.d/10-ptrace.conf</screen>
+</step>
+<step>
+<para>If the file does not exist, you can create it or edit <filename>/etc/sysctl.conf</filename>.</para>
+<para>Add the following line and apply the change:</para>
+<screen>kernel.yama.ptrace_scope = 1</screen>
+<screen>&prompt.sudo; sysctl -p /etc/sysctl.d/10-ptrace.conf</screen></step>
+<step><para>Optional: If you want to ensure Yama is at level 3 (disabled) from the moment the system turns on, add <literal>yama.ptrace_scope=3 </literal> to your GRUB kernel boot parameters.</para></step>
+</procedure>
+<warning><title>Disabling Yama <literal>ptrace</literal> scope restrictions</title>
+  <para>The <literal>kernel.yama.ptrace_scope</literal> setting is a security feature that restricts which processes can use <literal>ptrace</literal>.
+  When set to <literal>1</literal>, a process only attaches to its own direct children.
+  You can choose either workarounds: </para>
+  <para><emphasis role="bold">Permanent, persistent system-wide disable</emphasis></para>
+  <orderedlist>
+  <listitem><para>(Preferred) Install the pre-configured package to handle the sysctl setup for you:</para>
+  <screen>&prompt.sudo; zypper install aaa_base-yama-enable-ptrace</screen></listitem>
+  <listitem><para>Create a configuration file and add the following line:</para>
+    <screen>/etc/sysctl.d/90-disable-yama.conf</screen>
+    <para><literal>kernel.yama.ptrace_scope = 0</literal></para></listitem>
+  <listitem><para>Assign the <literal>CAP_SYS_PTRACE </literal> capability to the debugger via the <literal>setcap</literal> utility from the <package>libcap-progs</package> package:</para>
+    <screen>&prompt.sudo; setcap cap_sys_ptrace+ep /usr/bin/gdb </screen>
+    </listitem>
+  </orderedlist>
+  <para><emphasis role="bold">Temporary disablement of Yama</emphasis></para>
+  <orderedlist>
+  <listitem><para>During runtime, set sysctl to <literal>0</literal>:</para>
+  <screen>sysctl -w kernel.yama.ptrace_scope=0</screen>
+  </listitem>
+  <listitem><para>Run the respective debugger as <literal>root</literal>.</para>
+    </listitem>
+  </orderedlist>
+  <para>Disabling the ptrace restriction allows any program you run to control and spy on your other running applications, easing software debugging but creating a significant security risk.</para>
+  <para>To disable Yama ptrace restrictions temporarily, run the command <command>sysctl -w kernel.yama.ptrace_scope=0</command> in your terminal to instantly allow debugging until the next reboot.
+   For a permanent change that survives system restarts, add the line <literal>kernel.yama.ptrace_scope = 0</literal> to <filename>/etc/sysctl.d/99-ptrace.conf</filename> and apply it using the command <command>sysctl --system</command>.</para>
+  <para>For more information, refer to <literal>man 2 ptrace</literal>.</para>
+  </warning>
+</topic>
