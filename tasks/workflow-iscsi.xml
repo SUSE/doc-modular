@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="workflow-iscsi"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Establishing and validating an iSCSI session between the iSCSI LIO target server and initiator</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+   The following procedure assumes that both the iSCSI LIO target server and initiator are installed and configured.
+Additionally, as an example the iSCSI LIO target server has a IP <literal>192.168.122.200</literal> and the iSCSI initiator <literal>192.168.122.181</literal>.</para>
+    </abstract>
+  </info>
+<procedure>
+<step><para>Before attempting a connection, ensure the target is actively listening on the network:</para>
+<screen>&prompt.user; ss -nltp | grep 3260
+LISTEN 0      256                *:3260            *:* </screen>
+<para>You must see <literal>0.0.0.0:3260</literal> or your specific target IP.</para>
+</step>
+<step><para>Enter the <literal>targetcli</literal> shell and verify the initiator's IQN is listed under the ACLs for your specific TPG (Target Portal Group):
+</para>
+<screen>&prompt.sudo; targetcli
+  targetcli shell version 3.0.1
+  Copyright 2011-2013 by Datera, Inc and others.
+  For help on commands, type 'help'.
+
+  /&gt; ls /iscsi
+  o- iscsi ........................................................[Targets: 1]
+    o- iqn.2026-04.com.example:sles.target ...........................[TPGs: 1]
+      o- tpg1 ...........................................[no-gen-acls, no-auth]
+        o- acls ......................................................[ACLs: 1]
+        | o- iqn.2026-04.com.example:sles.initiator ...........[Mapped LUNs: 1]
+        |   o- mapped_lun0 ......................[lun0 block/test_storage (rw)]
+        o- luns ......................................................[LUNs: 1]
+        | o- lun0 ...........[block/test_storage (/dev/vdb) (default_tg_pt_gp)]
+        o- portals ................................................[Portals: 1]
+          o- [::0]:3260 ...................................................[OK]
+  /&gt;
+</screen>
+</step>
+<step> <para>The initiator must connect with the target to pull the available records into its local database:</para>
+<screen>&prompt.sudo; iscsiadm -m discovery -t sendtargets -p 192.168.122.200
+192.168.122.200:3260,1 iqn.2026-04.com.example:sles.target
+</screen>
+</step>
+<step><para>Check that a file named after the target IQN now exists in <filename> /var/lib/iscsi/nodes/</filename>:</para>
+<screen>&prompt.sudo; ls
+  iqn.2026-04.com.example:sles.target</screen>
+</step>
+<step><para>Establish an active data session and map the remote storage as a local device:</para>
+<screen>&prompt.sudo; iscsiadm -m node -T iqn.2026-04.com.example:sles.target -p 192.168.122.200 --login
+Login to [iface: default, target: iqn.2026-04.com.example:sles.target, portal: 192.168.122.200,3260] successful.</screen>
+<screen>&prompt.sudo; iscsiadm -m session -P 1
+  Target: iqn.2026-04.com.example:sles.target (non-flash)
+          Current Portal: 192.168.122.200:3260,1
+          Persistent Portal: 192.168.122.200:3260,1
+                  **********
+                  Interface:
+                  **********
+                  Iface Name: default
+                  Iface Transport: tcp
+                  Iface Initiatorname: iqn.2026-04.com.example:sles.initiator
+                  Iface IPaddress: 192.168.122.181
+                  Iface HWaddress: default
+                  Iface Netdev: default
+                  SID: 1
+                  iSCSI Connection State: LOGGED IN
+                  iSCSI Session State: LOGGED_IN
+                  Internal iscsid Session State: NO CHANGE</screen>
+</step>
+<step><para>Verify the storage on the initiator:</para>
+<screen>&prompt.sudo; lsblk
+  NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+<emphasis role="bold">sda      8:0    0   20G  0 disk</emphasis>
+  sr0     11:0    1 1024M  0 rom
+  vda    254:0    0   25G  0 disk
+  ├─vda1 254:1    0    8M  0 part
+  ├─vda2 254:2    0   23G  0 part /usr/local
+  │                               /root
+  │                               /var
+  │                               /srv
+  │                               /opt
+  │                               /home
+  │                               /boot/grub2/x86_64-efi
+  │                               /boot/grub2/i386-pc
+  │                               /.snapshots
+  │                               /
+  └─vda3 254:3    0    2G  0 part [SWAP]
+</screen>
+</step>
+<step><para>Verify the SCSI properties:</para>
+<screen>&prompt.sudo; lsscsi
+  [0:0:0:0]    cd/dvd  QEMU     QEMU DVD-ROM     2.5+  /dev/sr0
+<emphasis role="bold"> [6:0:0:0]    disk    LIO-ORG  test_storage     4.0   /dev/sda</emphasis></screen>
+</step>
+</procedure>
+</topic>
