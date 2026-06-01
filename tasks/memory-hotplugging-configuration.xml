@@ -28,97 +28,69 @@ in the assembly -->
       </para>
     </abstract>
   </info>
-  <section xml:id="memory-hotplugging-configuration">
+  <section xml:id="memory-hotplugging-configuration-bios">
     <title>Configuring the BIOS</title>
     <para>
-      Before the operating system can even see a physical RAM module being added, the hardware must be configured to expect it.
+      Before the operating system can even see a physical RAM module being added, the hardware must
+      be configured to expect it. In the UEFI settings enable the ACPI memory hot plugging and turn off NUMA/Node
+        interleaving
+    </para>
+  </section>
+  <section xml:id="memory-hotplugging-configuration-kernel">
+    <title>Confiuring the kernel boot parameters</title>
+    <para>
+When Linux boots on bare metal, it maps out its internal tracking structure only for the exact
+physical RAM sticks detected at that particular moment. To make the machine accept a new physical module later, you must configure the kernel to reserve logical memory tracking slots for hardware that doesn't exist yet.
     </para>
     <procedure>
       <step>
-      <formalpara>
-        <title>Configure the UEFI BIOS to expect later addition of RAM modules:</title>
-      
-        <para>In the UEFI settings enabling the ACPI memory hot plugging and turn off NUMA/Node
-        interleaving</para>
-           </formalpara>       
-      </step>
-     <step>
-      <formalpara>
-        <title>Adjust kernel boot parameters</title>
         <para>
-          To the <filename>/etc/default/grub</filename> append the following attributes:
-        
-        <variablelist>
-          <varlistentry>
-<listitem>
-  <para></para>
-</listitem>
-</varlistentry>
-        </variablelist>
+          Open the file <filename>/etc/default/grub</filename> for editing.
         </para>
-      </formalpara>
-     </step>
+      </step>
+      <step>
+        <para>
+          Modify the line <literal>GRUB_CMDLINE_LINUX_DEFAULT</literal> as follows: 
+        </para>
+        <screen>GRUB_CMDLINE_LINUX_DEFAULT="quiet splash <emphasis
+        role="bold">memhp_default_state=online movablenode</emphasis>"</screen>
+        <itemizedlist>
+          <listitem>
+            <para><literal>memhp_default_state=online</literal>: configures the kernel to automatically import the new physical address blocks and transition them to online inside <filename>/sys</filename> the moment the hardware latch closes.</para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>movablenode</literal>: tells the kernel to treat any hot-plugged physical memory nodes as exclusively containing movable data. This is a crucial configuration safeguard; it ensures the kernel never writes unmovable core system files to the new stick, allowing you to safely hot-unplug it later if needed.
+            </para>
+          </listitem>
+        </itemizedlist>
+      </step>
+      <step>
+        <para>
+Save the file and update the boot loader:
+        </para>
+        <stepalternatives>
+          <step>
+            <para>
+              On a mutable system: 
+            </para>
+            <screen>&prompt.sudo; grub2-mkconfig -o /boot/grub2/grub.cfg</screen>
+          </step>
+      <step>
+        <substeps>
+          <step>
+        <para>On the immutable system</para>
+        <screen>&prompt.sudo; transational-update grub.cfg</screen>
+      </step>
+      <step>
+        <para>
+          Reboot the system.
+        </para>
+      </step>
+        </substeps>
+        </step>
+      </stepalternatives>
+      </step>      
     </procedure>
-  </section>
-  <section xml:id="task-example-requirements">
-    <title>Requirements</title>
-    <itemizedlist>
-      <listitem>
-        <para>
-          An
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          Unordered
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          List
-        </para>
-      </listitem>
-    </itemizedlist>
-    <para>
-      A paragraph of text.
-    </para>
-  </section>
-  <section xml:id="task-example-executing">
-    <title>Executing the task</title>
-    <para>
-      A paragraph of text.
-    </para>
-    <procedure>
-      <para>
-        A short introduction to the procedure.
-      </para>
-      <step>
-        <para>
-          A step.
-        </para>
-      </step>
-      <step>
-        <para>
-          A second step.
-        </para>
-      </step>
-      <step>
-        <para>
-          A third step.
-        </para>
-      </step>
-    </procedure>
-  </section>
-  <section xml:id="task-example-summary">
-    <title>Summary</title>
-    <para>
-      A paragraph of text, summing up the result of the task.
-    </para>
-  </section>
-  <section xml:id="task-example-troubleshooting">
-    <title>Troubleshooting</title>
-    <para>
-      Add some troubleshooting information, if applicable.
-    </para>
-  </section>
+  </section>      
 </topic>
