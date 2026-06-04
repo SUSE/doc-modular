@@ -42,48 +42,28 @@
  </itemizedlist>
  <section xml:id="kdump-non-transact">
   <title>Configuring &kdump; for non-transactional systems</title>
-  <procedure>
-    <step>
-        <para>Configure and enable the &kdump; memory reservation:</para>
-        <substeps>
-            <step>
-                <para>To use &kdump;, a specific amount of system memory (RAM)—often referred to as crashkernel memory must be permanently reserved at boot time for the capture kernel and initramfs.
-Add <literal>crashkernel= kernel</literal> to the production kernel's command-line arguments.</para>
-            </step>
-            <step>
-                <para>&kdump; includes automated tools to calculate exactly how much memory needs to be reserved:</para>
-<screen>&prompt.user; kdumptool calibrate</screen>
-<screen>&prompt.user; kdumptool commandline</screen>
-            </step>
-       <step><para>Enable and immediately start the &kdump; service:</para>
-<screen>&prompt.sudo; systemctl enable --now kdump </screen>
-<para>When the systemctl command triggers the main <literal>kdump.service</literal>, it automatically calls a helper service named <literal>kdump-commandline.service</literal>  before attempting to load the kernel.
-This helper service verifies if the current kernel command line contains the expected <literal>crashkernel= options</literal>. If they are missing, automatically updates the boot loader configuration to apply the settings on the next boot sequence.</para>
-      </step>
-<step><para>Reboot to fully activate &kdump;</para>
-<screen>&prompt.sudo; reboot</screen>
-<para>Once booted, the production kernel reserves the designated crashkernel memory, allowing the &kdump; service to load successfully and remain active to capture system panics.</para>
-</step>
-</substeps>
-</step>
-<step><para>Build the capture Initramfs:</para>
-<substeps>
-<step><para>Ensure the specialized crash dump initial ramdisk (initramfs) is successfully built so the capture kernel has the necessary drivers to load upon a crash.</para></step>
-<step><para>Check the output of the configuration service to ensure it successfully modified the boot loader:</para>
+   <para>To use &kdump;, a specific amount of system memory (RAM)—often referred to as crash kernel memory must be permanently reserved at boot time for the capture kernel and initramfs.
+    The amount of memory to reserve is specified using <literal>crashkernel= kernel</literal> command line parameters. &kdump; includes <literal>kdumptool calibrate</literal> and <literal>kdumptool commandline</literal> to calculate exactly how much memory needs to be reserved.</para>
+      <para>When the <command> systemctl enable --now kdump</command> command triggers the main <literal>kdump.service</literal>, it automatically calls a helper service named <literal>kdump-commandline.service</literal> before attempting to load the kernel.
+    This helper service verifies if the current kernel command line contains the expected <literal>crashkernel= options</literal>. If they are missing, automatically updates the boot loader configuration to apply the settings on the next boot sequence.</para>
+    <para>To quickly enable and start &kdump; with the recommended memory reservation, execute the <command> systemctl enable --now kdump</command> command. This command will fail, because the crashkernel memory has not been reserved on boot, so the capture kernel can not be loaded in the currently running system.</para>
+<para>Before attempting to load, the <literal>kdump.service</literal>: </para>
+<itemizedlist>
+<listitem><para>Starts the <literal>kdump-commandline.service</literal> </para></listitem>
+<listitem><para>Updates the boot loader</para></listitem>
+<listitem><para>Builds the capture initramfs </para></listitem>
+</itemizedlist>
+<para>To verify that the service successfully checked and updated your kernel boot options, inspect the system logs:</para>
 <screen>&prompt.sudo; journalctl -u kdump-commandline.service</screen>
-<para>Verify the output:</para>
-<screen>Started Check and update kdump options on the kernel command line.
-  Kdump expects these crashkernel= values on the kernel command line: crashkernel=72M,low crashkernel=443M,high
+<para>Expected output:</para>
+<screen>  Started Check and update kdump options on the kernel command line.
+  Kdump expects these crashkernel= values on the kernel command line:
+  crashkernel=72M,low crashkernel=443M,high
+  (based on the output of 'kdumptool calibrate')
   No crashkernel= found in /proc/cmdline. Kdump can't be started.
   Updated the command line options in the bootloader.
   Changes will take effect on next boot.</screen>
-</step>
-<step><para>If the logs confirm the boot loader was updated, reboot the machine to apply the allocated memory changes and initialize &kdump;:</para>
-<screen>&prompt.sudo; reboot</screen>
-</step>
-</substeps>
-</step>
-</procedure>
+<para>The boot loader has been updated. Reboot the machine to apply the changes and start &kdump;.</para>
 <para><emphasis role="bold">Other configurations:</emphasis></para>
 <para>The <filename>/etc/sysconfig/kdump</filename> file is the primary configuration file for managing the &kdump; service.
   It includes essential options such as:</para>
@@ -107,4 +87,4 @@ This helper service verifies if the current kernel command line contains the exp
   <para>Just as with non-transactional systems, modifying the <filename>/etc/sysconfig/kdump </filename> configuration file on a transactional system requires the &kdump; service to be manually restarted for the changes to take effect.
     However, if your modifications alter the crashkernel memory allocation size, you must perform an additional step to ensure the changes are safely written to the read-only environment; you need to execute the <command>transactional-update run kdumptool commandline -u</command> command. This applies the new memory settings directly to the boot loader configuration so they can take physical effect during the next system boot.</para>
 </section>
-      </topic>
+</topic>
