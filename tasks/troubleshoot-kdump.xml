@@ -31,11 +31,13 @@ When troubleshooting &kdump;, the process usually fails at one of three stages: 
 Otherwise you may only find out that it does not work when an actual kernel crash occurs,leaving you with no possibility to debug the crash.
 Ensure no critical workloads are running and no unsaved data is present on the system. Additionally, ensure to
 sync and unmount file systems:</para>
+<para>Force an immediate emergency sync of all cached memory data to your hard drives to prevent data loss:</para>
 <screen>echo s &gt; /proc/sysrq-trigger</screen>
+<para>Force an immediate emergency remount of all file systems to read-only mode to prevent data corruption:</para>
 <screen>echo u &gt; /proc/sysrq-trigger </screen>
 <para>Then you can simulate a kernel crash:</para>
 <screen>echo c &gt; /proc/sysrq-trigger</screen>
-<para>Verify by checking if there is a  new directory created under your <literal>KDUMP_SAVEDIR</literal> which is <filename>/var/crash</filename> by default. This contains the dmesg and
+<para>Check if there is a  new directory created under your <literal>KDUMP_SAVEDIR</literal> which is <filename>/var/crash</filename> by default. This contains the dmesg and
 vmcore of the crashed kernel.
   </para>
   </section>
@@ -48,30 +50,48 @@ vmcore of the crashed kernel.
       <para>During &kdump;, if you see error messages mentioning low memory and invoking the
 Out of Memory (OOM) killer, this is the likely cause. In case, you don't see such messages, trying with increased crash kernel reservation is a good
 first step.</para>
-<para>The recommended ways to rectify this are:</para>
-<orderedlist>
-<listitem><para> Find the size of the current automatically configured crash kernel reservation:</para>
+<procedure>
+<step><para>Find the size of the current automatically configured crash kernel reservation
+  by checking the kernel command line:</para>
 <screen>&prompt.sudo; cat /proc/cmdline</screen>
-<para>This should contain one or two parameters in the form of:</para>
 <itemizedlist>
-<listitem><para>crashkernel=X M</para></listitem>
-<listitem><para>crashkernel=Y M,low</para></listitem>
-<listitem><para>crashkernel=Z M,high</para></listitem>
+  <listitem><para><literal>crashkernel=X M</literal></para></listitem>
+  <listitem><para><literal>crashkernel=Y M,low</literal></para></listitem>
+  <listitem><para><literal>crashkernel=Z M,high</literal></para></listitem>
 </itemizedlist>
-<para>Add up the values of X,Y and Z which equals the size of the current reservation in MiB (current).
+<para>
+  Add up the values of <replaceable>X</replaceable>, <replaceable>Y</replaceable>,
+  and <replaceable>Z</replaceable> to determine the total size of the current
+  reservation in MiB (<replaceable>current</replaceable>).
 </para>
-</listitem>
-<listitem><para>Manually set the reservation by editing <filename>/etc/sysconfig/kdump</filename> and changing the value of
-<literal>KDUMP_CRASHKERNEL</literal></para>
+</step>
+<step><para>Manually set the new reservation by editing the <filename>/etc/sysconfig/kdump</filename>
+  file. Locate and change the value of the <varname>KDUMP_CRASHKERNEL</varname>
+  variable to double the current size:</para>
 <screen>KDUMP_CRASHKERNEL="crashkernel=&lt;2 * current&gt;M"</screen>
-<para>Then restart and reboot:</para>
-<screen>&prompt.sudo; systemctl restart kdump</screen>
-<screen>&prompt.sudo; reboot</screen>
-</listitem>
-<listitem><para>Repeat a few times until &kdump; works.</para></listitem>
-<listitem><para>Fine-tuning crash kernel memory involves finding the smallest RAM reservation that successfully captures a crash dump without triggering "Out of Memory" errors in the capture kernel.
-  Fine tune with the last working and non-working value.</para></listitem>
-</orderedlist>
+</step>
+<step>
+  <para>
+      Restart the <literal>kdump.service</literal> service and reboot
+      the system to apply the new memory parameters:
+  </para>
+  <screen>&prompt.sudo; systemctl restart kdump </screen>
+  <screen>&prompt.sudo; reboot</screen>
+</step>
+<step>
+  <para>
+      Repeat this process a few times until Kdump successfully executes without errors.
+  </para>
+  <note>
+      <para>
+          Fine-tuning crash kernel memory involves finding the smallest RAM reservation
+          that successfully captures a crash dump without triggering OOM errors in the
+          capture kernel. Fine-tune your final setting using the range between your
+          last working and non-working values to avoid wasting system memory.
+      </para>
+  </note>
+</step>
+</procedure>
 <para>Other troubleshooting issues include:</para>
 <variablelist>
 <varlistentry>
@@ -107,7 +127,6 @@ first step.</para>
         <listitem><para>If <literal>kdump initramfs</literal> does not generate correctly, turn on debugging when generating it;
 <command>mkdumprd -fd</command>. You can also unpack and inspect the generated initramfs image with <command>lsinitrd --unpack /var/lib/kdump/initrd
 </command> command. </para></listitem>
-
         </varlistentry>
 </variablelist>
  </section>
