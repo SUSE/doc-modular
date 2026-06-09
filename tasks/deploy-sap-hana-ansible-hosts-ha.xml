@@ -1,0 +1,414 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="deploy-sap-hana-ansible-hosts-ha"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Deploying a &ha; &hana; cluster on existing hosts</title>
+    <!-- can be changed via merge in the assembly -->
+    <!--add author's email address-->
+    <meta name="maintainer" content="eliska.romanova@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Deploy highly available (HA) &hana; scale-up system on existing hosts by using &ansible; for automation. With &ansible;, you can achieve a resilient, scalable and enterprise-grade environment suitable for mission-critical workloads with minimal manual intervention. This procedure is intended for system administrators, DevOps engineers, and &sap; Basis consultants who have a working knowledge of &ansible; and &sap; principles.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    The resulting setup consists of two &hana; database scale-up servers configured in a HA cluster (system replication).
+  </para>
+  <procedure><title>Deployment on existing hosts</title>
+    <para>
+      Before the deployment, ensure you have two hosts provisioned and running &sles4sap; 16.
+    </para>
+    <step>
+      <para>
+        Configure passwordless SSH access from your control node to securely communicate with the existing hosts.
+      </para>
+      <substeps>
+        <step>
+          <para>
+            Generate an SSH key if you do not have one. Leave the passphrase empty for passwordless access.
+          </para>
+<screen>&prompt.user;<command>ssh-keygen -t rsa -b 4096 -f ~/.ssh/sap_rsa -N ""</command></screen>
+        </step>
+        <step>
+          <para>
+            Copy the SSH public key to your existing target hosts.
+          </para>
+<screen>&prompt.user;<command>ssh-copy-id -i ~/.ssh/sap_rsa.pub root@<replaceable>HOST_IP</replaceable></command></screen>
+        </step>
+        <step>
+          <para>
+            Add the target hosts to your <filename>known_hosts</filename> file to prevent manual SSH verification prompts.
+          </para>
+<screen>&prompt.user;<command>ssh-keyscan -H <replaceable>HOST_IP</replaceable> >> ~/.ssh/known_hosts</command></screen>
+        </step>
+      </substeps>
+    </step>
+    <step>
+      <para>
+        Install the <package>sles_sap_automation</package> pattern. The pattern provides &ansible; and the required &sap; roles and playbooks together to prevent dependency issues.
+      </para>
+<screen>&prompt.sudo;<command>zypper install --type pattern sles_sap_automation</command></screen>
+      <substeps>
+        <step>
+          <para>
+            Verify that the pattern is installed with all its components.
+          </para>
+<screen>&prompt.sudo; <command>zypper info --type pattern sles_sap_automation</command>
+
+Refreshing service 'SUSE_Linux_Enterprise_Server_for_SAP_applications_16.0_x86_64'.
+Retrieving repository 'SLE-Product-SLES_SAP-16.0' metadata ...[done]
+Building repository 'SLE-Product-SLES_SAP-16.0' cache ...[done]
+Loading repository data...
+Reading installed packages...
+
+Information for pattern sles_sap_automation:
+--------------------------------------------
+Repository      : SLE-Product-SLES_SAP-16.0
+Name            : sles_sap_automation
+Version         : 16.0-160000.5.1
+Arch            : x86_64
+Vendor          : SUSE LLC &lt;https://www.suse.com/>
+Buddy Package   : patterns-sap-automation-16.0-160000.5.1.x86_64
+Installed       : Yes
+Visible to User : Yes
+Summary         : Automation deployment for SAP systems
+Description     : 
+    Ansible playbooks and roles
+Contents        : 
+    S  | Name                             | Type    | Dependency
+    ---+----------------------------------+---------+-----------
+    i+ | pattern:sles_sap_automation      | pattern | Required
+    i  | pattern:sles_sap_base_sap_server | pattern | Required
+    i  | ansible                          | package | Required
+    i  | ansible-linux-system-roles       | package | Required
+    i  | ansible-sap-infrastructure       | package | Required
+    i  | ansible-sap-install              | package | Required
+    i  | ansible-sap-operations           | package | Required
+    i  | ansible-sap-playbooks            | package | Required
+    i  | ansible-trento                   | package | Required</screen>
+        </step>
+      </substeps>
+    </step>
+    <step>
+      <para>
+        Create a dedicated workspace for your deployment.
+      </para>
+      <important>
+        <title>Do not modify default playbooks</title>
+        <para>
+          Do not modify the default files in <filename>/usr/share/ansible/playbooks/</filename>
+          directly. Future package updates will overwrite your changes.
+        </para>
+      </important>
+      <substeps>
+        <step>
+          <para>
+            Create a directory to isolate your configuration files. For example:
+          </para>
+<screen>&prompt.user;<command>mkdir -p playbooks/H01</command></screen>
+        </step>
+        <step>
+          <para>
+            Copy the following default variable and inventory files from the <filename>sap_hana_ha</filename> scenario into your new directory:
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <filename>ansible_extravars.yml</filename> contains scenario-specific variables.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <filename>optional/ansible_extravars_existing_hosts.yml</filename> contains platform-specific variables.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <filename>optional/ansible_inventory_noninteractive.yml</filename> contains inventory definition of existing hosts.
+              </para>
+            </listitem>
+          </itemizedlist>
+<screen>&prompt.user;<command>cp /usr/share/ansible/playbooks/ansible.playbooks_for_sap/deploy_scenarios/sap_hana_ha/ansible_extravars.yml playbooks/H01/</command></screen>
+<screen>&prompt.user;<command>cp /usr/share/ansible/playbooks/ansible.playbooks_for_sap/deploy_scenarios/sap_hana_ha/optional/ansible_extravars_existing_hosts.yml playbooks/H01/</command></screen>
+<screen>&prompt.user;<command>cp /usr/share/ansible/playbooks/ansible.playbooks_for_sap/deploy_scenarios/sap_hana_ha/optional/ansible_inventory_noninteractive.yml playbooks/H01/</command></screen>
+        </step>
+      </substeps>
+    </step>
+    <step>
+      <para>
+        Update the <filename>ansible_extravars.yml</filename> variable file.
+      </para>
+      <important>
+        <title>Replace variable placeholders</title>
+        <para>
+          In the variable files, there is a placeholder <literal>ENTER_STRING_VALUE_HERE</literal>.
+          You must replace all instances of this placeholder with the actual values from your
+          environment. The following steps include additional information for only certain
+          variables.
+        </para>
+      </important>
+      <substeps>
+        <step>
+          <para>
+            Set the following variable to the topology defined inside
+            <filename>ansible_extravars_existing_hosts.yml</filename> under
+            <varname>sap_vm_provision_existing_hosts_host_specifications_dictionary</varname>.
+          </para>
+<screen language="yaml">sap_vm_provision_host_specification_plan: "xsmall_256gb"</screen>
+        </step>
+        <step>
+          <para>
+            Define the SAP product and installation source. Set the <varname>sap_software_product</varname> variable to the product defined inside <filename>ansible_extravars.yml</filename> under <varname>sap_software_install_dictionary</varname>.
+          </para>
+<screen language="yaml">sap_software_product: "sap_hana_2_sps08_install"
+sap_install_media_detect_source_directory: "/software"
+</screen>
+          <note>
+            <title>Software download options</title>
+            <para>
+              <emphasis role="bold">Manual download (default)</emphasis>
+            </para>
+            <para>
+              By default, the playbook expects you to manually download all the required &sap;
+              installation files and place them in the directory defined by the
+              <varname>sap_install_media_detect_source_directory</varname> variable.
+            </para>
+            <para>
+              <emphasis role="bold">Automated download</emphasis>
+            </para>
+            <para>
+              For a more automated setup, you can install the optional
+              <package>ansible-sap-launchpad</package> package from the &ph;. If this package is
+              present, the playbook can automatically download the software from the &sap;
+              Launchpad. To enable this, you must provide your S-User credentials in
+              <varname>sap_id_user</varname> and <varname>sap_id_user_password</varname> variables.
+            </para>
+          </note>
+        </step>
+        <step>
+          <para>
+            Enable and define your master password.
+          </para>
+<screen language="yaml"># Use a master password for SAP HANA installation (y/n) (String).
+sap_hana_install_use_master_password: "y"  
+
+# The master password for SAP HANA (String).
+sap_hana_install_master_password: '<replaceable>YOUR_SECURE_PASSWORD</replaceable>'
+</screen>
+        </step>
+        <step>
+          <para>
+            Set the variable for virtual overlay IP addresses. The variable needs to follow a specific convention for a given platform. For example:
+          </para>
+<screen language="yaml"># oVirt KVM:  the VIP must be within the VLAN Subnet range
+sap_vm_provision_ha_vip_hana_primary: "10.10.10.90"
+</screen>
+        </step>
+      </substeps>
+    </step>
+    <step>
+      <para>
+        Update the <filename>ansible_extravars_existing_hosts.yml</filename> variable file.
+      </para>
+      <substeps>
+        <step>
+          <para>
+            &ansible; automatically detects domain from the <filename>/etc/hosts</filename> file,
+            but the following variable can override it:
+          </para>
+<screen language="yaml">sap_general_preconfigure_domain: "{{ ansible_facts['domain'] }}"</screen>
+        </step>
+        <step>
+          <para>
+            Update the following variable with the path to the SSH key that exists on the control node and is updated in <filename>authorized_keys</filename> on existing hosts. For example:
+          </para>
+<screen language="yaml">sap_vm_provision_ssh_host_private_key_file_path: "/root/.ssh/sap_rsa"</screen>
+        </step>
+      </substeps>
+    </step>
+    <step>
+      <para>
+        Update the <filename>ansible_inventory_noninteractive.yml</filename> inventory file with
+        the connection details of your hosts. For example:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            Primary database host: <literal>01hana</literal>
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                IP: 10.10.10.10
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                SSH Key path: <filename>/root/.ssh/sap_rsa</filename>
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Simplified SSH arguments without Bastion host.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+        <listitem>
+          <para>
+            Secondary database host: <literal>02hana</literal>
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                IP: 10.10.10.11
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                SSH Key path: <filename>/root/.ssh/sap_rsa</filename>
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Simplified SSH arguments without Bastion host.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </itemizedlist>
+<screen language="yaml">---
+
+hana_primary:
+  hosts:
+    01hana:
+      ansible_host: "10.10.10.10"
+      ansible_port: 22
+      ansible_user: root
+      ansible_ssh_private_key_file: "/root/.ssh/sap_rsa"
+      ansible_ssh_common_args: >-
+        -o ConnectTimeout=180 -o ControlMaster=auto -o ControlPersist=3600s
+        -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ForwardX11=no
+
+hana_secondary:
+  hosts:
+    02hana:
+      ansible_host: "10.10.10.11"
+      ansible_port: 22
+      ansible_user: root
+      ansible_ssh_private_key_file: "/root/.ssh/sap_rsa"
+      ansible_ssh_common_args: >-
+        -o ConnectTimeout=180 -o ControlMaster=auto -o ControlPersist=3600s
+        -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ForwardX11=no
+</screen>
+      <note>
+        <title>Inventory group names</title>
+        <para>
+          Avoid changing the group names (<varname>hana_primary</varname>,
+          <varname>hana_secondary</varname>) in the inventory file. These names are used in the
+          deployment playbook. Renaming them would require customizing the playbook to change all
+          host entries.
+        </para>
+      </note>
+    </step>
+    <step>
+      <para>
+        Test the &ansible; connection. Verify that &ansible; can successfully connect to your target hosts by using the inventory and SSH keys you configured.
+      </para>
+<screen>&prompt.sudo;<command>ansible -i playbooks/H01/ansible_inventory_noninteractive.yml all -m ansible.builtin.ping</command>
+
+02hana | SUCCESS => {
+    "ansible_facts": {
+        "discovered_interpreter_python": "/usr/bin/python3.13"
+    },
+    "changed": false,
+    "ping": "pong"
+}
+
+01hana | SUCCESS => {
+    "ansible_facts": {
+        "discovered_interpreter_python": "/usr/bin/python3.13"
+    },
+    "changed": false,
+    "ping": "pong"
+}
+</screen>
+    </step>
+    <step>
+      <para>
+        Encrypt the files with &ansible; Vault. Files can be encrypted either with a prompt or a
+        password file. The password file method is easier in larger environments for reusability.
+      </para>
+<screen>&prompt.user;<command>echo "<replaceable>YOUR_SECURE_VAULT_PASSWORD</replaceable>" > password.key</command></screen>
+<screen>&prompt.user;<command>chmod 600 password.key</command></screen>
+<screen>&prompt.sudo;<command>ansible-vault encrypt --vault-password-file password.key \
+  playbooks/H01/ansible_extravars.yml \
+  playbooks/H01/ansible_extravars_existing_hosts.yml</command>
+
+Encryption successful</screen>
+    </step>
+    <step>
+      <para>
+        Run the main playbook from your working directory (for example,
+        <filename>playbooks/H01/</filename>). It starts the automated process of installing the SAP software.
+      </para>
+<screen>&prompt.sudo;<command>ansible-playbook /usr/share/ansible/playbooks/ansible.playbooks_for_sap/deploy_scenarios/sap_hana_ha/ansible_playbook.yml \
+  --extra-vars "@./ansible_extravars.yml" \
+  --extra-vars "@./ansible_extravars_existing_hosts.yml" \
+  --inventory "./ansible_inventory_noninteractive.yml" \
+  --vault-password-file password.key
+</command></screen>
+      <para>
+        The <literal>--vault-password-file</literal> option decrypts your sensitive variables during the run.
+      </para>
+    </step>
+  </procedure>
+  <para>
+    <emphasis role="bold">Next steps</emphasis>
+  </para>
+  <para>
+    You can now proceed with post-installation tasks, such as:
+  </para>
+  <itemizedlist>
+    <listitem>
+      <para>
+        <emphasis role="bold">System validation:</emphasis> Performing health checks and verifying
+        functionality.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <emphasis role="bold">&sap; configuration:</emphasis> Applying initial &hana; database configurations.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <emphasis role="bold">Backup and recovery:</emphasis> Implementing backup and recovery
+        strategy.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <emphasis role="bold">Monitoring:</emphasis> Integrating the new landscape with your
+        existing monitoring solutions.
+      </para>
+    </listitem>
+  </itemizedlist>
+</topic>
