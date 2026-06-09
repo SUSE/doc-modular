@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="memory-hotplugging-configuration"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring memory hot plugging</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+       Introductory text
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="memory-hotplugging-configuration-bios">
+    <title>Configuring the BIOS</title>
+    <para>
+      Before the operating system can even see a physical RAM module being added, the hardware must
+      be configured to expect it. In the UEFI settings enable the ACPI memory hot plugging and turn off NUMA/Node
+        interleaving
+    </para>
+  </section>
+  <section xml:id="memory-hotplugging-configuration-kernel">
+    <title>Confiuring the kernel boot parameters</title>
+    <para>
+When Linux boots on bare metal, it maps out its internal tracking structure only for the exact
+physical RAM sticks detected at that particular moment. To make the machine accept a new physical module later, you must configure the kernel to reserve logical memory tracking slots for hardware that doesn't exist yet.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Open the file <filename>/etc/default/grub</filename> for editing.
+        </para>
+      </step>
+      <step>
+        <para>
+          Modify the line <literal>GRUB_CMDLINE_LINUX_DEFAULT</literal> as follows: 
+        </para>
+        <screen>GRUB_CMDLINE_LINUX_DEFAULT="quiet splash <emphasis
+        role="bold">memhp_default_state=online movablenode</emphasis>"</screen>
+        <itemizedlist>
+          <listitem>
+            <para><literal>memhp_default_state=online</literal>: configures the kernel to automatically import the new physical address blocks and transition them to online inside <filename>/sys</filename> the moment the hardware latch closes.</para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>movablenode</literal>: tells the kernel to treat any hot-plugged physical memory nodes as exclusively containing movable data. This is a crucial configuration safeguard; it ensures the kernel never writes unmovable core system files to the new stick, allowing you to safely hot-unplug it later if needed.
+            </para>
+          </listitem>
+        </itemizedlist>
+      </step>
+      <step>
+        <para>
+Save the file and update the boot loader:
+        </para>
+        <stepalternatives>
+          <step>
+            <para>
+              On a mutable system: 
+            </para>
+            <screen>&prompt.sudo; grub2-mkconfig -o /boot/grub2/grub.cfg</screen>
+          </step>
+      <step>
+        <substeps>
+          <step>
+        <para>On the immutable system</para>
+        <screen>&prompt.sudo; transational-update grub.cfg</screen>
+      </step>
+      <step>
+        <para>
+          Reboot the system.
+        </para>
+      </step>
+        </substeps>
+        </step>
+      </stepalternatives>
+      </step>      
+    </procedure>
+  </section>      
+</topic>
