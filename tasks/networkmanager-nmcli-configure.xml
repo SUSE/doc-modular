@@ -71,39 +71,47 @@ using a command-line interface: <command>nmcli</command> or ncurses interface:
         <screen>&prompt.sudo;nmcli connection modify <replaceable>INTERNAL-LAN</replaceable> ipv6.method manual ipv6.addresses 2001:db8:1::fffe/64 ipv6.gateway 2001:db8:1::fffe ipv6.dns 2001:db8:1::ffbb ipv6.dns-search example.com</screen>
       </listitem>
     </itemizedlist>
-  </step> 
-  <step>
+  </step>     
+   <step>
     <para>Configure the system to handle network-dependent services. To prevent services from failing or experiencing race conditions if they are activated before the static IP address is fully assigned by NetworkManager, choose one of the following methods:</para>
+   <stepalternatives>
+    
+    <step>
     <substeps>
       <step>
         <para>Enable <filename>NetworkManager-wait-online.service</filename> to force the system to wait until network interfaces are up before proceeding with the boot target:</para>
         <screen>&prompt.sudo;systemctl enable NetworkManager-wait-online.service</screen>
       </step>
       <step>
-        <para>There are two methods to perform this:</para>
-        <itemizedlist>
-          <listitem>
+        
             <para>Individual systemd unit overrides: For each service binding to a specific static IP, manually create a systemd unit override that enforces proper startup ordering and behavior:</para>
             <screen>/etc/systemd/system/sshd.service.d/override.conf
 [Unit]
 After=network-online.target
 [Service]
 Restart=always</screen>
-          </listitem>
-          <listitem>
-            <para>Centralized Non-Local Binding (Alternative): Instead of managing overrides per service, you can allow applications to safely bind to IPv4 and IPv6 addresses that are not yet fully initialized on the system. Create a custom sysctl file at <filename>/etc/sysctl.d/90-nonlocal_bind.conf</filename> containing the following lines:</para>
+</step>
+</substeps>
+</step>
+<step>
+  <substeps>
+    <step>
+      <para>Centralized Non-Local Binding (Alternative): Instead of managing overrides per service, you can allow applications to safely bind to IPv4 and IPv6 addresses that are not yet fully initialized on the system. Create a custom sysctl file at <filename>/etc/sysctl.d/90-nonlocal_bind.conf</filename> containing the following lines:</para>
             <screen>net.ipv4.ip_nonlocal_bind = 1
 net.ipv6.ip_nonlocal_bind = 1</screen>
-            <para>Apply the sysctl configuration immediately by running:</para>
+    </step>
+    <step>
+      <para>Apply the sysctl configuration immediately by running:</para>
             <screen>&prompt.sudo;sysctl --system</screen>
             <note>
               <para>Non-local binding should not be enabled by default unless required, as it may cause unexpected behavior or errors in certain strict or legacy applications.</para>
             </note>
-          </listitem>
-        </itemizedlist>
-      </step>
-    </substeps>
-  </step>
+    </step>
+  </substeps>
+</step>
+</stepalternatives>
+</step>
+         
   <step>
     <para>Activate the profile:</para>
     <screen>&prompt.sudo;nmcli connection up <replaceable>CONNECTION_NAME</replaceable></screen>
