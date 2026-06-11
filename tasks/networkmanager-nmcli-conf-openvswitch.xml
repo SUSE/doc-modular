@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="networkmanager-nmcli-configure-openvSwitch"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring Open vSwitch using NetworkManager</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
+    <abstract>
+        <para>You can create an external Open vSwitch bridge deployment, bind physical network uplinks, and map host virtual routing ports by using <command>nmcli</command>.</para></abstract>
+   </info>
+<para>In SUSE Linux Enterprise Server 16, NetworkManager is the default infrastructure used to manage advanced network topologies, including Open vSwitch (OVS). When deploying OVS bridges for virtualized environments managed by libvirt (such as KVM), specific configuration layouts must be followed to ensure proper integration between the network daemon and the hypervisor layer.</para>
+<para>Unlike legacy network setups, the NetworkManager OVS plug-in (NetworkManager-ovs) enforces a strict, multi-layered abstraction model. Review the following constraints before configuring your virtual switches:</para>
+<itemizedlist>
+  <listitem>
+    <para>Explicit Port Layering: Every physical interface or logical interface must be assigned to its own explicitly declared OVS port before it can be attached to an OVS bridge.</para></listitem>
+  <listitem>
+    <para>Interface Mapping for Virtualization: When NetworkManager creates an OVS bridge, it does not automatically instantiate a corresponding internal virtual interface matching the bridge's name.</para></listitem>
+</itemizedlist>
+<section><title>Creating an external routing OVS bridge</title>
+  <para>To deploy an OVS bridge intended for external host management and public KVM guest traffic, proceed as follows:</para>
+  <para>This procedure assumes a physical uplink interface named eno1 and a target MTU of 1500.</para>
+  <procedure xml:id="networkmanager-create-external-routing-bridge">
+  <step>
+  <para>
+  Create the OVS bridge infrastructure:
+  </para>
+  <screen>&prompt.sudo; nmcli connection add type ovs-bridge conn.interface external con-name external</screen>
+  </step>
+  <step>
+      <para>View the list of connections to make sure the profile name you want to use is not already taken:</para>
+    <screen>nmcli connection show</screen>
+      <para>The &nm; creates a profile for each Network Interface Controller (NIC). To connect the NIC to networks with different settings, you must create separate profiles for each network.</para>
+  </step>
+  <step>
+      <para>Define the OVS port structure for the physical uplink:</para>
+      <screen>&prompt.sudo; nmcli connection add type ovs-port conn.interface external-uplink0 controller external</screen>
+  </step>  
+  <step>
+    <para>Bind the physical interface to the uplink port:</para>
+    <screen>&prompt.sudo; nmcli connection add type ethernet conn.interface eno1 controller external-uplink0</screen>
+  </step>
+  <step>
+  <para>Add the host management port and configure static IPv4 parameters:</para>
+  <screen>&prompt.sudo; nmcli connection add type ovs-port conn.interface port-eetteri1 controller external
+&prompt.sudo; nmcli connection add type ovs-interface port-type ovs-port conn.interface eetteri1 controller port-eetteri1 ipv4.method manual ipv4.address 10.191.70.8/24 ipv4.gateway 10.191.70.254 ipv4.dns 10.168.0.1,10.168.0.2 mtu 1500</screen>
+ 
+  </step> 
+<step><para>Expose the bridge named interface to libvirt:</para>
+<screen>&prompt.sudo; nmcli connection add type ovs-port conn.interface external controller external
+&prompt.sudo; nmcli connection add type ovs-interface port-type ovs-port conn.interface external controller external mtu 1500</screen>
+</step>
+</procedure>
+</section>
+<section><title>Creating an isolated internal OVS bridge with jumbo frames</title>
+<para>You can deploy an isolated internal cluster fabric (for instance, for inter-VM farming or host NFS access) that utilizes redundant uplinks (enp33s0f0np0 and enp33s0f1np1), VLAN segmentation (VLAN ID 42), and Jumbo Frames (MTU 9000).</para>
+<procedure>
+  <step><para>Create the internal OVS bridge container:</para>
+<screen>&prompt.sudo; nmcli connection add type ovs-bridge conn.interface halan0 con-name halan0</screen>
+  </step>
+  <step><para>Add separate OVS ports for the redundant hardware paths:</para>
+  <screen>&prompt.sudo; nmcli connection add type ovs-port conn.interface halan0-uplink0 controller halan0
+&prompt.sudo; nmcli connection add type ovs-port conn.interface halan0-uplink1 controller halan0</screen></step>
+<step>
+  <para>Bind the respective physical network cards to those ports:</para>
+<screen>&prompt.sudo; nmcli connection add type ethernet conn.interface enp33s0f0np0 controller halan0-uplink0
+&prompt.sudo; nmcli connection add type ethernet conn.interface enp33s0f1np1 controller halan0-uplink1</screen></step>
+<step>
+  <para>Enforce Jumbo Frame requirements on the underlying hardware slaves:</para>
+<screen>&prompt.sudo; nmcli connection modify ovs-slave-enp33s0f0np0 ethernet.mtu 9000
+&prompt.sudo; nmcli connection modify ovs-slave-enp33s0f1np1 ethernet.mtu 9000</screen></step>
+<step>
+  <para>Establish a VLAN-tagged internal storage endpoint:</para>
+<screen>&prompt.sudo; nmcli connection add type ovs-port conn.interface port-internal1 controller halan0 ovs-port.tag 42
+&prompt.sudo; nmcli connection add type ovs-interface port-type ovs-port conn.interface internal1 controller port-internal1 ipv4.method manual ipv4.address 172.16.32.30/24 mtu 9000</screen>
+</step>
+<step>
+  <para>Expose the internal bridge infrastructure to libvirt:</para>
+  <screen>&prompt.sudo; nmcli connection add type ovs-port conn.interface halan0 controller halan0
+&prompt.sudo; nmcli connection add type ovs-interface port-type ovs-port conn.interface halan0 controller halan0 mtu 9000</screen>
+</step>
+</procedure>
+</section>
+<section><title>Verifying the open vSwitch topology</title>
+<para>To ensure your virtual network components are loaded and map correctly between the NetworkManager database, the Linux kernel, and the OVS subsystem, run the following verification tools.</para>
+<procedure>
+  <step>
+    <para>View NetworkManager configurations:</para>
+    <screen>nmcli connection show</screen>
+  </step>
+  <step>
+    <para>Verify running Open vSwitch database maps:</para>
+    <screen>&prompt.sudo; ovs-vsctl show</screen>
+  </step>
+  <step><para>Verify link state and MTU definitions in the kernel:</para>
+  <screen>ip addr show</screen></step>
+</procedure>
+</section>
+</topic>
