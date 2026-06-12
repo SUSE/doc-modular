@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="cgroups-setting-tasksmax"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Preventing fork bombs with <literal>TasksMax</literal></title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+    &systemd; provides the <literal>TasksMax</literal> 
+    parameter to limit the number of tasks (processes and threads) within a unit or slice. 
+    This serves as a critical defense against <quote>fork bombs</quote> and runaway 
+    processes that could otherwise exhaust the system's Process ID (PID) pool.
+      </para>
+    </abstract>    
+  </info>
+   <para>
+    While upstream &systemd; defaults to 15% 
+    of the kernel global limit (viewable via <command>sysctl kernel.pid_max</command>), 
+    &productnameshort; overrides this behavior to provide maximum compatibility for high-performance 
+    workloads.
+  </para>
+ <section xml:id="sec-tasksmax-identifying-defaults">
+    <title>Identifying default <literal>TasksMax</literal> values</title>
+    <para>
+      In &productnameshort;, the default <literal>TasksMax</literal> value for both system units 
+      and user slices is set to <literal>infinity</literal>. This means no restriction 
+      is enforced by default. These overrides are located in the following vendor 
+      configuration files:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          System units: <filename>/usr/lib/systemd/system.conf.d/25-defaults-SLE.conf</filename>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          User slices: <filename>/usr/lib/systemd/system/user-.slice.d/25-defaults-SLE.conf</filename>
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      To verify the effective <literal>DefaultTasksMax</literal> on your system, run:
+    </para>
+<screen><command>systemctl show --property DefaultTasksMax</command></screen>
+    <important>
+      <para>
+        While <literal>infinity</literal> prevents service disruption due to reaching 
+        task limits, it leaves the system vulnerable to resource exhaustion. We 
+        recommend setting explicit limits for critical production services.
+      </para>
+    </important>
+  </section>
+
+  <section xml:id="sec-tasksmax-overriding">
+    <title>Overriding the <literal>DefaultTasksMax</literal> value</title>
+    <para>
+      To set a global default limit for all system units, create a drop-in file at 
+      <filename>/etc/systemd/system.conf.d/90-system-tasksmax.conf</filename>. For 
+      example, to limit each unit to 256 tasks:
+    </para>
+<screen>[Manager]
+DefaultTasksMax=256</screen>
+    <para>
+      Apply the configuration and verify the change:
+    </para>
+<screen><command>sudo systemctl daemon-reload</command>
+<command>systemctl show --property DefaultTasksMax</command></screen>
+
+    <section xml:id="tasksmax-per-service-limits">
+      <title>Setting per-service limits</title>
+      <para>
+        Specific applications, such as large databases, often require more tasks 
+        than the global default. You can override the limit for a specific service 
+        (for example, MariaDB) using <command>systemctl set-property</command>:
+      </para>
+<screen><command>sudo systemctl set-property mariadb.service TasksMax=8192</command></screen>
+      <para>
+        This command creates a persistent drop-in file at 
+        <filename>/etc/systemd/system/mariadb.service.d/50-TasksMax.conf</filename>. 
+        Verify the new limit in the <literal>Tasks:</literal> line of the service status:
+      </para>
+<screen>Tasks: 30 (limit: 8192)</screen>
+    </section>
+  </section>
+
+  <section xml:id="tasksmax-user-sessions">
+    <title>Configuring task limits for user sessions</title>
+    <para>
+      User sessions often require higher limits than system services. To set a 
+      custom default for all users, create 
+      <filename>/etc/systemd/system/user-.slice.d/40-user-taskmax.conf</filename>:
+    </para>
+<screen>[Slice]
+TasksMax=16284</screen>
+    <tip>
+      <para>
+        If a <literal>TasksMax</literal> limit is too restrictive, the system logs 
+        will report errors such as <literal>Failed to fork (Resource temporarily 
+        unavailable)</literal>. Incrementally increase the limit until the 
+        workload stabilizes.
+      </para>
+    </tip>
+  </section>
+</topic>
