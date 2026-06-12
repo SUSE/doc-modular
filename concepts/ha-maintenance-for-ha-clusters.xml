@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_maintenance.xml -->
+
+<topic xml:id="ha-maintenance-for-ha-clusters"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Maintenance for &ha; clusters</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        While under &ha; cluster management, the application or service that a resource represents
+        must <emphasis>not</emphasis> be started or stopped from outside the cluster. This means
+        that if you need to manually touch a resource, you need to release it from cluster
+        management first. Resources are also vulnerable if something goes wrong when you make
+        changes to the cluster nodes or infrastructure. You must protect the cluster and its
+        resources before performing maintenance tasks or you risk unwanted side effects such as
+        resource failure, unsynchronized CIBs, or even data loss.
+      </para>
+    </abstract>
+  </info>
+
+  <section xml:id="ha-maintenance-workflow-basic-steps">
+    <title>Basic steps</title>
+    <para>
+      These are the basic steps for performing any maintenance tasks in a &ha; cluster:
+   </para>
+    <procedure xml:id="pro-ha-maintenance-workflow-steps">
+      <step>
+        <para>
+          Determine the workflow you need, depending on your maintenance tasks.
+        </para>
+      </step>
+      <step>
+        <para>
+          Apply one or more administrative modes, depending on the workflow.
+        </para>
+      </step>
+      <step>
+        <para>
+          Perform your maintenance tasks on the cluster, node or individual resource.
+        </para>
+      </step>
+      <step>
+        <para>
+          Put the cluster, node or resource back into <quote>normal</quote> operation.
+        </para>
+      </step>
+    </procedure>
+  </section>
+
+  <section xml:id="ha-maintenance-workflow-modes">
+    <title>Administrative modes</title>
+    <para>
+      &sleha; has the following modes for protecting the cluster during maintenance tasks. Depending
+      on your task, you might need to use one of these modes or a combination of multiple modes.
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>Stopping the cluster services</term>
+        <listitem>
+          <para>
+            Stopping the cluster services means stopping &pace; and &corosync;. In this mode, the
+            cluster is <emphasis>no longer running</emphasis>, either entirely or just on one node.
+            Use this mode when you need to manage infrastructure, such as storage or networking, or
+            when you need to change the cluster's configuration.
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <emphasis role="bold">For the whole cluster:</emphasis> Stopping the cluster
+                services on all nodes at once allows you to shut down a cluster while avoiding
+                the mass migration of resources that would happen if you shut down each node one
+                by one. When this mode is used on its own, all the resources stop. However, this
+                doesn't guarantee a graceful shutdown&mdash;if stopping a resource fails or
+                times out, the resource's node is fenced. Alternatively, you can avoid resource
+                downtime by using this mode in combination with maintenance mode.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <emphasis role="bold">For one node:</emphasis> Stopping the cluster services on
+                just one node allows the rest of the cluster to continue running while you perform
+                maintenance tasks on the offline node. The node's resources either move to another
+                node, or stop if constraints prevent them from moving. However, if stopping a
+                resource fails or times out, the node is fenced. Therefore, we recommend using
+                this mode in combination with standby mode.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Maintenance mode</term>
+        <listitem>
+          <para>
+            In maintenance mode, the cluster stops managing the resources and won't start, stop or
+            monitor them. This allows you to manually manage applications or services without
+            interference from the cluster. However, resources aren't highly available while in this
+            mode, so they won't fail over to another node if the current node shuts down or reboots.
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <emphasis role="bold">For the whole cluster:</emphasis> Cluster maintenance mode
+                puts <emphasis>all</emphasis> the resources into maintenance mode at once.
+                If you stop or restart the cluster services while in this mode, most resources can
+                continue to run even while the cluster is offline. This allows you to make cluster
+                configuration changes with minimal resource downtime. However, any resources that
+                depend on &corosync;, such as &dlm;, might need to be stopped.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <emphasis role="bold">For one node:</emphasis> Node maintenance mode puts all the
+                resources that are running on a specific node into maintenance mode at once.
+                <emphasis>Don't</emphasis> stop or restart the cluster services while in this mode.
+                This can lead to concurrency violations, where resources mistakenly run on multiple
+                nodes instead of only one node.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <emphasis role="bold">For one resource:</emphasis> Resource maintenance mode puts
+                a single resource into maintenance mode. You can also put groups and clones into
+                resource maintenance mode.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Standby mode</term>
+        <listitem>
+          <para>
+            When a <emphasis role="bold">node</emphasis> is in standby mode, it can't run
+            resources. Any resources that were running on it either move to another node, or
+            stop if constraints prevent them from moving. Standby mode gives the resources more
+            time to move or stop successfully because they aren't limited by the shutdown timeout
+            of the cluster services. Therefore, this mode is useful for gracefully evacuating a
+            node before stopping the cluster services or rebooting the node.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Unmanaged mode</term>
+        <listitem>
+          <para>
+            When a <emphasis role="bold">resource</emphasis> is in unmanaged mode, the cluster
+            won't start or stop it. However, unlike maintenance mode, the cluster still
+            <emphasis>monitors</emphasis> the resource and reports any failures. This can be useful
+            for troubleshooting. In most other cases, maintenance mode is more appropriate.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+
+  <section xml:id="ha-maintenance-workflow-more-info">
+    <title>For more information</title>
+    <para>
+      For more information, see
+      <link xlink:href="https://clusterlabs.org/projects/pacemaker/doc/3.0/Pacemaker_Administration/html/administrative.html"/>.
+    </para>
+  </section>
+</topic>
