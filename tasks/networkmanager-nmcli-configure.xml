@@ -40,79 +40,102 @@ using a command-line interface: <command>nmcli</command> or ncurses interface:
   command and proceed as follows:</para>
   <procedure xml:id="networkmanager-ethernet">
   <step>
-  <para>
-  List available devices to get the exact device name:
-  </para>
-  <screen>&prompt.user;nmcli device</screen>
+    <para>List available devices to get the exact device name:</para>
+    <screen>&prompt.user;nmcli device</screen>
   </step>
   <step>
-      <para>View the list of connections to make sure the profile name you want to use is not already taken:</para>
+    <para>View the list of connections to make sure the profile name you want to use is not already taken:</para>
     <screen>nmcli connection show</screen>
-      <para>The &nm; creates a profile for each Network Interface Controller (NIC). To connect the NIC to networks with different settings, you must create separate profiles for each network.</para>
+    <para>The &nm; creates a profile for each Network Interface Controller (NIC). To connect the NIC to networks with different settings, you must create separate profiles for each network.</para>
   </step>
   <step>
-      <para>Create a new connection profile:</para>
-      <screen>&prompt.sudo;nmcli connection add con-name <replaceable>CONNECTION_NAME</replaceable> ifname <replaceable>DEVICE_NAME</replaceable> type ethernet</screen>
+    <para>Create a new connection profile:</para>
+    <screen>&prompt.sudo;nmcli connection add con-name <replaceable>CONNECTION_NAME</replaceable> ifname <replaceable>DEVICE_NAME</replaceable> type ethernet</screen>
   </step>  
   <step>
     <para>View the existing network settings of the new connection profile:</para>
     <screen>&prompt.user;nmcli connection show <replaceable>CONNECTION_NAME</replaceable></screen>    
   </step>
   <step>
-  <para>Configure the connection profile. The generic command syntax is the following:</para>
-  <screen>&prompt.sudo;nmcli connection modify <replaceable>CONNECTION_NAME</replaceable>
-  <replaceable>SETTING</replaceable> <replaceable>VALUE</replaceable></screen>
-  <para>
-  For example, automatic IP addresses assignment (DHCP or SLAAC) is enabled by default, and you may want
- to configure a static IP address:
-  </para>
-  <itemizedlist>
-  <listitem>
-  <para>for IPv4</para>
-  <screen>&prompt.sudo;nmcli connection modify <replaceable>CONNECTION_NAME</replaceable> ipv4.method manual ipv4.addresses 192.0.2.1/24 ipv4.gateway 192.0.2.254 ipv4.dns 192.0.2.200 ipv4.dns-search example.com</screen>
-  </listitem>
-  <listitem>
-  <para>
-  for IPv6
-  </para>
-  <screen>&prompt.sudo;nmcli connection modify <replaceable>INTERNAL-LAN</replaceable> ipv6.method manual ipv6.addresses 2001:db8:1::fffe/64 ipv6.gateway 2001:db8:1::fffe ipv6.dns 2001:db8:1::ffbb ipv6.dns-search example.com</screen>
-  </listitem>
-  </itemizedlist>
-  </step> 
-<step><para>Configure <filename>NetworkManager-wait-online.service</filename> to enable the service to wait until statically configured IPv4 and IPv6 addresses are ready.</para>
-<substeps>
-<step><para>Enable <filename>NetworkManager-wait-online.service</filename>.</para>
-<screen>&prompt.sudo;systemctl enable NetworkManager-wait-online.service</screen>
-</step>
-<step>
-<para>For each service, create a systemd unit override that sets <literal>After=network-online.target</literal> in the <literal>[Unit]</literal> section. When binding certain services to specific IP addresses, a service restart might be required. It could be that services are being activated before the required IP address is assigned by NetworkManager.</para>
-<screen>/etc/systemd/system/sshd.service.d/override.conf
+    <para>Configure the connection profile.</para>
+    <para>The generic command syntax is the following:</para>
+    <screen>&prompt.sudo;nmcli connection modify <replaceable>CONNECTION_NAME</replaceable> <replaceable>SETTING</replaceable> <replaceable>VALUE</replaceable></screen>
+    <para>For example, automatic IP address assignment through DHCP or SLAAC is enabled by default. You may want to configure a static IP address:</para>
+    <itemizedlist>
+      <listitem>
+        <para>for IPv4</para>
+        <screen>&prompt.sudo;nmcli connection modify <replaceable>CONNECTION_NAME</replaceable> ipv4.method manual ipv4.addresses 192.0.2.1/24 ipv4.gateway 192.0.2.254 ipv4.dns 192.0.2.200 ipv4.dns-search example.com</screen>
+      </listitem>
+      <listitem>
+        <para>for IPv6</para>
+        <screen>&prompt.sudo;nmcli connection modify <replaceable>INTERNAL-LAN</replaceable> ipv6.method manual ipv6.addresses 2001:db8:1::fffe/64 ipv6.gateway 2001:db8:1::fffe ipv6.dns 2001:db8:1::ffbb ipv6.dns-search example.com</screen>
+      </listitem>
+    </itemizedlist>
+  </step>     
+   <step>
+    <para>Configure the system to handle network-dependent services. To prevent services from failing or experiencing race conditions if they are activated before the static IP address is fully assigned by NetworkManager, choose one of the following methods:</para>
+   <stepalternatives>
+    
+    <step>
+    <substeps>
+      <step>
+        <para>Enable <filename>NetworkManager-wait-online.service</filename> to force the system to wait until network interfaces are up before proceeding with the boot target:</para>
+        <screen>&prompt.sudo;systemctl enable NetworkManager-wait-online.service</screen>
+      </step>
+      <step>
+        
+            <para>Individual systemd unit overrides: For each service binding to a specific static IP, manually create a systemd unit override that enforces proper startup ordering and behavior:</para>
+            <screen>/etc/systemd/system/sshd.service.d/override.conf
 [Unit]
 After=network-online.target
-
 [Service]
-Restart=always
-</screen>
+Restart=always</screen>
 </step>
-</substeps></step>
-  <step><para>Activate the profile:</para>
-  <screen>&prompt.sudo;nmcli connection up <replaceable>CONNECTION_NAME</replaceable></screen>
-  </step>
-  <step><para>Verify the configurations:</para>
+</substeps>
+</step>
+<step>
   <substeps>
-    <step><para>Verify the IP settings of the NIC:</para>
-        <screen>&prompt.user;ip address show <replaceable>HOSTNAME</replaceable></screen>
+    <step>
+      <para>Centralized Non-Local Binding (Alternative): Instead of managing overrides per service, you can allow applications to safely bind to IPv4 and IPv6 addresses that are not yet fully initialized on the system. Create a custom sysctl file at <filename>/etc/sysctl.d/90-nonlocal_bind.conf</filename> containing the following lines:</para>
+            <screen>net.ipv4.ip_nonlocal_bind = 1
+net.ipv6.ip_nonlocal_bind = 1</screen>
     </step>
-    <step><para>Verify the default IPv4 gateway:</para>
-      <screen>&prompt.user;ip route show default</screen>
-        </step>
-    <step><para>Verify the default IPv6 gateway:</para>
-          <screen>&prompt.user;ip -6 route show default</screen>
-    </step>
-    <step><para>View the DNS settings:</para>
-              <screen>&prompt.user;cat /etc/resolv.conf</screen>
+    <step>
+      <para>Apply the sysctl configuration immediately by running:</para>
+            <screen>&prompt.sudo;sysctl --system</screen>
+            <note>
+              <para>Non-local binding should not be enabled by default unless required, as it may cause unexpected behavior or errors in certain strict or legacy applications.</para>
+            </note>
     </step>
   </substeps>
+</step>
+</stepalternatives>
+</step>
+         
+  <step>
+    <para>Activate the profile:</para>
+    <screen>&prompt.sudo;nmcli connection up <replaceable>CONNECTION_NAME</replaceable></screen>
+  </step>
+  <step>
+    <para>Verify the configurations:</para>
+    <substeps>
+      <step>
+        <para>Verify the IP settings of the NIC:</para>
+        <screen>&prompt.user;ip address show <replaceable>HOSTNAME</replaceable></screen>
+      </step>
+      <step>
+        <para>Verify the default IPv4 gateway:</para>
+        <screen>&prompt.user;ip route show default</screen>
+      </step>
+      <step>
+        <para>Verify the default IPv6 gateway:</para>
+        <screen>&prompt.user;ip -6 route show default</screen>
+      </step>
+      <step>
+        <para>View the DNS settings:</para>
+        <screen>&prompt.user;cat /etc/resolv.conf</screen>
+      </step>
+    </substeps>
   </step>
 </procedure>
 </section>
