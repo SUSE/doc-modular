@@ -1,0 +1,536 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+<!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to https://github.com/SUSE/doc-sle/blob/main/xml/vm_security.xml -->
+<topic xml:id="vm-security"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+   <title>Enhancing virtual machine security with AMD SEV-SNP</title>
+   <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+   <abstract>
+    <para>
+     You can enhance the security of your virtual machines with AMD Secure Encrypted
+     Virtualization-Secure Nested Paging (SEV-SNP). SEV-SNP protects virtual
+     machines from malicious hypervisors by providing memory encryption and integrity
+     protection. This feature encrypts data and ensures that all changes with the
+     code and data in the VM are detected or tracked. Since this isolates VMs, the
+     other VMs or the host machine are not affected by threats.
+    </para>
+    <note>
+     <title>AMD SEV-ES disablement notice</title>
+     <para>
+      AMD SEV-ES is disabled on CPUs that support AMD SEV-SNP technology. SEV-ES
+      (Encrypted State) is a subset of the features found in SEV-SNP (Secure Nested
+      Paging). If the hardware supports SNP, it usually defaults to the newer standard
+      because it includes all the protections of ES plus memory integrity.
+     </para>
+    </note>
+    <para>
+     This section explains the steps to enable and use AMD SEV-SNP on your AMD EPYC
+     server with &productname; &productnumber;.
+    </para>
+   </abstract>
+  </info>
+ <section xml:id="sec-vm-security-hardware-support">
+  <title>Supported hardware</title>
+
+  <para>
+   SEV-SNP requires an AMD EPYC processor with Zen 3 microarchitecture (3rd Generation) or newer.
+   Supported platforms include:
+  </para>
+
+  <variablelist>
+   <varlistentry>
+    <term>AMD EPYC 7003 Series (Milan)</term>
+    <listitem>
+     <para>First generation to support SEV-SNP (SEV 3.0)</para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>AMD EPYC 9004 / 8004 Series (Genoa/Bergamo)</term>
+    <listitem>
+     <para>SEV-SNP with enhanced capabilities (SEV 3.1) - up to 1006 ASIDs</para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>AMD EPYC 8005 / 9005 Series (Turin)</term>
+    <listitem>
+     <para>Latest generation with additional SEV-SNP enhancements including
+     Segmented RMP, Secure AVIC, Performance Counter Virtualization, and
+     Ciphertext Hiding support</para>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+
+  <para>
+   The BIOS of the AMD machine must provide the necessary options to enable support for
+   confidential computing on the platform. Verify that the following BIOS settings are enabled:
+  </para>
+
+  <screen>
+Advanced → AMD CBS → CPU Common Options
+    SMEE → Enable
+    SEV Control → Enable
+    SEV-ES ASID Space Limit → 99
+    SNP Memory (RMP Table) Coverage → Enabled
+Advanced → NBIO Common Options → IOMMU/Security
+    SEV-SNP Support → Enable
+  </screen>
+ </section>
+ <section xml:id="sec-vm-security-setup">
+  <title>Setting up the base system</title>
+  <para>
+   The &vmhost; requires minor configuration changes prior to running AMD SEV-SNP enabled &vmguest;s.
+   The default IOMMU configuration in SUSE Linux Enterprise Server 15 SP7 is passthrough mode.
+   To use the AMD SEV-SNP feature, the IOMMU must be configured in non-passthrough mode.
+   This is required to prevent peripheral devices from accessing memory that belongs to an encrypted &vmguest;,
+   compromising its data integrity. The MSR kernel module is required to use the optional <command>snphost</command> tool.
+  </para>
+  <para>
+   The SEV Firmware must be 1.51 or newer (minimum), latest versions available from AMD Developer Portal.
+  </para>
+
+  <procedure>
+   <step>
+    <para>
+     To automatically load the <literal>msr</literal> module at boot:
+    </para>
+    <screen>&prompt.sudo; <command>echo "msr" > /etc/modules-load.d/msr.conf</command></screen>
+   </step>
+   <step>
+    <para>
+     To enable SEV-SNP support, open the <filename>/etc/default/grub</filename> file and add
+     <literal>kvm_amd.sev=1</literal> to the <varname>GRUB_CMDLINE_LINUX_DEFAULT</varname> variable.
+     The IOMMU must also be configured in non-passthrough mode for SEV-SNP:
+    </para>
+    <screen>GRUB_CMDLINE_LINUX_DEFAULT="... amd_iommu=on kvm_amd.sev=1"</screen>
+   </step>
+   <step>
+    <para>
+     To update the bootloader configuration, run the command:
+    </para>
+    <screen>&prompt.sudo; <command>grub2-mkconfig -o /boot/grub2/grub.cfg</command></screen>
+   </step>
+   <step>
+    <para>
+     The system is now ready to be restarted with the confidential computing kernel. It is not
+     selected as the default kernel in the bootloader, so be sure to select it in the boot
+     menu.
+    </para>
+   </step>
+  </procedure>
+
+  <section xml:id="sec-vm-security-firmware-update">
+   <title>Updating SEV Firmware</title>
+   <para>
+    The latest SEV firmware is available from the AMD Developer Portal. To manually update firmware
+    (example for EPYC 7003 Series):
+   </para>
+   <screen>
+ &prompt.sudo; <command>wget https://download.amd.com/developer/eula/sev/amd_sev_fam19h_model0xh_1.54.01.zip</command>
+ &prompt.sudo; <command>unzip amd_sev_fam19h_model0xh_1.54.01.zip</command>
+ &prompt.sudo; <command>mkdir -p /lib/firmware/amd</command>
+ &prompt.sudo; <command>cp amd_sev_fam19h_model0xh_1.54.01.sbin /lib/firmware/amd/amd_sev_fam19h_model0xh.sbin</command>
+   </screen>
+   <para>
+    After updating firmware, either reboot the host, or reload the ccp driver:
+   </para>
+   <screen>
+ &prompt.sudo; <command>rmmod kvm_amd</command>
+ &prompt.sudo; <command>rmmod ccp</command>
+ &prompt.sudo; <command>modprobe ccp</command>
+ &prompt.sudo; <command>modprobe kvm_amd</command>
+   </screen>
+  </section>
+ </section>
+ <section xml:id="sec-vm-security-verify">
+  <title>Verifying setup</title>
+
+  <para>
+   You can verify the installation and configuration of the &vmhost; using dmesg or
+   the optional <command>snphost</command> tool. Run <command>snphost ok</command> for a
+   comprehensive host readiness check of all requirements (CPU/BIOS/FW).
+  </para>
+  <procedure>
+   <step>
+    <para>
+     To check the initialization result of the AMD Secure Processor in the kernel log when the
+     kernel is running, run the command:
+    </para>
+    <screen>&prompt.sudo; <command>dmesg | grep -e SEV-SNP -e RMP</command>
+SEV-SNP: Segmented RMP base table physical range [0x000000009ba00000 - 0x000000009ba05000]
+SEV-SNP: Reserving start/end of RMP table on a 2MB boundary [0x0000000055a00000]
+SEV-SNP: Reserving start/end of RMP table on a 2MB boundary [0x0000000075a00000]
+SEV-SNP: Segmented RMP using 128GB segments
+SEV-SNP: RMP segment 0 physical address [0x8800000 - 0x10ffffff] covering [0x0 - 0x87fffffff]
+SEV-SNP: RMP segment 8 physical address [0x55b00000 - 0x75afffff] covering [0x10000000000 - 0x11fffffffff]
+SEV-SNP: RMP segment 9 physical address [0x35a00000 - 0x559fffff] covering [0x12000000000 - 0x13fffffffff]
+ccp 0000:a9:00.5: SEV-SNP API:1.58 build:5
+kvm_amd: SEV-SNP enabled (ASIDs 1 - 98)
+    </screen>
+    <para>
+     Additionally, verify that SEV-SNP is enabled by checking the kernel parameters:
+    </para>
+    <screen>&prompt.sudo; <command>cat /sys/module/kvm_amd/parameters/sev_snp</command>
+Y
+    </screen>
+    <para>
+     The message about the SEV-SNP API version indicates the successful initialization of the
+     AMD Secure Processor. Sometimes it happens that these messages do not appear in the
+     kernel log. In this case, the BIOS settings or the IOMMU configuration are often the
+     root cause.
+    </para>
+   </step>
+  </procedure>
+ </section>
+ <section xml:id="sec-vm-security-vm-install">
+  <title>Installing an AMD SEV-SNP virtual machine</title>
+
+  <para>
+   You can create and install AMD SEV-SNP protected virtual machines using the &libvirt;
+   framework once the &vmhost; is properly configured and the AMD Secure Processor is
+   initialized. The installation methods described in the KVM installation guide can
+   be used with SEV-SNP protected virtual machines. The only exception is ISO installation
+   using a virtual CD-ROM. See the limitations section for more details.
+  </para>
+
+  <para>
+   In addition to virtual CD-ROMs, &vmhost;-provided TPM devices are not compatible with
+   AMD SEV-SNP-protected virtual machines and should be removed from the installation
+   configuration. Rebooting SEV-SNP virtual machines is also not supported. The installation
+   should ensure SEV-SNP virtual machines are configured to shut down on reboot. See the
+   limitations section for more details.
+  </para>
+
+  <para>
+   SEV-SNP requires OVMF (UEFI) to be used as the guest BIOS. The guest must have been
+   initially installed using OVMF so that a UEFI partition is present.
+  </para>
+
+  <para>
+   <xref linkend="sec-libvirt-inst-vmm"/> describes GUI-based virtual machine installation
+   using virt-manager. To enable AMD SEV-SNP, activate <emphasis>Customize configuration before
+   install</emphasis> before selecting <emphasis>Finish</emphasis> in the New VM wizard. When
+   the &vmguest; configuration dialog opens, select <emphasis>Memory</emphasis>, then activate
+   the <emphasis>Enable launch security</emphasis> checkbox and select <emphasis>Apply</emphasis>.
+   Finally, select <emphasis>Begin Installation</emphasis> to proceed with the installation as
+   described in <xref linkend="sec-libvirt-inst-virt-install"/>.
+  </para>
+
+  <para>
+   <xref linkend="sec-libvirt-inst-virt-install"/> describes virtual machine installation
+   using <command>virt-install</command>. AMD SEV-SNP can be enabled with the
+   <option>--launchSecurity</option> option. Below is a modification of
+   <xref linkend="ex-libvirt-inst-virt-install-example"/> that enables AMD SEV-SNP protection:
+  </para>
+  <screen>&prompt.user;virt-install --connect qemu:///system --virt-type kvm \
+--name sle15sp7 --memory 4096 --disk size=60 --location /path/to/iso --graphics vnc \
+--os-variant sle15sp7 --boot uefi --events on_reboot=destroy \
+--launchSecurity type=sev-snp</screen>
+  <para>
+   See the <citetitle>Launch Security</citetitle> section of the libvirt
+   <citetitle>Domain XML format</citetitle> manual at
+   <link xlink:href="https://libvirt.org/formatdomain.html#launch-security"/>
+   for more information on the settings supported by <option>--launchSecurity</option>.
+  </para>
+ </section>
+ <section xml:id="sec-vm-security-verify-vm">
+  <title>Verifying the AMD SEV-SNP virtual machine</title>
+
+  <para>
+   From the appearance of the virtual machine, one cannot tell whether it runs in a confidential
+   computing environment. But there are several ways to verify that from within the virtual
+   machine.
+  </para>
+
+  <para>
+   The kernel log will contain messages describing the state of AMD memory encryption features
+   within the virtual machine. To check the kernel log, run the following command:
+  </para>
+
+  <screen>&prompt.sudo; <command>dmesg | grep -i sev-snp</command>
+AMD Memory Encryption Features active: AMD SEV SEV-ES SEV-SNP</screen>
+
+  <para>
+   The presence of the SEV-SNP feature in the kernel log, among other active memory encryption
+   features, shows that it is active for the virtual machine.
+  </para>
+
+  <para>
+   You can use the optional <command>snpguest</command> tool to verify if the SEV-SNP
+   feature is active in the virtual machine. Similar to <command>snphost</command>, the
+   <command>snpguest</command> tool requires the MSR kernel module. The following example
+   demonstrates using <command>snpguest</command> to check the status of memory encryption
+   features within the virtual machine:
+  </para>
+
+  <screen>&prompt.sudo; <command>modprobe msr &amp;&amp; snpguest ok</command>
+[ PASS ] - SEV: ENABLED
+[ PASS ] - SEV-ES: ENABLED
+[ PASS ] - SNP: ENABLED
+</screen>
+
+  <para>
+   There are also cryptographically secure ways to prove the security of the AMD SEV-SNP
+   environment.
+  </para>
+ </section>
+
+ <section xml:id="sec-vm-security-snp-attestation">
+  <title>Attesting the AMD SEV-SNP Virtual Machine</title>
+
+  <para>
+   Once SEV-SNP activation has been verified, the integrity of the confidential VM can be
+   established through attestation, which provides cryptographic proof that it runs on
+   genuine AMD hardware under a verified firmware and TCB level, backed by a trusted certificate hierarchy.
+  </para>
+
+  <para>
+   Note that the steps here perform local attestation verification only. It verifies the report signature
+   and certificate chain from inside the guest and ensures that the attestation data matches the platform state.
+   This workflow does not include remote attestation, where the attestation report is sent to an external verifier
+   or service that independently validates the platform trust and enforces access to secrets or workload authorization.
+  </para>
+
+  <para>
+   The attestation process involves two tools: <command>snpguest</command> and <command>snphost</command>.
+   For more advanced attestation scenarios, the <command>sevctl</command> tool can be used to generate
+   unique launch data for each guest boot attempt.
+  </para>
+
+  <section xml:id="sec-vm-security-snp-attestation-guest">
+   <title>Generating and verifying the attestation report</title>
+
+   <para>
+    Inside the guest, the <command>snpguest</command> tool can be used to perform the
+    attestation workflow. This process generates an attestation report, fetches the
+    corresponding AMD certificate chain, and verifies that the report is cryptographically
+    signed by a valid platform key.
+   </para>
+
+   <procedure>
+    <step>
+     <para>
+      Generate an attestation report and a corresponding request file. The
+      <option>--random</option> flag includes random data for uniqueness:
+     </para>
+     <screen>&prompt.sudo;<command>snpguest report attestation-report.bin request-file.bin --random</command></screen>
+    </step>
+
+    <step>
+     <para>
+      Fetch the AMD CA and ASK certificates from the Key Distribution Service (KDS) in DER
+      format. Replace <literal>genoa</literal> with your processor model if different:
+     </para>
+     <screen>&prompt.sudo;<command>snpguest fetch ca der genoa ./certs-kds</command></screen>
+    </step>
+
+    <step>
+     <para>
+      Fetch the Versioned Chip Endorsement Key (VCEK) using the generated attestation
+      report:
+     </para>
+     <screen>&prompt.sudo;<command>snpguest fetch vcek der genoa ./certs-kds attestation-report.bin</command></screen>
+    </step>
+
+    <step>
+     <para>
+      Verify the attestation report against the fetched certificates:
+     </para>
+     <screen>&prompt.sudo;<command>snpguest verify attestation ./certs-kds attestation-report.bin</command>
+
+Reported TCB Boot Loader from certificate matches the attestation report.
+Reported TCB TEE from certificate matches the attestation report.
+Reported TCB SNP from certificate matches the attestation report.
+Reported TCB Microcode from certificate matches the attestation report.
+Chip ID from certificate matches the attestation report.
+VEK signed the Attestation Report!
+     </screen>
+    </step>
+   </procedure>
+
+   <note>
+    <para>
+     The extended attestation workflow using the
+     <command>snpguest certificates</command> command relies on QEMU functionality that is
+     not currently available.
+    </para>
+   </note>
+  </section>
+
+  <section xml:id="sec-vm-security-snp-attestation-host">
+   <title>Validating AMD certificates on the host</title>
+   <para>
+    The host can optionally fetch and verify the AMD certificate chain used to validate
+    guest attestation reports.
+   </para>
+
+   <procedure>
+    <step>
+     <para>
+      Fetch the AMD CA and ASK certificates from AMD's Key Distribution Service (KDS):
+     </para>
+     <screen>&prompt.sudo; snphost fetch ca pem ./certs</screen>
+    </step>
+
+    <step>
+     <para>
+      Fetch the chip endorsement certificate (VCEK or VLEK) for the platform:
+     </para>
+     <screen>&prompt.sudo; snphost fetch vek pem ./certs</screen>
+    </step>
+
+    <step>
+     <para>
+      Verify the integrity of the fetched certificate chain:
+     </para>
+     <screen>&prompt.sudo; <command>snphost verify ./certs</command>
+• = self signed, ⬑ = signs, •̷ = invalid self sign, ⬑̸ = invalid signs
+
+ARK •
+ARK ⬑ ASK
+ASK ⬑ VCEK
+     </screen>
+    </step>
+   </procedure>
+  </section>
+ </section>
+
+ <section xml:id="sec-vm-security-sev-snp-limits">
+  <title>Current limitations</title>
+
+  <para>
+   The following limitations are placed on SEV-SNP &vmguest;s.
+  </para>
+
+  <variablelist>
+   <varlistentry>
+    <term>Guest OS Support</term>
+    <listitem>
+     <para>
+      The guest operating system running inside an SEV-SNP protected VM must
+      contain SEV-SNP support. &sls; 15 SP6 and newer releases support SEV-SNP.
+      Linux kernel 5.19 or newer is required for full attestation support,
+      though 6.11+ is recommended for guest_memfd support.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>ISO Installation</term>
+    <listitem>
+     <para>
+      SEV-SNP protected &vmguest;s cannot be installed with <command>virt-install</command>
+      via ISO using the <option>--cdrom</option> option. Use the <option>--location</option>
+      instead. See the <command>virt-install</command> manual page for more information
+      on the <option>--location</option> option.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>vCPU Limit</term>
+    <listitem>
+     <para>
+      SEV-SNP protected &vmguest;s support a maximum of 255 vCPUs.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>Secure Boot</term>
+    <listitem>
+     <para>
+      SEV-SNP protected &vmguest;s are not compatible with Secure Boot. UEFI firmware
+      containing Secure Boot support does not work with SEV-SNP &vmguest;s.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>TPM Devices</term>
+    <listitem>
+     <para>
+      SEV-SNP protected &vmguest;s are not compatible with &vmhost;-provided TPM
+      devices. This includes emulated and passthrough TPM devices.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+<term>PCI Passthrough</term>
+     <listitem>
+      <para>
+       SEV-SNP protected Direct &vmguest;s do not support pass-through of host devices
+       (PCI passthrough).
+      </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>Memory Ballooning</term>
+    <listitem>
+     <para>
+      SEV-SNP protected &vmguest;s do not support memory ballooning.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>Memory/vCPU Hotplug</term>
+    <listitem>
+     <para>
+      SEV-SNP protected &vmguest;s do not support memory or vCPU hotplugging.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>Hugepages</term>
+    <listitem>
+     <para>
+      Using hugepages within a SEV-SNP protected &vmguest; is not supported.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>Reboot</term>
+    <listitem>
+     <para>
+      SEV-SNP &vmguest;s cannot be rebooted from within using <command>reboot</command>,
+      <command>shutdown -r now</command>, etc. A reboot must be done by shutting down the
+      &vmguest; and starting it again.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>Memory Operations</term>
+    <listitem>
+     <para>
+      Any operations that involve saving and restoring the memory and state of a
+      &vmguest; are currently not supported. This means that SEV-SNP protected
+      &vmguest;s cannot be resumed from snapshots, saved/restored or live migrated.
+      SEV-SNP protected &vmguest;s can be shut down and restarted on another host.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>SWIOTLB</term>
+    <listitem>
+     <para>
+      SEV guests use SWIOTLB for DMA operations. The default 64MB pool may be insufficient
+      for some workloads. Consider increasing the swiotlb pool size by adding
+      <literal>swiotlb=262144</literal> to the guest kernel command line.
+     </para>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+
+  <para>
+   These limitations may be removed in the future as the hardware, firmware and specific
+   layers of software receive new features.
+  </para>
+ </section>
+</topic>

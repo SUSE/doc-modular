@@ -19,126 +19,220 @@
  <important>
   <title>Removal of Spice in &suselinux; 16</title>
   <para>
-  Starting with &suselinux; 16, support for the Spice remote computing protocol for virtual machines (VMs)
-  has been completely removed in favor of VNC, which is a more universally adopted standard.
-  Consequently, any attempt to start a Spice-based VM on an &productnameshort; 16 host will fail with an error.
-  All existing VMs that were created on &productnameshort; 15 SP7 or earlier and are configured to use Spice for the
-  graphical console must be manually converted to use VNC. Currently, no automated conversion tool
-  is provided, so this process requires manually editing the VM's XML configuration file.
+  Spice support for VMs has been removed beginning with SLE16.
+  Attempting to start Spice based VMs on SLE16 will result in an error.
+  Existing VMs created on SLE15-SP7 or older that use Spice must be converted to use VNC if run on SLE16.
+  The <command>virt-xml</command> tool can be used to do this automatically beginning with virt-manager version 5.0.0.
   </para>
  </important>
- <para>
-  The following procedure outlines the steps to convert a VM from Spice to VNC.
- </para>
+ <section xml:id="sec-virt-xml-auto-convert">
+  <title>Automatic conversion with virt-xml</title>
+  <para>
+   To automatically convert a VM using virt-xml (virt-manager 5.0.0 or newer), follow these steps:
+  </para>
   <procedure>
    <step>
-    <para>Ensure the virtual machine is completely shut down before making any changes. This prevents any potential data corruption or configuration mismatches.</para>
-    <screen>&prompt.sudo;<command>virsh shutdown <replaceable>VM-NAME</replaceable></command></screen>
+    <para>
+     First backup your VM XML in case you do not like what virt-xml does.
+    </para>
+    <screen>&prompt.sudo;<command>virsh dumpxml <replaceable>VM-NAME</replaceable> &gt; <replaceable>VM-NAME</replaceable>.xml</command></screen>
    </step>
    <step>
-    <para>Export the current XML configuration of the VM to a file. This file will be edited in the next steps.</para>
-    <screen>&prompt.sudo;<command>virsh dumpxml <replaceable>VM-NAME</replaceable> &gt; <replaceable>VM-NAME.xml</replaceable></command></screen>
-   </step>
-   <step>
-    <para>Create a backup of the original XML definition. This allows you to restore the original configuration if something goes wrong during the editing process.</para>
-    <screen>&prompt.user;<command>cp <replaceable>VM-NAME.xml</replaceable> <replaceable>VM-NAME-SPICE.xml</replaceable></command></screen>
-   </step>
-   <step>
-    <para>Manually edit the VM's XML configuration file to remove all Spice-related elements and
-    modify others to use VNC. For detailed information, see the subsequent sections.
+    <para>
+     Run the conversion command:
+    </para>
+    <screen>&prompt.sudo;<command>virt-xml <replaceable>VM-NAME</replaceable> --edit --convert-to-vnc qemu-vdagent=on</command></screen>
+    <para>
+     Where:
+    </para>
+    <variablelist>
+      <varlistentry>
+       <term><replaceable>VM-NAME</replaceable></term>
+       <listitem>
+        <para>
+         The name of the VM. See <command>virsh list --all</command> on the host.
+        </para>
+       </listitem>
+      </varlistentry>
+      <varlistentry>
+       <term><option>--edit</option></term>
+       <listitem>
+        <para>
+         Edit an existing XML block.
+        </para>
+       </listitem>
+      </varlistentry>
+      <varlistentry>
+       <term><option>--convert-to-vnc</option></term>
+       <listitem>
+        <para>
+         Convert an existing VM to exclusively use a single VNC graphics device.
+        </para>
+       </listitem>
+      </varlistentry>
+      <varlistentry>
+       <term><option>qemu-vdagent=on</option></term>
+       <listitem>
+        <para>
+         Used with <option>--convert-to-vnc</option> to add a qemu-vdagent device if one is not already configured. This is for copy and paste functionality between host and guest on SLE16.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    <para>
+     See the virt-xml man page for more options and details.
     </para>
    </step>
   </procedure>
  </section>
-  <section>
-   <title>Removing Spice-Specific XML Elements</title>
-   <para>The following XML snippets are specific to the Spice protocol and must be removed from the VM's configuration file. These elements enable features like the Spice agent channel and USB redirection over Spice, which are no longer supported.</para>
-   <programlisting>
-    &lt;!-- This channel is for the Spice agent and is no longer needed --&gt;
-    &lt;channel type='spicevmc'&gt;
-    &lt;target type='virtio' name='com.redhat.spice.0'/&gt;
-    &lt;address type='virtio-serial' controller='0' bus='0' port='2'/&gt;
-    &lt;/channel&gt;
-
-    &lt;!-- These elements enable USB redirection over Spice and must be removed --&gt;
-    &lt;redirdev bus='usb' type='spicevmc'&gt;
-    &lt;address type='usb' bus='0' port='2'/&gt;
-    &lt;/redirdev&gt;
-
-    &lt;redirdev bus='usb' type='spicevmc'&gt;
-    &lt;address type='usb' bus='0' port='3'/&gt;
-   &lt;/redirdev&gt;
-  </programlisting>
-  </section>
-  <section>
-   <title>Modifying XML Elements for VNC Compatibility</title>
-   <para>After removing the Spice-specific elements, modify several other XML elements to switch the VM from using Spice to VNC for its graphical console and other devices.</para>
-   <section>
-    <title>Graphics and Audio</title>
-    <para>The primary change is to switch the graphics display protocol from Spice to VNC. You should also disable the audio device, as Spice-based audio is no longer supported.</para>
-    <para>Replace the Spice graphics configuration:</para>
-    <programlisting>&lt;graphics type='spice' autoport='yes' listen='127.0.0.1'&gt;</programlisting>
-    <para>with the VNC equivalent:</para>
-    <programlisting>&lt;graphics type='vnc' autoport='yes' listen='127.0.0.1'&gt;</programlisting>
-    <para>Then, replace the Spice audio configuration:</para>
-    <programlisting>&lt;audio id='1' type='spice'/&gt;</programlisting>
-    <para>with:</para>
-    <programlisting>&lt;audio id='1' type='none'/&gt;</programlisting>
-   </section>
-   <section>
-    <title>QXL Video Device Conversion for Windows VMs</title>
-    <para>The QXL video driver is optimized for the Spice protocol and is commonly used in Windows VMs. For better compatibility with VNC, we recommend replacing it with the more generic <literal>virtio</literal> video driver.</para>
-    <para>If your VM, especially a Windows guest, uses a QXL video device like this:</para>
-    <programlisting>
-     &lt;video&gt;
-     &lt;model type='qxl' ram='65536' vram='65536' vgamem='16384' heads='1' primary='yes'/&gt;
-     &lt;address type='pci' domain='0x0000' bus='0x00' slot='0x01' function='0x0'/&gt;
-     &lt;/video&gt;
-    </programlisting>
-    <para>Replace the entire &lt;video&gt; block with a simpler <literal>virtio</literal> model definition:</para>
-    <programlisting>
-     &lt;video&gt;
-     &lt;model type="virtio"/&gt;
-     &lt;/video&gt;
-    </programlisting>
-    <note>
-     <para>When you define the VM, &libvirt; will automatically fill in the necessary default values for the virtio video device, so you don't need to specify details like RAM or bus address.</para>
-    </note>
-   </section>
-  </section>
-  <section>
-   <title>Applying the new configuration and starting the VM</title>
-   <para>After you have finished editing the XML file and saved your changes, you need to make &libvirt; aware of the new configuration. This is done by first undefining the VM, which removes its old configuration from &libvirt;, and then defining it again using the modified XML file.</para>
-   <procedure>
-    <step>
-     <para>Undefine the existing VM configuration and then define it again with the modified XML file:</para>
-     <screen>&prompt.sudo;<command>virsh undefine &lt;vm_name&gt;</command></screen>
-     <screen>&prompt.sudo;<command>virsh define &lt;vm_name&gt;.xml</command></screen>
-    </step>
-    <step>
-     <para>Start the VM, which will be using VNC for its graphical console.</para>
-     <screen>&prompt.sudo;<command>virsh start &lt;vm_name&gt;</command></screen>
-    </step>
-   </procedure>
-  </section>
-
- <section>
-  <title>Restoring copy-paste functionality</title>
-  <para>A common feature available with Spice is copy-paste functionality between the host and the guest VM, which is handled by the Spice agent. After migrating to VNC, this functionality will be lost. However, you can restore it by using the &qemu; guest agent.</para>
+ <section xml:id="sec-manual-conversion">
+  <title>Manual conversion</title>
+  <para>
+   If you prefer manual conversion, follow the step-by-step guide below.
+  </para>
   <procedure>
    <step>
     <para>
-     Ensure you have updated <command>gtk-vnc</command> packages on your &productnameshort; 16 host.
-    The versions shipped with the initial release of &productnameshort; 16 may not have support for copy-paste over
-    VNC.
-   </para>
+     Shutdown your spice based VM.
+    </para>
+    <screen>&prompt.sudo;<command>virsh shutdown <replaceable>VM-NAME</replaceable></command></screen>
    </step>
    <step>
-    <para>Inside the guest VM, ensure the Spice guest agent is installed and the corresponding service is enabled to start on boot.</para>
+    <para>
+     Save the current XML definition for your spice based VM.
+    </para>
+    <screen>&prompt.sudo;<command>virsh dumpxml <replaceable>VM-NAME</replaceable> &gt; <replaceable>VM-NAME</replaceable>.xml</command></screen>
+   </step>
+   <step>
+    <para>
+     Optionally save a copy of the original spice based definition in case you mess something up.
+    </para>
+    <screen>&prompt.user;<command>cp <replaceable>VM-NAME</replaceable>.xml <replaceable>VM-NAME</replaceable>-spice.xml</command></screen>
+   </step>
+   <step>
+    <para>
+     Using your favorite text editor, proceed to edit the XML definition to remove or modify the spice based devices as follows.
+    </para>
+   </step>
+  </procedure>
+ </section>
+ </section>
+ <section>
+  <title>Spice elements to remove</title>
+  <para>
+   The following XML snippets are specific to the Spice protocol and must be removed from the VM's configuration file. These elements enable features like the Spice agent channel and USB redirection over Spice, which are no longer supported.
+  </para>
+  <programlisting>
+   &lt;!-- This channel is for the Spice agent and is no longer needed --&gt;
+   &lt;channel type='spicevmc'&gt;
+   &lt;target type='virtio' name='com.redhat.spice.0'/&gt;
+   &lt;address type='virtio-serial' controller='0' bus='0' port='2'/&gt;
+   &lt;/channel&gt;
+
+   &lt;!-- These elements enable USB redirection over Spice and must be removed --&gt;
+   &lt;redirdev bus='usb' type='spicevmc'&gt;
+   &lt;address type='usb' bus='0' port='2'/&gt;
+   &lt;/redirdev&gt;
+
+   &lt;redirdev bus='usb' type='spicevmc'&gt;
+   &lt;address type='usb' bus='0' port='3'/&gt;
+  &lt;/redirdev&gt;
+ </programlisting>
+ </section>
+ <section>
+  <title>Spice elements to modify</title>
+  <section>
+   <title>Graphics and Audio</title>
+   <para>Modify the following elements:</para>
+   <para>Replace the Spice graphics configuration:</para>
+   <programlisting>&lt;graphics type='spice' autoport='yes' listen='127.0.0.1'/&gt;</programlisting>
+   <para>with the VNC equivalent:</para>
+   <programlisting>&lt;graphics type='vnc' autoport='yes' listen='127.0.0.1'/&gt;</programlisting>
+   <para>Replace the Spice audio configuration:</para>
+   <programlisting>&lt;audio id='1' type='spice'/&gt;</programlisting>
+   <para>with:</para>
+   <programlisting>&lt;audio id='1' type='none'/&gt;</programlisting>
+  </section>
+  <section xml:id="sec-qxl-to-virtio">
+   <title>QXL Video Device Conversion for Windows VMs</title>
+   <para>
+    The QXL video driver is optimized for the Spice protocol and is commonly used in Windows VMs. For better compatibility with VNC, we recommend replacing it with the more generic <literal>virtio</literal> video driver.
+   </para>
+   <para>
+    If your VM, especially a Windows guest, uses a QXL video device like this:
+   </para>
+   <programlisting>
+    &lt;video&gt;
+    &lt;model type='qxl' ram='65536' vram='65536' vgamem='16384' heads='1' primary='yes'/&gt;
+    &lt;address type='pci' domain='0x0000' bus='0x00' slot='0x01' function='0x0'/&gt;
+    &lt;/video&gt;
+   </programlisting>
+   <para>
+    Replace the entire &lt;video&gt; block with a simpler <literal>virtio</literal> model definition:
+   </para>
+   <programlisting>
+    &lt;video&gt;
+    &lt;model type="virtio"/&gt;
+    &lt;/video&gt;
+   </programlisting>
+   <note>
+    <para>
+     You could specify more details about the above virtio video device, but libvirt will fill in any missing details.
+    </para>
+   </note>
+  </section>
+ </section>
+ <section>
+  <title>Applying the new configuration and starting the VM</title>
+  <procedure>
+   <step>
+    <para>
+     Redefine the guest VM based on the newly edited XML definition.
+    </para>
+    <screen>&prompt.sudo;<command>virsh undefine <replaceable>VM-NAME</replaceable></command></screen>
+    <screen>&prompt.sudo;<command>virsh define <replaceable>VM-NAME</replaceable>.xml</command></screen>
+   </step>
+   <step>
+    <para>
+     Start the VNC based guest VM.
+    </para>
+    <screen>&prompt.sudo;<command>virsh start <replaceable>VM-NAME</replaceable></command></screen>
+   </step>
+  </procedure>
+ </section>
+ <section>
+  <title>Recommended for Copy and Paste functionality on VNC</title>
+  <para>
+   With the absence of Spice on SLE16, the copy and paste functionality between host and guest was lost.
+   The following steps may be done to restore this capability.
+  </para>
+  <procedure>
+   <step>
+    <para>
+     Install updated gtk-vnc RPMs on the SLE16 host. These newer RPMs support copy and paste with VNC. The FCS versions did not.
+    </para>
+    <para>
+     RPMs to update: <systemitem>libgtk-vnc-2_0-0</systemitem>, <systemitem>typelib-1_0-GtkVnc-2_0</systemitem>, <systemitem>libgvnc-1_0-0</systemitem>
+    </para>
+   </step>
+   <step>
+    <para>
+     Enable spice-vdagentd in the running SLES guest VM.
+    </para>
+    <para>
+     If not installed, run <command>zypper in spice-vdagent</command>.
+    </para>
     <screen>&prompt.sudo;<command>systemctl enable spice-vdagentd</command></screen>
    </step>
    <step>
-    <para>Add a new channel definition to the VM's XML configuration. This channel allows communication with the &qemu; guest agent for features like copy-paste.</para>
+    <para>
+     Shutdown the guest VM.
+    </para>
+   </step>
+   <step>
+    <para>
+     Add the channel device XML below to the guest VM XML definition. This may be done in virt-manager (Add Hardware → Channel → Device Type: QEMU vdagent) or manually as shown below.
+    </para>
     <programlisting>
      &lt;channel type="qemu-vdagent"&gt;
      &lt;source&gt;
@@ -149,7 +243,9 @@
      &lt;/channel&gt;</programlisting>
    </step>
    <step>
-    <para>Shut down and restart the VM for the changes to take effect.</para>
+    <para>
+     Boot the guest VM.
+    </para>
    </step>
   </procedure>
  </section>
