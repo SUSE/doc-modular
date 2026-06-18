@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/adm_sudo.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="troubleshoot-kdump"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <title>How to troubleshoot common &kdump; issues</title>
+    <abstract>
+<para>
+Troubleshooting &kdump; is a critical process to ensure that your system can successfully capture a vmcore file during a kernel crash, which is often the only way to diagnose system crashes.
+When troubleshooting &kdump;, the process usually fails at one of three stages: during boot (memory reservation), during the crash when the dump does not start, or during the save process when the file is not written.
+</para>
+    </abstract>
+  </info>
+    <section xml:id="troubleshooting-kdump">
+    <title>Crash kernel memory reserved is insufficient</title>
+    <para>One of the most common reasons &kdump; fails is that the amount of crash kernel
+      memory reserved is insufficient. Different system configurations may require
+      more memory than estimated by <command>kdumptool calibrate</command> and set up automatically in
+      the boot loader config by the <literal>kdump-commandline.service</literal>.</para>
+      <para>During &kdump;, if you see error messages mentioning low memory and invoking the
+Out of Memory (OOM) killer, this is the likely cause. If you don't see such messages, trying with increased crash kernel reservation is a good
+first step.</para>
+<procedure>
+<step><para>Find the size of the current automatically configured crash kernel reservation
+  by checking the kernel command line:</para>
+<screen>&prompt.sudo; cat /proc/cmdline</screen>
+<itemizedlist>
+  <listitem><para><literal>crashkernel=X M</literal></para></listitem>
+  <listitem><para><literal>crashkernel=Y M,low</literal></para></listitem>
+  <listitem><para><literal>crashkernel=Z M,high</literal></para></listitem>
+</itemizedlist>
+<para>
+  Add up the values of <replaceable>X</replaceable>, <replaceable>Y</replaceable>,
+  and <replaceable>Z</replaceable> to determine the total size of the current
+  reservation in MiB (<replaceable>current</replaceable>).
+</para>
+</step>
+<step><para>Manually set the new reservation by editing the <filename>/etc/sysconfig/kdump</filename>
+  file. Locate and change the value of the <varname>KDUMP_CRASHKERNEL</varname>
+  variable to double the current size:</para>
+<screen>KDUMP_CRASHKERNEL="crashkernel=&lt;2 * current&gt;M"</screen>
+</step>
+<step>
+  <para>
+      Reboot the system to apply the new memory parameters:
+  </para>
+  <screen>&prompt.sudo; reboot</screen>
+</step>
+<step>
+  <para>
+      Repeat this process a few times until Kdump successfully executes without errors.
+  </para>
+  <note>
+      <para>
+          Fine-tuning crash kernel memory involves finding the smallest RAM reservation
+          that successfully captures a crash dump without triggering OOM errors in the
+          capture kernel. Fine-tune your final setting using the range between your
+          last working and non-working values to avoid wasting system memory.
+      </para>
+  </note>
+</step>
+</procedure>
+<section xml:id="related-termination-signals-systemd">
+  <title>Other troubleshooting issues</title>
+<variablelist>
+<varlistentry>
+<term>Issues with switching to a text virtual terminal</term>
+<listitem><para>Check the &kdump; boot messages for errors. If the screen is blank, the system is likely failing to switch to the text virtual terminal. To fix this, configure a serial console to capture the output; you cannot troubleshoot the issue without these messages.</para>
+  <para>Once you get some output, you can increase &kdump; verbosity. Setting
+  <literal>KDUMP_VERBOSE</literal> to 11 turns on debugging output during all stages of the &kdump;
+   process and results in the following behavior:</para>
+   <itemizedlist>
+    <listitem><para>Removes the quiet option from the capture kernel command line.</para></listitem>
+    <listitem><para>Runs the <literal>kdump-save</literal> script with -x.</para></listitem>
+    <listitem><para>Runs <literal>makedumpfile </literal> with debugging.</para></listitem>
+   </itemizedlist>
+  </listitem>
+</varlistentry>
+  <varlistentry>
+    <term> <literal>makedumpfile</literal> or network config errors </term>
+    <listitem><para> During the capture kernel boot, if you see problems with
+     <literal>makedumpfile</literal>, network config, etc., set <literal>KDUMP_CONTINUE_ON_ERROR=false</literal>
+      or <literal>KDUMP_IMMEDIATE_REBOOT=false</literal>. This opens up an interactive shell when
+      an error occurs or when <literal>makedumpfile</literal> finishes, enabling you to manually debug problems
+      from within the capture system.
+    </para></listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>Dracut errors</term>
+      <listitem><para>If you see dracut errors during the boot of the capture system, add
+        dracut debugging options to <literal> KDUMP_COMMANDLINE_APPEND</literal>.
+      </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term> <literal>kdump initramfs</literal> does not generate correctly</term>
+        <listitem><para>If <literal>kdump initramfs</literal> does not generate correctly, turn on debugging when generating it;
+<command>mkdumprd -fd</command>. You can also unpack and inspect the generated initramfs image with the <command>lsinitrd --unpack /var/lib/kdump/initrd
+</command> command. </para></listitem>
+        </varlistentry>
+</variablelist>
+</section>
+ </section>
+      </topic>
