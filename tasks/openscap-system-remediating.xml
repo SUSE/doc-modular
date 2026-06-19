@@ -16,13 +16,12 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Remediating Vulnerabilities</title>
+    <title>Remediating vulnerabilities</title>
     <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        Apply fixes to bring your &productname; system into compliance with the <literal>general</literal>
-        security profile using <command>oscap</command>, &ssg; shell scripts, or &ansible;
-        playbooks.
+        Apply fixes to bring your &suselinux; system into compliance with a security profile using
+        <command>oscap</command>, &ssg; shell scripts, or Ansible playbooks.
       </para>
     </abstract>
   </info>
@@ -30,8 +29,8 @@
     <title>Introduction</title>
     <para>
       After scanning your system, you can remediate identified policy violations automatically or
-      manually. The &ssg; provides fix scripts in two formats — shell scripts and &ansible;
-      playbooks — that <command>oscap</command> can apply directly, or that you can review and run
+      manually. The &ssg; provides fix scripts in two formats — shell scripts and Ansible playbooks
+      — that <command>oscap</command> can apply directly, or that you can review and run
       independently.
     </para>
     <important>
@@ -72,10 +71,9 @@
     </procedure>
     <note>
       <para>
-        Because &productname; is an immutable system, remediation must be run more than once with reboots
-        between passes. The first pass uses &tr-up; to apply changes to a new snapshot. After
-        rebooting into the new snapshot, a second pass applies any remaining fixes. Rules are
-        executed in alphabetical order and some have dependencies on others.
+        Remediation must be run more than once. Rules are applied in alphabetical order. Some rules
+        have dependencies on others, and the system may need to be restarted between passes for
+        changes to take effect.
       </para>
     </note>
   </section>
@@ -96,46 +94,22 @@
         <command>sudo</command> from working after a reboot.
       </para>
     </warning>
-    <procedure>
-      <step>
-        <para>
-          Run the first remediation pass inside a transactional update:
-        </para>
-<screen>&prompt.sudo;<command>transactional-update run oscap xccdf eval --remediate \
-  --profile xccdf_org.ssgproject.content_profile_general \
-  --results /tmp/results_1.xml \
-  --report /tmp/report_1.html \
-  --skip-rule xccdf_org.ssgproject.content_rule_accounts_authorized_local_users \
-  /usr/share/xml/scap/ssg/content/ssg-slmicro6-ds.xml</command></screen>
-      </step>
-      <step>
-        <para>
-          Reboot the system to switch to the new snapshot:
-        </para>
-<screen>&prompt.sudo;<command>reboot</command></screen>
-      </step>
-      <step>
-        <para>
-          Run the second remediation pass:
-        </para>
 <screen>&prompt.sudo;<command>oscap xccdf eval --remediate \
-  --profile xccdf_org.ssgproject.content_profile_general \
-  --results /tmp/results_2.xml \
-  --report /tmp/report_2.html \
+  --profile xccdf_org.ssgproject.content_profile_hipaa \
+  --results /tmp/results.xml \
+  --report /tmp/report.html \
   --skip-rule xccdf_org.ssgproject.content_rule_accounts_authorized_local_users \
-  /usr/share/xml/scap/ssg/content/ssg-slmicro6-ds.xml</command></screen>
-      </step>
-      <step>
-        <para>
-          Reboot the system to apply the changes:
-        </para>
-<screen>&prompt.sudo;<command>reboot</command></screen>
-      </step>
-    </procedure>
+  /usr/share/xml/scap/ssg/content/ssg-sle16-ds.xml</command></screen>
     <para>
-      In the resulting results files, a rule result of <literal>fixed</literal> indicates a
-      successful fix. A result of <literal>error</literal> indicates that the fix was not
-      successful and the rule still does not pass evaluation.
+      For the changes to take effect, reboot the system.
+    </para>
+<screen>&prompt.sudo;<command>reboot</command></screen>
+    <para>
+      In the resulting <filename>/tmp/results.xml</filename> file, the first
+      <tag class="element">TestResult</tag> element contains the scan results before remediation.
+      The second <tag class="element">TestResult</tag> element contains the results after
+      remediation, where a rule result of <literal>fixed</literal> indicates a successful fix, and
+      <literal>error</literal> indicates that the fix was not successful.
     </para>
   </section>
   <section xml:id="openscap-system-remediating-post-scan">
@@ -150,9 +124,9 @@
           Scan the system and save the results:
         </para>
 <screen>&prompt.sudo;<command>oscap xccdf eval \
-  --profile xccdf_org.ssgproject.content_profile_general \
+  --profile xccdf_org.ssgproject.content_profile_hipaa \
   --results /tmp/results.xml \
-  /usr/share/xml/scap/ssg/content/ssg-slmicro6-ds.xml</command></screen>
+  /usr/share/xml/scap/ssg/content/ssg-sle16-ds.xml</command></screen>
         <para>
           The results are stored in a <tag class="element">TestResult</tag> element in
           <filename>/tmp/results.xml</filename>. The system is evaluated only — no changes are made
@@ -161,31 +135,16 @@
       </step>
       <step>
         <para>
-          Run the first remediation pass inside a transactional update:
-        </para>
-<screen>&prompt.sudo;<command>transactional-update run oscap xccdf remediate \
-  --results /tmp/results.xml \
-  /tmp/results.xml</command></screen>
-      </step>
-      <step>
-        <para>
-          Reboot the system to switch to the new snapshot:
-        </para>
-<screen>&prompt.sudo;<command>reboot</command></screen>
-      </step>
-      <step>
-        <para>
-          Run a second remediation pass:
+          Run remediation using the results file from the previous step as input:
         </para>
 <screen>&prompt.sudo;<command>oscap xccdf remediate \
   --results /tmp/results.xml \
   /tmp/results.xml</command></screen>
-      </step>
-      <step>
         <para>
-          Reboot the system to apply the changes:
+          <command>oscap</command> creates a new <tag class="element">xccdf:TestResult</tag>
+          element in the same file, inheriting data from the first result and applying fixes only
+          to the rules that failed in the initial scan.
         </para>
-<screen>&prompt.sudo;<command>reboot</command></screen>
       </step>
     </procedure>
   </section>
@@ -200,23 +159,23 @@
     </para>
 <screen>&prompt.user;<command>oscap xccdf generate fix \
   --template urn:xccdf:fix:script:sh \
-  --profile xccdf_org.ssgproject.content_profile_general \
+  --profile xccdf_org.ssgproject.content_profile_hipaa \
   --output my-remediation-script.sh \
-  /usr/share/xml/scap/ssg/content/ssg-slmicro6-ds.xml</command></screen>
+  /usr/share/xml/scap/ssg/content/ssg-sle16-ds.xml</command></screen>
     <para>
-      To generate an &ansible; playbook:
+      To generate an Ansible playbook:
     </para>
 <screen>&prompt.user;<command>oscap xccdf generate fix \
   --template urn:xccdf:fix:script:ansible \
-  --profile xccdf_org.ssgproject.content_profile_general \
+  --profile xccdf_org.ssgproject.content_profile_hipaa \
   --output my-remediation-playbook.yml \
-  /usr/share/xml/scap/ssg/content/ssg-slmicro6-ds.xml</command></screen>
+  /usr/share/xml/scap/ssg/content/ssg-sle16-ds.xml</command></screen>
   </section>
   <section xml:id="openscap-system-remediating-shell-scripts">
-    <title>Remediating with &ssg; shell scripts</title>
+    <title>Remediating with SSG shell scripts</title>
     <para>
-      The &ssg; ships a pre-built shell script for the <literal>general</literal> profile. This can
-      be used for straightforward remediation without conditions or tailoring.
+      The &ssg; ships pre-built shell scripts for each supported profile. These can be used for
+      straightforward remediation without conditions or tailoring.
     </para>
     <procedure>
       <step>
@@ -225,41 +184,25 @@
         </para>
 <screen>&prompt.user;<command>ls -l /usr/share/scap-security-guide/bash/</command></screen>
         <para>
-          The script for &productname; follows the format
-          <filename>slmicro6-script-<replaceable>PROFILE-NAME</replaceable>.sh</filename>. For the
-          <literal>general</literal> profile, the script is
-          <filename>slmicro6-script-general.sh</filename>.
+          Script names follow the format
+          <filename>sle16-script-<replaceable>PROFILE-NAME</replaceable>.sh</filename>. The
+          supported profile names are: <literal>anssi_bp28_minimal</literal>,
+          <literal>anssi_bp28_intermediary</literal>, <literal>anssi_bp28_enhanced</literal>,
+          <literal>anssi_bp28_high</literal>, <literal>hipaa</literal>, and
+          <literal>pci-dss-4</literal>.
         </para>
       </step>
       <step>
         <para>
           Make the script executable:
         </para>
-<screen>&prompt.sudo;<command>chmod +x slmicro6-script-general.sh</command></screen>
+<screen>&prompt.sudo;<command>chmod +x sle16-script-<replaceable>PROFILE-NAME</replaceable>.sh</command></screen>
       </step>
       <step>
         <para>
-          Run the script inside a transactional update:
+          Run the script:
         </para>
-<screen>&prompt.sudo;<command>transactional-update run ./slmicro6-script-general.sh</command></screen>
-      </step>
-      <step>
-        <para>
-          Reboot the system to switch to the new snapshot:
-        </para>
-<screen>&prompt.sudo;<command>reboot</command></screen>
-      </step>
-      <step>
-        <para>
-          Run the script again:
-        </para>
-<screen>&prompt.sudo;<command>./slmicro6-script-general.sh</command></screen>
-      </step>
-      <step>
-        <para>
-          Reboot the system to apply the changes:
-        </para>
-<screen>&prompt.sudo;<command>reboot</command></screen>
+<screen>&prompt.sudo;<command>./sle16-script-<replaceable>PROFILE-NAME</replaceable>.sh</command></screen>
       </step>
     </procedure>
     <note>
@@ -273,34 +216,26 @@
     </note>
   </section>
   <section xml:id="openscap-system-remediating-ansible">
-    <title>Remediating with &ansible; playbooks</title>
+    <title>Remediating with Ansible playbooks</title>
     <para>
-      To remediate using &ansible; playbooks, perform the following procedure.
+      For each supported profile, the &ssg; also ships Ansible playbooks that you can use for
+      remediation.
     </para>
     <procedure>
       <step>
         <para>
-          The &ssg; ships an &ansible; playbook for the <literal>general</literal> profile. To
-          install the package, run:
+          Install the <package>ansible</package> package.
         </para>
-<screen>&prompt.sudo;<command>transactional-update pkg install ansible</command></screen>
+<screen>&prompt.sudo;<command>zypper install ansible</command></screen>
       </step>
       <step>
         <para>
-          Reboot the system to switch to the new snapshot:
-        </para>
-<screen>&prompt.sudo;<command>reboot</command></screen>
-      </step>
-      <step>
-        <para>
-          List the available &ansible; playbooks:
+          List the available Ansible playbooks:
         </para>
 <screen>&prompt.user;<command>ls -l /usr/share/scap-security-guide/ansible/</command></screen>
         <para>
-          The playbook for &productname; follows the format
-          <filename>slmicro6-playbook-<replaceable>PROFILE-NAME</replaceable>.yml</filename>. For
-          the <literal>general</literal> profile, the playbook is
-          <filename>slmicro6-playbook-general.yml</filename>.
+          Playbook names follow the format
+          <filename>sle16-playbook-<replaceable>PROFILE-NAME</replaceable>.yml</filename>.
         </para>
       </step>
       <step>
@@ -316,29 +251,10 @@
       </step>
       <step>
         <para>
-          Run the playbook inside a transactional update:
-        </para>
-<screen>&prompt.sudo;<command>transactional-update run ansible-playbook -i ansible_inventory.yml \
-  slmicro6-playbook-general.yml</command></screen>
-      </step>
-      <step>
-        <para>
-          Reboot the system to switch to the new snapshot:
-        </para>
-<screen>&prompt.sudo;<command>reboot</command></screen>
-      </step>
-      <step>
-        <para>
-          Run the playbook again:
+          Run the playbook:
         </para>
 <screen>&prompt.sudo;<command>ansible-playbook -i ansible_inventory.yml \
-  slmicro6-playbook-general.yml</command></screen>
-      </step>
-      <step>
-        <para>
-          Reboot the system to apply the changes:
-        </para>
-<screen>&prompt.sudo;<command>reboot</command></screen>
+  sle16-playbook-<replaceable>PROFILE-NAME</replaceable>.yml</command></screen>
       </step>
       <step>
         <para>
@@ -346,7 +262,7 @@
           tag for a rule by searching for it in the playbook file. For example:
         </para>
 <screen>&prompt.sudo;<command>ansible-playbook -i ansible_inventory.yml \
-  slmicro6-playbook-general.yml \
+  sle16-playbook-<replaceable>PROFILE-NAME</replaceable>.yml \
   --tags "package_aide_installed,aide_build_database"</command></screen>
       </step>
     </procedure>
@@ -358,18 +274,67 @@
       </para>
     </note>
   </section>
-  <section xml:id="openscap-system-remediating-tailoring">
-    <title>Applying a tailoring file</title>
+  <section xml:id="openscap-system-remediating-customizing">
+    <title>Customizing the &ssg; with SCAP Workbench</title>
     <para>
-      If you need to customize the <literal>general</literal> profile — for example, to exclude
-      specific rules — create a tailoring file on a separate machine using SCAP Workbench, then
-      transfer it to the &productname; system. Apply it with the <option>--tailoring-file</option> option:
+      If the available profiles do not fully match your requirements, you can create a customized
+      profile using SCAP Workbench and save it as a tailoring file. The tailoring file can then be
+      applied with <command>oscap</command> using the <option>--tailoring-file</option> option.
     </para>
-<screen>&prompt.sudo;<command>oscap xccdf eval --remediate \
-  --profile xccdf_org.<replaceable>mycompany</replaceable>_profile_<replaceable>custom</replaceable> \
-  --tailoring-file <replaceable>ssg-slmicro6-ds-tailoring.xml</replaceable> \
-  --results /tmp/results.xml \
+    <procedure>
+      <step>
+        <para>
+          Start SCAP Workbench:
+        </para>
+<screen>&prompt.sudo;<command>scap-workbench</command></screen>
+      </step>
+      <step>
+        <para>
+          Select <literal>SLE16</literal> as the target system variant, then select <guilabel>Load
+          Content</guilabel>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Select a base profile from the <guilabel>Profile</guilabel> drop-down list, then select
+          <guilabel>Customize</guilabel>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Set a unique ID for the custom profile in the following format:
+          <literal>xccdf_<replaceable>REVERSE-DNS</replaceable>_profile_<replaceable>PROFILE-NAME</replaceable></literal>.
+          For example:
+          <literal>xccdf_org.<replaceable>mycompany</replaceable>_profile_<replaceable>server</replaceable></literal>.
+        </para>
+        <warning>
+          <para>
+            The profile ID cannot be changed after it is set in SCAP Workbench.
+          </para>
+        </warning>
+      </step>
+      <step>
+        <para>
+          Deselect any rules you do not want to include, then select <guilabel>OK</guilabel>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Save the customization as a tailoring file: select <guilabel>Select customization
+          file</guilabel> &gt; <guilabel>Open</guilabel> &gt; <guilabel>Save customization
+          only</guilabel>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Apply the tailoring file with <command>oscap</command>:
+        </para>
+<screen>&prompt.sudo;<command>oscap xccdf eval \
+  --profile xccdf_org.<replaceable>mycompany</replaceable>_profile_<replaceable>server</replaceable> \
+  --tailoring-file <replaceable>ssg-sle16-ds-tailoring.xml</replaceable> \
   --report /tmp/report.html \
-  /usr/share/xml/scap/ssg/content/ssg-slmicro6-ds.xml</command></screen>
+  /usr/share/xml/scap/ssg/content/ssg-sle16-ds.xml</command></screen>
+      </step>
+    </procedure>
   </section>
 </topic>
