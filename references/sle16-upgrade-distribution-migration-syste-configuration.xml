@@ -23,160 +23,163 @@
     <meta name="maintainer" content="cwickert@suse.com" its:translate="no"/>
     <abstract><!-- can be changed via merge in the assembly -->
       <para>
-        The upgrade live image is preconfigured to run without any further setup. The following
-        configuration options are completely optional. Change only what is necessary and 
-        only if you know what you are doing.
+        The upgrade live image is preconfigured to run without any further setup. This section
+        describes the custom configuration options.
       </para>
     </abstract>
   </info>
+  <para>
+    To configure the distribution migration system, create
+    <filename>/etc/sle-migration-service.yml</filename> on the system to be upgraded:
+  </para>
+<screen>&prompt.sudo;<command>ssh</command> <replaceable>USER@HOST</replaceable> '<command>touch</command> <filename>/etc/sle-migration-service.yml'</filename></screen>
+  <section>
+    <title>Specify the upgrade target</title>
+    <para>
+      The default upgrade target is &slsa; 16.0. This default target can be changed through the
+      <literal>migration_product</literal> setting. The target must be specified with the triplet
+      <literal>name/version/arch</literal> found in <filename>/etc/products.d/baseproduct</filename>
+      of the target product, for example:
+    </para>
+<screen os="sles">migration_product: SLES/&productnumber;/x86_64</screen>
+<screen os="sles4sap">migration_product: SLES_SAP/&productnumber;/x86_64</screen>
+    <para>
+      To change the migration target to &productnumber;, run:
+    </para>
+<screen os="sles"><command>ssh</command> <replaceable>USER@HOST</replaceable> '<command>echo</command> "migration_product: SLES/&productnumber;/x86_64" >> <filename>/etc/sle-migration-service.yml'</filename></screen>
+<screen os="sles4sap"><command>ssh</command> <replaceable>USER@HOST</replaceable> '<command>echo</command> "migration_product: SLES_SAP/&productnumber;/x86_64" >> <filename>/etc/sle-migration-service.yml'</filename></screen>
+  </section>
+
   <section xml:id="reference-sle16-upgrade-distribution-migration-system-configuration">
     <title>Optional configuration of the upgrade process</title>
     <para>
-      The migration system reads a custom configuration file from the system to be upgraded. The
-      content of this file modifies the behavior of the upgrade process. Prior to the start of the
-      upgrade process, create the following file if a change of the default behavior is needed:
-    </para>
-<screen>&prompt.sudo; <command>ssh</command> INSTANCE_USER@IP_OF_INSTANCE touch <filename>/etc/sle-migration-service.yml'</filename></screen>
-    <para>
-      The custom config file supports the following settings:
+      The following configuration options are completely optional. Change only what is necessary and
+      only if you know what you are doing.
     </para>
     <variablelist>
-    <varlistentry>
-      <term>Specify Migration Product</term>
-      <listitem>
-        <para>
-          By default, the system will be migrated to &slsa; 16.0. This default target can be changed
-          through the <literal>migration_product</literal> setting.
-          The product must be specified with the triplet <literal>name/version/arch</literal>
-          found in <filename>/etc/products.d/baseproduct</filename> of the target product,
-          for example:
-        </para>
-<screen>migration_product: SLES/16.0/x86_64</screen>
-      </listitem>
-    </varlistentry>
-    <varlistentry>
-      <term>Preserve System Data</term>
-      <listitem>
-        <para>
-          Preserve custom data files, such as udev rules, from the system 
-          being migrated and ensure they are applied in the upgraded system.
-        </para>
-        <para>
-          The <literal>preserve</literal> section has three subsections that govern file
-          preservation and system actions:
-        </para>
-        <itemizedlist>
-          <listitem>
-            <para>
-              <literal>static</literal>: Files in this subsection are copied into the DMS
-            directly, with no further processing.
-            </para>
-          </listitem>
-          <listitem>
-            <para>
-              <literal>rules</literal>: If this subsection contains files, they are preserved, and
-              the DMS reloads udev to make these rules effective.
-            </para>
-          </listitem>
-          <listitem>
-            <para>
-              <literal>sysctl</literal>: Preserving these files triggers sysctl --system to apply
-              the configuration changes.
-            </para>
-<screen>preserve:
-  rules:
-    - /etc/udev/rules.d/a.rules
-    - /etc/udev/rules.d/b.rules
-  static:
-    - /etc/sysconfig/proxy
-    - /path/to/be/preserved/*.suffix</screen>
-            <note>
+      <varlistentry>
+        <term>Preserve System Data</term>
+        <listitem>
+          <para>
+            Preserve custom data files, such as udev rules, from the system
+            being migrated and ensure they are applied in the upgraded system.
+          </para>
+          <para>
+            The <literal>preserve</literal> section has three subsections that govern file
+            preservation and system actions:
+          </para>
+          <itemizedlist>
+            <listitem>
               <para>
-                udev rules that require custom drivers will not have the desired effect
-                as the migration system will not include these drivers and therefore
-                execution of those rules will fail. Rules with such properties should
-                not be listed.
+                <literal>static</literal>: Files in this subsection are copied into the DMS
+              directly, with no further processing.
               </para>
-            </note>
-            <note>
+            </listitem>
+            <listitem>
               <para>
-                The DMS provides a set of default preservable files that vary based on
-                the target version and architecture. User-defined values will supplement
-                this default list.
+                <literal>rules</literal>: If this subsection contains files, they are preserved, and
+                the DMS reloads udev to make these rules effective.
               </para>
-            </note>
-          </listitem>
-        </itemizedlist>
-      </listitem>
-    </varlistentry>
-    <varlistentry>
-      <term>Enable Debug Mode</term>
-      <listitem>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>sysctl</literal>: Preserving these files triggers sysctl --system to apply
+                the configuration changes.
+              </para>
+  <screen>preserve:
+    rules:
+      - /etc/udev/rules.d/a.rules
+      - /etc/udev/rules.d/b.rules
+    static:
+      - /etc/sysconfig/proxy
+      - /path/to/be/preserved/*.suffix</screen>
+              <note>
+                <para>
+                  udev rules that require custom drivers will not have the desired effect
+                  as the upgrade life image does not include these drivers and therefore
+                  execution of those rules will fail. Rules with such properties should
+                  not be listed.
+                </para>
+              </note>
+              <note>
+                <para>
+                  The DMS provides a set of default preservable files that vary based on
+                  the target version and architecture. User-defined values will supplement
+                  this default list.
+                </para>
+              </note>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Enable Debug Mode</term>
+        <listitem>
+          <para>
+            If enabled, it prevents the upgrade system from rewinding the setup
+            steps and rebooting due to a failed upgrade, allowing the issue to
+            be debugged.
+          </para>
+  <screen>debug: true|false</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Configure Reboot Method</term>
+        <listitem>
         <para>
-          If enabled, it prevents the upgrade system from rewinding the setup
-          steps and rebooting due to a failed upgrade, allowing the issue to
-          be debugged.
+          By default, the migration system uses <literal>kexec</literal> to boot back into the host
+          system once migration is complete.  If this is in any way problematic,
+          a regular <literal>reboot</literal> can be requested by setting <literal>soft_reboot: false</literal>.
         </para>
-<screen>debug: true|false</screen>
-      </listitem>
-    </varlistentry>
-    <varlistentry>
-      <term>Configure Reboot Method</term>
-      <listitem>
-      <para>
-        By default, the migration system uses <literal>kexec</literal> to boot back into the host
-        system once migration is complete.  If this is in any way problematic,
-        a regular <literal>reboot</literal> can be requested by setting <literal>soft_reboot: false</literal>.
-      </para>
-      <screen>soft_reboot: true|false</screen>
-      </listitem>
-    </varlistentry>
-    <varlistentry>
-      <term>Enable verbosity for zypper migration</term>
-      <listitem>
+        <screen>soft_reboot: true|false</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Enable verbosity for zypper migration</term>
+        <listitem>
+          <para>
+            If enabled, it will run the zypper migration plugin with increased verbosity.
+          </para>
+  <screen>verbose_migration: true|false</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Enable the fix option for pre_checks</term>
+        <listitem>
         <para>
-          If enabled, it will run the zypper migration plugin with increased verbosity.
+          If enabled (default), the run_pre_checks systemd process will use the <literal>--fix</literal>
+          option to automatically remediate applicable issues before the migration
+          is started.
         </para>
-<screen>verbose_migration: true|false</screen>
+  <screen>pre_checks_fix: true|false</screen>
       </listitem>
-    </varlistentry>
-    <varlistentry>
-      <term>Enable the fix option for pre_checks</term>
-      <listitem>
-      <para>
-        If enabled (default), the run_pre_checks systemd process will use the <literal>--fix</literal>
-        option to automatically remediate applicable issues before the migration
-        is started.
-      </para>
-<screen>pre_checks_fix: true|false</screen>
-    </listitem>
-    </varlistentry>
-    <varlistentry>
-      <term>Configure Make initrd Method</term>
-      <listitem>
-      <para>
-        The live system may not contain all the tools required to create an initrd that
-        meets the needs of the system being upgraded. Building a host-independent
-        initrd will create an initrd that includes the tools and modules available on 
-        the system being upgraded. If needed, a host-independent initrd can be created by setting
-        <literal>build_host_independent_initrd: True</literal>.
-      </para>
-<screen>build_host_independent_initrd: true|false</screen>
-      </listitem>
-    </varlistentry>
-    <varlistentry>
-      <term>Configure Dependency Solver Test Case Generation</term>
-      <listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Configure Make initrd Method</term>
+        <listitem>
         <para>
-          It is possible that during the migration packages get installed that were not
-          on the system previously and are pulled in because of dependencies. This
-          setting will set up the migration so that a solver test case is generated.
-          The information from the test case can then be used to understand why a
-          given package was installed.
+          The live system may not contain all the tools required to create an initrd that
+          meets the needs of the system being upgraded. Building a host-independent
+          initrd will create an initrd that includes the tools and modules available on
+          the system being upgraded. If needed, a host-independent initrd can be created by setting
+          <literal>build_host_independent_initrd: True</literal>.
         </para>
-    <screen>debug_solver: true|false</screen>
-    </listitem>
-    </varlistentry>
+  <screen>build_host_independent_initrd: true|false</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Configure Dependency Solver Test Case Generation</term>
+        <listitem>
+          <para>
+            It is possible that during the migration packages get installed that were not
+            on the system previously and are pulled in because of dependencies. This
+            setting will set up the migration so that a solver test case is generated.
+            The information from the test case can then be used to understand why a
+            given package was installed.
+          </para>
+      <screen>debug_solver: true|false</screen>
+      </listitem>
+      </varlistentry>
   </variablelist>
   </section>
 </topic>
