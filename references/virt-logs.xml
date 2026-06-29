@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+<!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to https://github.com/SUSE/doc-sle/blob/main/xml/virt_logs.xml -->
+<topic xml:id="virt-logs"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+ <info>
+  <title>Gathering system information and logs</title>
+  <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+ </info>
+ <para>
+  When a virtualization host encounters a problem, it is often necessary to
+  collect a detailed system report, which can be done with the help of the
+  <command>supportconfig</command> tool.
+ </para>
+ <para>
+  In certain cases, the information gathered by
+  <command>supportconfig</command> is insufficient, and
+  logs generated from a custom logging or debugging configuration may be
+  required to determine the cause of a problem.
+ </para>
+ <section xml:id="sec-logs-libvirt">
+  <title>&libvirt; log controls</title>
+
+  <para>
+   &libvirt; provides logging facilities for both the library and the
+   daemon. The behavior of the logging facility is controlled by adjusting
+   the log level, filter and output settings.
+  </para>
+
+  <variablelist>
+   <varlistentry>
+    <term>Log level</term>
+    <listitem>
+     <para>
+      &libvirt; log messages are classified into four priority levels:
+      DEBUG, INFO, WARNING and ERROR. The DEBUG level is verbose and
+      capable of generating gigabytes of information in a short time. The
+      volume of log messages progressively decreases with the INFO,
+      WARNING and ERROR log levels. ERROR is the default log level.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>Log filters</term>
+    <listitem>
+     <para>
+      Log filters provide a way to log only messages matching a specific
+      component and log level. Log filters allow collecting the verbose
+      DEBUG log messages of specific components, but only ERROR level log
+      messages from the rest of the system. By default, no log filters
+      are defined.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>Log outputs</term>
+    <listitem>
+     <para>
+      Log outputs allow specifying where the filtered log messages are
+      sent. Messages can be sent to a file, the standard error stream of
+      the process, or journald. By default, filtered log messages are
+      sent to journald.
+     </para>
+    </listitem>
+   </varlistentry>
+  </variablelist>
+
+  <para>
+   See <link xlink:href="https://libvirt.org/logging.html"/> for more
+   details on &libvirt;'s log controls.
+  </para>
+
+  <para>
+   A default &libvirt; installation has the log level set to ERROR, no log
+   filters defined, and log outputs set to journald. Log messages from the
+   &libvirt; daemon can be viewed with the <command>journalctl</command>
+   command:
+  </para>
+
+  <screen>&prompt.root;journalctl --unit libvirtd</screen>
+
+  <para>
+   The default log facility settings are fine for normal operations and
+   provide useful messages for applications and users of &libvirt;, but
+   internal issues often require DEBUG level messages. As an example,
+   consider a potential bug in the interaction between &libvirt; and the
+   &qemu; monitor. In this case, we only need to see the debug messages of
+   the communication between &libvirt; and &qemu;. The following example
+   creates a log filter to select debug messages from the &qemu; driver and
+   send them to a file named <filename>/tmp/libvirtd.log</filename>
+  </para>
+
+  <screen>
+ log_filters="1:qemu.qemu_monitor_json"
+ log_outputs="1:file:/tmp/libvirtd.log"
+  </screen>
+
+  <para>
+   Log controls for the &libvirt; daemon can be found in
+   <filename>/etc/libvirt/libvirtd.conf</filename>. The daemon must be
+   restarted after making any changes to the configuration file.
+  </para>
+
+  <screen>&prompt.root;systemctl restart libvirtd.service</screen>
+ </section>
+</topic>

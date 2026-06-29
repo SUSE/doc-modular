@@ -1,0 +1,506 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+<!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to https://github.com/SUSE/doc-sle/blob/main/xml/gpu_passthru.xml -->
+<topic xml:id="gpu-passthru-reference"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+ <info>
+  <title>Configuring &gpuback; for &nvidia; cards</title>
+  <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+ </info>
+ <section xml:id="gpu-passthru-intro">
+  <title>Introduction</title>
+
+  <para>
+   This article describes how to assign an &nvidia; GPU graphics card on the
+   host machine to a virtualized guest.
+  </para>
+ </section>
+ <section xml:id="gpu-passthru-prerequisites">
+  <title>Prerequisites</title>
+
+  <itemizedlist>
+   <listitem>
+    <para>
+     GPU pass-through is supported on the &x86-64; architecture only.
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     The host operating system needs to be SUSE Linux Enterprise Server 16 or newer.
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     This article provides instructions for GPU pass-through with &nvidia; cards, including Tesla, Data Center, and RTX series, and is meant for GPU computation purposes only.
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     For optimal CUDA compute performance with System-Allocated Memory (SAM) migration, kernel 6.12 or newer is recommended to include required HMM fixes.
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     To manage the host system, you need an additional display
+     card on the host that you can use when configuring the GPU pass-through, or
+     a functional SSH environment.
+    </para>
+   </listitem>
+  </itemizedlist>
+ </section>
+ <section xml:id="gpu-passthru-host">
+  <title>Configuring the host</title>
+
+  <section xml:id="gpu-passthru-verify-host">
+   <title>Verify the host environment</title>
+   <procedure>
+   <step os="sles;sled;slemicro">
+     <para>
+      Verify that the host operating system is SUSE Linux Enterprise Server 16 or newer:
+     </para>
+     <screen>
+ &prompt.user;cat /etc/issue
+ Welcome to SUSE Linux Enterprise Server 16.1  (x86_64) - Kernel \r (\l).
+   </screen>
+    </step>
+    <step>
+     <para>
+      Verify that the host supports
+      VT-d technology and that it is
+      already enabled in the firmware settings:
+     </para>
+     <screen>
+ &prompt.user;dmesg | grep -e "Directed I/O"
+ [   12.819760] DMAR: Intel(R) Virtualization Technology for Directed I/O
+  </screen>
+      <para>
+       If VT-d is not enabled in the firmware, enable it and reboot the
+       host.
+      </para>
+     </step>
+    <step>
+      <para>
+       Verify that the host has an extra GPU or VGA card:
+      </para>
+      <screen>
+ &prompt.user;lspci | grep -i "vga"
+ 07:00.0 VGA compatible controller: Matrox Electronics Systems Ltd. \
+   MGA G200e [Pilot] ServerEngines (SEP1) (rev 05)
+   </screen>
+       <para>
+        With a Tesla V100 card:
+       </para>
+       <screen>
+ &prompt.user;lspci | grep -i nvidia
+ 03:00.0 3D controller: NVIDIA Corporation GV100 [Tesla V100 PCIe] (rev a1)
+   </screen>
+       <para>
+        With an A100 card:
+       </para>
+       <screen>
+ &prompt.user;lspci | grep -i nvidia
+ 03:00.0 3D controller: NVIDIA Corporation A100-SXM4-40GB (rev a1)
+   </screen>
+       <para>
+        With an L4 card:
+       </para>
+       <screen>
+ &prompt.user;lspci | grep -i nvidia
+ 03:00.0 3D controller: NVIDIA Corporation L4 (rev a1)
+   </screen>
+      </step>
+    </procedure>
+   </section>
+
+   <section xml:id="gpu-passthru-enable-iommu">
+    <title>Enable IOMMU</title>
+    <para>
+     IOMMU is disabled by default. You
+     need to enable it at boot time in the
+     <filename>/etc/default/grub</filename> configuration file.
+    </para>
+    <procedure>
+     <step>
+      <para>
+       For Intel-based hosts:
+      </para>
+      <screen>GRUB_CMDLINE_LINUX="intel_iommu=on iommu=pt rd.driver.pre=vfio-pci"</screen>
+      <para>
+       For AMD-based hosts:
+      </para>
+      <screen>GRUB_CMDLINE_LINUX="iommu=pt amd_iommu=on rd.driver.pre=vfio-pci"</screen>
+     </step>
+     <step>
+      <para>
+       When you save the modified <filename>/etc/default/grub</filename>
+       file, re-generate the main &grub; configuration file
+       <filename>/boot/grub2/grub.cfg</filename>:
+      </para>
+      <screen>&prompt.sudo;grub2-mkconfig -o /boot/grub2/grub.cfg</screen>
+     </step>
+     <step>
+      <para>
+       Reboot the host and verify that
+       IOMMU is enabled:
+      </para>
+      <screen>&prompt.user;dmesg |  grep -e DMAR -e IOMMU</screen>
+     </step>
+    </procedure>
+   </section>
+
+   <section xml:id="gpu-passthru-blacklist-nouveau">
+    <title>Blacklist the Nouveau driver</title>
+    <para>
+     To assign the &nvidia; card to a VM guest, we need to prevent the host
+     OS from loading the built-in <literal>nouveau</literal> driver for
+     &nvidia; GPUs. Create the file
+     <filename>/etc/modprobe.d/60-blacklist-nouveau.conf</filename> with the
+     following content:
+    </para>
+    <screen>blacklist nouveau</screen>
+   </section>
+
+   <section xml:id="gpu-passthru-configure-vfio">
+    <title>Configure VFIO and isolate the GPU used for pass-through</title>
+    <procedure>
+     <step>
+      <para>
+       Find the card vendor and model IDs. Use the bus number
+       identified in the host verification step, for
+       example, <literal>03:00.0</literal>:
+      </para>
+      <screen>
+ &prompt.user;lspci -nn | grep 03:00.0
+ 03:00.0 3D controller [0302]: NVIDIA Corporation GV100 [Tesla V100 PCIe] [10de:1db4] (rev a1)
+  </screen>
+     </step>
+     <step>
+      <para>
+       Create the file <filename>/etc/modprobe.d/vfio.conf</filename> with
+       the following content:
+      </para>
+      <screen>options vfio-pci ids=10de:1db4</screen>
+      <note>
+       <para>
+        Verify that your card does not need an extra
+        <option>ids=</option> parameter. For certain cards, you must
+        specify the audio device too, therefore device's ID must also be
+        added to the list, otherwise you cannot use the card.
+       </para>
+      </note>
+     </step>
+    </procedure>
+   </section>
+
+   <section xml:id="gpu-passthru-load-vfio">
+     <title>Load the VFIO driver</title>
+     <para>
+      There are three ways you can load the
+      VFIO driver.
+     </para>
+     <note>
+      <para>
+       Kernel 6.12 introduces IOMMUFD as the new user API for VFIO. The legacy <literal>vfio_iommu_type1</literal> container/group model is still supported but gradually being superseded. For libvirt-based passthrough (virt-manager, virt-install), no changes are required as libvirt abstracts the VFIO interface.
+      </para>
+     </note>
+     <section xml:id="gpu-passthru-load-vfio-initrd">
+     <title>Including the driver in the initrd file</title>
+     <procedure>
+      <step>
+       <para>
+        Create the file
+        <filename>/etc/dracut.conf.d/gpu-passthrough.conf</filename> and
+        add the following content (mind the leading whitespace):
+       </para>
+       <screen>add_drivers+=" vfio vfio_iommu_type1 vfio_pci vfio_virqfd"</screen>
+      </step>
+      <step>
+       <para>
+        Re-generate the initrd file:
+       </para>
+       <screen>&prompt.sudo;dracut --force /boot/initrd $(uname -r)</screen>
+      </step>
+     </procedure>
+    </section>
+    <section xml:id="gpu-passthru-load-vfio-modules">
+     <title>Adding the driver to the list of auto-loaded modules</title>
+     <para>
+      Create the file
+      <filename>/etc/modules-load.d/vfio-pci.conf</filename> and add the
+      following content:
+     </para>
+     <screen>
+ vfio
+ vfio_iommu_type1
+ vfio_pci
+ kvm
+ kvm_intel
+  </screen>
+    </section>
+    <section xml:id="gpu-passthru-load-vfio-manual">
+     <title>Loading the driver manually</title>
+     <para>
+      To load the driver manually at runtime, execute the following
+      command:
+     </para>
+     <screen>&prompt.sudo;modprobe vfio-pci</screen>
+    </section>
+   </section>
+
+   <section xml:id="gpu-passthru-disable-msr">
+    <title>Disable MSR for &mswin; guests</title>
+    <para>
+     For &mswin; guests, we recommend disabling MSR (model-specific
+     register) to avoid the guest crashing. Create the file
+     <filename>/etc/modprobe.d/kvm.conf</filename> and add the following
+     content:
+    </para>
+    <screen>options kvm ignore_msrs=1</screen>
+   </section>
+
+   <section xml:id="gpu-passthru-ovmf">
+    <title>Install UEFI firmware</title>
+    <para>
+     For proper GPU pass-through functionality, the host needs to boot using UEFI
+     firmware (that is, not using a legacy-style BIOS boot sequence).
+     Install the <package>qemu-ovmf</package> package if not already
+     installed:
+    </para>
+    <screen>&prompt.sudo;zypper install qemu-ovmf</screen>
+   </section>
+
+   <section xml:id="gpu-passthru-reboot">
+    <title>Reboot the host machine</title>
+    <para>
+     For most of the changes in the above steps to take effect, you need to
+     reboot the host machine:
+    </para>
+    <screen>&prompt.sudo;shutdown -r now</screen>
+   </section>
+  </section>
+  <section xml:id="gpu-passthru-guest">
+   <title>Configuring the guest</title>
+
+   <para>
+    This section describes how to configure the guest virtual machine so that
+    it can use the host's &nvidia; GPU. Use virt-manager or
+    <command>virt-install</command> to install the guest VM. Find more
+    details in the KVM installation guide.
+   </para>
+
+   <section xml:id="gpu-passthru-guest-general">
+    <title>Requirements for the guest configuration</title>
+    <para>
+     During the guest VM installation, select <emphasis>Customize
+     configuration before install</emphasis> and configure the following
+     devices:
+    </para>
+    <itemizedlist>
+      <listitem>
+       <para>
+        Use Q35 chipset for proper PCIe passthrough with modern GPUs.
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+        Install the guest VM using UEFI firmware.
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+        Add the following emulated devices:
+       </para>
+       <para>
+        Graphic: Spice or VNC
+       </para>
+       <para>
+        Device: virtio-gpu, VGA or Virtio
+       </para>
+       <para>
+        Find more information in the libvirt configuration documentation.
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+        Add the host PCI device (<literal>03:00.0</literal> in our example)
+        to the guest. Find more information in the PCI device configuration documentation.
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+        For the best performance, we recommend using virtio drivers for the
+        network card and storage.
+       </para>
+      </listitem>
+     </itemizedlist>
+   </section>
+
+   <section xml:id="gpu-passthru-guest-driver">
+    <title>Install the graphic card driver</title>
+    <section xml:id="gpu-passthru-guest-driver-linux-rpm">
+     <title>Linux guest</title>
+     <section>
+      <title>RPM-based distributions</title>
+       <procedure>
+        <step>
+         <para>
+          Download the driver RPM package from the official &nvidia; driver download page at <link xlink:href="https://www.nvidia.com/Download/index.aspx"/>.
+         </para>
+        </step>
+        <step>
+         <para>
+          Install the downloaded RPM package:
+         </para>
+         <screen>&prompt.sudo;rpm -i nvidia-diag-driver-local-repo-sles*.rpm</screen>
+        </step>
+        <step>
+         <para>
+          Refresh repositories and install <package>cuda-drivers</package>.
+          This step is different for non-&suse; distributions:
+         </para>
+         <screen>&prompt.sudo;zypper refresh &amp;&amp; zypper install cuda-drivers</screen>
+        </step>
+        <step>
+         <para>
+          Reboot the guest VM:
+         </para>
+         <screen>&prompt.sudo;shutdown -r now</screen>
+        </step>
+       </procedure>
+       <note>
+        <para>
+         CUDA 13.3 requires driver version 610.43.02 or newer. The minimum driver version for CUDA 13.x is 580.
+        </para>
+       </note>
+      </section>
+      <section>
+       <title>Generic installer</title>
+      <procedure>
+        <step>
+         <para>
+          Because the installer needs to compile the &nvidia; driver
+          modules, install the <package>gcc-c++</package> and
+          <package>kernel-devel</package> packages.
+         </para>
+        </step>
+        <step>
+          <para>
+           Disable Secure Boot on the guest, because &nvidia;'s driver
+           modules are unsigned. On &suse; distributions, disable Secure Boot
+           in the UEFI firmware setup or use <command>mokutil</command> to
+           enroll a Machine Owner Key. Find more
+           information in the UEFI Secure Boot documentation.
+          </para>
+         </step>
+        <step>
+         <para>
+          Download the driver installation script from
+          <link xlink:href="https://www.nvidia.com/Download/index.aspx?lang=en-us"/>,
+          make it executable and run it to complete the driver
+          installation:
+         </para>
+         <screen>
+ &prompt.user;chmod +x NVIDIA-Linux-x86_64-*.run
+ &prompt.sudo;./NVIDIA-Linux-x86_64-*.run
+   </screen>
+        </step>
+        <step>
+         <para>
+          Download CUDA drivers from
+          <link xlink:href="https://developer.nvidia.com/cuda-downloads"/>
+          and install following the on-screen instructions.
+         </para>
+        </step>
+       </procedure>
+       <note>
+        <title>Display issues</title>
+        <para>
+         After you have installed the &nvidia; drivers, the virt-manager display
+         loses its connection to the guest OS. To access the guest VM, you
+         must either login via <command>ssh</command>, change to the console
+         interface, or install a dedicated VNC server in the guest. To avoid
+         a flickering screen, stop and disable the display manager:
+        </para>
+        <screen>&prompt.sudo;systemctl stop display-manager &amp;&amp; systemctl disable display-manager</screen>
+       </note>
+       <procedure>
+        <title>Testing the Linux driver installation</title>
+        <step>
+         <para>
+          Verify the installation with the NVIDIA System Management Interface:
+         </para>
+         <screen>&prompt.user;nvidia-smi</screen>
+        </step>
+        <step>
+         <para>
+          Compile and run a CUDA sample. For example, with the deviceQuery sample:
+         </para>
+         <screen>
+ &prompt.user;cd /usr/local/cuda/samples/1_Utilities/deviceQuery
+ &prompt.user;sudo make
+ &prompt.user;./deviceQuery
+   </screen>
+        </step>
+       </procedure>
+      </section>
+     </section>
+   <section xml:id="gpu-passthru-guest-driver-windows">
+      <title>&mswin; guest</title>
+      <important>
+       <para>
+        Before you install the &nvidia; drivers, you need to hide the
+        hypervisor from the drivers by using the <literal>&lt;hidden
+        state='on'/&gt;</literal> directive in the guest's &libvirt;
+        definition, for example:
+       </para>
+       <screen>
+ &lt;features&gt;
+  &lt;acpi/&gt;
+  &lt;apic/&gt;
+  &lt;kvm&gt;
+   &lt;hidden state='on'/&gt;
+  &lt;/kvm&gt;
+ &lt;/features&gt;
+   </screen>
+      </important>
+      <procedure>
+       <step>
+        <para>
+         Download and install the &nvidia; driver from
+         <link xlink:href="https://www.nvidia.com/Download/index.aspx"/>.
+        </para>
+       </step>
+       <step>
+        <para>
+         Download and install the CUDA toolkit from
+         <link xlink:href="https://developer.nvidia.com/cuda-downloads?target_os=Windows&amp;target_arch=x86_64"/>.
+        </para>
+       </step>
+       <step>
+        <para>
+         Find several &nvidia; demo samples in the directory
+         <filename>Program Files\Nvidia GPU Computing
+         Toolkit\CUDA\v12.x\extras\demo_suite</filename> on the guest.
+        </para>
+       </step>
+      </procedure>
+      <note>
+       <para>
+        Starting with CUDA 13.1, the Windows display driver is no longer bundled with the CUDA Toolkit. You must download and install the appropriate NVIDIA driver separately from the official NVIDIA driver download page.
+       </para>
+      </note>
+     </section>
+   </section>
+  </section>
+ </topic>
