@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="install-configure-iscsi-target"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Installing and configuring an iSCSI ISO target server</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        The iSCSI LIO Target is an open-source, kernel-level software framework in Linux that transforms a standard server into a high-performance storage controller by exporting local storage over a network. It acts as the server side of an iSCSI SAN (Storage Area Network), managing the communication between physical backstores and remote clients to provide seamless, block-level data access.
+        An iSCSI SAN is a specialized high-speed network that provides block-level network access to storage.
+      </para>
+    </abstract>
+  </info>
+    <para>
+To install and configure the iSCSI LIO Target server, follow the steps in the procedure:
+ </para>
+<procedure>
+<title>Installing and configuring an iSCSI LIO Target server</title>
+<step><para>Install and enable the Linux SCSI target framework:</para>
+<screen>&prompt.sudo;  zypper install targetcli-fb</screen>
+<screen>&prompt.sudo;  systemctl enable --now target</screen>
+</step>
+<step><para>Prepare the storage. Ensure you have an unpartitioned block device ready. You can allocate either a dedicated disk partition or the whole disk for example <filename> /dev/vdb</filename>.
+</para>
+  </step>
+  <step><para>Configure the Target using <command>targetcli</command>:</para>
+ <screen>&prompt.sudo; targetcli</screen>
+ <para>Create a backstore:</para>
+ <screen>&gt; /backstores/block create test_storage dev=/dev/vdb</screen>
+ <para>Create an IQN (iSCSI Qualified Name):</para>
+ <screen>&gt; iscsi/ create iqn.2026-04.com.example:sles.target </screen>
+ <para>Create a LUN (Logical Unit Number):</para>
+ <screen>&gt; iscsi/iqn.2026-04.com.example:sles.target/tpg1/luns create /backstores/block/test_storage
+</screen>
+<para>Navigate to the <emphasis role="bold">TPG1</emphasis>subdirectory and enable the automated demo mode attributes:</para>
+ <screen>&gt; cd /iscsi/iqn.2026-04.com.example:sles.target/tpg1/
+  /iscsi/iqn...e:sles.target/tpg1&amp; set attribute generate_node_acls=1 demo_mode_write_protect=0
+</screen>
+<para>To display a complete, hierarchical tree view of the current Linux kernel LIO target configuration:</para>
+<screen>&gt; ls
+  o- / ......................................................................................................................... [...]
+  o- backstores .............................................................................................................. [...]
+  | o- block .................................................................................................. [Storage Objects: 1]
+  | | o- test_storage .................................................................... [/dev/vdb (20.0GiB) write-thru activated]
+  | |   o- alua ................................................................................................... [ALUA Groups: 1]
+  | |     o- default_tg_pt_gp ....................................................................... [ALUA state: Active/optimized]
+  | o- fileio ................................................................................................. [Storage Objects: 0]
+  | o- pscsi .................................................................................................. [Storage Objects: 0]
+  | o- ramdisk ................................................................................................ [Storage Objects: 0]
+  o- iscsi ............................................................................................................ [Targets: 1]
+  | o- iqn.2026-04.com.example:sles.target ............................................................................... [TPGs: 1]
+  |   o- tpg1 ............................................................................................... [no-gen-acls, no-auth]
+  |     o- acls .......................................................................................................... [ACLs: 1]
+  |     | o- iqn.2026-04.com.example:sles.initiator ............................................................... [Mapped LUNs: 1]
+  |     |   o- mapped_lun0 .......................................................................... [lun0 block/test_storage (rw)]
+  |     o- luns .......................................................................................................... [LUNs: 1]
+  |     | o- lun0 ............................................................... [block/test_storage (/dev/vdb) (default_tg_pt_gp)]
+  |     o- portals .................................................................................................... [Portals: 1]
+  |       o- [::0]:3260 ....................................................................................................... [OK]
+  o- loopback ......................................................................................................... [Targets: 0]
+  o- vhost ............................................................................................................ [Targets: 0]
+  o- xen-pvscsi ....................................................................................................... [Targets: 0]
+</screen>
+<para>Save and exit:</para>
+ <screen>&gt; saveconfig</screen>
+ <screen>&gt; exit</screen>
+</step>
+</procedure>
+</topic>
