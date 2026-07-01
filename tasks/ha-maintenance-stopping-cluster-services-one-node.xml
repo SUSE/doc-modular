@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_maintenance.xml -->
+
+<topic xml:id="ha-maintenance-stopping-cluster-services-one-node"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Stopping the cluster services for one node</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Stopping the cluster services means stopping &pace; and &corosync;. When used on one node,
+        the node is no longer an active member of the cluster. The node's resources either move to
+        another node, or stop if constraints prevent them from moving. However, if stopping a
+        resource fails or times out, the node is fenced. To avoid attempting to stop resources
+        and the cluster services at the same time, we recommend using this mode in combination
+        with standby mode.
+      </para>
+    </abstract>
+  </info>
+
+  <warning>
+    <title>Don't stop the cluster services in single-node maintenance mode</title>
+    <para>
+      Stopping the cluster services while in single-node maintenance mode can lead to undesirable
+      effects. Resources that were running on this node might start on another node. Caution is
+      required to prevent potential concurrency violations.
+    </para>
+  </warning>
+
+  <para>
+    Perform this procedure on the node you want to stop.
+  </para>
+  <procedure>
+    <step>
+      <para>
+        Log in to the node either as the &rootuser; user or as a user with <command>sudo</command>
+        privileges.
+      </para>
+    </step>
+    <step>
+      <para>
+        Check the status of the cluster:
+      </para>
+<screen>&prompt.user;<command>sudo crm status</command></screen>
+      <itemizedlist>
+        <listitem>
+          <para>
+            If the node is in <literal>maintenance</literal> mode: Don't stop the cluster services,
+            as this can lead to concurrency violations. Take the node out of maintenance mode first.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            If the node is in <literal>standby</literal> mode: The resources have either moved to
+            other nodes or stopped, so you can safely stop the cluster services.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            If the node isn't in either mode: When you stop the cluster services, the resources
+            attempt to move to other nodes. If they can't move, they stop. However, if any
+            resources fail to stop before the cluster's shutdown timeout, the node will be fenced.
+          </para>
+        </listitem>
+      </itemizedlist>
+    </step>
+    <step>
+      <para>
+        Stop the cluster services on the node:
+      </para>
+<screen>&prompt.user;<command>sudo crm cluster stop</command></screen>
+    </step>
+    <step>
+      <para>
+        Check the status of the cluster services:
+      </para>
+<screen>&prompt.user;<command>sudo crm cluster status</command></screen>
+      <para>
+        Both &pace; and &corosync; should be <literal>inactive</literal>.
+      </para>
+    </step>
+  </procedure>
+</topic>
