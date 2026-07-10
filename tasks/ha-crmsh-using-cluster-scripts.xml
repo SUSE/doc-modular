@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/edit/main/xml/ha_config_cli.xml -->
+
+<topic xml:id="ha-crmsh-using-cluster-scripts"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Using &crmsh;'s cluster scripts</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Collecting information from all cluster nodes and deploying any
+      changes is a key cluster administration task. Instead of performing
+      the same procedures manually on different nodes (which is error-prone),
+      you can use the &crmsh; cluster scripts.
+      Do not confuse them with the <emphasis>&crmsh; shell scripts</emphasis>.
+      </para>
+    </abstract>
+  </info>
+
+  <para>In contrast to &crmsh; shell scripts, cluster scripts performs
+    additional tasks like:</para>
+    <itemizedlist>
+      <listitem>
+        <para>Installing software that is required for a specific task.</para>
+      </listitem>
+      <listitem>
+        <para>Creating or modifying any configuration files.</para>
+      </listitem>
+      <listitem>
+        <para>Collecting information and reporting potential problems with the
+          cluster.</para>
+      </listitem>
+      <listitem>
+        <para>Deploying the changes to all nodes.</para>
+      </listitem>
+    </itemizedlist>
+
+    <para>&crmsh; cluster scripts do not replace other tools for managing
+      clusters&mdash;they provide an integrated way to perform the above
+      tasks across the cluster. Find detailed information at <link xlink:href="https://crmsh.github.io/scripts/" xlink:show="new"/>.
+    </para>
+  <para>To get a list of all available cluster scripts, run:</para>
+      <screen>&prompt.root;<command>crm script list</command></screen>
+
+      <para>To view the components of a script, use the
+        <command>show</command> command and the name of the cluster script,
+        for example:</para>
+      <screen>&prompt.root;<command>crm script show mailto</command>
+mailto (Basic)
+MailTo
+
+ This is a resource agent for MailTo. It sends email to a sysadmin
+whenever  a takeover occurs.
+
+1. Notifies recipients by email in the event of resource takeover
+
+  id (required)  (unique)
+      Identifier for the cluster resource
+  email (required)
+      Email address
+  subject
+      Subject</screen>
+
+      <para>The output of <command>show</command> contains a title, a
+          short description, and a procedure. Each procedure is divided
+          into a series of steps, performed in the given order. </para>
+      <para>Each step contains a list of required and optional parameters,
+        along with a short description and its default value.</para>
+
+      <para>Each cluster script understands a set of common parameters.
+        These parameters can be passed to any script:</para>
+
+      <table>
+        <title>Common parameters</title>
+        <tgroup cols="3">
+          <thead>
+            <row>
+              <entry>Parameter</entry>
+              <entry>Argument</entry>
+              <entry>Description</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry><parameter>action</parameter></entry>
+              <entry><replaceable>INDEX</replaceable></entry>
+              <entry>If set, only execute a single action (index, as
+                returned by verify)</entry>
+            </row>
+            <row>
+              <entry><parameter>dry_run</parameter></entry>
+              <entry><replaceable>BOOL</replaceable></entry>
+              <entry>If set, simulate execution only (default: no) </entry>
+            </row>
+            <row>
+              <entry><parameter>nodes</parameter></entry>
+              <entry><replaceable>LIST</replaceable></entry>
+              <entry>List of nodes to execute the script for</entry>
+            </row>
+            <row>
+              <entry><parameter>port</parameter></entry>
+              <entry><replaceable>NUMBER</replaceable></entry>
+              <entry>Port to connect to</entry>
+            </row>
+            <row>
+              <entry><parameter>statefile</parameter></entry>
+              <entry><replaceable>FILE</replaceable></entry>
+              <entry>When single-stepping, the state is saved in the given
+                file </entry>
+            </row>
+            <row>
+              <entry><parameter>sudo</parameter></entry>
+              <entry><replaceable>BOOL</replaceable></entry>
+              <entry>If set, crm prompts for a sudo password and uses sudo
+                where appropriate (default: no) </entry>
+            </row>
+            <row>
+              <entry><parameter>timeout</parameter></entry>
+              <entry><replaceable>NUMBER</replaceable></entry>
+              <entry>Execution timeout in seconds (default: 600) </entry>
+            </row>
+            <row>
+              <entry><parameter>user</parameter></entry>
+              <entry><replaceable>USER</replaceable></entry>
+              <entry>Run script as the given user </entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
+
+  <para>Before running a cluster script, review the actions that it will
+          perform and verify its parameters to avoid problems. A cluster script
+          can potentially perform a series of actions and may fail for
+          various reasons. Thus, verifying your parameters before
+          running it helps to avoid problems.</para>
+      <para>For example, the <systemitem>mailto</systemitem> resource agent
+        requires a unique identifier and an e-mail address. To verify these
+        parameters, run:</para>
+      <screen>&prompt.root;<command>crm script verify mailto id=sysadmin email=&exampleuser_plain;@example.org</command>
+1. Ensure mail package is installed
+
+        mailx
+
+2. Configure cluster resources
+
+        primitive sysadmin MailTo
+                email="tux@example.org"
+                op start timeout="10"
+                op stop timeout="10"
+                op monitor interval="10" timeout="10"
+
+        clone c-sysadmin sysadmin</screen>
+      <para>The <command>verify</command> command prints the steps and replaces
+        any placeholders with your given parameters. If <command>verify</command>
+        finds any problems, it reports it.
+        If everything is OK, replace the <command>verify</command>
+        command with <command>run</command>:</para>
+      <screen>&prompt.root;<command>crm script run mailto id=sysadmin email=&exampleuser_plain;@example.org</command>
+INFO: MailTo
+INFO: Nodes: &node1;, &node2;
+OK: Ensure mail package is installed
+OK: Configure cluster resources</screen>
+      <para>Check whether your resource is integrated into your cluster
+          with <command>crm status</command>:</para>
+      <screen>&prompt.root;<command>crm status</command>
+[...]
+ Clone Set: c-sysadmin [sysadmin]
+     Started: [ &node1; &node2; ]</screen>
+</topic>
