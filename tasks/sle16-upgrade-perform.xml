@@ -10,7 +10,7 @@
 <!-- point back to this document with a similar comment added to your legacy doc piece -->
 <!-- refer to README.md for file and id naming conventions -->
 <!-- metadata is dealt with on the assembly level -->
-<topic xml:id="sle16-upgrade-preform"
+<topic xml:id="sle16-upgrade-perform"
  role="task" xml:lang="en"
  xmlns="http://docbook.org/ns/docbook" version="5.2"
  xmlns:its="http://www.w3.org/2005/11/its"
@@ -31,6 +31,12 @@
   <section xml:id="task-sle16-upgrade-requirements">
     <title>Requirements</title>
     <itemizedlist>
+      <listitem os="sleha;sles4sap">
+        <para>
+          The cluster services must be stopped on all nodes. Run <command>crm cluster status</command>
+          to make sure both &pace; and &corosync; are <literal>inactive</literal>.
+        </para>
+      </listitem>
       <listitem>
         <para>
           The system must be registered with the &scc; or an &rmt; server.
@@ -43,6 +49,12 @@
           The upgrade path must be supported. Currently, it is only possible to upgrade from 
           &productname; 15&nbsp;SP7 to 16.0. It is possible to configure other versions of
           &productname; as the migration target, but doing so is not a tested or supported use case.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          The upgrade target is set to &productnumber; instead of the default 16.0. Refer to
+          <xref linkend="reference-sle16-upgrade-distribution-migration-system"/> for details.
         </para>
       </listitem>
       <listitem>
@@ -76,25 +88,39 @@
   <section xml:id="task-sle16-upgrade-executing">
     <title>Upgrading to &productname; &productnumber;</title>
     <para>
-      The distribution migration process can be invoked using two different methods. One method
-      is the <command>run_migration</command> included with the <package>SLES16-Migration</package>
-      package. The second method to invoking the migration process is via reboot after installing
-      the <package>suse-migration-sle16-activation</package> package.
+      The distribution migration system can be invoked using two different methods:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Reboot after installing the <package>suse-migration-sle16-activation</package> package.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Run the <command>run_migration</command> command included with the
+          <package>SLES16-Migration</package> package.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para os="sleha;sles4sap">
+      The distribution migration system upgrades both the base operating system and the &ha;
+      cluster. Perform the upgrade on all the cluster nodes. The upgraded nodes won't be able to
+      connect to non-upgraded nodes.
     </para>
     <para>
-      Depending on your architecture, perform the following steps for your architecture to trigger
-      the upgrade:
+      Depending on your architecture, perform the following steps to trigger the upgrade:
     </para>
     <variablelist>
       <varlistentry>
-        <term>Use <command>reboot</command> on &x86-64;, &aarch64;, &ppc64le;</term>
+        <term>Use <command>reboot</command> on &x86-64;, &aarch64;, and &ppc64le;:</term>
         <listitem>
           <para>
             After installing the <package>suse-migration-sle16-activation</package> package, start
             the migration process by rebooting the system:
             </para>
-<screen>&prompt.sudo; <command>zypper</command> in suse-migration-sle16-activation
-&prompt.sudo; reboot</screen>
+<screen>&prompt.sudo;<command>zypper</command> in suse-migration-sle16-activation
+&prompt.sudo;<command>reboot</command></screen>
             <para>
               The <package>suse-migration-sle16-activation</package> package installs
               <package>SLES16-Migration</package> as a dependency and modifies the bootloader
@@ -109,10 +135,10 @@
             Modifying the boot loader configuration is not supported on &s390x;, so you start
             the migration directly with <command>run_migration</command>.
           </para>
-<screen>&prompt.sudo; <command>zypper</command> in SLES16-Migration
-&prompt.sudo; <command>run_migration</command></screen>
+<screen>&prompt.sudo;<command>zypper</command> in SLES16-Migration
+&prompt.sudo;<command>run_migration</command></screen>
           <para>
-            The <command>run_migration</command> utility uses <command>&kexec;</command> and does 
+            The <command>run_migration</command> utility uses <command>&kexec;</command> and does
             not work in &xen;-based environments. If <command>&kexec;</command> causes a kernel
             panic, refer to the TID at <link
              xlink:href="https://www.suse.com/support/kb/doc/?id=000019733"/> and set the
@@ -121,7 +147,12 @@
         </listitem>
       </varlistentry>
     </variablelist>
-  <!-- 
+    <para os="sleha;sles4sap">
+      After the upgrade, the &ha; cluster services will start automatically during system boot
+      (if the &pace; service is enabled). The cluster resources will start again when the upgraded
+      cluster stack is back online and reaches a quorate state.
+    </para>
+  <!--
   </section>
   <section xml:id="sle16-upgrade-summary">
     <title>Summary</title>
