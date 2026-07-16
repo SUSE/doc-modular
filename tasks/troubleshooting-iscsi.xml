@@ -36,13 +36,12 @@ The following are some known issues and possible solutions for iSCSI target and 
    </para>
 <screen>Problem setting network portal <replaceable>IP_ADDRESS</replaceable>:3260</screen>
    <para>
-    The <filename>/var/log/YasT2/y2log</filename> log file contains the
-    following error:
+    The <command>journalctl</command> command displays the following error:
    </para>
 <screen>find: `/sys/kernel/config/target/iscsi': No such file or directory</screen>
    <para>
     This problem occurs if the iSCSI LIO Target Server software is not
-    currently running. To resolve this issue, exit &yast;, manually start iSCSI
+    currently running. To resolve this issue, manually start iSCSI
     LIO at the command line with <command>systemctl start targetcli</command>,
     then try again.
    </para>
@@ -52,14 +51,10 @@ The following are some known issues and possible solutions for iSCSI target and 
     are loaded. A sample response is shown.
    </para>
 <screen>&prompt.sudo;lsmod | grep iscsi
-iscsi_target_mod      295015  0
-target_core_mod       346745  4
-iscsi_target_mod,target_core_pscsi,target_core_iblock,target_core_file
-configfs               35817  3 iscsi_target_mod,target_core_mod
-scsi_mod              231620  16
-iscsi_target_mod,target_core_pscsi,target_core_mod,sg,sr_mod,mptctl,sd_mod,
-scsi_dh_rdac,scsi_dh_emc,scsi_dh_alua,scsi_dh_hp_sw,scsi_dh,libata,mptspi,
-mptscsih,scsi_transport_spi</screen>
+  iscsi_target_mod      491520  7
+  target_core_mod       598016  15 target_core_file,target_core_iblock,iscsi_target_mod,target_core_pscsi,target_core_user
+  configfs               69632  3 iscsi_target_mod,target_core_mod
+  scsi_common            16384  10 scsi_mod,target_core_iblock,iscsi_target_mod,sd_mod,target_core_mod,target_core_pscsi,libata,sg,target_core_user,sr_mod</screen>
 </listitem>
 </varlistentry>
 <varlistentry><term>iSCSI LIO targets are not visible from other systems</term>
@@ -76,11 +71,9 @@ mptscsih,scsi_transport_spi</screen>
     <varlistentry><term>Using iSCSI volumes with LVM</term>
       <listitem><para>Use the troubleshooting tips in this section when using LVM on iSCSI
         targets.</para></listitem></varlistentry>
-        <varlistentry><term>Check if the iSCSI initiator discovery occurs at boot</term>
-          <listitem><para>When you set up the iSCSI Initiator, ensure that you enable discovery at
-            boot time so that udev can discover the iSCSI devices at boot time and set
-            up the devices to be used by LVM.</para></listitem></varlistentry>
-            <varlistentry><term>Check that iSCSI target discovery occurs at boot</term>
+        <varlistentry><term>Check if iSCSI targets connect automatically at boot</term>
+          <listitem><para>When configuring the iSCSI initiator, ensure that the iSCSI service and target nodes are set to start automatically at boot. This ensures that iSCSI sessions are established during startup, allowing <literal>udev</literal> to initialize the block devices so that LVM can detect and activate the volume groups.</para></listitem></varlistentry>
+            <varlistentry><term>Check that the iSCSI service automatically establishes target sessions during boot</term>
               <listitem><para>Remember that <filename>udev</filename> provides the default setup for
                 devices. Ensure that all of the applications that create devices are
                 started at boot time so that <command>udev</command> can recognize and
@@ -94,14 +87,8 @@ mptscsih,scsi_transport_spi</screen>
                     the configuration file.
                    </para>
                    <para>
-                    Check the
-                    <filename>/etc/iscsi/nodes/<replaceable>TARGET_NAME</replaceable>/<replaceable>IP_ADDRESS</replaceable>,<replaceable>PORT</replaceable>/default</filename>
-                    file. It contains a <literal>node.startup</literal> setting that overrides
-                    the <filename>/etc/iscsi/iscsid.conf</filename> file. Setting the mount
-                    option to manual by using the &yast; interface also sets
-                    <literal>node.startup = manual</literal> in the
-                    <filename>/etc/iscsi/nodes/<replaceable>TARGET_NAME</replaceable>/<replaceable>IP_ADDRESS</replaceable>,<replaceable>PORT</replaceable>/default
-                    </filename>files.
-                  </para></listitem></varlistentry>
+Avoid manually viewing or modifying the node database files. Instead, use the <command>iscsiadm</command> command to query the target configuration:</para>
+<screen>&prompt.sudo; iscsiadm -m node -T <replaceable>TARGET_NAME</replaceable> | grep node.startup</screen>
+                  </listitem></varlistentry>
               </variablelist>
 </topic>
