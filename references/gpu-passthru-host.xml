@@ -31,9 +31,9 @@
     <para>
      Verify that the host operating system is &sles; 16 or newer:
     </para>
-    <screen>&prompt.user;<command>cat /etc/issue</command></screen>
-    <para>Output:</para>
-    <screen>Welcome to SUSE Linux Enterprise Server 16.1  (x86_64) - Kernel \r (\l).</screen>
+    <screen>&prompt.user;<command>cat /etc/issue</command>
+
+Welcome to SUSE Linux Enterprise Server 16.1  (x86_64) - Kernel \r (\l).</screen>
    </step>
    <step>
     <para>
@@ -41,40 +41,59 @@
      VT-d technology and that it is
      already enabled in the firmware settings:
     </para>
-    <screen>&prompt.user;<command>dmesg | grep -e "Directed I/O"</command></screen>
-    <para>Output:</para>
-    <screen>[   12.819760] DMAR: Intel(R) Virtualization Technology for Directed I/O</screen>
-     <para>
-      If VT-d is not enabled in the firmware, enable it and reboot the
-      host.
-     </para>
+    <screen>&prompt.user;<command>dmesg | grep -e "Directed I/O"</command>
+
+[   12.819760] DMAR: Intel(R) Virtualization Technology for Directed I/O</screen>
+    <substeps>
+     <step>
+      <para>
+       If VT-d is not enabled in the firmware, enable it.
+      </para>
+     </step>
+     <step>
+      <para>
+       Reboot the host.
+      </para>
+     </step>
+    </substeps>
     </step>
    <step>
      <para>
       Verify that the host has an extra GPU or VGA card:
      </para>
-     <screen>&prompt.user;<command>lspci | grep -i "vga"</command></screen>
-      <para>Output:</para>
-      <screen>07:00.0 VGA compatible controller: Matrox Electronics Systems Ltd. \
+     <stepalternatives>
+      <step>
+       <para>
+        Check for a generic VGA-compatible controller:
+       </para>
+       <screen>&prompt.user;<command>lspci | grep -i "vga"</command>
+
+07:00.0 VGA compatible controller: Matrox Electronics Systems Ltd. \
   MGA G200e [Pilot] ServerEngines (SEP1) (rev 05)</screen>
-      <para>
-       With a Tesla V100 card:
-      </para>
-      <screen>&prompt.user;<command>lspci | grep -i nvidia</command></screen>
-      <para>Output:</para>
-      <screen>03:00.0 3D controller: NVIDIA Corporation GV100 [Tesla V100 PCIe] (rev a1)</screen>
-      <para>
-       With an A100 card:
-      </para>
-      <screen>&prompt.user;<command>lspci | grep -i nvidia</command></screen>
-      <para>Output:</para>
-      <screen>03:00.0 3D controller: NVIDIA Corporation A100-SXM4-40GB (rev a1)</screen>
-      <para>
-       With an L4 card:
-      </para>
-      <screen>&prompt.user;<command>lspci | grep -i nvidia</command></screen>
-      <para>Output:</para>
-      <screen>03:00.0 3D controller: NVIDIA Corporation L4 (rev a1)</screen>
+      </step>
+      <step>
+       <para>
+        Check for an &nvidia; card directly, for example with a Tesla V100 card:
+       </para>
+       <screen>&prompt.user;<command>lspci | grep -i nvidia</command>
+
+03:00.0 3D controller: NVIDIA Corporation GV100 [Tesla V100 PCIe] (rev a1)</screen>
+       <para>
+        The output varies by card model, for example:
+       </para>
+       <itemizedlist>
+        <listitem>
+         <para>Tesla V100: <literal>NVIDIA Corporation GV100 [Tesla V100 PCIe]</literal></para>
+        </listitem>
+        <listitem>
+         <para>A100: <literal>NVIDIA Corporation A100-SXM4-40GB</literal></para>
+        </listitem>
+        <listitem>
+         <para>L4: <literal>NVIDIA Corporation L4</literal></para>
+        </listitem>
+       </itemizedlist>
+      </step>
+     </stepalternatives>
      </step>
    </procedure>
   </section>
@@ -136,9 +155,9 @@
       identified in the host verification step, for
       example, <literal>03:00.0</literal>:
      </para>
-     <screen>&prompt.user;<command>lspci -nn | grep 03:00.0</command></screen>
-     <para>Output:</para>
-     <screen>03:00.0 3D controller [0302]: NVIDIA Corporation GV100 [Tesla V100 PCIe] [10de:1db4] (rev a1)</screen>
+     <screen>&prompt.user;<command>lspci -nn | grep 03:00.0</command>
+
+03:00.0 3D controller [0302]: NVIDIA Corporation GV100 [Tesla V100 PCIe] [10de:1db4] (rev a1)</screen>
     </step>
     <step>
      <para>
@@ -149,10 +168,12 @@
      <note>
       <title>Cards requiring an additional device ID</title>
       <para>
-       Verify that your card does not need an extra
-       <option>ids=</option> parameter. For certain cards, you must
-       specify the audio device too, therefore device's ID must also be
-       added to the list, otherwise you cannot use the card.
+       Some cards expose a separate audio function on the same bus and
+       slot, for example, <literal>03:00.1</literal>. Check for one with
+       <command>lspci -nn | grep 03:00</command>: if an audio device
+       shows up alongside the GPU, add its ID to the
+       <option>ids=</option> parameter too, otherwise you cannot use the
+       card.
       </para>
      </note>
     </step>
@@ -177,8 +198,8 @@
      <step>
       <para>
        Create the file
-       <filename>/etc/dracut.conf.d/gpu-passthrough.conf</filename> and
-       add the following content (mind the leading whitespace):
+       <filename>/etc/dracut.conf.d/gpu-passthrough.conf</filename> with
+       the following content (mind the leading whitespace):
       </para>
       <screen>add_drivers+=" vfio vfio_iommu_type1 vfio_pci vfio_virqfd"</screen>
      </step>
