@@ -20,8 +20,229 @@
     <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
     <abstract>
       <para>
+        Configuring the system for multipathing includes the following:
 </para>
     </abstract>
   </info>
-<para></para>
+    <section xml:id="multipath-configuration-start">
+      <title>Enabling, starting, and stopping multipath services</title>
+      <para>
+       To enable multipath services to start at boot time, run the following
+       command:
+      </para>
+   <screen>&prompt.sudo;systemctl enable multipathd</screen>
+      <para>
+       To manually start the service in the running system, enter:
+      </para>
+   <screen>&prompt.sudo;systemctl start multipathd</screen>
+      <para>
+       To restart the service, enter:
+      </para>
+   <screen>&prompt.sudo;systemctl restart multipathd</screen>
+      <para>
+       In most situations, restarting the service is not necessary. To simply have
+       <command>multipathd</command> reload its configuration, run:
+      </para>
+   <screen>&prompt.sudo;systemctl reload multipathd</screen>
+      <para>
+       To check the status of the service, enter:
+      </para>
+   <screen>&prompt.sudo;systemctl status multipathd</screen>
+      <para>
+       To stop the multipath services in the current session, run:
+      </para>
+   <screen>
+   &prompt.sudo;systemctl stop multipathd multipathd.socket
+      </screen>
+      <para>
+        Stopping the service does not remove existing multipath maps. To remove
+        unused maps, run:
+       </para>
+    <screen>&prompt.sudo;multipath -F</screen>
+       <warning>
+        <title>Keep <filename>multipathd.service</filename> enabled</title>
+        <para>
+         We strongly recommend keeping <filename>multipathd.service</filename>
+         always enabled and running on systems with multipath hardware. The service
+         does support <command>systemd</command>'s socket activation mechanism, but
+         we do not recommend that you rely on that. Multipath maps will not be set up
+         during boot if the service is disabled.
+        </para>
+       </warning>
+       <note xml:id="ann-multipath-configuration-disable">
+        <title>Disabling multipath</title>
+        <para>
+         If you need to disable multipath despite the warning above, for example,
+         because a third-party multipathing software is going to be deployed,
+         proceed as follows. Be sure that the system uses no hard-coded references
+         to multipath devices.
+        </para>
+        <para>
+         To disable multipathing <emphasis>just for a single system
+         boot</emphasis>, use the kernel parameter
+         <literal>multipath=off</literal>. This affects both the booted system and
+         the initramfs, which does not need to be rebuilt in this case.
+        </para>
+        <para>
+          To disable multipathd services <emphasis>permanently</emphasis>, so that
+          they will not be started on future system boots, run the following
+          commands:
+         </para>
+     <screen>&prompt.sudo;systemctl disable multipathd multipathd.socket
+     &prompt.sudo;dracut --force --omit multipath
+     </screen>
+         <para>
+          (Whenever you disable or enable the multipath services, rebuild the
+          <systemitem>initramfs</systemitem>.
+         </para>
+         <para>
+          If you want to make sure multipath devices do not get set up,
+          <emphasis>even when running <command>multipath</command>
+          manually</emphasis>, add the following lines at the end of
+          <filename>/etc/multipath.conf</filename> before rebuilding the initramfs:
+         </para>
+     <screen>blacklist {
+         wwid .*
+     }</screen>
+        </note>
+        </section>
+        <section xml:id="multipath-configuration-sandevs">
+          <title>Preparing SAN devices for multipathing</title>
+          <para>
+           Before configuring multipath I/O for your SAN devices, prepare the SAN
+           devices, as necessary, by doing the following:
+          </para>
+          <itemizedlist mark="bullet" spacing="normal">
+           <listitem>
+            <para>
+             Configure and zone the SAN with the vendor’s tools.
+            </para>
+           </listitem>
+           <listitem>
+            <para>
+             Configure permissions for host LUNs on the storage arrays with the
+             vendor’s tools.
+            </para>
+           </listitem>
+           <listitem>
+            <para>
+             If &productname; ships no driver for the host bus adapter (HBA), install
+             a Linux driver from the HBA vendor. See the vendor’s specific
+             instructions for more details.
+            </para>
+           </listitem>
+          </itemizedlist>
+          <para>
+           If multipath devices are detected and
+           <filename>multipathd.service</filename> is enabled, multipath maps should
+           be created automatically.
+           lists some shell commands that can be used to examine the situation. When
+           the LUNs are not seen by the HBA driver, check the zoning setup in the SAN.
+    In particular, check whether LUN masking is active and whether the LUNs are
+    correctly assigned to the server.
+   </para>
+   <para>
+    If the HBA driver can see LUNs, but no corresponding block devices are
+    created, additional kernel parameters may be needed. See <citetitle>TID
+    3955167: Troubleshooting SCSI (LUN) Scanning Issues</citetitle> in the
+    &suse; Knowledge base at
+    <link xlink:href="https://www.suse.com/support/kb/doc.php?id=3955167"/>.
+   </para>
+   </section>
+   <section xml:id="multipath-configuration-partitioning">
+    <title>Partitions on multipath devices and <command>kpartx</command></title>
+    <para>
+     Multipath maps can have partitions like their path devices. Partition table
+     scanning and device node creation for partitions is done in user space by
+     the <command>kpartx</command> tool. <command>kpartx</command> is
+     automatically invoked by udev rules; there is usually no need to run it
+     manually.
+    </para>
+    <note>
+     <title>Disabling invocation of <command>kpartx</command></title>
+     <para>
+      The <literal>skip_kpartx</literal> option in
+      <filename>/etc/multipath.conf</filename> can be used to disable invocation
+      of <command>kpartx</command> on selected multipath maps. This may be
+      useful on virtualization hosts, for example.
+     </para>
+    </note>
+    <para>
+     Partition tables and partitions on multipath devices can be manipulated as
+     usual, using tools like <command>fdisk</command> or
+     <command>parted</command>. Changes applied to the partition table will be
+     noted by the system when the partitioning tool exits. If this does not work
+     (usually because a device is busy), try <command>multipathd
+     reconfigure</command>, or reboot the system.
+    </para>
+   </section>
+   <section xml:id="sec-multipath-initrd-sync">
+    <title>Keeping the initramfs synchronized</title>
+    <important>
+     <para>
+      Make sure that the initial RAM file system (initramfs) and the booted
+      system behave consistently regarding the use of multipathing for all block
+      devices. Rebuild the initramfs after applying multipath configuration
+      changes.
+     </para>
+    </important>
+    <para>
+     If multipathing is enabled in the system, it also needs to be enabled in
+     the <filename>initramfs</filename> and vice versa. </para>
+    <para>
+     The multipath configuration must be synchronized between the booted system
+     and the initramfs. Therefore, if you change any of the files:
+     <filename>/etc/multipath.conf</filename>,
+     <filename>/etc/multipath/wwids</filename>,
+     <filename>/etc/multipath/bindings</filename>, or other configuration files,
+     or udev rules related to device identification, rebuild initramfs using the
+     command:
+    </para>
+ <screen>&prompt.sudo;dracut -f</screen>
+    <para>
+     If the <filename>initramfs</filename> and the system are not synchronized,
+     the system will not boot properly, and the start-up procedure may result in
+     an emergency shell. </para>
+     <para><emphasis role="bold">Enabling or disabling multipathing in the initramfs</emphasis></para>
+     <para>Special care must be taken if the initramfs is rebuilt in non-standard
+      situations, for example, from a rescue system or after booting with the
+      kernel parameter <literal>multipath=off</literal>.
+      <command>dracut</command> will automatically include multipathing support
+      in the initramfs if and only if it detects that the root file system is on
+      a multipath device while the initramfs is being built. In such cases, it
+      is necessary to enable or disable multipathing explicitly.</para>
+      <para>
+        To enable multipath support in the <filename>initramfs</filename>, run the
+        command:
+       </para>
+   <screen>&prompt.sudo;dracut --force --add multipath</screen>
+       <para>
+        To disable multipath support in <filename>initramfs</filename>, run the
+        command:
+       </para>
+   <screen>&prompt.sudo;dracut --force --omit multipath</screen>
+   <para><emphasis role="bold">Persistent device names in the initramfs</emphasis></para>
+   <para>
+    When <command>dracut</command> generates the initramfs, it must refer to
+    disks and partitions to be mounted in a persistent manner, to make sure
+    the system will boot correctly. When <command>dracut</command> detects
+    multipath devices, it will use the DM-MP device names such as
+   </para>
+<screen>/dev/mapper/3600a098000aad73f00000a3f5a275dc8-part1</screen>
+   <para>
+    for this purpose by default. This is good if the system
+    <emphasis>always</emphasis> runs in multipath mode. But if the system is
+    started without multipathing. Booting with such an
+    initramfs will fail, because the <filename>/dev/mapper</filename> devices
+    will not exist.
+   </para>
+   <para>
+    To prevent this from happening, change <command>dracut</command>'s
+    persistent device naming policy by using the
+    <option>--persistent-policy</option> option. We recommend setting the
+    <literal>by-uuid</literal> use policy:
+   </para>
+<screen>&prompt.sudo;dracut --force --omit multipath --persistent-policy=by-uuid</screen>
+ </section>
+
 </topic>

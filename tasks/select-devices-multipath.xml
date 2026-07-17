@@ -19,9 +19,269 @@
     <title> Selecting devices for multipathing</title>
     <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
     <abstract>
-      <para>
+      <para> On systems with multipath devices, you might want to avoid setting up
+        multipath maps on some devices (typically local disks).
+        <systemitem>multipath-tools</systemitem> offers various means for
+        configuring which devices should be considered multipath path devices.
 </para>
     </abstract>
   </info>
-<para></para>
+  <note>
+    <title>multipath on local disks</title>
+    <para>
+     In general, there is nothing wrong with setting up &ldquo;degraded&rdquo;
+     multipath maps with just a single device on top of local disks. It works
+     fine and requires no extra configuration. However, some administrators find
+     this confusing or generally oppose this sort of unnecessary multipathing.
+     Also, the multipath layer causes a slight performance overhead.
+    </para>
+   </note>
+   <para>
+    After modifying the <filename>/etc/multipath.conf</filename> file, apply
+    your settings. </para>
+    <section xml:id="sec-multipath-blacklist">
+      <title>The <literal>blacklist</literal> section in <filename>multipath.conf</filename></title>
+      <para>
+       The <filename>/etc/multipath.conf</filename> file can contain a
+       <literal>blacklist</literal> section that lists all devices that should be
+       ignored by <command>multipathd</command> and <command>multipath</command>.
+       The following example illustrates possible ways of excluding devices:
+      </para>
+      <informalexample>
+   <screen>blacklist {
+       wwid 3600605b009e7ed501f0e45370aaeb77f <co xml:id="mp-co-bl-wwid"/>
+       device {  <co xml:id="mp-co-bl-device"/>
+           vendor ATA
+           product .*
+       }
+       protocol scsi:sas <co xml:id="mp-co-bl-prot"/>
+       property SCSI_IDENT_LUN_T10 <co xml:id="mp-co-bl-prop"/>
+       devnode "!^dasd[a-z]*" <co xml:id="mp-co-bl-devnode"/>
+   }</screen>
+       <calloutlist>
+        <callout arearefs="mp-co-bl-wwid">
+         <para>
+          <literal>wwid</literal> entries are ideal for excluding specific
+          devices, for example, the root disk.
+         </para>
+        </callout>
+        <callout arearefs="mp-co-bl-device">
+         <para>
+          This <literal>device</literal> section excludes all ATA devices (the
+          regular expression for <literal>product</literal> matches anything).
+        </para>
+      </callout>
+      <callout arearefs="mp-co-bl-prot">
+       <para>
+        Excluding by <literal>protocol</literal> allows excluding devices using
+        certain bus types, here SAS. Other common protocol values are
+        <literal>scsi:fcp</literal>, <literal>scsi:iscsi</literal>, and
+        <literal>ccw</literal>. See <systemitem>multipath.conf(5)</systemitem>
+        for more. To see the protocols that paths in your systems are using,
+        run:
+       </para>
+ <screen>&prompt.sudo;multipathd show paths format "%d %P"</screen>
+       <para>
+        This form is supported since &productnameshort;&nbsp;15 SP1 and
+        &productnameshort;&nbsp;12 SP5.
+       </para>
+      </callout>
+      <callout arearefs="mp-co-bl-prop">
+       <para>
+        This <literal>property</literal> entry excludes devices that have a
+        certain udev property (no matter what the value of the property is).
+       </para>
+      </callout>
+      <callout arearefs="mp-co-bl-devnode">
+       <para>
+        Excluding devices by <literal>devnode</literal> is only recommended for
+        classes of devices using regular expressions, like in the example, which
+        excludes everything but DASD devices. Using this for individual devices
+        like <filename>sda</filename> is discouraged because device node names
+        are not persistent.
+       </para>
+       <para>
+        The example illustrates special syntax that is only supported in the
+       <literal>blacklist</literal> and <literal>blacklist_exceptions</literal>
+       sections: Prefixing the regular expression with an exclamation mark
+       (<literal>!</literal>) negates the match. Note that the exclamation mark
+       must appear within double quotes.
+      </para>
+     </callout>
+    </calloutlist>
+   </informalexample>
+   <para>
+    By default, <systemitem>multipath-tools</systemitem> ignores all devices
+    except SCSI, DASD or NVMe. Technically, the built-in devnode exclude list
+    is this negated regular expression:
+   </para>
+<screen>    devnode !^(sd[a-z]|dasd[a-z]|nvme[0-9])</screen>
+  </section>
+  <section xml:id="sec-multipath-blacklist-exceptions">
+    <title>The <literal>blacklist exceptions</literal> section in <filename>multipath.conf</filename></title>
+    <para>
+     Sometimes, it is desired to configure only very specific devices for
+     multipathing. In this case, devices are excluded by default, and exceptions
+     are defined for devices that should be part of a multipath map. The
+     <literal>blacklist_exceptions</literal> section exists for this purpose. It
+     is typically used like in the following example, which excludes everything
+     except storage with product string &ldquo;NETAPP&rdquo;:
+    </para>
+ <screen>blacklist {
+      wwid .*
+ }
+ blacklist_exceptions {
+      device {
+          vendor ^NETAPP$
+          product .*
+      }
+ }</screen>
+    <para>
+     The <literal>blacklist_exceptions</literal> section supports all methods
+     described for the <literal>blacklist</literal> section above.
+    </para>
+    <para>
+     The <literal>property</literal> directive in
+     <literal>blacklist_exceptions</literal> is mandatory because every device
+     <emphasis>must</emphasis> have at least one of the &ldquo;allowed&rdquo;
+     udev properties to be considered a path device for multipath (the value of
+     the property does not matter). The built-in default for
+     <literal>property</literal> is
+    </para>
+    <screen>    property (SCSI_IDENT_|ID_WWN)</screen>
+   <para>
+    Only devices that have at least one udev property matching this regular
+    expression will be included.
+   </para>
+  </section>
+  <section xml:id="sec-multipath-device-select-other">
+    <title>Other options affecting device selection</title>
+    <para>
+     Besides the <literal>blacklist</literal> options, there are several other
+     settings in <filename>/etc/multipath.conf</filename> that affect which
+     devices are considered multipath path devices.
+    </para>
+    <variablelist>
+     <varlistentry>
+      <term>find_multipaths</term>
+      <listitem>
+       <para>
+        This option controls the behavior of <command>multipath</command> and
+        <command>multipathd</command> when a device that is not excluded is
+        first encountered. The possible values are:
+       </para>
+       <variablelist>
+        <varlistentry>
+         <term>greedy</term>
+         <listitem>
+          <para>
+           Every device non-excluded by <literal>blacklist</literal> in
+           <filename>/etc/multipath.conf</filename> is included. This is the
+           default on &sle;. If this setting is active, the only way to prevent
+           devices from being added to multipath maps is setting them as
+           excluded.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+       <term>strict</term>
+       <listitem>
+        <para>
+         Every device is excluded, even if it is not present in the
+         <literal>blacklist</literal> section of
+         <filename>/etc/multipath.conf</filename>, unless its WWID is listed
+         in the file <filename>/etc/multipath/wwids</filename>. It requires
+         manual maintenance of the WWIDs file (see note below).
+        </para>
+       </listitem>
+      </varlistentry>
+      <varlistentry>
+       <term>yes</term>
+       <listitem>
+        <para>
+         Devices are included if they meet the conditions for
+         <literal>strict</literal>, or if at least one other device with the
+         same WWID exists in the system.
+        </para>
+       </listitem>
+      </varlistentry>
+      <varlistentry>
+       <term>smart</term>
+       <listitem>
+        <para>
+         If a new WWID is first encountered, it is temporarily marked as
+         multipath path device. <command>multipathd</command> waits for some
+          time for additional paths with the same WWID to appear. If this
+          happens, the multipath map is set up as usual. Otherwise, when the
+          timeout expires, the single device is released to the system as
+          a non-multipath device. The timeout is configurable with the option
+          <option>find_multipaths_timeout</option>.
+         </para>
+         <para>
+          This option depends on <command>systemd</command> features which are
+          only available on &sles;&nbsp;15.
+         </para>
+        </listitem>
+       </varlistentry>
+      </variablelist>
+      <note>
+       <title>Maintaining <filename>/etc/multipath/wwids</filename></title>
+       <para>
+        <systemitem>multipath-tools</systemitem> keeps a record of previously
+        setup multipath maps in the file
+        <filename>/etc/multipath/wwids</filename> (the &ldquo;WWIDs
+        file&rdquo;). Devices with WWIDs listed in this file are considered
+        multipath path devices. The file is important for multipath device
+        selection for all values of <option>find_multipaths</option> except
+        <literal>greedy</literal>.
+       </para>
+       <para>
+        If <option>find_multipaths</option> is set to <literal>yes</literal> or
+        <literal>smart</literal>, <command>multipathd</command> adds WWIDs to
+        <filename>/etc/multipath/wwids</filename> after setting up new maps, so
+        that these maps will be detected more quickly in the future.
+       </para>
+       <para>
+        The WWIDs file can be manually modified:
+       </para>
+       <informalexample>
+<screen>
+&prompt.sudo;multipath -a 3600a098000aad1e3000064e45f2c2355 <co xml:id="mp-co-wwid-a"/>
+&prompt.sudo;multipath -w /dev/sdf <co xml:id="mp-co-wwid-w"/>
+       </screen>
+        <calloutlist>
+         <callout arearefs="mp-co-wwid-a">
+          <para>
+           This command adds the given WWID to
+           <filename>/etc/multipath/wwids</filename>.
+          </para>
+         </callout>
+         <callout arearefs="mp-co-wwid-w">
+          <para>
+           This command removes the WWID of the given device.
+          </para>
+         </callout>
+        </calloutlist>
+       </informalexample>
+       <para>
+        In the <literal>strict</literal> mode, this is the only way to add new
+        multipath devices. After modifying the WWIDs file, run
+        <command>multipathd reconfigure</command> to apply the changes. We
+        recommend rebuilding the initramfs after applying changes to the WWIDs
+        file.
+       </para>
+      </note>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term>allow_usb_devices</term>
+     <listitem>
+      <para>
+       If this option is set to <literal>yes</literal>, USB storage devices are
+       considered for multipathing. The default is <literal>no</literal>.
+      </para>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+  </section>
 </topic>
