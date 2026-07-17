@@ -50,7 +50,7 @@
       </listitem>
       <listitem>
         <para>
-          Installation repositories available under <filename>/srv/install</filename>
+          Installation repositories available under <filename>/srv/www/htdocs/install</filename>
         </para>
       </listitem>
       <listitem>
@@ -108,9 +108,9 @@ http {
             autoindex  on;
         }
 
-        # Expose installation repositories and profiles
+        # Installation repositories are served directly from
+        # /srv/www/htdocs/install through the location / block above
         location /install {
-            alias      /srv/install;
             autoindex  on;
         }
     }
@@ -226,7 +226,7 @@ EOF
           <para>
             Check if the install directory exists:
           </para>
-<screen>&prompt.user;<command>ls -la /srv/install/</command></screen>
+<screen>&prompt.user;<command>ls -la /srv/www/htdocs/install/</command></screen>
         </step>
         <step>
           <para>
@@ -238,30 +238,31 @@ EOF
           <para>
             Create missing directories if needed:
           </para>
-<screen>&prompt.sudo;<command>mkdir -p /srv/install</command></screen>
+<screen>&prompt.sudo;<command>mkdir -p /srv/www/htdocs/install</command></screen>
         </step>
         <step>
           <para>
             Set appropriate permissions:
           </para>
-<screen>&prompt.sudo;<command>chmod -R 755 /srv/tftpboot/boot /srv/install</command></screen>
+<screen>&prompt.sudo;<command>chmod -R 755 /srv/tftpboot/boot /srv/www/htdocs/install</command></screen>
         </step>
         <step>
          <para>
-          If nginx still cannot serve files from <filename>/srv/install</filename>, the
-          directory may require additional &selnx; file context configuration. Run the
-          following commands to equivalence <filename>/srv/install</filename> to
-          <filename>/srv/www</filename> and restore the file context:
+          If nginx still cannot serve files from <filename>/srv/tftpboot/boot</filename>, restore
+          the &selnx; file context after placing or moving files into these directories:
          </para>
-<screen>&prompt.sudo;<command>semanage fcontext -e /srv/www -a /srv/install</command></screen>
-<screen>&prompt.sudo;<command>restorecon -RFv /srv/install/</command></screen>
+<screen>&prompt.sudo;<command>restorecon -Rv /srv/www/htdocs/install</command></screen>
+<screen>&prompt.sudo;<command>restorecon -Rv /srv/tftpboot/boot</command></screen>
          <note>
-          <title>&selnx; file context for <filename>/srv/install</filename></title>
+          <title>Verifying &selnx; access</title>
           <para>
-           This step may be required in addition to
-           <command>setsebool -P httpd_serve_cobbler_files=1</command>. Use
-           <command>ausearch -m avc -ts recent</command> to check for &selnx; denials
-           before and after applying these changes.
+           This step is needed in addition to
+           <command>setsebool -P httpd_serve_cobbler_files=1</command>. Run
+           <command>ausearch -m avc -ts recent</command> to check for &selnx; denials; the
+           command should produce no output once access is set up correctly. Do not work around
+           remaining denials with <command>audit2allow</command> &mdash; instead check the file
+           context with <command>ls -lZ</command> or <command>matchpathcon</command> and confirm
+           the required booleans are enabled.
           </para>
          </note>
        </step>
