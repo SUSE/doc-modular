@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="multipath-troubleshooting"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title> Multipath troubleshooting</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>If a system runs into emergency mode on a system with multipath, printing
+        messages about missing devices, the reason is almost always one of these:
+</para>
+    </abstract>
+  </info>
+  <itemizedlist>
+    <listitem>
+     <para>
+      Inconsistent configuration of multipath device selection
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      Use of non-existing device references
+     </para>
+    </listitem>
+   </itemizedlist>
+   <section xml:id="multipath-trouble-select">
+    <title>Understanding device selection issues</title>
+    <para>
+     A block device can only either be part of a multipath map or be used
+     directly (mounted as file system, used as swap, LVM physical volume, or
+     otherwise). If a device is already mounted, an attempt by multipathd to
+     make it part of a multipath map will fail with a &ldquo;Device or resource
+     busy&rdquo; error. Vice-versa, the same error results if
+     <command>systemd</command> attempts to mount a device that has already
+     been made part of a multipath map.
+    </para>
+    <para>
+     Storage device activation during boot is handled by a complex interaction
+     between <command>systemd</command>, <systemitem>udev</systemitem>,
+     <command>multipathd</command> and some other tools.
+     <systemitem>udev</systemitem> rules play a central role. They set device
+     properties that indicate to other subsystems how a device should be used.
+     The multipath-related udev rules set the following properties for devices
+     that are selected for multipathing:
+    </para>
+ <screen>SYSTEMD_READY=0
+ DM_MULTIPATH_DEVICE_PATH=1</screen>
+    <para>
+     Partition devices inherit these properties from their parents.
+    </para>
+    <para>
+     If these properties are not set correctly, if some tool does not respect
+     them, or if they get set too late, a race condition between
+     <command>multipathd</command> and some other subsystem may result. Only one
+     of the contenders can win the race; the other one will see a &ldquo;Device
+     or resource busy&rdquo; error.
+    </para>
+    <para>
+      One problem in this context is that the tools of the LVM2 suite do not
+      evaluate udev properties by default. They rely on their own logic for
+      determining whether a device is a multipath component, which sometimes does
+      not match the logic of the rest of the system.
+     </para>
+     <note>
+      <title>Example of boot deadlock</title>
+      <para>
+       Consider a system with multipathing where the root device is not
+       multipathed, and no devices are excluded from multipath. The root file
+       system is mounted in the initramfs. <command>systemd</command> switches to
+       the root file system and <command>multipathd</command> starts up. Because
+       the device is already mounted, <command>multipathd</command> fails to set
+       up the multipath map for it. Because the root device is not configured in
+       <literal>blacklist</literal>, it is considered a multipath device, and
+       <literal>SYSTEMD_READY=0</literal> is set for it.
+      </para>
+      <para>
+       Later in the boot process, the system attempts to mount additional file
+       systems like <filename>/var</filename> and <filename>/home</filename>.
+       Usually, these file systems will be on the same device as the root file
+       system, by default as BTRFS subvolumes of the root file system itself. But
+       systemd cannot mount them because of <literal>SYSTEMD_READY=0</literal>.
+       <emphasis>We are in a deadlock</emphasis>: The dm-multipath device cannot
+       be created, and the underlying device is blocked for systemd. The
+       additional file systems cannot be mounted, resulting in boot failure.
+      </para>
+      <para>
+       <emphasis role="bold">A solution to this problem already
+        exists.</emphasis> <command>multipathd</command> detects this situation
+     and releases the device to <command>systemd</command> which can then
+     proceed mounting the file system. However, it is important to understand
+     the general problem, which can still occur in more subtle ways.
+    </para>
+   </note>
+  </section>
+  <section xml:id="multipath-trouble-ref">
+    <title>Understanding device referencing issues</title>
+    <para>
+     Typically, there are multiple symbolic links pointing to a device node.
+      But these links do not always
+     exist; <command>udev</command> creates them according to the current udev
+     rules. For example, if multipathing is off, symbolic links under
+     <filename>/dev/mapper/</filename> for multipath devices will be missing.
+     Thus, any reference to a <filename>/dev/mapper/</filename> device will
+     fail.
+    </para>
+    <para>
+     Such references can appear in various places, notably in
+     <filename>/etc/fstab</filename> and <filename>/etc/crypttab</filename>, in
+     the initramfs, or even on the kernel command line.
+    </para>
+    <para>
+     The safest way to circumvent this problem is to avoid using the kind of
+     device references that are not persistent between boots or depend on system
+     configuration. We generally recommend referring to file systems (and
+     similar entities like swap space) by properties of the file system itself
+     (like UUID or label) rather than the containing device. If such references
+     are not available and device references are required, for example, in
+     <filename>/etc/crypttab</filename>, the options should be evaluated
+     carefully.
+    </para>
+   </section>
+   <section xml:id="multipath-trouble-steps">
+    <title>Troubleshooting steps in emergency mode</title>
+    <para>
+     As there are many error situations that differ in subtle ways, it is
+     impossible to provide a step-by-step recovery guide. But with the
+     background knowledge from the previous subsections, you should be able to
+     figure out the problem if a system runs into emergency mode because of
+     multipathing issues. Before you begin debugging, make sure you have checked
+     the following questions:
+    </para>
+    <itemizedlist>
+     <listitem>
+      <para>
+       Is the multipath service enabled?
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+       Is the multipath dracut module included in the initramfs?
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+       Is my root device configured as a multipath device? If not, is the root
+       device properly excluded from multipath, or are you relying on the
+       absence of the multipath module in the initramfs?
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+        Does the system enter emergency mode before or after switching to the
+      real root file system?
+     </para>
+    </listitem>
+   </itemizedlist>
+   <para>
+    If you are unsure with respect to the last question, here is a sample
+    dracut emergency prompt as it would be printed before switching root:
+   </para>
+<screen>Generating "/run/initramfs/rdsosreport.txt"
+Entering emergency mode. Exit the shell to continue.
+Type "journalctl" to view system logs.
+
+You might want to save "/run/initramfs/rdsosreport.txt" to a USB stick or /boot
+after mounting them and attach it to a bug report.
+
+Give root password for maintenance
+(or press Control-D to continue):</screen>
+   <para>
+    The mention of <filename>rdsosreport.txt</filename> is a clear indication
+    that the system is still running from the initramfs. If you are still
+    uncertain, log in and check for the existence of the file
+    <filename>/etc/initrd-release</filename>. This file exists only in an
+    initramfs environment.
+  </para>
+  <para>
+   If emergency mode is entered after switching root, the emergency prompt
+   looks similar, but <filename>rdsosreport.txt</filename> is not mentioned:
+  </para>
+<screen>Timed out waiting for device dev-disk-by\x2duuid-c4a...cfef77d.device.
+[DEPEND] Dependency failed for Local File Systems.
+[DEPEND] Dependency failed for Postfix Mail Transport Agent.
+Welcome to emergency shell
+Give root password for maintenance
+(or press Control-D to continue):</screen>
+  <procedure>
+   <title>Steps for analyzing the situation in emergency mode</title>
+   <step>
+    <para>
+     Try to figure out what failed by examining failed systemd units and the
+     journal.
+    </para>
+<screen>&prompt.root;systemctl --failed
+&prompt.root;journalctl -b -o short-monotonic</screen>
+    <para>
+     When looking at the journal, determine the <emphasis>first</emphasis>
+     failed unit. When you have found the first failure, examine the messages
+     before and around that point in time very carefully. Are there any
+     warnings or other suspicious messages?
+    </para>
+    <para>
+     Watch out for the root switch ("<literal>Switching root.</literal>") and
+     for messages about SCSI devices, device mapper, multipath and LVM2. Look
+     for <command>systemd</command> messages about devices and file systems
+     ("<literal>Found device</literal>…", "<literal>Mounting</literal>…",
+     "<literal>Mounted</literal>…").
+    </para>
+   </step>
+   <step>
+    <para>
+     Examine the existing devices, both low-level devices and device mapper
+     devices (note that some of the commands below may not be available in the
+     initramfs):
+    </para>
+<screen>&prompt.root;cat /proc/partitions
+&prompt.root;ls -l /sys/class/block
+&prompt.root;ls -l /dev/disk/by-id/* /dev/mapper/*
+&prompt.root;dmsetup ls --tree
+&prompt.root;lsblk
+&prompt.root;lsscsi
+</screen>
+    <para>
+     From the output of the commands above, you should get an idea whether the
+     low-level devices were successfully probed, and whether any multipath
+     maps and multipath partitions were set up.
+    </para>
+   </step>
+   <step>
+    <para>
+     If the device mapper multipath setup is not as you expect, examine the
+     udev properties, in particular, <literal>SYSTEMD_READY</literal> (see
+     above)
+    </para>
+<screen>&prompt.root;udevadm info -e</screen>
+   </step>
+   <step>
+    <para>
+     If the previous step showed unexpected udev properties, something may
+     have gone wrong during udev rule processing. Check other properties, in
+     particular, those used for device identification.
+     If the udev properties are correct, check the journal for
+     <command>multipathd</command> messages again. Look for "<literal>Device
+     or resource busy</literal>" messages.
+    </para>
+   </step>
+   <step>
+    <para>
+     If the system failed to mount or otherwise activate a device, it is often
+     helpful to try activating this device manually:
+    </para>
+<screen>&prompt.root;mount /var
+&prompt.root;swapon -a
+&prompt.root;vgchange -a y</screen>
+    <para>
+     Mostly, the manual activation will succeed and allow to proceed with
+     system boot (usually by simply logging out from the emergency shell) and
+      examine the situation further in the booted system.
+     </para>
+     <para>
+      If manual activation fails, you will probably see error messages that
+      provide clues about what is going wrong. You can also try the commands
+      again with increased verbosity.
+     </para>
+    </step>
+    <step>
+     <para>
+      At this point, you should have some idea what went wrong (if not, contact
+      &suse; support and be prepared to answer most of the questions raised
+      above).
+     </para>
+     <para>
+      You should be able to correct the situation with a few shell commands,
+      exit the emergency shell, and boot successfully. You will still need to
+      adjust your configuration to make sure the same problem will not occur
+      again in the future.
+     </para>
+     <para>
+      Otherwise, you will need to boot the rescue system, set up the devices
+      manually to <command>chroot</command> into the real root file system, and
+      attempt to fix the problem based on the insight you got in the previous
+      steps. Be aware that in this situation, the storage stack for the root
+      file system may differ from normal. Depending on your setup, you may have
+      force addition or omission of dracut modules when building a new
+      initramfs.
+     </para>
+    </step>
+    <step>
+     <para>
+      If the problem occurs frequently or even on every boot attempt, try
+      booting with increased verbosity in order to get more information about
+      the failure. The following kernel parameters, or a combination of them,
+      are often helpful:
+     </para>
+     <informalexample>
+<screen>udev.log-priority=debug<co xml:id="mp-co-kparm-udev"/>
+systemd.log_level=debug<co xml:id="mp-co-kparm-sl"/>
+scsi_mod.scsi_logging_level=020400<co xml:id="mp-co-kparm-sc"/>
+rd.debug<co xml:id="mp-co-kparm-rd"/>
+          </screen>
+      <calloutlist>
+       <callout arearefs="mp-co-kparm-udev">
+        <para>
+         Increase the log level of <command>systemd-udevd</command> and udev
+         rule processing.
+        </para>
+       </callout>
+       <callout arearefs="mp-co-kparm-sl">
+        <para>
+         Increase the log level of <command>systemd</command>.
+        </para>
+       </callout>
+       <callout arearefs="mp-co-kparm-sc">
+        <para>
+         Increase the logging level of the kernel's SCSI subsystem.
+        </para>
+       </callout>
+       <callout arearefs="mp-co-kparm-rd">
+        <para>
+         Trace the scripts in the initramfs.
+        </para>
+       </callout>
+      </calloutlist>
+     </informalexample>
+     <para>
+      In addition, it may make sense to enable logging for certain drivers and
+      configure a serial console to capture the output during boot.
+     </para>
+    </step>
+   </procedure>
+   </section>
+   <section xml:id="multipath-trouble-tids">
+    <title>Technical information documents</title>
+    <para>
+     For more information about troubleshooting multipath I/O issues on SUSE
+     Linux Enterprise Server, see the following Technical Information Documents
+     (TIDs) in the &suse; Knowledgebase:
+    </para>
+    <itemizedlist mark="bullet" spacing="normal">
+     <listitem>
+      <para>
+       <link xlink:href="https://www.suse.com/support/kb/doc/?id=000016331"><citetitle>Using
+       LVM on local and SAN attached devices</citetitle></link>
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+       <link xlink:href="https://www.suse.com/support/kb/doc/?id=000017521"><citetitle>Using
+       LVM on Multipath (DM MPIO) Devices</citetitle></link>
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+       <link xlink:href="https://www.suse.com/support/kb/doc/?id=000017762"><citetitle>HOWTO:
+       Add, Resize and Remove LUN without restarting &slsa;</citetitle></link>
+      </para>
+     </listitem>
+    </itemizedlist>
+   </section>
+</topic>

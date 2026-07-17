@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="plan-multipath"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Planning for multipath deployments</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+Use the guidelines in this section when planning your multipath I/O solution.
+</para>
+    </abstract>
+  </info>
+  <section xml:id="multipath-plan-prereqs">
+ <title>Prerequisites</title>
+   <itemizedlist mark="bullet" spacing="normal">
+    <listitem>
+     <para>
+      The storage array you use for the multipathed device must support
+      multipathing.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      You need to configure multipathing only if multiple physical paths exist
+      between host bus adapters in the server and host bus controllers for the
+      block storage device.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      For some storage arrays, the vendor provides its own multipathing
+      software to manage multipathing for the array’s physical and logical
+      devices. In this case, you should follow the vendor’s instructions for
+      configuring multipathing for those devices.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      When using multipathing in a virtualization environment, the multipathing
+      is controlled in the host server environment. Configure multipathing for
+      the device before you assign it to a virtual guest machine.
+     </para>
+    </listitem>
+   </itemizedlist>
+ </section>
+ <section xml:id="multipath-plan-install">
+  <title>Multipath installation types</title>
+  <para>
+   We distinguish installation types by the way the root device is handled.
+   </para>
+
+   <variablelist>
+<varlistentry>
+ <term>Root file system on multipath (SAN-boot)</term>
+ <listitem><para>The root file system is on a multipath device. This is typically the case
+  for diskless servers that use SAN storage exclusively. On such systems,
+  multipath support is required for booting, and multipathing must be
+  enabled in the initramfs.</para></listitem>
+ </varlistentry>
+ <varlistentry>
+  <term>Root file system on a local disk</term>
+  <listitem><para>The root file system (and possibly some other file systems) is on local
+    storage, for example, on a directly attached SATA disk or local RAID, but
+    the system additionally uses file systems in the multipath SAN storage.
+    This system type can be configured in three different ways:</para>
+  <variablelist><varlistentry><term>Multipath setup for local disk</term><listitem><para>All block devices are part of multipath maps, including the local disk.
+    The root device appears as a degraded multipath map with just one path.
+    This configuration is created if multipathing was enabled during the
+    initial system installation.</para></listitem></varlistentry></variablelist>
+    <variablelist><varlistentry><term>Local disk is excluded from multipath</term><listitem><para> In this configuration, multipathing is enabled in the initramfs, but
+      the root device is explicitly excluded from multipath.</para></listitem></varlistentry></variablelist>
+      <variablelist><varlistentry><term>Multipath disabled in the initramfs</term><listitem><para>This setup is created if multipathing was not enabled during the
+        initial system installation. This configuration is rather fragile; consider using one of the other options instead.</para></listitem></varlistentry></variablelist>
+  </listitem>
+  </varlistentry>
+   </variablelist>
+</section>
+<section xml:id="multipath-plan-disk-mgt">
+  <title>Disk management tasks</title>
+  <para>
+   Use third-party SAN array management tools or the user interface of your
+   storage array to create logical devices and assign them to hosts. Make sure
+   to configure the host credentials correctly on both sides.
+  </para>
+  <para>
+   You can add or remove volumes to a running host, but detecting the changes
+   may require rescanning SCSI targets and reconfiguring multipathing on the
+   host.
+  </para>
+  <note>
+   <title>Storage processors</title>
+   <para>
+    On some disk arrays, the storage array manages the traffic through storage
+    processors. One processor is active and the other one is passive until
+    there is a failure. If you are connected to the passive storage processor,
+    you might not see the expected LUNs, or you might see the LUNs but
+    encounter I/O errors when you try to access them.
+   </para>
+   <para>
+    If a disk array has more than one storage processor, ensure that the SAN
+    switch has a connection to the active storage processor that owns the LUNs
+    you want to access.
+   </para>
+  </note>
+</section>
+<section xml:id="multipath-plan-raid">
+  <title>Software RAID and complex storage stacks</title>
+  <para>
+   Multipathing is set up on top of basic storage devices such as SCSI disks.
+   In a multi-layered storage stack, multipathing is always the bottom layer.
+   Other layers such as software RAID, Logical Volume Management, block device
+   encryption, etc. are layered on top of it. Therefore, for each device that
+   has multiple I/O paths and that you plan to use in a software RAID, you
+   must configure the device for multipathing before you attempt to create the
+   software RAID device.
+  </para>
+</section>
+<section xml:id="multipath-plan-ha">
+  <title>High-availability solutions</title>
+   <para>
+    High-availability solutions for clustering storage resources run on top of
+    the multipathing service on each node. Make sure that the configuration
+    settings in the <filename>/etc/multipath.conf</filename> file on each node
+    are consistent across the cluster.
+   </para>
+   <para>
+    Make sure that multipath devices have the same name across all devices.
+     </para>
+   <para>
+    The Distributed Replicated Block Device (DRBD) high-availability solution
+    for mirroring devices across a LAN runs on top of multipathing. For each
+    device that has multiple I/O paths and that you plan to use in a DRDB
+    solution, you must configure the device for multipathing before you
+    configure DRBD.
+   </para>
+   <para>
+    Special care must be taken when using multipathing together with clustering
+    software that relies on shared storage for fencing, such as
+    <command>pacemaker</command> with <command>sbd</command>.
+   </para>
+</section>
+</topic>
