@@ -20,8 +20,322 @@
     <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
     <abstract>
       <para>
+        The goal of multipath I/O is to provide connectivity fault tolerance between
+        the storage system and the server. The desired default behavior depends on
+        whether the server is a stand-alone server or a node in a high-availability
+        cluster.
 </para>
     </abstract>
   </info>
-<para></para>
+  <para>
+    This section discusses the most important
+    <systemitem>multipath-tools</systemitem> configuration parameters for
+    achieving fault tolerance.
+   </para>
+    <variablelist>
+    <varlistentry>
+     <term>polling_interval</term>
+     <listitem>
+      <para>
+       The time interval (in seconds) between health checks for path devices.
+       The default is 5 seconds. Failed devices are checked at this time
+       interval. For healthy devices, the time interval may be increased up to
+       <literal>max_polling_interval</literal> seconds.
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term>detect_checker</term>
+     <listitem>
+      <para>
+       If this is set to <literal>yes</literal> (default, recommended),
+       <command>multipathd</command> automatically detects the best path
+       checking algorithm.
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>detect_checker</term>
+      <listitem>
+       <para>
+        If this is set to <literal>yes</literal> (default, recommended),
+        <command>multipathd</command> automatically detects the best path
+        checking algorithm.
+       </para>
+      </listitem>
+     </varlistentry>
+     <varlistentry>
+      <term>path_checker</term>
+      <listitem>
+       <para>
+        The algorithm used to check path state. If you need to enable the
+        checker, disable <literal>detect_checker</literal> as follows:
+       </para>
+  <screen>
+  defaults {
+            detect_checker no
+  }</screen>
+       <para>
+        The following list contains only the most important algorithms. See
+        <systemitem>multipath.conf(5)</systemitem> for the full list.
+       </para>
+       <variablelist>
+        <varlistentry>
+         <term>tur</term>
+         <listitem>
+          <para>
+           Send TEST UNIT READY command. This is the default for SCSI devices
+           with ALUA support.
+          </para>
+        </listitem>
+       </varlistentry>
+       <varlistentry>
+        <term>directio</term>
+        <listitem>
+         <para>
+          Read a device sector using asynchronous I/O (aio).
+         </para>
+        </listitem>
+       </varlistentry>
+       <varlistentry>
+        <term>rdac</term>
+        <listitem>
+         <para>
+          Device-specific checker for NetAPP E-Series and similar arrays.
+         </para>
+        </listitem>
+       </varlistentry>
+       <varlistentry>
+        <term>none</term>
+        <listitem>
+         <para>
+          No path checking is performed.
+         </para>
+        </listitem>
+       </varlistentry>
+      </variablelist>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term>checker_timeout</term>
+     <listitem>
+      <para>
+       If a device does not respond to a path checker command in the given time,
+       it is considered failed. The default is the kernel's SCSI command timeout
+       for the device (usually 30 seconds).
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term>fast_io_fail_tmo</term>
+     <listitem>
+      <para>
+       If an error on the SCSI transport layer is detected (for example on a
+       Fibre Channel remote port), the kernel transport layer waits for this
+       amount of time (in seconds) for the transport to recover. After that, the
+       path device fails with &ldquo;transport offline&rdquo; state. This is
+       very useful for multipath, because it allows a quick path failover for a
+       frequently occurring class of errors. The value must match typical time
+       scale for reconfiguration in the fabric. The default value of 5 seconds
+       works well for Fibre Channel. Other transports, like iSCSI, may require
+       longer timeouts.
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term>dev_loss_tmo</term>
+     <listitem>
+      <para>
+       If a SCSI transport endpoint (for example a Fibre Channel remote port) is
+       not reachable any more, the kernel waits for this amount of time (in
+       seconds) for the port to reappear until it removes the SCSI device node
+      for good. Device node removal is a complex operation which is prone to
+      race conditions or deadlocks and should best be avoided. We therefore
+      recommend setting this to a high value. The special value
+      <literal>infinity</literal> is supported. The default is 10 minutes. To
+      avoid deadlock situations, <command>multipathd</command> ensures that I/O
+      queuing (see <literal>no_path_retry</literal>) is stopped before
+      <literal>dev_loss_tmo</literal> expires.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>no_path_retry</term>
+    <listitem>
+     <para>
+      Determine what happens if all paths of a given multipath map have failed.
+      The possible values are:
+     </para>
+     <variablelist>
+      <varlistentry>
+       <term>fail</term>
+       <listitem>
+        <para>
+         Fail I/O on the multipath map. This will cause I/O errors in upper
+         layers such as mounted file systems. The affected file systems, and
+         possibly the entire host, will enter degraded mode.
+        </para>
+       </listitem>
+      </varlistentry>
+      <varlistentry>
+       <term>queue</term>
+       <listitem>
+        <para>
+         I/O on the multipath map is queued in the device mapper layer and sent
+         to the device when path devices become available again. This is the
+         safest option to avoid losing data, but it can have negative effects
+         if the path devices do not get reinstated for a long time. Processes
+         reading from the device will hang in uninterruptible sleep
+         (<literal>D</literal>) state. Queued data occupies memory, which
+         becomes unavailable for processes. Eventually, memory will be
+         exhausted.
+        </para>
+       </listitem>
+      </varlistentry>
+      <varlistentry>
+       <term><replaceable>N</replaceable></term>
+       <listitem>
+        <para>
+         <replaceable>N</replaceable> is a positive integer. Keep the map
+         device in queuing mode for <replaceable>N</replaceable> polling
+         intervals. When the time elapses, <command>multipathd</command> fails
+         the map device. If <literal>polling_interval</literal> is 5 seconds
+         and <literal>no_path_retry</literal> is 6,
+         <command>multipathd</command> will queue I/O for approximately 6 * 5s
+         = 30s before failing I/O on the map device.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>flush_on_last_del</term>
+    <listitem>
+     <para>
+      If set to <literal>yes</literal> and all path devices of a map are
+      deleted (as opposed to just failed), fail all I/O in the map before
+      removing it. The default is <literal>no</literal>.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry>
+    <term>deferred_remove</term>
+    <listitem>
+     <para>
+      If set to <literal>yes</literal> and all path devices of a map are
+      deleted, wait for holders to close the file descriptors for the map
+      device before flushing and removing it. If paths reappear before the last
+      holder closed the map, the deferred remove operation will be cancelled.
+      The default is <literal>no</literal>.
+     </para>
+    </listitem>
+   </varlistentry>
+   <varlistentry xml:id="vle-failback">
+    <term>failback</term>
+    <listitem>
+     <para>
+      If a failed path device in an inactive path group recovers,
+      <command>multipathd</command> reevaluates the path group priorities of
+      all path groups. After the  reevaluation, the highest-priority path group may be one of the currently
+      inactive path groups. This parameter determines what happens in this
+      situation.
+     </para>
+     <important>
+      <title>Observe vendor recommendations</title>
+      <para>
+       The optimal failback policy depends on the property of the storage
+       device. It is therefore strongly encouraged to verify
+       <option>failback</option> settings with the storage vendor.
+      </para>
+     </important>
+     <variablelist>
+      <varlistentry>
+       <term>manual</term>
+       <listitem>
+        <para>
+         Nothing happens unless the administrator runs a <command>multipathd
+         switchgroup</command>.
+        </para>
+       </listitem>
+      </varlistentry>
+      <varlistentry>
+       <term>immediate</term>
+       <listitem>
+        <para>
+         The highest-priority path group is activated immediately. This is
+         often beneficial for performance, especially on stand-alone servers,
+         but it should not be used for arrays on which the change of the path
+         group is a costly operation.
+        </para>
+       </listitem>
+      </varlistentry>
+      <varlistentry>
+       <term>followover</term>
+       <listitem>
+        <para>
+         Like <literal>immediate</literal>, but only perform failback when the
+         path that has just become active is the only healthy path in its path
+         group. This is useful for cluster configurations: It keeps a node from
+         automatically failing back when another node requested a failover
+         before.
+        </para>
+       </listitem>
+      </varlistentry>
+      <varlistentry>
+       <term><replaceable>N</replaceable></term>
+       <listitem>
+        <para>
+         <replaceable>N</replaceable> is a positive integer. Wait for
+         <replaceable>N</replaceable> polling intervals before activating the
+         highest priority path group. If the priorities change again during
+         this time, the wait period starts anew.
+        </para>
+       </listitem>
+      </varlistentry>
+     </variablelist>
+    </listitem>
+  </varlistentry>
+  <varlistentry>
+   <term>eh_deadline</term>
+   <listitem>
+    <para>
+     Set an approximate upper limit for the time (in seconds) spent in SCSI
+     error handling if devices are unresponsive and SCSI commands time out
+     without error response. When the deadline has elapsed, the kernel will
+     perform a full HBA reset.
+    </para>
+   </listitem>
+  </varlistentry>
+ </variablelist>
+ <para>
+  After modifying the <filename>/etc/multipath.conf</filename> file, apply
+  your settings. </para>
+  <section xml:id="multipath-policies-standalone">
+    <title>Queuing policy on stand-alone servers</title>
+   <para>
+    When you configure multipath I/O for a stand-alone server, a
+    <literal>no_path_retry</literal> setting with value
+    <literal>queue</literal> protects the server operating system from
+    receiving I/O errors as long as possible. It queues messages until a
+    multipath failover occurs. If &ldquo;infinite&rdquo; queuing is not desired
+    (see above), select a numeric value that is deemed high enough for the
+    storage paths to recover under ordinary circumstances (see above).
+   </para>
+  </section>
+  <section xml:id="multipath-policies-cluster">
+    <title>Queuing policy on clustered servers</title>
+    <para>
+     When you configure multipath I/O for a node in a high-availability cluster,
+     you want multipath to report the I/O failure to trigger the resource
+     failover instead of waiting for a multipath failover to be resolved. In
+     cluster environments, you must modify the <literal>no_path_retry
+     </literal>setting so that the cluster node receives an I/O error in
+     relation to the cluster verification process (recommended to be 50% of the
+     heartbeat tolerance) if the connection is lost to the storage system. In
+     addition, you want the multipath <literal>failback</literal> to be set to
+     <literal>manual</literal> or <literal>followover</literal> to avoid a
+     ping-pong of resources because of path failures.
+    </para>
+</section>
 </topic>
