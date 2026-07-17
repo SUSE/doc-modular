@@ -19,9 +19,251 @@
     <title> Modifying the multipath configuration</title>
     <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
     <abstract>
-      <para>
+      <para>The built-in <systemitem>multipath-tools</systemitem> defaults work well for
+        most setups. If customizations are needed, a configuration file needs to be
+        created. The main configuration file is
+        <filename>/etc/multipath.conf</filename>. In addition, files in
+        <filename>/etc/multipath/conf.d/</filename> are taken into account.
 </para>
     </abstract>
   </info>
-<para></para>
+  <important>
+    <title>Vendor recommendations and built-in hardware defaults</title>
+    <para>
+     Some storage vendors publish recommended values for multipath options in
+     their documentation. These values often represent what the vendor has
+     tested in their environment and found most suitable for the storage product.
+         </para>
+    <para>
+     <systemitem>multipath-tools</systemitem> has built-in defaults for many
+     storage arrays that are derived from the published vendor recommendations.
+     Run <command>multipath -T</command> to see the current settings for your
+     devices and compare them to vendor recommendations.
+    </para>
+   </important>
+   <section xml:id="multipath-conf-file-create">
+    <title>Creating <filename>/etc/multipath.conf</filename></title>
+    <para>
+     It is recommended that you create a minimal
+     <filename>/etc/multipath.conf</filename> that just contains those settings
+     you want to change. In many cases, you do not need to create
+     <filename>/etc/multipath.conf</filename> at all.
+    </para>
+    <para>
+     If you prefer working with a configuration template that contains all
+     possible configuration directives, run:
+    </para>
+ <screen>multipath -T &gt;/etc/multipath.conf</screen>
+      </section>
+      <section xml:id="multipath-conf-file-syntax">
+        <title><filename>multipath.conf</filename> syntax</title>
+        <para>
+         The <filename>/etc/multipath.conf</filename> file uses a hierarchy of
+         sections, subsections and option/value pairs.
+        </para>
+        <itemizedlist>
+         <listitem>
+          <para>
+           White space separates tokens. Consecutive white space characters are
+           collapsed into a single space, unless quoted (see below).
+          </para>
+         </listitem>
+         <listitem>
+          <para>
+           The hash (<literal>#</literal>) and exclamation mark
+           (<literal>!</literal>) characters cause the rest of the line to be
+           discarded as a comment.
+          </para>
+         </listitem>
+         <listitem>
+          <para>
+           Sections and subsections are started with a section name and an opening
+           brace (<literal>{</literal>) on the same line, and end with a closing
+           brace (<literal>}</literal>) on a line on its own.
+          </para>
+         </listitem>
+         <listitem>
+          <para>
+            Options and values are written on one line. Line continuations are
+            unsupported.
+           </para>
+          </listitem>
+          <listitem>
+           <para>
+            Options and section names must be keywords. The allowed keywords are
+            documented in <systemitem>multipath.conf(5)</systemitem>.
+           </para>
+          </listitem>
+          <listitem>
+           <para>
+            Values may be enclosed in double quotes (<literal>"</literal>). They must
+            be enclosed in quotes if they contain white space or comment characters.
+            A double quote character inside a value is represented by a pair of
+            double quotes (<literal>""</literal>).
+           </para>
+          </listitem>
+          <listitem>
+           <para>
+            The values of some options are POSIX regular expressions (see
+            <systemitem>regex(7)</systemitem>). They are case sensitive and not
+            anchored, so &ldquo;<literal>bar</literal>&rdquo; matches
+            &ldquo;<literal>rhabarber</literal>&rdquo;, but not &ldquo;Barbie&rdquo;.
+           </para>
+          </listitem>
+         </itemizedlist>
+         <para>
+          The following example illustrates the syntax:
+   </para>
+<screen>
+section {
+    subsection {
+        option1 value
+        option2      "complex value!"
+        option3    "value with ""quoted"" word"
+    } ! subsection end
+} # section end
+    </screen>
+   <para><emphasis role="bold">Additional configuration files and precedence rules</emphasis></para>
+    <para>
+     After <filename>/etc/multipath.conf</filename>, the tools read files
+     matching the pattern <filename>/etc/multipath.conf.d/*.conf</filename>.
+     The additional files follow the same syntax rules as
+     <filename>/etc/multipath.conf</filename>. Sections and options can occur
+     multiple times. If <emphasis>the same option in the same
+     section</emphasis> is set in multiple files, or on multiple lines in the
+     same file, the last value takes precedence. Separate precedence rules
+     apply between <filename>multipath.conf</filename> sections. See below.
+    </para>
+    </section>
+    <section xml:id="multipath-conf-file-sections">
+      <title><filename>multipath.conf</filename> sections</title>
+      <para>
+       The <filename>/etc/multipath.conf</filename> file is organized into the
+       following sections. Some options can occur in more than one section. See
+       <systemitem>multipath.conf(5)</systemitem> for details.
+      </para>
+      <variablelist>
+       <varlistentry>
+        <term>defaults</term>
+        <listitem>
+         <para>
+          General default settings.
+         </para>
+         <important>
+          <title>Overriding built-in device properties</title>
+          <para>
+           Built-in hardware-specific device properties take precedence over the
+           settings in the <literal>defaults</literal> section. Changes must
+           therefore be made in the <literal>devices</literal> section or in the
+           <literal>overrides</literal> section.
+          </para>
+         </important>
+        </listitem>
+       </varlistentry>
+       <varlistentry>
+        <term>blacklist</term>
+        <listitem>
+         <para>
+          Lists devices to ignore.
+         </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+       <term>blacklist_exceptions</term>
+       <listitem>
+        <para>
+         Lists devices to be multipathed even though they are matched by the
+         blacklist.
+        </para>
+       </listitem>
+      </varlistentry>
+      <varlistentry>
+       <term>devices</term>
+       <listitem>
+        <para>
+         Settings specific to the storage controller. This section is a
+         collection of <literal>device</literal> subsections. Values in this
+         section override values for the same options in the
+         <filename>defaults</filename> section, and the built-in settings of
+         <systemitem>multipath-tools</systemitem>.
+        </para>
+        <para>
+         <literal>device</literal> entries in the <literal>devices</literal>
+         section are matched against the vendor and product of a device using
+         regular expressions. These entries will be &ldquo;merged&rdquo;, setting
+         all options from matching sections for the device. If the same option is
+         set in multiple matching <literal>device</literal> sections, the last
+         device entry takes precedence, even if it is less &ldquo;specific&rdquo;
+         than preceding entries. This applies also if the matching entries appear
+         in different configuration files. In the following
+         example, a device <literal>SOMECORP STORAGE</literal> will use
+         <literal>fast_io_fail_tmo 15</literal>.
+        </para>
+  <screen>
+  devices {
+      device {
+          vendor SOMECORP
+          product STOR
+          fast_io_fail_tmo 10
+      }
+      device {
+          vendor SOMECORP
+          product .*
+          fast_io_fail_tmo 15
+      }
+  }</screen>
+       </listitem>
+      </varlistentry>
+      <varlistentry>
+       <term>multipaths</term>
+       <listitem>
+        <para>
+         Settings for individual multipath devices. This section is a list of
+         <literal>multipath</literal> subsections. Values override the
+         <literal>defaults</literal> and <literal>devices</literal> sections.
+        </para>
+       </listitem>
+      </varlistentry>
+      <varlistentry>
+       <term>overrides</term>
+       <listitem>
+        <para>
+          Settings that override values from all other sections.
+         </para>
+        </listitem>
+       </varlistentry>
+      </variablelist>
+      </section>
+      <section xml:id="multipath-conf-file-apply">
+        <title>Applying <filename>multipath.conf</filename> modifications</title>
+        <para>
+         To apply the configuration changes, run:
+        </para>
+     <screen>&prompt.sudo;multipathd reconfigure</screen>
+        <para>
+         Do not forget to synchronize with the configuration in the initramfs.
+        </para>
+        <warning>
+         <title>Do not apply settings using <command>multipath</command></title>
+         <para>
+          Do not apply new settings with the <command>multipath</command> command
+          while <command>multipathd</command> is running. This may result in an
+          inconsistent and possibly broken setup.
+         </para>
+        </warning>
+        <note xml:id="sec-multipath-conf-file-verify">
+         <title>Verifying a modified setup</title>
+         <para>
+          It is possible to test modified settings first before they are applied, by
+          running:
+         </para>
+     <screen>&prompt.sudo;multipath -d -v2</screen>
+         <para>
+          This command shows new maps to be created with the proposed topology, but
+          not whether maps will be removed/flushed. To obtain more information, run
+          with increased verbosity:
+         </para>
+         <screen>&prompt.sudo;multipath -d -v3 2&gt;&amp;1 | less</screen>
+        </note>
+        </section>
 </topic>
