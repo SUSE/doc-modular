@@ -1,0 +1,375 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="multipath-best-practices"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title> Multipath best practices</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>Multipath best practices include the following:
+</para>
+    </abstract>
+  </info>
+<section xml:id="multipath-best-practice-config">
+  <title>Best practices for configuration</title>
+  <para>
+   The large number of configuration directives is daunting at first. Usually,
+   you can get good results with an empty configuration, unless you are in a
+   clustering environment.
+  </para>
+  <para>
+   Here are some general recommendations for stand-alone servers. They are
+   <emphasis>not mandatory</emphasis>. See the documentation of the respective
+   parameters in the previous sections for background information.
+  </para>
+<screen>
+defaults {
+   deferred_remove      yes
+   find_multipaths      smart
+   enable_foreign       nvme
+   marginal_pathgroups  fpin    # 15.4 only, if supported by fabric
+}
+devices {
+   # A catch-all device entry.
+   device {
+       vendor                .*
+       product               .*
+       dev_loss_tmo          infinity
+       no_path_retry         60            # 5 minutes
+       path_grouping_policy  group_by_prio
+       path_selector         "historical-service-time 0"
+       reservation_key       file          # if using SCSI persistent reservations
+   }
+   # Follow up with specific device entries below, they will take precedence.
+}</screen>
+  <para>
+   After modifying the <filename>/etc/multipath.conf</filename> file, apply
+   your settings.</para>
+</section>
+<section xml:id="multipath-best-practice-status">
+  <title>Interpreting multipath I/O status</title>
+  <para>
+   For a quick overview of the multipath subsystem, use <command>multipath
+   -ll</command> or <command>multipathd show topology</command>. The output of
+   these commands has the same format. The former command reads the kernel
+   state, while the latter prints the status of the multipath daemon. Normally
+   both states are equal. Here is an example of the output:
+  </para>
+  <informalexample>
+<screen>&prompt.sudo;multipathd show topology
+mpatha<co xml:id="mp-co-top-name"/> (3600a098000aad1e300000b4b5a275d45<co xml:id="mp-co-top-wwid"/>) dm-0<co xml:id="mp-co-top-dev"/> NETAPP,INF-01-00<co xml:id="mp-co-top-prod"/>
+size=64G features='3 queue_if_no_path pg_init_retries 50'<co xml:id="mp-co-top-feat"/> hwhandler='1 alua'<co xml:id="mp-co-top-hwh"/> wp=rw<co xml:id="mp-co-top-wp"/>
+|-+- <co xml:id="mp-co-top-pg"/>policy='historical-service-time 2'<co xml:id="mp-co-top-ps"/> prio=50<co xml:id="mp-co-top-prio"/> status=active<co xml:id="mp-co-top-pgst"/>
+| |-<co xml:id="mp-co-top-pp"/> 3:0:0:1<co xml:id="mp-co-top-hbtl"/> sdb 8:16<co xml:id="mp-co-top-sd"/> active<co xml:id="mp-co-top-dmst"/> ready<co xml:id="mp-co-top-st"/> running<co xml:id="mp-co-top-devst"/>
+| `- 4:0:0:1 sdf 8:80  active ready running
+`-+- policy='historical-service-time 2' prio=10 status=enabled
+ `- 4:0:1:1 sdj 8:144 active ready running</screen>
+ </informalexample>
+ <calloutlist>
+  <callout arearefs="mp-co-top-name">
+   <para>
+    The map name.
+   </para>
+  </callout>
+  <callout arearefs="mp-co-top-wwid">
+   <para>
+    The map WWID (if different from the map name).
+   </para>
+  </callout>
+  <callout arearefs="mp-co-top-dev">
+   <para>
+    The device node name of the map device.
+   </para>
+  </callout>
+  <callout arearefs="mp-co-top-prod">
+    <para>
+      The vendor and product name.
+     </para>
+    </callout>
+    <callout arearefs="mp-co-top-pg">
+     <para>
+      A path group. The indented lines below the path group list the path
+      devices that belong to it.
+     </para>
+    </callout>
+    <callout arearefs="mp-co-top-ps">
+     <para>
+      The path selector algorithm used by the path group. The "2" can be
+      ignored.
+     </para>
+    </callout>
+    <callout arearefs="mp-co-top-prio">
+     <para>
+      The priority of the path group.
+     </para>
+    </callout>
+    <callout arearefs="mp-co-top-pgst">
+     <para>
+      The status of the path group (<literal>active</literal>,
+      <literal>enabled</literal> or <literal>disabled</literal>). The active
+      path group is the one that I/O is currently sent to.
+     </para>
+    </callout>
+    <callout arearefs="mp-co-top-pp">
+      <para>
+        A path device.
+       </para>
+      </callout>
+      <callout arearefs="mp-co-top-hbtl">
+       <para>
+        The bus ID of the device (here, a SCSI Host:Bus:Target:Lun ID).
+       </para>
+      </callout>
+      <callout arearefs="mp-co-top-sd">
+       <para>
+        The device node name and major/minor number of the path device.
+       </para>
+      </callout>
+      <callout arearefs="mp-co-top-dmst">
+       <para>
+        The kernel device mapper state of the path (<literal>active</literal> or
+        <literal>failed</literal>).
+       </para>
+      </callout>
+      <callout arearefs="mp-co-top-st">
+       <para>
+        The multipath path device state (see below).
+       </para>
+      </callout>
+      <callout arearefs="mp-co-top-devst">
+       <para>
+        The state of the path device in the kernel. This is a device-type
+        specific value. For SCSI, it is either <literal>running</literal> or
+        <literal>offline</literal>.
+      </para>
+     </callout>
+    </calloutlist>
+    <para>
+      The multipath path device states are:
+     </para>
+     <informaltable>
+      <tgroup cols="2">
+       <colspec colwidth="1*"/>
+       <colspec colwidth="1*"/>
+       <tbody>
+        <row>
+         <entry>
+          <para>
+           <literal>ready</literal>
+          </para>
+         </entry>
+         <entry>
+          <para>
+           The path is healthy and up
+          </para>
+         </entry>
+        </row>
+        <row>
+         <entry>
+          <para>
+           <literal>ghost</literal>
+          </para>
+         </entry>
+         <entry>
+          <para>
+           A passive path in an active/passive array
+          </para>
+        </entry>
+       </row>
+       <row>
+        <entry>
+         <para>
+          <literal>faulty</literal>
+         </para>
+        </entry>
+        <entry>
+         <para>
+          The path is down or unreachable
+         </para>
+        </entry>
+       </row>
+       <row>
+        <entry>
+         <para>
+          <literal>i/o timeout</literal>
+         </para>
+        </entry>
+        <entry>
+         <para>
+          A checker command timed out
+         </para>
+        </entry>
+       </row>
+       <row>
+        <entry>
+          <para>
+           <literal>i/o pending</literal>
+          </para>
+         </entry>
+         <entry>
+          <para>
+           Waiting for the completion of a path checker command
+          </para>
+         </entry>
+        </row>
+        <row>
+         <entry>
+          <para>
+           <literal>delayed</literal>
+          </para>
+         </entry>
+         <entry>
+          <para>
+           Path reinstantiation is delayed to avoid "flapping"
+          </para>
+         </entry>
+        </row>
+        <row>
+         <entry>
+          <para>
+           <literal>shaky</literal>
+          </para>
+         </entry>
+         <entry>
+          <para>
+           An unreliable path (emc path checker only)
+          </para>
+         </entry>
+        </row>
+       </tbody>
+      </tgroup>
+     </informaltable>
+</section>
+<section xml:id="multipath-lvm">
+  <title>Using LVM2 on multipath devices</title>
+  <para>
+   LVM2 has built-in support for detecting multipath devices. It is activated
+   by default in <filename>/etc/lvm/lvm.conf</filename>:
+  </para>
+<screen>    multipath_component_detection=1</screen>
+  <para>
+   This works reliably only if LVM2 is also configured to obtain information
+   about device properties from udev:
+  </para>
+<screen>    external_device_info_source="udev"</screen>
+  <para>
+   This is the default in &sle;&nbsp;15 SP4, but not in earlier releases. It
+   is also possible (although normally not necessary) to create a filter
+   expression for LVM2 to ignore all devices except multipath devices.
+ </para>
+ </section>
+ <section xml:id="multipath-best-practice-io-stalled">
+  <title>Resolving stalled I/O</title>
+  <para>
+   If all paths fail concurrently and I/O is queued, applications may stall
+   for a long time. To resolve this, you can use the following procedure:
+  </para>
+  <procedure>
+   <step>
+    <para>
+     Enter the following command at a terminal prompt:
+    </para>
+<screen>&prompt.sudo;multipathd disablequeueing map <replaceable>MAPNAME</replaceable></screen>
+    <para>
+     Replace <literal><replaceable>MAPNAME</replaceable></literal> with the
+     correct WWID or mapped alias name for the device.
+    </para>
+    <para>
+     This command immediately causes all queued I/O to fail and propagates the
+     error to the calling application. File systems will observe I/O errors
+     and switch to read-only mode.
+    </para>
+   </step>
+   <step>
+    <para>
+     Reactivate queuing by entering the following command:
+    </para>
+    <screen>&prompt.sudo;multipathd restorequeueing <replaceable>MAPNAME</replaceable></screen>
+    </step>
+   </procedure>
+  </section>
+
+  <section  xml:id="sec-multipath-mpiotools-mdadm">
+   <title>MD RAID on multipath devices</title>
+   <para>
+    MD RAID arrays on top of multipathing are set up automatically by the
+    system's udev rules. No special configuration in
+    <filename>/etc/mdadm.conf</filename> is necessary.
+   </para>
+  </section>
+  <section xml:id="sec-multipath-best-practice-scandev">
+    <title>Scanning for new devices without rebooting</title>
+    <para>
+     If your system has already been configured for multipathing and you need to
+     add storage to the SAN, you can use the
+     <command>rescan-scsi-bus.sh</command> script to scan for the new devices.
+     The general syntax for the command follows:
+    </para>
+ <screen>&prompt.sudo;rescan-scsi-bus.sh [-a] [-r] --hosts=2-3,5</screen>
+    <para>
+     Where the options have the following meaning:
+    </para>
+    <variablelist>
+     <varlistentry>
+      <term>-a</term>
+      <listitem>
+       <para>
+        the option ensures that all SCSI targets are scanned, otherwise only
+        already existing targets will be scanned for new LUNs.
+       </para>
+      </listitem>
+     </varlistentry>
+     <varlistentry>
+      <term>-r</term>
+      <listitem>
+       <para>
+       the option enables the removal of devices which have been removed on the
+       storage side.
+      </para>
+     </listitem>
+    </varlistentry>
+    <varlistentry>
+     <term>--hosts</term>
+     <listitem>
+      <para>
+       the option specifies the list of host bus adapters to scan (the default
+       is to scan all).
+      </para>
+     </listitem>
+    </varlistentry>
+   </variablelist>
+   <para>
+    Run <command>rescan-scsi-bus.sh --help</command> for help on additional
+    options.
+   </para>
+   <para>
+    If <command>multipathd</command> is running and new SAN devices are
+    discovered, they should be automatically set up as multipath maps according
+    to the configuration.
+   </para>
+   <warning>
+    <title>Dell/EMC PowerPath environments</title>
+    <para>
+     In EMC PowerPath environments, do not use the
+     <filename>rescan-scsi-bus.sh</filename> utility provided with the
+     operating system or the HBA vendor scripts for scanning the SCSI buses. To
+     avoid potential file system corruption, EMC requires that you follow the
+     procedure provided in the vendor documentation for EMC PowerPath for
+     Linux.
+    </para>
+   </warning>
+   </section>
+</topic>

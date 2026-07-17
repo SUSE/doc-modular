@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="install-multipath"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title> Installing &sles; on multipath systems</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        No special installation parameters are required for the installation of
+        &productname; on systems with multipath hardware.
+</para>
+    </abstract>
+  </info>
+  <section xml:id="multipath-installing-nomp">
+    <title>Installing without connected multipath devices</title>
+    <para>
+     You may want to perform installation on a local disk, without configuring
+     the fabric and the storage first, with the intention to add multipath SAN
+     devices to the system later. In this case, the installation will proceed
+     like on a non-multipath system. After installation,
+     <systemitem>multipath-tools</systemitem> will be installed, but the
+     &systemd; service <filename>multipathd.service</filename> will be disabled.
+     Before adding SAN hardware, you will need to enable and start
+     <filename>multipathd.service</filename>. We recommend creating a
+     <literal>blacklist</literal> entry in the <filename>/etc/multipath.conf</filename> for the root device.
+    </para>
+</section>
+<section xml:id="multipath-installing-mp">
+<title>Installing with connected multipath devices</title>
+   <para>
+    If multipath devices are connected to the system at installation time,
+    &yast; will detect them and display a pop-up window asking you whether
+    multipath should be enabled before entering the partitioning stage.
+       </para>
+       <informalfigure>
+        <mediaobject>
+         <textobject role="description"><phrase>
+              &yast; multipath dialog</phrase>
+         </textobject>
+         <imageobject role="fo">
+          <imagedata fileref="multipath-popup.png" width="50%"/>
+         </imageobject>
+         <imageobject role="html">
+          <imagedata fileref="multipath-popup.png" width="50%"/>
+         </imageobject>
+        </mediaobject>
+       </informalfigure>
+       <para>
+       If you select &ldquo;No&rdquo; at this prompt (not recommended), the
+       installation will proceed as in
+       <xref linkend="multipath-installing-nomp"/>. In the partitioning stage,
+       do not use/edit devices that will later be part of a multipath map.
+      </para>
+      <para>
+       If you select &ldquo;Yes&rdquo; at the multipath prompt,
+       <command>multipathd</command> will run during the installation. No device
+       will be added to the <literal>blacklist</literal> section of
+       <filename>/etc/multipath.conf</filename>, thus all SCSI and DASD devices,
+       including local disks, will appear as multipath devices in the partitioning
+       dialogs. After installation, all SCSI and DASD devices will be multipath
+       devices.</para>
+       <procedure xml:id="pr-multipath-disable-root">
+        <title>Disabling multipathing for the root disk after installation</title>
+        <para>
+         This procedure assumes that you installed on a local disk and enabled
+         multipathing during installation, so that the root device is on multipath
+         now. </para>
+        <step>
+         <para>
+          Check your system for <filename>/dev/mapper/...</filename> references to
+          your local root device, and replace them with references that will still
+          work if the device is not a multipath map anymore . If the following command
+          finds no references, you do not need to apply changes:
+         </para>
+    <screen>&prompt.sudo;grep -rl /dev/mapper/ /etc</screen>
+        </step>
+        <step>
+          <para>
+            Switch to <literal>by-uuid</literal> persistent device policy for
+            <command>dracut</command>:
+           </para>
+      <screen>&prompt.user;echo 'persistent_policy="by-uuid"' | \
+            sudo tee /etc/dracut.conf.d/10-persistent-policy.conf</screen>
+          </step>
+          <step>
+           <para>
+            Determine the WWID of the root device:
+           </para>
+      <screen>&prompt.user;multipathd show paths format "%i %d %w %s"
+      0:2:0:0 sda 3600605b009e7ed501f0e45370aaeb77f IBM,ServeRAID M5210
+      ...
+              </screen>
+           <para>
+            This command prints all paths devices with their WWIDs and vendor/product
+            information. You will be able to identify the root device (here, the
+            ServeRAID device) and note the WWID.
+           </para>
+          </step>
+          <step>
+           <para>
+            Create a blacklist entry in <filename>/etc/multipath.conf</filename> with the WWID you just
+            determined (do <emphasis>not</emphasis> apply these settings just yet):
+           </para>
+      <screen>blacklist {
+          wwid 3600605b009e7ed501f0e45370aaeb77f
+      }</screen>
+          </step>
+          <step>
+           <para>
+            Rebuild the initramfs:
+     </para>
+<screen>&prompt.sudo;dracut -f</screen>
+    </step>
+    <step>
+     <para>
+      Reboot. Your system should boot with a non-multipath root disk.
+     </para>
+    </step>
+   </procedure>
+   <para>
+    The offline update of your system is similar to the fresh installation as
+    described in <xref linkend="install-multipath"/>. There is no
+    <literal>blacklist</literal>, so if the user selects to enable multipath,
+    the root device will appear as a multipath device, even if it is normally
+    not one. When <command>dracut</command> builds the initramfs during the update
+    procedure, it sees a different storage stack than it would see on the booted
+    system. </para>
+  </section>
+
+</topic>
