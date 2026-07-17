@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article>
+<article
+  xmlns="http://docbook.org/ns/docbook" version="5.0"
+  xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <info>
+    <title></title>
+  </info>
+  <section xml:id="remote-access">
+    <title>Remote access</title>
+    <para>
+      Agama’s Live ISO is configured to use
+      <link xlink:href="https://en.wikipedia.org/wiki/Multicast_DNS">Multicast
+      DNS</link> (sometimes called mDNS, Avahi, Zeroconf, Bonjour) for
+      hostname resolution. This protocol makes it easier to connect to
+      an Agama instance using a predefined hostname.
+    </para>
+    <para>
+      This document explains how this feature works and offers a few
+      hints for fix potential problems.
+    </para>
+    <warning>
+      <para>
+        Do not use the <literal>.local</literal> hostnames in untrusted
+        networks (like public WiFi networks, shared networks), it is a
+        security risk. An attacker can easily send malicious responses
+        for the <literal>.local</literal> hostname resolutions and point
+        you to a wrong Agama instance which could for example steal your
+        root password!
+      </para>
+    </warning>
+    <section xml:id="firewall-configuration">
+      <title>Firewall Configuration</title>
+      <para>
+        If you cannot connect to a server using the
+        <literal>.local</literal> domain then maybe the firewall is
+        blocking the traffic. Then you need to enable the mDNS traffic
+        using these commands:
+      </para>
+      <programlisting>
+# enable the mDNS traffic in the current run
+firewall-cmd --zone=public --add-service=mdns
+# make the change permanent
+firewall-cmd --permanent --zone=public --add-service=mdns
+</programlisting>
+    </section>
+    <section xml:id="using-mdns">
+      <title>Using mDNS</title>
+      <para>
+        The Live ISO by default uses the <literal>agama.local</literal>
+        hostname. To connect to the running instance simply type
+        <literal>https://agama.local</literal> in your browser. In most
+        browsers the HTTPS is the default protocol so usually it is
+        enough to just type <literal>agama.local</literal>.
+      </para>
+      <para>
+        If you run multiple Agama instances, each one will have a
+        different name. The server appends a number to make it unique.
+        So the second Agama instance gets the
+        <literal>agama-2.local</literal> hostname.
+      </para>
+      <para>
+        If you are not sure whether there are multiple Agama instances
+        running you scan the network, see the
+        <link linkend="service-advertising">service advertising</link>
+        below.
+      </para>
+      <para>
+        Alternatively you can set a different hostname for each instance
+        manually. Use the <literal>hostname=</literal> boot option to
+        set a different hostname. For example set
+        <literal>hostname=foo</literal>, <literal>hostname=bar</literal>
+        and then use <literal>https://foo.local</literal>,
+        <literal>https://bar.local</literal> URLs in the web browser to
+        connect to the respective instance.
+      </para>
+      <para>
+        It is possible to change the hostname later if needed:
+      </para>
+      <programlisting>
+# set the new hostname
+hostnamectl hostname &lt;hostname&gt;
+# restart the avahi daemon server
+systemctl restart avahi-daemon
+</programlisting>
+      <para>
+        The mDNS resolution also works for other services like ping or
+        SSH. So you can use commands like:
+      </para>
+      <programlisting>
+ping agama.local
+ssh root@agama.local
+</programlisting>
+    </section>
+    <section xml:id="fallback">
+      <title>Fallback</title>
+      <para>
+        The mDNS approach is just an addition, one more possibility how
+        to connect to the machine. If it does not work for you then you
+        can always use the old good classic IP address approach.
+      </para>
+    </section>
+    <section xml:id="service-advertising">
+      <title>Service Advertising</title>
+      <para>
+        The Agama Live ISO also uses Avahi service advertising. With
+        this you can easily search for all running Agama instances in
+        the local network:
+      </para>
+      <programlisting>
+avahi-browse -t -r _agama._sub._https._tcp
+</programlisting>
+      <para>
+        The command will print the found servers and their hostnames and
+        IP addresses.
+      </para>
+    </section>
+    <section xml:id="notes">
+      <title>Notes</title>
+      <itemizedlist spacing="compact">
+        <listitem>
+          <para>
+            mDNS works only in the same local network, it does not work
+            over internet or separate network segments.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            mDNS might not be supported in all systems or it might be
+            blocked by firewall.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            On mobile phones with Android OS mDNS is supported since
+            Android version 12. But this might depend on the vendor.
+          </para>
+        </listitem>
+      </itemizedlist>
+    </section>
+  </section>
+</article>

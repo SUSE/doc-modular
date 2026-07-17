@@ -1,0 +1,997 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article>
+<article
+  xmlns="http://docbook.org/ns/docbook" version="5.0"
+  xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <info>
+    <title></title>
+  </info>
+  <section xml:id="internationalization-i18n">
+    <title>Internationalization (i18n)</title>
+    <para>
+      Internationalization (sometimes abbreviated as
+      <quote>i18n</quote>) is a process for supporting different
+      languages and locales in software. This page describes how is that
+      handled in Agama.
+    </para>
+    <para>
+      Each component need to solve this problem separately, see more
+      details for each part in the details below.
+    </para>
+    <section xml:id="using-translations">
+      <title>Using translations</title>
+      <para>
+        Users have two ways how to change the used language in the Agama
+        interface.
+      </para>
+      <section xml:id="language-selector">
+        <title>Language selector</title>
+        <para>
+          The sidebar of the web UI contains a component that allows to
+          change the language. It was introduced in Agama 5 and it is
+          the recommended way. The list of supported languages is read
+          from the
+          <link xlink:href="https://github.com/agama-project/agama/blob/master/web/src/languages.json">languages.json</link>
+          file. Check the <link linkend="the-web-front-end">The web
+          front-end</link> for further details.
+        </para>
+      </section>
+      <section xml:id="url-query-parameter">
+        <title>URL query parameter</title>
+        <para>
+          When using a remote installation it is possible to set the
+          used language via an URL query parameter. This is an expert
+          option.
+        </para>
+        <para>
+          To change the language append the
+          <literal>?lang=&lt;locale&gt;</literal> query to the URL when
+          accessing the Agama installer. The <literal>locale</literal>
+          string uses the
+          <link xlink:href="https://www.rfc-editor.org/rfc/rfc5646.html">RFC
+          5646</link> but the usual Linux locale format is supported
+          too, e.g. <literal>cs_CZ</literal>.
+        </para>
+        <para>
+          It is the user responsibility to use a correct locale name.
+          When using a wrong name the translations might be broken,
+          displayed only partially or even not at all.
+        </para>
+        <para>
+          Changing the language causes reloading the page, in some
+          situations this could cause losing some entered values on the
+          current page. Therefore it is recommended to change the
+          language at the very beginning.
+        </para>
+      </section>
+    </section>
+    <section xml:id="translations">
+      <title>Translations</title>
+      <para>
+        For translation process Agama uses
+        <link xlink:href="https://weblate.org/">Weblate</link> tool
+        running at the
+        <link xlink:href="https://l10n.opensuse.org/">openSUSE</link>
+        instance.
+      </para>
+    </section>
+    <section xml:id="the-workflow">
+      <title>The workflow</title>
+      <para>
+        The basic translation workflow looks like this:
+      </para>
+      <orderedlist numeration="arabic" spacing="compact">
+        <listitem>
+          <para>
+            The translatable texts are marked for translation in the
+            source code, usually with the <literal>_()</literal>
+            function or something similar
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The translatable string are collected into a POT file which
+            is uploaded to the staging
+            <link xlink:href="https://github.com/agama-project/agama-weblate">agama-weblate</link>
+            GitHub repository
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The POT file is loaded by the Weblate into the
+            <link xlink:href="https://l10n.opensuse.org/projects/agama/">agama</link>
+            project
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Translators then can translate the English texts into other
+            languages
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Weblate pushes back the translations in the PO files back to
+            the
+            <link xlink:href="https://github.com/agama-project/agama-weblate">agama-weblate</link>
+            repository
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The translations in the PO files are regularly copied to the
+            main repository using pull requests
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The PO files are processed during build so the translations
+            can be used later at runtime
+          </para>
+        </listitem>
+      </orderedlist>
+    </section>
+    <section xml:id="staging-translation-repository">
+      <title>Staging translation repository</title>
+      <para>
+        The special
+        <link xlink:href="https://github.com/agama-project/agama-weblate">agama-weblate</link>
+        repository works like a buffer between the Agama sources and the
+        Weblate tool.
+      </para>
+      <para>
+        The overall schema is like this:
+      </para>
+      <programlisting>
+flowchart LR
+   A[Agama&lt;br&gt;repository]
+   AW[Agama-weblate&lt;br&gt;repository]
+   W[Weblate]
+
+   A --&gt;|&quot;GitHub Action&lt;br&gt;update POT&lt;br&gt;(daily)&quot;| AW
+   AW --&gt;|&quot;GitHub Actions&lt;br&gt;merge PO&lt;br&gt;(weekly)&quot;| A
+   AW --&gt;|GitHub webhooks,&lt;br&gt;git pull| W
+   W --&gt;|git push| AW
+</programlisting>
+      <para>
+        We do not want to spam the Weblate tool with every trivial
+        change in the texts and the other way round, we do not need to
+        get dozen commits from the Weblate every day with updated
+        translations. This would be especially annoying before releasing
+        a new version where we might want to accept only unnecessary
+        changes to not break something at the very last minute.
+      </para>
+      <para>
+        The agama-weblate repository uses webhooks to notify the Weblate
+        instance of any change. Changes in the repository should be
+        visible in Weblate in matter of seconds.
+      </para>
+    </section>
+    <section xml:id="synchronization">
+      <title>Synchronization</title>
+      <para>
+        The content between the main
+        <link xlink:href="https://github.com/agama-project/agama">agama</link>
+        and the translation
+        <link xlink:href="https://github.com/agama-project/agama-weblate">agama-weblate</link>
+        GitHub repositories is synchronized automatically using the
+        GitHub Actions.
+      </para>
+      <section xml:id="uploading-translatable-texts">
+        <title>Uploading translatable texts</title>
+        <para>
+          Collecting and uploading the translatable texts is done by the
+          <link xlink:href="https://github.com/agama-project/agama/blob/master/.github/workflows/weblate-update-pot.yml">weblate-update-pot.yml</link>
+          GitHub action.
+        </para>
+        <itemizedlist spacing="compact">
+          <listitem>
+            <para>
+              It checks out both <literal>agama</literal> and
+              <literal>agama-weblate</literal> repositories
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Different components use different commands for building
+              each POT file
+            </para>
+            <itemizedlist spacing="compact">
+              <listitem>
+                <para>
+                  The web frontend runs the
+                  <link xlink:href="https://github.com/agama-project/agama/blob/master/web/build_pot">web/build_pot</link>
+                  script
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  The product definitions use the
+                  <link xlink:href="https://github.com/agama-project/agama/blob/master/.github/workflows/product_translations/products_pot">products_pot</link>
+                  script
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  The Ruby services call <literal>rake pot</literal>,
+                  the usual way for extracting texts in YaST
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  The Rust part of the service backend uses
+                  <link xlink:href="https://github.com/agama-project/agama/blob/master/rust/build_pot">rust/build_pot</link>
+                </para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+          <listitem>
+            <para>
+              The new or updated texts from the POT file are merged to
+              the translated PO files using the
+              <literal>msgmerge</literal> tool. This ensures that the
+              new or updated texts can be translated at Weblate.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              The updated POT and PO files are then copied to the
+              <literal>agama-weblate</literal> checkout and committed to
+              GitHub. If there is no change in the files besides the
+              timestamps then the file it is not uploaded to
+              <literal>agama-weblate</literal>.
+            </para>
+          </listitem>
+        </itemizedlist>
+        <para>
+          This action is run daily, but it can be started manually if
+          needed. Go to the
+          <link xlink:href="https://github.com/agama-project/agama/actions/workflows/weblate-update-pot.yml">weblate-update-pot.yml</link>
+          action detail and use the <quote>Run workflow</quote> option
+          at the top of the page.
+        </para>
+      </section>
+      <section xml:id="downloading-updated-translations">
+        <title>Downloading updated translations</title>
+        <para>
+          The translations from the <literal>agama-weblate</literal>
+          repository are merged back by several GitHub actions.
+        </para>
+        <itemizedlist spacing="compact">
+          <listitem>
+            <para>
+              Product translations:
+              <link xlink:href="https://github.com/agama-project/agama/blob/master/.github/workflows/weblate-merge-products-po.yml">weblate-merge-products-po.yml</link>
+            </para>
+            <itemizedlist spacing="compact">
+              <listitem>
+                <para>
+                  Runs the
+                  <link xlink:href="https://github.com/agama-project/agama/blob/master/.github/workflows/product_translations/merge_po">merge_po</link>
+                  script which injects the translations from the PO
+                  files into the product YAML files.
+                </para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+          <listitem>
+            <para>
+              Frontend translations:
+              <link xlink:href="https://github.com/agama-project/agama/blob/master/.github/workflows/weblate-merge-po.yml">weblate-merge-po.yml</link>
+            </para>
+            <itemizedlist spacing="compact">
+              <listitem>
+                <para>
+                  Updates the <literal>languages.json</literal> file
+                  with the list of supported languages depending on the
+                  translation coverage
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  Builds the <literal>po.&lt;language&gt;.js</literal>
+                  file with the translations converted to JavaScript
+                  format
+                </para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+          <listitem>
+            <para>
+              Ruby backend translations:
+              <link xlink:href="https://github.com/agama-project/agama/blob/master/.github/workflows/weblate-merge-service-po.yml">weblate-merge-service-po.yml</link>
+            </para>
+            <itemizedlist spacing="compact">
+              <listitem>
+                <para>
+                  Just copies the PO files to the
+                  <literal>service/po</literal> directory
+                </para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+          <listitem>
+            <para>
+              Rust backend translations:
+              <link xlink:href="https://github.com/agama-project/agama/blob/master/.github/workflows/weblate-merge-rust-po.yml">weblate-merge-rust-po.yml</link>
+            </para>
+            <itemizedlist spacing="compact">
+              <listitem>
+                <para>
+                  Just copies the PO files to the
+                  <literal>rust/po</literal> directory
+                </para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+        </itemizedlist>
+        <para>
+          These actions run automatically once a week, but they can be
+          triggered manually from the
+          <link xlink:href="https://github.com/agama-project/agama/actions">actions</link>
+          page.
+        </para>
+      </section>
+    </section>
+    <section xml:id="weblate-configuration">
+      <title>Weblate configuration</title>
+      <para>
+        The
+        <link xlink:href="https://l10n.opensuse.org/projects/agama/">Agama
+        Weblate</link> project defines a separate translation component
+        for each Agama part (the web front-end, the Ruby D-Bus back-end,
+        the HTTP Rust back-end, and product definitions).
+      </para>
+      <para>
+        For reading the translations it uses the
+        <link xlink:href="https://github.com/agama-project/agama-weblate">agama-weblate</link>
+        GitHub repository, but for the source code locations it uses the
+        original
+        <link xlink:href="https://github.com/agama-project/agama">agama</link>
+        repository. That means after clicking the source location link
+        in the Weblate you will see the correct source code location in
+        the original repository.
+      </para>
+    </section>
+    <section xml:id="technical-details">
+      <title>Technical details</title>
+      <para>
+        This part describes technical and implementation details. It
+        also describes the translation process for developers.
+      </para>
+      <section xml:id="the-web-front-end">
+        <title>The web front-end</title>
+        <para>
+          Most of the translatable texts which can user see in Agama are
+          defined in the web front-end. However, the web front-end can
+          display some translated texts coming from the back-end part so
+          it is important to set the same language in both parts and
+          make sure the translations are available there.
+        </para>
+        <para>
+          The list of supported languages is read from the
+          <link xlink:href="https://github.com/agama-project/agama/blob/master/web/src/languages.json">languages.json</link>.
+          Such a list is automatically refreshed when any of the PO
+          files is updated (see
+          <link linkend="uploading-translatable-texts">Uploading
+          Translatable Texts</link>).
+        </para>
+        <para>
+          The
+          <link xlink:href="https://github.com/agama-project/agama/blob/master/web/share/update-manifest.py">update-manifest.py
+          script</link> is the responsible for updating the list of
+          supported languages. It goes through all PO files, filters out
+          the ones with less than 70% of translated content and adds the
+          corresponding locales to the
+          <literal>languages.json</literal>.
+        </para>
+        <para>
+          The name of the locale is taken from
+          <link xlink:href="https://pypi.org/project/langtable/">langtable</link>,
+          so be sure to have it installed. However, when the territory
+          is not include in the PO file (<literal>es</literal> instead
+          of <literal>es_es</literal>), the script uses the
+          <link xlink:href="https://github.com/agama-project/agama/blob/master/web/share/locales.json">locales.json
+          map</link> to determine which territory to use.
+        </para>
+        <para>
+          If you need to manually update the
+          <literal>languages.json</literal> file, run:
+        </para>
+        <programlisting>
+web/share/update-languages.py --po-directory ../agama-weblate/web &gt; web/src/languages.json
+</programlisting>
+        <para>
+          The <literal>--po-directory</literal> option points to the
+          <link xlink:href="https://github.com/agama-project/agama-weblate">agama-weblate</link>
+          repository checkout. You have to clone it manually, in the
+          Agama checkout root directory run command:
+        </para>
+        <programlisting>
+git clone git@github.com:agama-project/agama-weblate.git ../agama-weblate
+</programlisting>
+      </section>
+      <section xml:id="marking-texts-for-translation">
+        <title>Marking texts for translation</title>
+        <para>
+          The texts are marked for translation using the usual functions
+          like <literal>_()</literal>, <literal>n_()</literal> and
+          others. It is similar to the GNU gettext style.
+        </para>
+        <para>
+          The mechanism of loading and displaying the translation is
+          heavily inspired in Cockpit’s approach. The
+          <link xlink:href="https://github.com/agama-project/agama/blob/master/web/src/i18n.js">i18n
+          module</link> offers a set of translation functions:
+        </para>
+        <programlisting language="javascript">
+import { _, n_, N_, Nn_ } from &quot;~/i18n&quot;;
+</programlisting>
+        <para>
+          It is important to use these functions only on string
+          literals! Do not use them with string templates or string
+          concatenation, that will not work properly.
+        </para>
+        <para>
+          The <literal>_</literal> and <literal>n_</literal> functions
+          can be used on variables or constants, but their content must
+          marked for translation using the <literal>N_</literal> or
+          <literal>Nn_</literal> functions on string literals. See the
+          examples below.
+        </para>
+        <section xml:id="singular-form">
+          <title>Singular Form</title>
+          <para>
+            This is the most common way:
+          </para>
+          <programlisting language="javascript">
+const title = _(&quot;Storage&quot;);
+</programlisting>
+          <para>
+            For using translated text in React components you need to
+            use curly braces to switch to plain Javascript in the
+            attributes and the content:
+          </para>
+          <programlisting language="javascript">
+&lt;Section title={_(&quot;Storage&quot;)}&gt;&lt;/Section&gt;
+</programlisting>
+          <para>
+            or
+          </para>
+          <programlisting language="javascript">
+&lt;Button&gt;{_(&quot;Select&quot;)}&lt;/Button&gt;
+</programlisting>
+          <para>
+            For translating long texts you might use multiline string
+            literals:
+          </para>
+          <programlisting language="javascript">
+const description = _(
+  &quot;Select the device for installing the system. All the \
+file systems will be created on the selected device.&quot;,
+);
+</programlisting>
+          <para>
+            If you need to insert some values into the text you should
+            use the <link linkend="formatting-texts">formatting
+            function</link>. It is recommended to use
+            <link linkend="translators-comments">translator
+            comments</link> for short or ambiguous texts.
+          </para>
+        </section>
+        <section xml:id="plural-form">
+          <title>Plural form</title>
+          <para>
+            If the translated text contains a number or quantity it is
+            good to use a plural form so the translated texts looks
+            naturally.
+          </para>
+          <programlisting language="javascript">
+sprintf(
+  // the first argument is a singular form used when errors.length === 1,
+  // the second argument is used in all other cases
+  n_(&quot;%d error found&quot;, &quot;%d errors found&quot;, errors.length),
+  errors.length,
+);
+</programlisting>
+          <para>
+            Although the English language has only a single plural form
+            the translators can use more of them. The translation
+            definition also defines a function that computes which
+            plural form to use for a specific number. See more details
+            about the
+            <link xlink:href="https://www.gnu.org/software/gettext/manual/html_node/Plural-forms.html">plural
+            forms</link> in the GNU gettext documentation.
+          </para>
+        </section>
+        <section xml:id="translating-constants">
+          <title>Translating constants</title>
+          <para>
+            The top-level constants are evaluated too early, at that
+            time the translations are not available yet and the language
+            is not set.
+          </para>
+          <para>
+            The constant value must be marked with
+            <literal>N_()</literal> function which does nothing and then
+            later translated with the usual <literal>_()</literal>
+            function.
+          </para>
+          <programlisting language="javascript">
+const LABELS = Object.freeze({
+  auto: N_(&quot;Auto&quot;),
+  fixed: N_(&quot;Fixed&quot;),
+  range: N_(&quot;Range&quot;)
+});
+
+export default function Foo() {
+  ...
+  &lt;label&gt;{_(LABELS[value])}&lt;/label&gt;
+</programlisting>
+        </section>
+        <section xml:id="formatting-texts">
+          <title>Formatting texts</title>
+          <para>
+            For formatting complex texts use the C-like
+            <literal>sprintf()</literal> function.
+          </para>
+          <programlisting language="javascript">
+import { sprintf } from &quot;sprintf-js&quot;;
+
+sprintf(_(&quot;User %s will be created&quot;), user);
+</programlisting>
+          <para>
+            See the
+            <link xlink:href="https://www.npmjs.com/package/sprintf-js">sprintf-js</link>
+            documentation for more details about the formatting
+            specifiers.
+          </para>
+          <para>
+            <emphasis>Note: You cannot use HTML tags in the translated
+            texts, React automatically escapes all special HTML
+            characters like <literal>&lt;&gt;&amp;</literal>. That is
+            different to YaST where we can use HTML tags in rich text
+            messages.</emphasis>
+          </para>
+          <para>
+            It is recommended to avoid building texts from several parts
+            translated separately. This is error prone because the
+            translators will not see the complete final text and might
+            translate some parts inaccurately.
+          </para>
+          <programlisting language="javascript">
+// do NOT use this! it is difficult to translate the parts correctly
+// so they build a nice text after merging
+return &lt;div&gt;{_(&quot;User &quot;)}&lt;b&gt;{user}&lt;/b&gt;{_(&quot; will be created&quot;)}&lt;/div&gt;
+
+// rather translate a complete text and then split it into parts
+// TRANSLATORS: %s will be replaced by the user name
+const [msg1, msg2] = _(&quot;User %s will be created&quot;).split(&quot;%s&quot;);
+...
+return &lt;div&gt;{msg1}&lt;b&gt;{user}&lt;/b&gt;{msg2}&lt;/div&gt;
+</programlisting>
+          <para>
+            Text splitting might be quite complex in some cases, but
+            still should be preferred.
+          </para>
+          <programlisting language="javascript">
+// TRANSLATORS: error message, the text in square brackets [] is a clickable link
+const [msgStart, msgLink, msgEnd] = _(&quot;An error occurred. \
+Check the [details] for more information.&quot;).split(/[[\]]/);
+...
+return &lt;p&gt;{msgStart}&lt;a&gt;{msgLink}&lt;/a&gt;{msgEnd}&lt;/p&gt;;
+</programlisting>
+          <para>
+            Building sentences from separate parts might be easy in
+            English, but is some other languages it might much more
+            complex. Always assume that the target language has more
+            complex grammar and rules.
+          </para>
+          <programlisting language="javascript">
+// do NOT use this! it is difficult to translate &quot;enabled&quot; and &quot;not enabled&quot;
+// differently in the target language!
+const msgNot = enabled ? &quot;&quot; : _(&quot;not&quot;);
+sprintf(_(&quot;Service is %s enabled&quot;), msgNot);
+
+// this is better
+enabled ? _(&quot;Service is enabled&quot;) : _(&quot;Service is disabled&quot;);
+</programlisting>
+        </section>
+        <section xml:id="translators-comments">
+          <title>TRANSLATORS comments</title>
+          <para>
+            You can use a special <literal>TRANSLATORS</literal> keyword
+            in the comment preceding the text marked for translation.
+            All comments after the keyword are included in the
+            translations file, this should help the translator to
+            correctly translate the text.
+          </para>
+          <programlisting language="javascript">
+// this line is NOT included in the PO file
+// TRANSLATORS: this line is included in the PO file,
+// this line as well
+_(&quot;Back&quot;);
+</programlisting>
+          <para>
+            The translators comments should be used especially for short
+            texts to better describe the meaning and the context of the
+            message.
+          </para>
+          <programlisting language="javascript">
+// TRANSLATORS: button label, going back to the main page
+_(&quot;Back&quot;);
+</programlisting>
+          <para>
+            Also the formatting placeholders should be always described.
+          </para>
+          <programlisting language="javascript">
+// TRANSLATORS: %s will be replaced by the user name
+_(&quot;User %s will be created&quot;);
+</programlisting>
+          <para>
+            The JSX code does not support comments natively, you have to
+            write them in curly braces.
+          </para>
+          <programlisting language="javascript">
+&lt;Button&gt;
+  {/* TRANSLATORS: button label */}
+  {_(&quot;Remove&quot;)}
+&lt;/Button&gt;
+</programlisting>
+          <para>
+            But in the component attributes you can use usual Javascript
+            comments.
+          </para>
+          <programlisting language="javascript">
+&lt;TextInput
+  id=&quot;port&quot;
+  name=&quot;port&quot;
+  value={data.port || &quot;&quot;}
+  // TRANSLATORS: network port number
+  label={_(&quot;Port&quot;)}
+/&gt;
+</programlisting>
+        </section>
+      </section>
+      <section xml:id="rust-marking-texts-for-translation">
+        <title>Rust: Marking texts for translation</title>
+        <para>
+          We are using
+          <link xlink:href="https://docs.rs/gettext-rs">gettext-rs</link>
+          and
+          <link xlink:href="https://docs.rs/i18n-format">i18n-format</link>.
+        </para>
+        <para>
+          Example:
+        </para>
+        <programlisting language="rust">
+use gettextrs::gettext;
+use agama_l10n::helpers::gettext_noop; // does nothing but seen by build_pot
+use i18n_format::i18n_format;
+
+// TRANSLATORS: disk volume, not audio
+let s = gettext(&quot;Volume&quot;);
+
+let id = gettext_noop(&quot;Yes&quot;);
+let pair = (id, gettext(id));
+
+let s = i18n_format!(&quot;File {} not found&quot;, filename);
+
+// translators may use &quot;OF {1} PACKAGES, {0} DONE.&quot;
+s = i18n_format!(&quot;{0} packages of {1} done.&quot;, n, total);
+</programlisting>
+      </section>
+      <section xml:id="changing-argument-order-in-translations">
+        <title>Changing argument order in translations</title>
+        <para>
+          The translators can change the order of the arguments in
+          formatted text using additional positional argument
+          <literal>%&lt;pos&gt;$&lt;format&gt;</literal> where
+          <literal>pos</literal> is the index of the argument and
+          <literal>format</literal> is the usual type formatting tag,
+          like <literal>s</literal> for a string.
+        </para>
+        <para>
+          For example to change the order of the arguments in English
+          text <literal>&quot;Foo %s %s&quot;</literal> it can be
+          translated as <literal>&quot;Bar %2$s %1$s&quot;</literal>.
+        </para>
+        <para>
+          For
+          <link xlink:href="https://www.gnu.org/software/gettext/manual/html_node/rust_002dformat.html"><literal>rust-format</literal></link>
+          strings, the reordered syntax is
+          <literal>&quot;Bar {1} {0}&quot;</literal>. (Using
+          <emphasis role="strikethrough"><literal>&quot;{keywords}&quot;</literal></emphasis>
+          does not work, and the error message gets displayed in place
+          of the translated text.)
+        </para>
+      </section>
+      <section xml:id="typescript-support">
+        <title>Typescript support</title>
+        <para>
+          The code in SLES16.1 and later contains a new
+          <literal>TranslatedString</literal> type. Use it whenever your
+          code expects a translated text, like in component parameters.
+        </para>
+        <programlisting>
+import { _, TranslatedString } from &quot;~/i18n&quot;;
+
+// a testing function which accepts a plain string
+function fn1(param: string) {
+  console.log(param);
+}
+
+// a testing function which accepts a TranslatedString
+function fn2(param: TranslatedString) {
+  console.log(param);
+}
+
+function fn3() {
+  // this is allowed, passing a TranslatedString where a plain string is expected works just fine
+  const translated: TranslatedString = _(&quot;foo&quot;);
+  fn1(translated);
+
+  // but passing a plain string where a TranslatedString is expected causes a compilation error
+  // &quot;Argument of type 'string' is not assignable to parameter of type 'TranslatedString'.&quot;
+  const notTranslated: string = &quot;foo&quot;;
+  fn2(notTranslated);
+}
+</programlisting>
+        <para>
+          A <literal>TranslatedString</literal> can be used everywhere
+          where a plain string is accepted, but the opposite direction
+          is forbidden. You cannot use a plain string where a
+          <literal>TranslatedString</literal> is expected.
+        </para>
+        <section xml:id="returning-the-string-or-translatedstring-type-conditionally">
+          <title>Returning the string or TranslatedString type
+          conditionally</title>
+          <para>
+            Sometimes you need to accept both translated and not
+            translated strings in the same function and return the
+            translated and not translated string depending on the input.
+            In that case you can use this function signature:
+          </para>
+          <programlisting>
+// accept either a plain string or a TranslatedString argument and return the same type
+function foo&lt;T extends string | TranslatedString&gt;(param: T): T;
+</programlisting>
+          <para>
+            This is used for example in the <literal>snprintf</literal>
+            function:
+          </para>
+          <programlisting>
+import { sprintf } from &quot;sprintf-js&quot;;
+import { _ } from &quot;~/i18n&quot;;
+
+// this returns a plain string
+sprintf(&quot;foo: %s&quot;, bar);
+
+// this returns a TranslatedString
+sprintf(_(&quot;foo: %s&quot;), bar);
+</programlisting>
+        </section>
+      </section>
+      <section xml:id="missing-translations">
+        <title>Missing translations</title>
+        <para>
+          Here are some code examples which might look correct at the
+          first sight. They even work, no crash. But there are still
+          translation problems with them.
+        </para>
+        <itemizedlist spacing="compact">
+          <listitem>
+            <para>
+              Do not use Javascript string templates, that does not work
+              at all
+              (<emphasis role="strikethrough"><literal>_(`User ${user} will be created`)</literal></emphasis>),
+              use a string formatting function for that
+              (<literal>sprintf(_(&quot;User %s will be created&quot;), user)</literal>).
+              The string will not be extracted to the POT file.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Do not use the <literal>_()</literal> and
+              <literal>n_()</literal> translation functions in the top
+              level code. That is evaluated too early at runtime, even
+              before loading the translations from the server. Moreover
+              they are evaluated only once so they cannot react on
+              changing the current language.
+            </para>
+          </listitem>
+        </itemizedlist>
+      </section>
+      <section xml:id="eslint-plug-in">
+        <title>ESLint plug-in</title>
+        <para>
+          There is a special ESLint plug-in
+          <link xlink:href="https://github.com/agama-project/eslint-plugin-agama-i18n">eslint-plugin-agama-i18n</link>
+          which ensures that only a string literal is passed to the
+          translation functions and that the translations are not used
+          in the top level code. This should avoid the problems with
+          <link linkend="missing-translations">missing
+          translations</link> mentioned above.
+        </para>
+      </section>
+      <section xml:id="testing-language">
+        <title>Testing language</title>
+        <para>
+          The Agama web interface supports special testing
+          <literal>xx</literal> language. That language needs to be
+          selected manually by adding the <literal>?lang=xx</literal>
+          query string to the server URL. With this setting the
+          <literal>_()</literal> and <literal>n_()</literal> translation
+          functions replace all alphabetical characters by the
+          <literal>x</literal> symbol.
+        </para>
+        <para>
+          This can be used for testing to find out the texts which are
+          not marked for translation. If a text is not replaced by the
+          <literal>x</literal> symbols then either it is not marked for
+          translation or it comes from the back-end and it should be
+          translated by the back-end.
+        </para>
+        <para>
+          However, this is not perfect. It will replace also the texts
+          mentioned in the <link linkend="missing-translations">missing
+          translations</link> section above but in reality the there
+          would be no translations available for them.
+        </para>
+      </section>
+      <section xml:id="loading-web-ui-translations">
+        <title>Loading web UI translations</title>
+        <para>
+          The translations are loaded dynamically by using the
+          <literal>import()</literal> call. This loads the
+          <literal>po-&lt;language&gt;.js</literal> file at runtime
+          which exports the translation mapping object.
+        </para>
+      </section>
+      <section xml:id="back-end-locale">
+        <title>Back-end locale</title>
+        <para>
+          The Agama server exposes a <literal>uiLocale</literal>
+          configuration option via the
+          <literal>/api/l10n/locales/config</literal> endpoint which
+          defines the locale used by all the services.
+        </para>
+        <para>
+          The <literal>uiLocale</literal> property is a single global
+          value shared by all connected clients. That means it is
+          possible to use only one language for all clients, if more
+          users connect to the server and uses a different UI language
+          then there will be race conditions and the other users might
+          see the texts coming from the back-end in another language
+          than expected.
+        </para>
+        <para>
+          This is a known limitation, we expect that only one user at a
+          time will access the Agama installer or if multiple users use
+          the same server we expect that they will be from the same team
+          or company using the same language.
+        </para>
+        <para>
+          To check or set the locale you can use the
+          <literal>/api/l10n/locales/config</literal> endpoint.
+          Alternatively, you can check (but not change) the current
+          locale via D-Bus:
+        </para>
+        <programlisting>
+sudo busctl --address unix:path=/run/agama/bus get-property org.opensuse.Agama1 \
+/org/opensuse/Agama1/Locale org.opensuse.Agama1.Locale UILocale
+</programlisting>
+        <section xml:id="back-end-translations">
+          <title>Back-end translations</title>
+          <para>
+            The back-end might return texts from external components
+            like <literal>libstorage-ng</literal>. Make sure the
+            translations for those components are also available for
+            Agama, e.g. the <literal>libstorage-ng</literal>
+            translations are stored in the
+            <literal>libstorage-ng-lang</literal> package or the YaST
+            translations are stored in
+            <literal>yast2-trans-&lt;LANG&gt;</literal> packages.
+          </para>
+        </section>
+      </section>
+    </section>
+    <section xml:id="troubleshooting">
+      <title>Troubleshooting</title>
+      <para>
+        Here are some hints what to do when some untranslated text
+        appears in the Agama UI.
+      </para>
+      <orderedlist numeration="arabic" spacing="compact">
+        <listitem>
+          <para>
+            Check that the text is marked for translation, for a quick
+            verification you might try setting the
+            <link linkend="testing-language">testing language</link>.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            If the text comes from back-end or the other parts check
+            that the appropriate
+            <link linkend="back-end-translations">language
+            package</link> is installed.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The text should be extracted into the POT file.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The
+            <link xlink:href="https://github.com/agama-project/agama-weblate/blob/master/web/agama.pot">agama.pot</link>
+            in the <literal>agama-weblate</literal> repository is up to
+            date, if not then run the
+            <link xlink:href="https://github.com/agama-project/agama/actions/workflows/weblate-update-pot.yml">Weblate
+            Update POT</link> Github Action manually. The same applies
+            for the product and service POT files.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The text is translated in the
+            <link xlink:href="https://l10n.opensuse.org/projects/agama/">Weblate
+            repository</link>.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The translation is included in the respective PO file in the
+            <link xlink:href="https://github.com/agama-project/agama-weblate">agama-weblate</link>
+            repository.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The translation files in the
+            <link xlink:href="https://github.com/agama-project/agama/tree/master/web/src/po">web/src/po</link>
+            directory are up to date, if not the check whether there is
+            an
+            <link xlink:href="https://github.com/agama-project/agama/pulls?q=is%3Aopen+is%3Apr+label%3Atranslations+label%3Abot">open
+            pull request</link> with the change, if yes then check it
+            and merge, if not then run the
+            <link xlink:href="https://github.com/agama-project/agama/actions/workflows/weblate-merge-po.yml">Weblate
+            Merge PO</link> GitHub Action manually, then check the
+            created pull request. For the product translations and the
+            service backend translations run the appropriate GitHub
+            Action.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The translated string should be present in the built
+            packages, run <literal>npm build</literal> command and check
+            the <literal>dist/po-*.js</literal> files, check the built
+            RPM package.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            The translations are loaded by the browser, check the
+            content loaded for the <literal>po-*.js</literal> files.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Check the current language used in the browser, check the
+            <literal>agamaLang</literal> cookie value (run
+            <literal>document.cookie</literal> command in the console).
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Check the language used by the
+            <link linkend="back-end-locale">Back-end locale</link>.
+          </para>
+        </listitem>
+      </orderedlist>
+    </section>
+  </section>
+</article>

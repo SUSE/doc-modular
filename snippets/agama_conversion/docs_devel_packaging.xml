@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article>
+<article
+  xmlns="http://docbook.org/ns/docbook" version="5.0"
+  xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <info>
+    <title></title>
+  </info>
+  <section xml:id="packaging">
+    <title>Packaging</title>
+    <para>
+      This document summarizes the process we follow to build the Agama
+      packages.
+    </para>
+    <para>
+      The Agama packages are available in the
+      <link xlink:href="https://build.opensuse.org/project/show/systemsmanagement:Agama:Devel">systemsmanagement:Agama:Devel</link>
+      OBS project. These packages are automatically updated whenever the
+      master branch is changed or when a new version is released.
+    </para>
+    <para>
+      You can find more details the automatic OBS synchronization in the
+      <link xlink:href="./obs_integration">obs_integration.md</link>
+      section.
+    </para>
+    <para>
+      The process to build each package is slightly different depending
+      on the technology we are using. While the Ruby-based one
+      (<literal>rubygem-agama-yast</literal>) is built as any other YaST
+      package, the Agama server (<literal>agama</literal>), the CLI
+      (<literal>agama-cli</literal>), and the web UI
+      (<literal>agama-web-ui</literal>) rely on
+      <link xlink:href="https://openbuildservice.org/help/manuals/obs-user-guide/cha.obs.source_service.html">OBS
+      source services</link>.
+    </para>
+    <section xml:id="versioning-policy">
+      <title>Versioning policy</title>
+      <para>
+        We have decided to follow a single number schema: 1, 2, 3, etc.
+        However, if we need to release a hot-fix, we might use a dotted
+        version (e.g., 2.1). Moreover, all the components share the same
+        version number. Releasing a new version implies that all of them
+        get the new number, no matter if they contain changes or not.
+      </para>
+    </section>
+    <section xml:id="bumping-the-version">
+      <title>Bumping the version</title>
+      <para>
+        In order to release a new version, we need to:
+      </para>
+      <orderedlist numeration="arabic">
+        <listitem>
+          <para>
+            <literal>(cd service; bundle install)</literal> # Updates
+            Gemfile.lock which is part of the repository
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Add entries in the changes files.
+            <literal>osc vc service/package</literal>
+            <literal>osc vc rust/package</literal>
+            <literal>osc vc web/package</literal>
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Open a pull request to get these changes into the
+            repository.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Once the pull request is merged, tag the repository with the
+            proper version number. The processes to build the packages
+            use this information to infer the version. You can set the
+            tag with the <literal>rake tag</literal> command.
+          </para>
+          <programlisting>
+# automatic version, use the current &lt;major version&gt; + 1
+rake tag
+# manual version, useful for releasing a hot fix with a minor version
+rake tag[42.1]
+</programlisting>
+          <para>
+            You need to push the tag to the server manually, see the
+            <literal>rake tag</literal> output.
+          </para>
+        </listitem>
+      </orderedlist>
+      <para>
+        After creating the tag on the server the GitHub Actions will
+        publish the packages in the
+        <link xlink:href="https://build.opensuse.org/project/show/systemsmanagement:Agama:Devel">systemsmanagement:Agama:Devel</link>
+        project and create submit requests to openSUSE Factory.
+      </para>
+    </section>
+    <section xml:id="building-the-packages">
+      <title>Building the packages</title>
+      <para>
+        The packages are updated automatically using the GitHub actions.
+        Here are details for manual update.
+      </para>
+      <section xml:id="service">
+        <title>Service</title>
+        <para>
+          You can check the current package in
+          <link xlink:href="https://build.opensuse.org/package/show/systemsmanagement:Agama:Devel/rubygem-agama-yast">systemsmanagement:Agama:Devel/rubygem-agama-yast</link>.
+        </para>
+        <para>
+          Use <literal>rake</literal> to update the package in OBS as
+          you would do with any other YaST package:
+        </para>
+        <programlisting>
+cd service
+rake osc:commit
+</programlisting>
+        <para>
+          If you just want to build the package locally, run:
+        </para>
+        <programlisting>
+rake osc:build
+</programlisting>
+      </section>
+      <section xml:id="agama-server-command-line-and-web-based-user-interface">
+        <title>Agama server, command-line and web-based user
+        interface</title>
+        <para>
+          You can find the current packages in OBS:
+        </para>
+        <itemizedlist spacing="compact">
+          <listitem>
+            <para>
+              <link xlink:href="https://build.opensuse.org/package/show/systemsmanagement:Agama:Devel/agama">systemsmanagement:Agama:Devel/agama</link>
+              for the server and the command-line.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <link xlink:href="https://build.opensuse.org/package/show/systemsmanagement:Agama:Devel/agama-web-ui">systemsmanagement:Agama:Devel/agama-web-ui</link>
+              for the web-based user interface.
+            </para>
+          </listitem>
+        </itemizedlist>
+        <para>
+          As mentioned before, those packages are built using a
+          service-based approach. You need to make sure you installed
+          the required OBS services:
+          <literal>obs-service-obs_scm</literal>,
+          <literal>osb-service-cargo</literal>, and
+          <literal>obs-service-node_modules</literal>.
+        </para>
+        <programlisting>
+zypper --non-interactive install --no-recommends \
+  obs-service-download_files obs-service-format_spec_file \
+  obs-service-obs_scm obs-service-cargo obs-service-node_modules
+</programlisting>
+        <para>
+          After checking out or branching the package, you need to run
+          the following commands.
+        </para>
+        <programlisting>
+osc service manualrun
+osc commit -m &quot;Update sources&quot; # or osc build
+</programlisting>
+        <para>
+          If you want to use a different Git branch, set another
+          version, etc. just adapt the <literal>_service</literal>
+          accordingly before running the
+          <literal>osc service manualrun</literal> command.
+        </para>
+        <para>
+          The version number is inferred from the repository tags: it
+          uses the latest tag and the offset of the latest commit
+          respect such a tag. (e.g. <literal>2.1+42</literal>).
+        </para>
+        <para>
+          You can read more about the overall approach of this package
+          in the following article:
+          <link xlink:href="https://openbuildservice.org/2016/04/08/new_git_in_27/">Git
+          work flows in the upcoming 2.7 release</link>.
+        </para>
+      </section>
+      <section xml:id="the-live-iso">
+        <title>The live ISO</title>
+        <para>
+          The ISO for openSUSE products is built in the
+          <link xlink:href="https://build.opensuse.org/package/show/systemsmanagement:Agama:Devel/agama-installer-openSUSE">systemsmanagement:Agama:Devel/agama-installer-openSUSE</link>
+          OBS project. See <link xlink:href="./live_iso">Live ISO</link>
+          for more details.
+        </para>
+      </section>
+    </section>
+  </section>
+</article>

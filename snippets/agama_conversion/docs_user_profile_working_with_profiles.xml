@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article>
+<article
+  xmlns="http://docbook.org/ns/docbook" version="5.0"
+  xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <info>
+    <title></title>
+  </info>
+  <section xml:id="working-with-profiles">
+    <title>Working with profiles</title>
+    <para>
+      Configuration profiles are key for
+      <link xlink:href="/docs/overview/unattended">unattended
+      installation</link> and to perform
+      <link xlink:href="/docs/overview/cli">advanced
+      configuration</link> of Agama. However, getting your profile right
+      is not always easy.
+    </para>
+    <para>
+      Fortunatelly, Agama’s command-line interface offers
+      <link xlink:href="/docs/user/reference/cli">several
+      commands</link> to validate, load and export configurations,
+      becoming a very valuable tool for writing and debugging your
+      profile.
+    </para>
+    <section xml:id="manually-loading-a-profile">
+      <title>Manually loading a profile</title>
+      <para>
+        An Agama profile is written in Jsonnet, which is a superset of
+        JSON. It means that any valid JSON file is a valid Jsonnet file
+        too.
+      </para>
+      <para>
+        However, a profile (either Jsonnet or JSON) should be converted
+        to plain JSON before it is processed by Agama internals. For
+        that reason, we might consider that loading a profile is a three
+        steps process:
+      </para>
+      <orderedlist numeration="arabic" spacing="compact">
+        <listitem>
+          <para>
+            Fetch the profile from the given URL.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Evaluate the Jsonnet code to generate the final JSON file.
+            If you are using
+            <link xlink:href="../reference/profile/files">files</link>
+            or
+            <link xlink:href="../reference/profile/scripts">scripts</link>,
+            any relative URL will be resolved in this stage. It will use
+            the URL of the profile as the base URL.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Load the JSON file into the Agama service.
+          </para>
+        </listitem>
+      </orderedlist>
+      <para>
+        The whole process is automatically performed by Agama when
+        <literal>inst.auto</literal> is used. Internally, the mentioned
+        steps are handled by the
+        <literal>agama config generate</literal> (steps 1 and 2) and
+        <literal>agama config load</literal> (step 3) subcommands. Thus,
+        the process can be replicated manually.
+      </para>
+      <programlisting>
+$ agama config generate http://example.lan/agama.jsonnet &gt; agama.json
+$ agama config load &lt; agama.json
+</programlisting>
+      <para>
+        Or if you prefer, you can use this one-liner:
+      </para>
+      <programlisting>
+$ agama config generate http://example.lan/agama.jsonnet | agama config load
+</programlisting>
+      <para>
+        :::tip <literal>agama config load</literal> does not start the
+        installation
+      </para>
+      <para>
+        The <literal>agama config load</literal> just loads the
+        configuration but it does not start the installation. You can
+        use the web user interface to check that everything looks as you
+        expect. If you want to start the installation from the
+        command-line, you can issue the <literal>agama install</literal>
+        command.
+      </para>
+      <para>
+        :::
+      </para>
+      <para>
+        If you are using relative URLs (for instance, within the
+        <link xlink:href="../reference/profile/files">files</link> or
+        the
+        <link xlink:href="../reference/profile/scripts">scripts</link>
+        section), the <literal>agama config load</literal> might not
+        work as you expect. As <literal>agama config load</literal> only
+        receives a piece of JSON, it does not know which is the base URL
+        and it will use, as a fallback, the path to the working
+        directory (the one where you are executing the command from).
+        For that reason, it is usually a good idea to pre-process the
+        profile using the <literal>agama config generate</literal>
+        command.
+      </para>
+    </section>
+    <section xml:id="validating-a-profile">
+      <title>Validating a profile</title>
+      <para>
+        Agama relies on <link xlink:href="https://json-schema.org/">JSON
+        Schema</link> for profiles validation. The easiest way is to use
+        Agama’s command-line tool.
+      </para>
+      <programlisting>
+$ agama config validate my-profile.json
+</programlisting>
+      <para>
+        Bear in mind that you can only validate JSON profiles, not
+        Jsonnet ones. So if you have a Jsonnet file, you need to convert
+        it to JSON using the <literal>agama config generate</literal>
+        subcommand.
+      </para>
+      <programlisting>
+$ agama config generate my-profile.jsonnet &gt; my-profile.json
+$ agama config validate my-profile.json
+</programlisting>
+      <para>
+        :::note Automatic validation
+      </para>
+      <para>
+        All of the <literal>agama config</literal> subcommands validate
+        the profile automatically.
+      </para>
+      <para>
+        :::
+      </para>
+      <para>
+        If you do not have a running instance of Agama, you can perform
+        a local validation adding the <literal>--local</literal> switch.
+      </para>
+      <programlisting>
+$ agama config validate --local my-profile.json
+</programlisting>
+      <para>
+        Alternatively, you can use any JSON Schema validator using the
+        schemas shipped in the <literal>agama-common</literal> package.
+      </para>
+      <section xml:id="exporting-a-profile">
+        <title>Exporting a profile</title>
+        <para>
+          Writing the profile by hand is relatively easy. However, you
+          might want to ask Agama to do it for you. You can boot the
+          installation, use the web interface to tweak all the values
+          and, from the terminal, generate the file by running the
+          following command:
+        </para>
+        <programlisting>
+agama config show &gt; profile.json
+</programlisting>
+        <para>
+          Bear in mind that using <literal>agama config show</literal>
+          you might discover some options that are not available using
+          the web-based user interface.
+        </para>
+      </section>
+    </section>
+  </section>
+</article>

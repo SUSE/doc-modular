@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article>
+<article
+  xmlns="http://docbook.org/ns/docbook" version="5.0"
+  xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <info>
+    <title></title>
+  </info>
+  <section xml:id="open-build-service-obs-integration">
+    <title>Open Build Service (OBS) Integration</title>
+    <para>
+      The Agama installer packages are built in the openSUSE
+      <link xlink:href="https://build.opensuse.org/">Open Build
+      Service</link>.
+    </para>
+    <section xml:id="development-project">
+      <title>Development project</title>
+      <para>
+        The
+        <link xlink:href="https://build.opensuse.org/project/show/systemsmanagement:Agama:Devel">systemsmanagement:Agama:Devel</link>
+        contains the latest packages built from the
+        <literal>master</literal> Git branch. This project contains
+        unstable development version of Agama. It is intended for
+        development and testing.
+      </para>
+      <para>
+        The packages are automatically updated whenever the
+        <literal>master</literal> branch is changed or when a new
+        version is released. See more details below.
+      </para>
+    </section>
+    <section xml:id="releasing-a-new-version">
+      <title>Releasing a new version</title>
+      <para>
+        For releasing a new version just create a new version tag. The
+        process is then fully automated. See more details in the
+        <link xlink:href="./packaging.md#bumping-the-version">Packaging
+        documentation section</link>.
+      </para>
+    </section>
+    <section xml:id="obs-synchronization">
+      <title>OBS synchronization</title>
+      <para>
+        The automatic OBS synchronization is implemented using the
+        <link xlink:href="https://github.com/features/actions">GitHub
+        Actions</link>. The actions are defined in the
+        <literal>obs-staging-*.yml</literal> files in the
+        <link xlink:href="https://github.com/openSUSE/agama/tree/master/.github/workflows">.github/workflows</link>
+        directory.
+      </para>
+      <para>
+        Because the process of updating a package is the same for
+        several packages the definition is shared in the
+        <link xlink:href="https://github.com/openSUSE/agama/blob/master/.github/workflows/obs-staging-shared.yml">obs-staging-shared.yml</link>
+        file.
+      </para>
+      <para>
+        The packages in the devel project are updated only when a
+        respective source file is changed. That saves some resources for
+        rebuilding and makes synchronization faster. But that also means
+        the packages might not have exactly the same version.
+      </para>
+      <para>
+        The project to which the packages are submitted is configured in
+        the <literal>OBS_PROJECT</literal> GitHub Actions variable.
+      </para>
+      <section xml:id="details">
+        <title>Details</title>
+        <para>
+          The packages in OBS are updated by running the OBS service
+          which downloads the sources from GitHub and dependencies from
+          other repositories (Rust or NPM packages).
+        </para>
+        <para>
+          The process of updating a package is basically:
+        </para>
+        <itemizedlist spacing="compact">
+          <listitem>
+            <para>
+              <literal>osc co systemsmanagement:Agama:Devel &lt;package&gt;</literal>
+              - checkout the package from OBS
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>osc service manualrun</literal> - update the
+              sources and dependencies by running the OBS services
+              locally
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>osc commit</literal> - upload the changes to the
+              OBS server, it will rebuild the updated package
+              automatically
+            </para>
+          </listitem>
+        </itemizedlist>
+        <para>
+          To run the services locally you need to install the OSC tool
+          and several packages with the used OBS services:
+        </para>
+        <programlisting>
+zypper install osc obs-service-cargo_audit obs-service-cargo_vendor \
+  obs-service-download_files obs-service-format_spec_file obs-service-obs_scm \
+  obs-service-node_modules
+</programlisting>
+        <para>
+          The <literal>rubygem-agama</literal> package uses a different
+          approach because the Ruby packages use
+          <literal>*.gem</literal> files which are not supported by OBS
+          services. It uses the
+          <link xlink:href="https://github.com/openSUSE/packaging_rake_tasks#osccommit">osc:commit</link>
+          Rake task, same as the YaST packages.
+        </para>
+      </section>
+    </section>
+    <section xml:id="synchronizing-github-fork-with-obs-branch">
+      <title>Synchronizing GitHub Fork with OBS Branch</title>
+      <para>
+        It is possible to synchronize your GitHub fork with your OBS
+        brach automatically. This allows easily build your own updated
+        packages or even the Live ISO.
+      </para>
+      <section xml:id="obs-branch">
+        <title>OBS Branch</title>
+        <para>
+          First you need to create an OBS project where the packages
+          will be built.
+        </para>
+        <para>
+          The easiest way is to branch the Agama package which you want
+          to modify from the
+          <link xlink:href="https://build.opensuse.org/project/show/systemsmanagement:Agama:Devel">systemsmanagement:Agama:Devel</link>
+          repository. This will inherit the repository setup for
+          building the packages, images and containers.
+        </para>
+        <programlisting>
+osc branch systemsmanagement:Agama:Devel agama-web-ui
+</programlisting>
+        <para>
+          This will create
+          <literal>home:$OBS_USER:branches:systemsmanagement:Agama:Devel</literal>
+          project where <literal>$OBS_USER</literal> is your OBS account
+          name. This <literal>$OBS_USER</literal> placeholder is also
+          used in the following text.
+        </para>
+        <para>
+          By default the project will build packages and ISO images for
+          all architectures. But if you want to test the packages on a
+          single architecture then it is a good idea to remove the other
+          architectures and save some OBS build power.
+        </para>
+        <para>
+          To remove all architectures except the x86_64 run this
+          command:
+        </para>
+        <programlisting>
+osc meta prj home:$OBS_USER:branches:systemsmanagement:Agama:Devel | \
+sed &quot;/&lt;arch&gt;aarch64&lt;\/arch&gt;/d;/&lt;arch&gt;i586&lt;\/arch&gt;/d;/&lt;arch&gt;ppc64le&lt;\/arch&gt;/d;/&lt;arch&gt;s390x&lt;\/arch&gt;/d;&quot; | \
+osc meta prj -F - home:$OBS_USER:branches:systemsmanagement:Agama:Devel
+</programlisting>
+        <para>
+          The branched package is still linked to the original package.
+          This might cause conflicts after the original package is
+          updated. To avoid this problem you should detach the branched
+          package from the original repository:
+        </para>
+        <programlisting>
+osc detachbranch home:$OBS_USER:branches:systemsmanagement:Agama:Devel agama-web-ui
+</programlisting>
+        <para>
+          If you want to also build the Live ISO from your modified
+          packaged then you need to branch (and detach) also the
+          <literal>agama-installer</literal> package:
+        </para>
+        <programlisting>
+osc branch systemsmanagement:Agama:Devel agama-installer
+osc detachbranch home:$OBS_USER:branches:systemsmanagement:Agama:Devel agama-installer
+</programlisting>
+        <para>
+          <emphasis>Please delete your branched OBS project once you do
+          not need it anymore, it will save quite some OBS build
+          power.</emphasis>
+        </para>
+      </section>
+      <section xml:id="github-fork">
+        <title>GitHub fork</title>
+        <para>
+          Then you can fork the
+          <link xlink:href="https://github.com/agama-project/agama">Agama</link>
+          repository at GitHub.
+        </para>
+        <para>
+          When creating a fork GitHub by default copies only the
+          <literal>master</literal> branch. It does not copy the other
+          branches nor tags. The code supports this option, just be
+          prepared that the package versions might be different than in
+          the original Agama OBS repository because the tags are used to
+          get the version number. If tags are missing the version will
+          be set to the commit Unix time stamp followed by a short
+          commit hash.
+        </para>
+        <para>
+          If you want to have similar versions as the original packages
+          then create a full fork including all branches and tags
+          (unselect the <quote>Copy the master branch only</quote>
+          option).
+        </para>
+      </section>
+      <section xml:id="configuring-the-github-actions">
+        <title>Configuring the GitHub Actions</title>
+        <para>
+          The GitHub Actions needs some configuration to allow the
+          automatic submission.
+        </para>
+        <orderedlist numeration="arabic">
+          <listitem>
+            <para>
+              Go to the Settings -&gt; Secrets and variables -&gt;
+              Actions -&gt; New Repository Secret option in your Agama
+              GitHub fork. Create two secrets with names
+              <literal>OBS_USER</literal> and
+              <literal>OBS_PASSWORD</literal> and set them to your OBS
+              credentials.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Switch to <quote>Variables</quote> tabs and click
+              <quote>New Repository Variable</quote>. Create
+              <literal>OBS_PROJECT</literal> variable with name of your
+              OBS branch project
+              (<quote>home:$OBS_USER:branches:systemsmanagement:Agama:Devel</quote>).
+              If the variable is not created or is empty the
+              autosubmission is disabled.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Enable the GitHub Actions in the <quote>Actions</quote>
+              tab.
+            </para>
+          </listitem>
+        </orderedlist>
+        <para>
+          :::tip If you do not want to put your credentials for your
+          main OBS account to GitHub then you might create a new
+          separate testing OBS account. :::
+        </para>
+      </section>
+      <section xml:id="triggering-the-rebuild">
+        <title>Triggering the rebuild</title>
+        <para>
+          <emphasis>The autosubmission only works in the
+          <literal>master</literal> branch in your fork, not in any
+          other branch!</emphasis>
+        </para>
+        <para>
+          To trigger an update and rebuild of your package with the new
+          sources just push a commit to the <literal>master</literal>
+          branch.
+        </para>
+        <para>
+          Alternatively you can trigger the package submission manually.
+          Go to the <quote>Action</quote> tab in GitHub, select the
+          respective <quote>Submit</quote> action in the left side bar
+          and in the main area click the <quote>Run workflow</quote>
+          selector. Then in the popup keep the default
+          <literal>master</literal> branch and click the <quote>Run
+          workflow</quote> button.
+        </para>
+      </section>
+      <section xml:id="devel-package-versioning">
+        <title>Devel package versioning</title>
+        <para>
+          The packages in the Devel project use a version built from the
+          last released version with a number of commits in the
+          <literal>master</literal> branch since that release.
+        </para>
+        <para>
+          The version is automatically constructed by the OBS service,
+          for the <literal>rubygem-agama</literal> package the version
+          is built using the <literal>git describe --tags</literal>
+          command.
+        </para>
+      </section>
+    </section>
+    <section xml:id="release-project">
+      <title>Release project</title>
+      <para>
+        For releasing a public version of Agama we use the
+        <link xlink:href="https://build.opensuse.org/project/show/systemsmanagement:Agama:Devel">systemsmanagement:Agama:Release</link>
+        project and respective
+        <link xlink:href="https://github.com/agama-project/agama/tree/release">release</link>
+        branch in Git. The reason for a separate project is that we
+        might need to release a hot fix but the
+        <literal>master</literal> branch might already contain a new
+        feature for the next version.
+      </para>
+      <para>
+        The integration works the same way as for the Devel project
+        above, the only difference is that it uses the
+        <literal>OBS_PROJECT_RELEASE</literal> GitHub Action variable to
+        define the target OBS project to allow submitting to a different
+        project.
+      </para>
+      <section xml:id="release-package-versioning">
+        <title>Release package versioning</title>
+        <para>
+          The packages in the Release project use a version based on the
+          version tag matching <literal>v[0-9]+</literal>. Use
+          <literal>rake tag</literal> command for creating a tag. See
+          more details in the
+          <link xlink:href="packaging.md#bumping-the-version">packaging
+          documentation</link>.
+        </para>
+      </section>
+    </section>
+  </section>
+</article>

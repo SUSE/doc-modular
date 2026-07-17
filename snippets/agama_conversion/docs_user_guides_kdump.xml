@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article>
+<article
+  xmlns="http://docbook.org/ns/docbook" version="5.0"
+  xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <info>
+    <title></title>
+  </info>
+  <section xml:id="enable-kdump-since-first-boot">
+    <title>Enable Kdump since first boot</title>
+    <para>
+      This guide outlines the steps to automatically enable and
+      configure kdump on a SUSE Linux Enterprise Server (SLES) system as
+      part of an installation using Agama. This ensures that kdump is
+      active and ready to capture kernel crash dumps already at the
+      first system boot, providing crucial diagnostic information in
+      case of system failures.
+    </para>
+    <section xml:id="kdump-configuration">
+      <title>Kdump configuration</title>
+      <para>
+        Early Kdump configuration can be done integrating a
+        <link xlink:href="../reference/profile/scripts">post-installation
+        script</link> at the Agama configuration. That allows to execute
+        some commands within the chrooted environment of the installed
+        system. Let’s see an example using a Jsonnet profile (more
+        readable than plain JSON).
+      </para>
+      <programlisting>
+{
+  product: {
+    id: 'SLES',
+    registrationCode: 'YOUR-SLES-REGISTRATION-CODE',
+  },
+  user: {
+    fullName: 'Monsignore Tux',
+    password: 'linux',
+    userName: 'tux',
+  },
+  scripts: {
+    post: [
+      {
+        name: 'enable-kdump',
+        chroot: true,
+        content: |||
+          #!/usr/bin/bash
+          zypper -n in kdump
+          systemctl enable kdump-commandline.service
+          systemctl enable kdump.service
+          kdumptool commandline -u
+        |||,
+      },
+    ],
+  },
+}
+</programlisting>
+      <para>
+        Let’s break down the commands within the
+        <literal>content</literal> of the <literal>post</literal>
+        script:
+      </para>
+      <itemizedlist spacing="compact">
+        <listitem>
+          <para>
+            <literal>#!/usr/bin/bash</literal>: Shebang line, ensuring
+            the script is executed with bash.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>zypper -n in kdump</literal>: This command uses
+            <literal>zypper</literal> (SUSE’s package manager) to
+            install the <literal>kdump</literal> package. The
+            <literal>-n</literal> flag stands for
+            <quote>non-interactive</quote> and assumes
+            <quote>yes</quote> to any prompts, which is essential for
+            unattended installations.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>systemctl enable kdump-commandline.service</literal>:
+            This enables an auxiliary service that is crucial for
+            setting up Kdump parameters from the kernel command line
+            during boot.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>systemctl enable kdump.service</literal>: This
+            enables the main Kdump service, which manages the Kdump
+            daemon responsible for capturing and saving crash dumps.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>kdumptool commandline -u</literal>: This updates
+            the bootloader configuration to ensure it contains the
+            proper kernel command-line arguments with recommended
+            values.
+          </para>
+        </listitem>
+      </itemizedlist>
+    </section>
+    <section xml:id="integrate-the-configuration-into-your-installation">
+      <title>Integrate the configuration into your installation</title>
+      <para>
+        If you are performing an unattended installation, simply merge
+        the <literal>scripts</literal> section from the provided snippet
+        into your existing Agama configuration profile. The following
+        example shows how to do that using a JSON profile.
+      </para>
+      <programlisting language="json">
+{
+  &quot;product&quot;: {
+    &quot;id&quot;: &quot;SLES&quot;,
+    &quot;registrationCode&quot;: &quot;YOUR-SLES-REGISTRATION-CODE&quot;
+  },
+  &quot;user&quot;: {
+    &quot;fullName&quot;: &quot;Your Name&quot;,
+    &quot;password&quot;: &quot;your_password&quot;,
+    &quot;userName&quot;: &quot;your_username&quot;
+  },
+  &quot;scripts&quot;: {
+    &quot;post&quot;: [
+      {
+        &quot;name&quot;: &quot;enable-kdump&quot;,
+        &quot;chroot&quot;: true,
+        &quot;content&quot;: &quot;#!/usr/bin/bash\nzypper -n in kdump\nsystemctl enable kdump-commandline.service\nsystemctl enable kdump.service\nkdumptool commandline -u&quot;
+      }
+    ]
+  }
+}
+</programlisting>
+      <para>
+        If you are using Agama interactively, the
+        <link xlink:href="../../overview/cli">corresponding
+        section</link> of the starter’s guide explains how to use a
+        partial profile to configure settings that are not available at
+        the web user interface. That can be used to setup our kdump
+        <literal>post</literal> script. Simply save the
+        <literal>scripts</literal> section into a separate file (e.g.,
+        <literal>kdump_config.jsonnet</literal> or
+        <literal>kdump_config.json</literal> if you prefer plain JSON).
+      </para>
+      <programlisting>
+{
+  scripts: {
+    post: [
+      {
+        name: 'enable-kdump',
+        chroot: true,
+        content: |||
+          #!/usr/bin/bash
+          zypper -n in kdump
+          systemctl enable kdump-commandline.service
+          systemctl enable kdump.service
+          kdumptool commandline -u
+        |||,
+      },
+    ],
+  },
+}
+</programlisting>
+      <para>
+        Then, during your interactive Agama session, load that
+        configuration as usual.
+      </para>
+      <programlisting>
+agama config load &lt; kdump_config.jsonnet
+</programlisting>
+      <para>
+        Finally proceed normally with the rest of the interactive
+        installation.
+      </para>
+    </section>
+    <section xml:id="verification-after-installation">
+      <title>Verification after installation</title>
+      <para>
+        After the SLES installation is complete and the system has
+        rebooted for the first time, you can verify that kdump is
+        enabled and configured correctly:
+      </para>
+      <orderedlist numeration="arabic">
+        <listitem>
+          <para>
+            <emphasis role="strong">Check Kdump Service
+            Status:</emphasis>
+          </para>
+          <programlisting>
+sudo systemctl status kdump
+sudo systemctl status kdump-commandline.service
+</programlisting>
+          <para>
+            Both services should be <literal>active (exited)</literal>
+            or <literal>active (running)</literal>.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <emphasis role="strong">Verify Kdump Kernel
+            Parameter:</emphasis> Check the kernel command line to
+            ensure <literal>crashkernel=</literal> allocation is
+            present.
+          </para>
+          <programlisting language="bash">
+cat /proc/cmdline
+</programlisting>
+          <para>
+            You should see an entry like
+            <literal>crashkernel=&lt;size&gt;M@&lt;offset&gt;</literal>.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <emphasis role="strong">Test Kdump (Optional, on a
+            non-production system):</emphasis> To confirm Kdump
+            functionality, you can intentionally trigger a kernel crash.
+            <emphasis role="strong">Do not do this on a production
+            system.</emphasis>
+          </para>
+          <programlisting language="bash">
+echo c | sudo tee /proc/sysrq-trigger
+</programlisting>
+          <para>
+            After the system reboots, check the
+            <literal>/var/crash</literal> directory for a new crash
+            dump.
+          </para>
+        </listitem>
+      </orderedlist>
+    </section>
+  </section>
+</article>

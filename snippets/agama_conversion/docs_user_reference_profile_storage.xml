@@ -1,0 +1,1332 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article>
+<article
+  xmlns="http://docbook.org/ns/docbook" version="5.0"
+  xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <info>
+    <title></title>
+  </info>
+  <para>
+    import { Since } from <quote>@site/src/components/Badge</quote>;
+  </para>
+  <section xml:id="storage">
+    <title>Storage</title>
+    <para>
+      The general concepts regarding configuration of storage devices
+      with Agama are exposed at the
+      <link xlink:href="/docs/user/guides/storage">corresponding
+      subsection</link> of the interactive installation documentation.
+      It is recommended to read that section before diving into the
+      details below.
+    </para>
+    <section xml:id="unattended-installation-using-the-legacy-autoyast-mode">
+      <title>Unattended installation using the legacy AutoYaST
+      mode</title>
+      <para>
+        Most Agama profiles contain a <literal>storage</literal> section
+        with the configuration settings that are detailed in subsequent
+        sections of this document. But in some cases,
+        <literal>storage</literal> can be replaced by a special section
+        <literal>legacyAutoyastStorage</literal>, which is a 1:1
+        representation of the XML AutoYaST profile. This section
+        supports everything offered by the
+        <literal>partitioning</literal> AutoYaST section. Note that
+        Agama does not validate this special section, so be careful to
+        provide valid AutoYaST options.
+      </para>
+      <programlisting language="json">
+{
+  &quot;legacyAutoyastStorage&quot;: [
+    {
+      &quot;use&quot;: &quot;all&quot;,
+      &quot;partitions&quot;: []
+    }
+  ]
+}
+</programlisting>
+      <para>
+        Although that special section is offered for backwards
+        compatibility and to ease gradual migration from AutoYaST to
+        Agama, there are no plans to introduce any improvement or new
+        feature in that legacy mode.
+      </para>
+    </section>
+    <section xml:id="basic-structure-of-the-storage-section">
+      <title>Basic structure of the Storage section</title>
+      <para>
+        As mentioned above, the Agama process to setup the storage
+        devices can be configured using a <literal>storage</literal>
+        section at the Agama configuration profile. The outer level of
+        that section would look like this, with all subsections being
+        optional.
+      </para>
+      <programlisting>
+&quot;storage&quot;: {
+  &quot;drives&quot;: [ ... ],
+  &quot;volumeGroups&quot;: [ ... ],
+  &quot;mdRaids&quot;: [ ... ],
+  &quot;boot&quot;: { ... }
+}
+</programlisting>
+      <para>
+        Thus, a <literal>storage</literal> section can contain several
+        entries describing how to configure the corresponding storage
+        devices and some extra entries (currently only
+        <literal>boot</literal>) to setup some general aspects that
+        influence the final layout. Check the Agama JSON schema for a
+        more formal definition.
+      </para>
+      <para>
+        Each volume group or software RAID can represent a new logical
+        device to be created or an existing device from the system to be
+        processed. Entries below <literal>drives</literal> represent
+        devices that can be used as regular disks. That includes
+        removable and fixed disks, SD cards, DASD or zFCP devices, iSCSI
+        disks, multipath devices, etc. Those entries always correspond
+        to devices that can be found at the system, since Agama cannot
+        create that kind of devices.
+      </para>
+      <para>
+        In fact, a single entry can represent several devices from the
+        system. That is explained in depth at the section
+        <quote>searching existing devices</quote> of this document.
+      </para>
+    </section>
+    <section xml:id="entries-for-describing-the-devices">
+      <title>Entries for describing the devices</title>
+      <para>
+        The specification of the previous section can be extended as we
+        dive into the structure.
+      </para>
+      <para>
+        For example, an element of the <literal>drives</literal>
+        collection can contain the following fields. All of them are
+        optional and some of them are mutually exclusive. Check the
+        schema and use Agama’s built-in validation process for more
+        formal details.
+      </para>
+      <programlisting>
+{
+  &quot;alias&quot;: &quot;...&quot;,
+  &quot;search&quot;: { ... },
+  &quot;encryption&quot;: { ... },
+  &quot;filesystem&quot;: { ... },
+  &quot;partitions&quot;: [ ... ],
+  &quot;ptableType&quot;: &quot;...&quot;
+}
+</programlisting>
+      <para>
+        Normally the device represented by a <literal>drive</literal>
+        entry will be divided into several partitions. Each entry of
+        <literal>partitions</literal> follows this structure with
+        several optional fields.
+      </para>
+      <programlisting>
+{
+  &quot;alias&quot;: &quot;...&quot;,
+  &quot;search&quot;: { ... },
+  &quot;id&quot;: &quot;...&quot;,
+  &quot;size&quot;: { ... },
+  &quot;encryption&quot;: { ... },
+  &quot;filesystem&quot;: { ... },
+  &quot;delete&quot;: ...,
+  &quot;deleteIfNeeded&quot;: ...
+}
+</programlisting>
+      <para>
+        Drives and partitions can be combined to create a simple example
+        in which the first disk is used to create some partitions and
+        the second one is directly formatted.
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;partitions&quot;: [
+        {
+          &quot;filesystem&quot;: { &quot;path&quot;: &quot;/&quot; },
+          &quot;size&quot;: { &quot;min&quot;: &quot;10 GiB&quot; }
+        },
+        {
+          &quot;filesystem&quot;: { &quot;path&quot;: &quot;swap&quot; },
+          &quot;size&quot;: &quot;2 GiB&quot;
+        }
+      ]
+    },
+    {
+      &quot;filesystem&quot;: { &quot;path&quot;: &quot;/home&quot; },
+    }
+  ]
+}
+</programlisting>
+      <para>
+        An entry from <literal>volumeGroups</literal> can have the
+        following properties.
+      </para>
+      <programlisting>
+{
+  &quot;alias&quot;: &quot;...&quot;,
+  &quot;name&quot;: &quot;...&quot;,
+  &quot;search&quot;: { ... },
+  &quot;physicalVolumes&quot;: [ ... ],
+  &quot;logicalVolumes&quot;: [ ... ],
+  &quot;peSize&quot;: ... ,
+  &quot;delete&quot;: ...
+}
+</programlisting>
+      <para>
+        Entries of <literal>logicalVolumes</literal> are relatively
+        similar to the ones used to describe partitions.
+      </para>
+      <programlisting>
+{
+  &quot;alias&quot;: &quot;...&quot;,
+  &quot;search&quot;: { ... },
+  &quot;name&quot;: &quot;...&quot;,
+  &quot;size&quot;: { ... },
+  &quot;encryption&quot;: { ... },
+  &quot;filesystem&quot;: { ... },
+  &quot;pool&quot;: ...,
+  &quot;usedPool&quot;: &quot;...&quot;,
+  &quot;stripes&quot;: ...,
+  &quot;stripeSize&quot;: ...,
+  &quot;delete&quot;: ...,
+  &quot;deleteIfNeeded&quot;: ...
+}
+</programlisting>
+      <para>
+        To illustrate how all the previously described elements fit
+        together, let’s see the following example in which the first
+        disk of the system is partitioned and a volume group is created
+        on top of that partition (after encrypting it) to allocate two
+        file systems.
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;partitions&quot;: [
+        {
+          &quot;alias&quot;: &quot;pv&quot;,
+          &quot;id&quot;: &quot;lvm&quot;,
+          &quot;size&quot;: { &quot;min&quot;: &quot;12 GiB&quot; },
+          &quot;encryption&quot;: {
+            &quot;luks2&quot;: { &quot;password&quot;: &quot;my secret passphrase&quot; }
+          }
+        }
+      ]
+    }
+  ],
+  &quot;volumeGroups&quot;: [
+    {
+      &quot;name&quot;: &quot;system&quot;,
+      &quot;physicalVolumes&quot;: [ &quot;pv&quot; ],
+      &quot;logicalVolumes&quot;: [
+        {
+          &quot;size&quot;:   { &quot;min&quot;: &quot;10 GiB&quot; },
+          &quot;filesystem&quot;: { &quot;path&quot;: &quot;/&quot;, &quot;type&quot;: &quot;btrfs&quot; }
+        },
+        {
+          &quot;size&quot;:   &quot;2 GiB&quot;,
+          &quot;filesystem&quot;: { &quot;path&quot;: &quot;swap&quot;, &quot;type&quot;: &quot;swap&quot; }
+        }
+      ]
+    }
+  ]
+}
+</programlisting>
+      <para>
+        Agama can also manage software-defined MD RAID arrays
+        represented as entries at the <literal>mdRaids</literal>
+        collection.
+      </para>
+      <programlisting>
+{
+  &quot;alias&quot;: &quot;...&quot;,
+  &quot;name&quot;: &quot;...&quot;,
+  &quot;search&quot;: { ... },
+  &quot;level&quot;: &quot;...&quot;,
+  &quot;chunkSize&quot;: ... ,
+  &quot;devices&quot;: [ ... ],
+  &quot;size&quot;: { ... },
+  &quot;encryption&quot;: { ... },
+  &quot;filesystem&quot;: { ... },
+  &quot;partitions&quot;: [ ... ],
+  &quot;ptableType&quot;: &quot;...&quot;,
+  &quot;delete&quot;: ...
+}
+</programlisting>
+      <para>
+        The <literal>devices</literal> property is used to specify the
+        devices that act as members of the RAID.
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;search&quot;: &quot;/dev/sda&quot;,
+      &quot;partitions&quot;: [
+        { &quot;alias&quot;: &quot;sda-40&quot;, &quot;size&quot;: &quot;40 GiB&quot; }
+      ]
+    },
+    {
+      &quot;search&quot;: &quot;/dev/sdb&quot;,
+      &quot;partitions&quot;: [
+        { &quot;alias&quot;: &quot;sdb-40&quot;, &quot;size&quot;: &quot;40 GiB&quot; }
+      ]
+    }
+  ],
+  &quot;mdRaids&quot;: [
+    {
+      &quot;devices&quot;: [ &quot;sda-40&quot;, &quot;sdb-40&quot; ],
+      &quot;level&quot;: &quot;raid0&quot;
+    }
+  ]
+}
+</programlisting>
+    </section>
+    <section xml:id="searching-existing-devices">
+      <title>Searching Existing Devices</title>
+      <para>
+        Many sections in the profile are used to describe how some
+        devices must be created, modified or even deleted. In the last
+        two cases, it’s important to match the description with one or
+        more devices from the system.
+      </para>
+      <para>
+        If a description matches several devices, the same operations
+        will be applied to all. That’s useful in several situations like
+        applying the same partitioning schema to several disks or
+        deleting all partitions of a disk that match a given criteria.
+      </para>
+      <para>
+        Matching is performed using a <literal>search</literal>
+        subsection like described below. By default, all devices in the
+        scope fitting the conditions will be matched. The number of
+        device matches can be limited using <literal>max</literal>.
+      </para>
+      <para>
+        The following example shows how several
+        <literal>search</literal> sections could be used to find the
+        three biggest disks in the system, delete all partitions bigger
+        than 1 GiB within them and create new partitions of type RAID.
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;search&quot;: {
+        &quot;sort&quot;: { &quot;size&quot;: &quot;desc&quot; },
+        &quot;max&quot;: 3
+      },
+      &quot;partitions&quot;: [
+        {
+          &quot;search&quot;: {
+            &quot;condition&quot;: { &quot;size&quot;: { &quot;greater&quot;: &quot;1 GiB&quot; } }
+          },
+          &quot;delete&quot;: true
+        },
+        {
+          &quot;alias&quot;: &quot;newRaidPart&quot;,
+          &quot;id&quot;: &quot;raid&quot;,
+          &quot;size&quot;: { &quot;min&quot;: &quot;1 GiB&quot; }
+        }
+      ]
+    }
+  ]
+}
+</programlisting>
+      <para>
+        The example also serves to illustrate the scope of each search.
+        That is, the devices from the system that are considered as
+        possible candidates. That obviously depends on the place in the
+        profile of the <literal>search</literal> section. A
+        <literal>search</literal> section inside the description of an
+        MD RAID will only match software RAID devices and a
+        <literal>search</literal> section inside the
+        <literal>partitions</literal> subsection of that RAID
+        description will only match partitions of RAIDs that have
+        matched the conditions of the most external
+        <literal>search</literal>.
+      </para>
+      <para>
+        A given device can never match two different sections of the
+        Agama profile. When several sections at the same level contain a
+        search subsection, devices are matched in the order the sections
+        appear on the profile.
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;search&quot;: {
+        &quot;sort&quot;: { &quot;size&quot;: &quot;desc&quot; },
+        &quot;max&quot;: 1
+      },
+      &quot;alias&quot;: &quot;biggest&quot;
+    },
+    {
+      &quot;search&quot;: {
+        &quot;sort&quot;: { &quot;size&quot;: &quot;desc&quot; },
+        &quot;max&quot;: 1
+      },
+      &quot;alias&quot;: &quot;secondBiggest&quot;
+    }
+  ]
+}
+</programlisting>
+      <para>
+        An empty search will match all devices in the scope, so the
+        following example would delete all the partitions of the chosen
+        disk. But it only will work if the disk indeed contains
+        partitions.
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;partitions&quot;: [
+        { &quot;search&quot;: {}, &quot;delete&quot;: true }
+      ]
+    }
+  ]
+}
+</programlisting>
+      <para>
+        If there is not a single system device matching the scope and
+        the conditions of a given search, then
+        <literal>ifNotFound</literal> comes into play. If the value is
+        <quote>skip</quote>, the device definition is ignored. If it’s
+        <quote>error</quote> the whole process is aborted.
+      </para>
+      <para>
+        Entries on <literal>drives</literal> are different to all other
+        subsections describing devices because drives can only be
+        matched to existing devices, they cannot be simply created. If
+        <literal>search</literal> is omitted for a drive, it will be
+        considered to contain the following one.
+      </para>
+      <programlisting language="json">
+{
+  &quot;search&quot;: {
+    &quot;sort&quot;: &quot;name&quot;,
+    &quot;max&quot;: 1,
+    &quot;ifNotFound&quot;: &quot;error&quot;
+  }
+}
+</programlisting>
+      <para>
+        In some common cases, the syntax of a <literal>search</literal>
+        subsection can be cumbersome. For that reason, it is possible to
+        use simple strings in some situations.
+      </para>
+      <para>
+        On the one hand, <literal>search</literal> is very often used to
+        find a device by its name. In that case, the search section can
+        simply contain the device name.
+      </para>
+      <programlisting language="json">
+{ &quot;search&quot;: &quot;/dev/sda&quot; }
+</programlisting>
+      <para>
+        On the other hand, the string <quote>*</quote> allows to match
+        all the devices from the current context, if there is any. In
+        other words, the two following search sections are equivalent.
+        This is specially useful to match all partitions or logical
+        volumes in a device, no matter whether there is any.
+      </para>
+      <programlisting language="json">
+{ &quot;search&quot;: &quot;*&quot; }
+
+{ &quot;search&quot;: { &quot;ifNotFound&quot;: &quot;skip&quot; } }
+</programlisting>
+    </section>
+    <section xml:id="referencing-other-devices">
+      <title>Referencing Other Devices</title>
+      <para>
+        Sometimes it is necessary to reference other devices as part of
+        the specification of an LVM volume group or RAID. Those can be
+        existing system devices or devices that will be created as
+        response to another entry of the Agama profile.
+      </para>
+      <para>
+        Aliases can be used for that purpose as shown in this example.
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;partitions&quot;: [
+        { &quot;size&quot;: &quot;50 GiB&quot;, &quot;id&quot;: &quot;lvm&quot;, &quot;alias&quot;: &quot;newPV&quot; }
+      ]
+    }
+   ],
+   &quot;volumeGroups&quot;: [
+    {
+      &quot;name&quot;: &quot;newVG&quot;,
+      &quot;physicalVolumes&quot;: [ &quot;newPV&quot; ],
+      &quot;logicalVolumes&quot;: [ { &quot;name&quot;: &quot;data&quot;, &quot;size&quot;: &quot;20 GiB&quot; } ]
+    }
+  ]
+}
+</programlisting>
+      <para>
+        If a section that matches several existing devices contains an
+        alias, that alias will be considered to be a reference to all
+        the devices. As a consequence, this two examples are equivalent,
+        assuming there are at least two disks in the system.
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;search&quot;: {
+        &quot;sort&quot;: { &quot;size&quot;: &quot;desc&quot; },
+        &quot;max&quot;: 1,
+      },
+      &quot;alias&quot;: &quot;biggest&quot;
+    },
+    {
+      &quot;search&quot;: {
+        &quot;sort&quot;: { &quot;size&quot;: &quot;desc&quot; },
+        &quot;max&quot;: 1,
+      },
+      &quot;alias&quot;: &quot;secondBiggest&quot;
+    }
+  ],
+  &quot;mdRaids&quot;: [
+    {
+      &quot;devices&quot;: [ &quot;biggest&quot;, &quot;secondBiggest&quot; ],
+      &quot;level&quot;: &quot;raid0&quot;
+    }
+  ]
+}
+
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;search&quot;: {
+        &quot;sort&quot;: { &quot;size&quot;: &quot;desc&quot; },
+        &quot;max&quot;: 2,
+      },
+      &quot;alias&quot;: &quot;big&quot;
+    }
+  ],
+  &quot;mdRaids&quot;: [
+    {
+      &quot;devices&quot;: [ &quot;big&quot; ],
+      &quot;level&quot;: &quot;raid0&quot;
+    }
+  ]
+}
+</programlisting>
+    </section>
+    <section xml:id="specifying-the-size-of-a-device">
+      <title>Specifying the size of a device</title>
+      <para>
+        When creating some kinds of devices or resizing existing ones
+        (if possible) it may be necessary to specify the desired size.
+        As seen in the specification above, that can be done in several
+        ways.
+      </para>
+      <para>
+        The most straightforward one is just using a string that can be
+        parsed into a valid size.
+      </para>
+      <para>
+        The second option is to provide a minimum size and an optional
+        maximum one. The resulting size will be between those
+        thresholds. If the maximum is omitted the device will grow as
+        much as possible, taking into account the available spaces and
+        all the other specified sizes.
+      </para>
+      <para>
+        It is also possible to specify <quote>current</quote> as a
+        minimum or maximum size limit for partitions and logical volumes
+        that already exist in the system (so <quote>current</quote> can
+        only be used for device specifications that contain a
+        <literal>search</literal> section). The usage of
+        <quote>current</quote> and how it affects resizing the
+        corresponding devices is explained at a separate section below.
+      </para>
+      <para>
+        If the size is completely omitted for a device that already
+        exists (ie. combined with <literal>search</literal>), then Agama
+        would act as if both min and max limits would have been set to
+        <quote>current</quote> (which implies the partition or logical
+        volume will not be resized).
+      </para>
+      <para>
+        If the size is omitted for a device that will be created, Agama
+        can determine the size limits as long as the device contains a
+        <literal>filesystem</literal> entry specifying a mount point. In
+        that case, Agama will use the settings of the product to set the
+        size limits. In Agama Jargon, the <quote>product</quote> is the
+        operating system being installed. And each product specifies the
+        default size ranges for its relevant file systems like
+        <quote>/</quote>, <quote>swap</quote>, <quote>/home</quote>,
+        etc.
+      </para>
+    </section>
+    <section xml:id="partitions-needed-for-booting">
+      <title>Partitions Needed for Booting</title>
+      <para>
+        Using a <literal>boot</literal> entry makes it possible to
+        configure whether (and where, using an alias) Agama should
+        calculate and create the extra partitions needed for booting. If
+        the device is not specified, Agama will take the location of the
+        root file system as a reference.
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;search&quot;: &quot;/dev/sda&quot;,
+      &quot;alias&quot;: &quot;bootDisk&quot;
+    },
+    {
+      &quot;search&quot;: &quot;/dev/sdb&quot;,
+      &quot;partitions&quot;: [
+        { &quot;filesystem&quot;: { &quot;path&quot;: &quot;/&quot; } }
+      ]
+    }
+  ],
+  &quot;boot&quot;: {
+    &quot;configure&quot;: true,
+    &quot;device&quot;: &quot;bootDisk&quot;
+  }
+}
+</programlisting>
+    </section>
+    <section xml:id="keeping-an-existing-file-system">
+      <title>Keeping an Existing File System</title>
+      <para>
+        The <literal>filesystem</literal> entries contain a flag
+        <literal>reuseIfPossible</literal> with a default value of
+        false. It can be used in combination with
+        <literal>search</literal> to specify the device must not be
+        re-formatted.
+      </para>
+    </section>
+    <section xml:id="deleting-and-shrinking-existing-devices">
+      <title>Deleting and Shrinking Existing Devices</title>
+      <para>
+        The storage proposal must make possible to define what to do
+        with existing partitions and logical volumes. Even with existing
+        MD RAIDs or LVM volume groups.
+      </para>
+      <para>
+        A <literal>search</literal> section allows to match the
+        definition of a partition or an LVM logical volume with one (or
+        several) devices existing in the system. It is then possible to
+        specify that the given partitions or volumes must be:
+      </para>
+      <itemizedlist spacing="compact">
+        <listitem>
+          <para>
+            Deleted if needed to make space for the newly defined
+            devices
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Deleted in all cases
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Shrunk to the necessary size to make space for new devices
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Shrunk or extended to a given size, maybe a range
+          </para>
+        </listitem>
+      </itemizedlist>
+      <para>
+        It is even possible to express some combinations of the above,
+        like <quote>try to shrink it to make space but proceed to delete
+        it if shrinking it is not enough</quote>.
+      </para>
+      <para>
+        Deletion can be achieved with the corresponding
+        <literal>delete</literal> flag or the alternative
+        <literal>deleteIfNeeded</literal>. If any of those flags are
+        active for a partition, it makes no sense to specify any other
+        usage (like declaring a file system on it).
+      </para>
+      <para>
+        The following example deletes the partition with the number 1
+        (according to the partition name) in all cases and, if needed,
+        keeps deleting other partitions as needed to make space for the
+        new partition of 30 GiB.
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;partitions&quot;: [
+        {
+          &quot;search&quot;: {
+            &quot;condition&quot;: { &quot;number&quot;: 1 }
+          },
+          &quot;delete&quot;: true
+        },
+        { &quot;search&quot;: {}, &quot;deleteIfNeeded&quot;: true },
+        { &quot;size&quot;: &quot;30 GiB&quot; }
+      ]
+    }
+  ]
+}
+</programlisting>
+      <para>
+        Often some partitions or logical volumes are shrunk only to make
+        space for the declared devices. But since resizing is not a
+        destructive operation, it can also make sense to declare a given
+        partition must be resized (shrunk or extended) and then
+        formatted and/or mounted.
+      </para>
+      <para>
+        In any case, note that resizing a partition can be limited
+        depending on its content, the filesystem type, etc.
+      </para>
+      <para>
+        Combining <literal>search</literal> and
+        <literal>resize</literal> is enough to indicate Agama is
+        expected to resize a given partition if possible. The keyword
+        <quote>current</quote> can be used as min and/or max for the
+        size range and it is always equivalent to the exact original
+        size of the device. The simplest way to use
+        <quote>current</quote> is to just specify that the matched
+        device should keep its original size. That’s the default for
+        searched (and found) devices if <literal>size</literal> is
+        completely omitted.
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;partitions&quot;: [
+        {
+          &quot;search&quot;: {
+            &quot;condition&quot;: { &quot;number&quot;: 1 }
+          },
+          &quot;size&quot;: { &quot;min&quot;: &quot;current&quot;, &quot;max&quot;: &quot;current&quot; }
+        }
+      ]
+    }
+  ]
+}
+</programlisting>
+      <para>
+        Other combinations can be used to specify how a device could be
+        resized if possible. See the following examples with explanatory
+        filesystem labels. Note the condition <literal>fsLabel</literal>
+        is actually not implemented yet.
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;partitions&quot;: [
+        {
+          &quot;search&quot;: {
+            &quot;condition&quot;: { &quot;fsLabel&quot;: &quot;shrinkIfNeeded&quot; }
+          },
+          &quot;size&quot;: { &quot;min&quot;: 0, &quot;max&quot;: &quot;current&quot; }
+        },
+        {
+          &quot;search&quot;: {
+            &quot;condition&quot;: { &quot;fsLabel&quot;: &quot;resizeToFixedSize&quot; }
+          },
+          &quot;size&quot;: &quot;15 GiB&quot;
+        },
+        {
+          &quot;search&quot;: {
+            &quot;condition&quot;: { &quot;fsLabel&quot;: &quot;resizeByRange&quot; }
+          },
+          &quot;size&quot;: { &quot;min&quot;: &quot;10 GiB&quot;, &quot;max&quot;: &quot;50 GiB&quot; }
+        },
+        {
+          &quot;search&quot;: {
+            &quot;condition&quot;: { &quot;fsLabel&quot;: &quot;growAsMuchAsPossible&quot; }
+          },
+          &quot;size&quot;: { &quot;min&quot;: &quot;current&quot; }
+        },
+      ]
+    }
+  ]
+}
+</programlisting>
+      <para>
+        Of course, when the size limits are specified as a combination
+        of <quote>current</quote> and a fixed value, the user must still
+        make sure that the resulting min is not bigger than the
+        resulting max.
+      </para>
+      <para>
+        Both <literal>deleteIfNeeded</literal> and a size range can be
+        combined to indicate that Agama should try to make space first
+        by shrinking the partitions and deleting them only if shrinking
+        is not enough.
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;partitions&quot;: [
+        {
+          &quot;search&quot;: {},
+          &quot;size&quot;: { &quot;min&quot;: 0, &quot;max&quot;: &quot;current&quot; },
+          &quot;deleteIfNeeded&quot;: true
+        }
+      ]
+    }
+  ]
+}
+</programlisting>
+    </section>
+    <section xml:id="generating-default-volumes">
+      <title>Generating Default Volumes</title>
+      <para>
+        Every product provides a configuration which defines the storage
+        volumes (e.g., feasible file systems for root, default
+        partitions to create, etc). The default or mandatory product
+        volumes can be automatically generated by using a
+        <emphasis>generate</emphasis> section in the
+        <emphasis>partitions</emphasis> or
+        <emphasis>logicalVolumes</emphasis> sections.
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;partitions&quot;: [
+        { &quot;generate&quot;: &quot;default&quot; }
+      ]
+    }
+  ]
+}
+</programlisting>
+      <para>
+        The <emphasis>generate</emphasis> section allows creating the
+        product volumes without explicitly writing all of them. The
+        config above would be equivalent to something like this:
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;partitions&quot;: [
+        { &quot;filesystem&quot;: { &quot;path&quot;: &quot;/&quot; } },
+        { &quot;filesystem&quot;: { &quot;path&quot;: &quot;/home&quot; } },
+        { &quot;filesystem&quot;: { &quot;path&quot;: &quot;swap&quot; } }
+      ]
+    }
+  ]
+}
+</programlisting>
+      <para>
+        If any path is explicitly defined, then the
+        <emphasis>generate</emphasis> section will not generate a volume
+        for it. For example, with the following config only root and
+        swap would be automatically added:
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;partitions&quot;: [
+        { &quot;generate&quot;: &quot;default&quot; },
+        { &quot;filesystem&quot;: { &quot;path&quot;: &quot;/home&quot; } }
+      ]
+    }
+  ]
+}
+</programlisting>
+      <para>
+        The auto-generated volumes can be also configured. For example,
+        for encrypting the partitions:
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;partitions&quot;: [
+        {
+          &quot;generate&quot;: {
+            &quot;partitions&quot;: &quot;default&quot;,
+            &quot;encryption&quot;: {
+              &quot;luks1&quot;: { &quot;password&quot;: &quot;12345&quot; }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+</programlisting>
+      <para>
+        The <emphasis>mandatory</emphasis> keyword can be used for only
+        generating the mandatory partitions or logical volumes:
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;volumeGroups&quot;: [
+    {
+      &quot;name&quot;: &quot;system&quot;,
+      &quot;logicalVolumes&quot;: [
+        { &quot;generate&quot;: &quot;mandatory&quot; }
+      ]
+    }
+  ]
+}
+</programlisting>
+    </section>
+    <section xml:id="generating-physical-volumes">
+      <title>Generating Physical Volumes</title>
+      <para>
+        Volume groups can be configured to explicitly use a set of
+        devices as physical volumes. The aliases of the devices to use
+        are added to the list of physical volumes:
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;search&quot;: &quot;/dev/vda&quot;,
+      &quot;partitions&quot;: [
+        { &quot;alias&quot;: &quot;pv2&quot;, &quot;size&quot;: &quot;100 GiB&quot; },
+        { &quot;alias&quot;: &quot;pv1&quot;, &quot;size&quot;: &quot;20 GiB&quot; }
+      ]
+    }
+  ],
+  &quot;volumeGroups&quot;: [
+    {
+      &quot;name&quot;: &quot;system&quot;,
+      &quot;physicalVolumes&quot;: [&quot;pv1&quot;, &quot;pv2&quot;]
+    }
+  ]
+}
+</programlisting>
+      <para>
+        The physical volumes can be automatically generated too, by
+        simply indicating the target devices in which to create the
+        partitions. For that, a <emphasis>generate</emphasis> section is
+        added to the list of physical volumes:
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;search&quot;: &quot;/dev/vda&quot;,
+      &quot;alias&quot;: &quot;pvs-disk&quot;
+    }
+  ],
+  &quot;volumeGroups&quot;: [
+    {
+      &quot;name&quot;: &quot;system&quot;,
+      &quot;physicalVolumes&quot;: [
+        { &quot;generate&quot;: [&quot;pvs-disk&quot;] }
+      ]
+    }
+  ]
+}
+</programlisting>
+      <para>
+        If the auto-generated physical volumes have to be encrypted,
+        then the encryption config is added to the
+        <emphasis>generate</emphasis> section:
+      </para>
+      <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;search&quot;: &quot;/dev/vda&quot;,
+      &quot;alias&quot;: &quot;pvs-disk&quot;
+    }
+  ],
+  &quot;volumeGroups&quot;: [
+    {
+      &quot;name&quot;: &quot;system&quot;,
+      &quot;physicalVolumes&quot;: [
+        {
+          &quot;generate&quot;: {
+            &quot;targetDevices&quot;: [&quot;pvs-disk&quot;],
+            &quot;encryption&quot;: {
+              &quot;luks2&quot;: { &quot;password&quot;: &quot;12345&quot; }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+</programlisting>
+      <section xml:id="space-policy-for-auto-generated-physical-volumes">
+        <title>Space Policy for Auto-Generated Physical Volumes
+        <Since version="16.1"/></title>
+        <para>
+          When auto-generating physical volumes, the
+          <literal>spacePolicy</literal> option controls how much space
+          from the target devices is used. Two policies are available:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              <emphasis role="strong"><literal>useNeeded</literal></emphasis>
+              (default): Only the space needed to allocate the logical
+              volumes is used. For example, if two disks are selected as
+              target devices and everything fits into the first disk,
+              the second disk is not used at all. This is the default to
+              maintain backward compatibility with existing profiles.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <emphasis role="strong"><literal>useAvailable</literal></emphasis>:
+              All available space in the target devices is used for the
+              volume group. This is the policy used when creating volume
+              groups through the UI.
+            </para>
+          </listitem>
+        </itemizedlist>
+        <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;search&quot;: &quot;/dev/vda&quot;,
+      &quot;alias&quot;: &quot;pvs-disk1&quot;
+    },
+    {
+      &quot;search&quot;: &quot;/dev/vdb&quot;,
+      &quot;alias&quot;: &quot;pvs-disk2&quot;
+    }
+  ],
+  &quot;volumeGroups&quot;: [
+    {
+      &quot;name&quot;: &quot;system&quot;,
+      &quot;physicalVolumes&quot;: [
+        {
+          &quot;generate&quot;: {
+            &quot;targetDevices&quot;: [&quot;pvs-disk1&quot;, &quot;pvs-disk2&quot;],
+            &quot;spacePolicy&quot;: &quot;useAvailable&quot;
+          }
+        }
+      ]
+    }
+  ]
+}
+</programlisting>
+      </section>
+    </section>
+    <section xml:id="encryption-options">
+      <title>Encryption Options</title>
+      <para>
+        Agama supports encrypting drives, partitions, MD RAIDs, and
+        logical volumes using various encryption methods. The encryption
+        configuration is specified using an
+        <literal>encryption</literal> property within the device
+        definition.
+      </para>
+      <section xml:id="luks1-encryption">
+        <title>LUKS1 Encryption</title>
+        <para>
+          LUKS1 (Linux Unified Key Setup version 1) is the legacy
+          encryption format. It is recommended to use LUKS2 for new
+          installations unless compatibility with older systems is
+          required.
+        </para>
+        <programlisting language="json">
+&quot;encryption&quot;: {
+  &quot;luks1&quot;: {
+    &quot;password&quot;: &quot;my secret passphrase&quot;,
+    &quot;cipher&quot;: &quot;aes-xts-plain64&quot;,
+    &quot;keySize&quot;: 256
+  }
+}
+</programlisting>
+        <para>
+          Properties:
+        </para>
+        <itemizedlist spacing="compact">
+          <listitem>
+            <para>
+              <literal>password</literal> (required): Encryption
+              passphrase used to open the device.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>cipher</literal> (optional): Encryption cipher
+              compatible with cryptsetup’s <literal>--cipher</literal>
+              argument.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>keySize</literal> (optional): Key size in bits.
+              Must be a multiple of 8 and compatible with the cipher.
+            </para>
+          </listitem>
+        </itemizedlist>
+      </section>
+      <section xml:id="luks2-encryption">
+        <title>LUKS2 Encryption</title>
+        <para>
+          LUKS2 is the current standard for disk encryption in Linux,
+          offering improved security and flexibility over LUKS1.
+        </para>
+        <programlisting language="json">
+&quot;encryption&quot;: {
+  &quot;luks2&quot;: {
+    &quot;password&quot;: &quot;my secret passphrase&quot;,
+    &quot;cipher&quot;: &quot;aes-xts-plain64&quot;,
+    &quot;keySize&quot;: 512,
+    &quot;pbkdFunction&quot;: &quot;argon2id&quot;,
+    &quot;label&quot;: &quot;encrypted_root&quot;,
+    &quot;tpm&quot;: true
+  }
+}
+</programlisting>
+        <para>
+          Properties:
+        </para>
+        <itemizedlist spacing="compact">
+          <listitem>
+            <para>
+              <literal>password</literal> (required): Encryption
+              passphrase used to open the device.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>cipher</literal> (optional): Encryption cipher
+              compatible with cryptsetup’s <literal>--cipher</literal>
+              argument.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>keySize</literal> (optional): Key size in bits.
+              Must be a multiple of 8 and compatible with the cipher.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>pbkdFunction</literal> (optional): Password-Based
+              Key Derivation Function. Possible values:
+              <literal>pbkdf2</literal>, <literal>argon2i</literal>,
+              <literal>argon2id</literal>.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>label</literal> (optional): LUKS2 label for the
+              encrypted device.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>tpm</literal> (optional): <Since version="16.1"/>
+              Whether to use TPM2 (Trusted Platform Module 2.0) for
+              automatically unlocking the device during system boot.
+              Default is <literal>false</literal>.
+            </para>
+          </listitem>
+        </itemizedlist>
+      </section>
+      <section xml:id="pervasive-luks2-encryption">
+        <title>Pervasive LUKS2 Encryption</title>
+        <para>
+          Pervasive encryption is a specialized form of LUKS2 encryption
+          available on IBM Z mainframe systems. It encrypts the device
+          using LUKS2 with a master secure key processed by a Crypto
+          Express cryptographic coprocessor. The encryption password is
+          used to protect the access to the master key.
+        </para>
+        <programlisting language="json">
+&quot;encryption&quot;: {
+  &quot;pervasiveLuks2&quot;: {
+    &quot;password&quot;: &quot;my secret passphrase&quot;,
+    &quot;apqns&quot;: [&quot;01.0001&quot;, &quot;01.0002&quot;],
+    &quot;keyType&quot;: &quot;CCA-AESDATA&quot;
+  }
+}
+</programlisting>
+        <para>
+          Properties:
+        </para>
+        <itemizedlist spacing="compact">
+          <listitem>
+            <para>
+              <literal>password</literal> (required): Encryption
+              passphrase used to protect the access to the master key.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>apqns</literal> (optional): List of APQNs
+              (Adjunct Processor Queue Numbers) used to generate secure
+              keys. Each APQN is specified as a string (e.g.,
+              <literal>&quot;01.0001&quot;</literal>). All the APQNs
+              used for generating the secure key must have the same
+              master key. If not specified, all online APQNs in the
+              system will be used.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>keyType</literal> (optional): Type of the
+              generated secure key. When using EP11 APQNs, the only
+              supported key type is <literal>EP11-AES</literal>. When
+              using CCA APQNs, the key types
+              <literal>CCA-AESCIPHER</literal> and
+              <literal>CCA-AESDATA</literal> can be used. If the key
+              type is not specified, it will be automatically chosen
+              based on the used APQNs.
+            </para>
+          </listitem>
+        </itemizedlist>
+      </section>
+      <section xml:id="tpm-based-full-disk-encryption">
+        <title>TPM-Based Full Disk Encryption</title>
+        <para>
+          This encryption method is deprecated. Use LUKS2 with the
+          <literal>tpm</literal> option set to <literal>true</literal>
+          instead.
+        </para>
+        <programlisting language="json">
+&quot;encryption&quot;: {
+  &quot;tpmFde&quot;: {
+    &quot;password&quot;: &quot;my secret passphrase&quot;
+  }
+}
+</programlisting>
+      </section>
+      <section xml:id="swap-encryption">
+        <title>Swap Encryption</title>
+        <para>
+          Agama provides specific encryption options for swap space:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              <literal>randomSwap</literal>: uses a randomly generated
+              key at boot and Hibernation to hard disk is not supported.
+              The swap device is re-encrypted during every boot, and its
+              previous content is destroyed. You should disable
+              Hibernation to avoid Data Loss! Please, only use
+              encryption with volatile keys if you are sure about the
+              implications.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>protectedSwap</literal>: uses a volatile
+              protected AES key (without requiring a cryptographic
+              co-processor) to encrypt a swap device. This is an
+              improvement over randomSwap method and all considerations
+              for such method still apply.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>secureSwap</literal>: encryption available on IBM
+              Z mainframe systems. It uses a volatile secure AES key
+              (generated from a cryptographic co-processor) for
+              encrypting a swap device. This is an improvement over
+              randomSwap method and all considerations for such method
+              still apply.
+            </para>
+          </listitem>
+        </itemizedlist>
+        <programlisting language="json">
+&quot;encryption&quot;: &quot;randomSwap&quot;
+</programlisting>
+        <para>
+          Note: The snake_case variants (<literal>random_swap</literal>,
+          <literal>protected_swap</literal>,
+          <literal>secure_swap</literal>) are deprecated. Use camelCase
+          instead.
+        </para>
+      </section>
+      <section xml:id="complete-encryption-examples">
+        <title>Complete Encryption Examples</title>
+        <section xml:id="encrypted-partitions-with-luks2">
+          <title>Encrypted Partitions with LUKS2</title>
+          <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;partitions&quot;: [
+        {
+          &quot;size&quot;: &quot;100 GiB&quot;,
+          &quot;encryption&quot;: {
+            &quot;luks2&quot;: {
+              &quot;password&quot;: &quot;my secret passphrase&quot;,
+              &quot;label&quot;: &quot;root_crypt&quot;
+            }
+          },
+          &quot;filesystem&quot;: {
+            &quot;path&quot;: &quot;/&quot;,
+            &quot;type&quot;: &quot;ext4&quot;
+          }
+        },
+        {
+          &quot;encryption&quot;: &quot;randomSwap&quot;,
+          &quot;filesystem&quot;: { &quot;path&quot;: &quot;swap&quot; }
+        }
+      ]
+    }
+  ]
+}
+</programlisting>
+        </section>
+        <section xml:id="encrypted-lvm-setup">
+          <title>Encrypted LVM Setup</title>
+          <programlisting language="json">
+&quot;storage&quot;: {
+  &quot;drives&quot;: [
+    {
+      &quot;partitions&quot;: [
+        {
+          &quot;alias&quot;: &quot;pv&quot;,
+          &quot;id&quot;: &quot;lvm&quot;,
+          &quot;size&quot;: { &quot;min&quot;: &quot;50 GiB&quot; },
+          &quot;encryption&quot;: {
+            &quot;luks2&quot;: {
+              &quot;password&quot;: &quot;my secret passphrase&quot;,
+              &quot;tpm&quot;: true
+            }
+          }
+        }
+      ]
+    }
+  ],
+  &quot;volumeGroups&quot;: [
+    {
+      &quot;name&quot;: &quot;system&quot;,
+      &quot;physicalVolumes&quot;: [&quot;pv&quot;],
+      &quot;logicalVolumes&quot;: [
+        {
+          &quot;name&quot;: &quot;root&quot;,
+          &quot;size&quot;: { &quot;min&quot;: &quot;30 GiB&quot; },
+          &quot;filesystem&quot;: { &quot;path&quot;: &quot;/&quot;, &quot;type&quot;: &quot;btrfs&quot; }
+        },
+        {
+          &quot;name&quot;: &quot;swap&quot;,
+          &quot;size&quot;: &quot;2 GiB&quot;,
+          &quot;filesystem&quot;: { &quot;path&quot;: &quot;swap&quot; }
+        }
+      ]
+    }
+  ]
+}
+</programlisting>
+        </section>
+      </section>
+    </section>
+  </section>
+</article>

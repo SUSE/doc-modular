@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article>
+<article
+  xmlns="http://docbook.org/ns/docbook" version="5.0"
+  xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <info>
+    <title></title>
+  </info>
+  <section xml:id="authentication">
+    <title>Authentication</title>
+    <para>
+      Each client needs to authenticate in order to interact with the
+      server<footnote>
+        <para>
+          There is an <literal>/ping</literal> endpoint that does not
+          need authentication.
+        </para>
+      </footnote> using <literal>root</literal>’s user password. Agama
+      relies on
+      <link xlink:href="https://en.wikipedia.org/wiki/Linux_PAM">PAM</link>
+      to perform the authentication.
+    </para>
+    <para>
+      On successful authentication, the server generates a
+      <link xlink:href="https://jwt.io">JSON Web Token (RFC 7519)</link>
+      that the client will include in the subsequent requests. The web
+      client stores the token in an HTTP-only cookie<footnote>
+        <para>
+          HTTP-only cookies cannot be accessed by client-side
+          JavaScript.
+        </para>
+      </footnote> and the CLI uses a file with restricted permissions.
+    </para>
+    <para>
+      :::tip If you are implementing your own client, remember to send
+      the token on each request. :::
+    </para>
+    <section xml:id="json-web-tokens">
+      <title>JSON Web Tokens</title>
+      <para>
+        Agama’s JSON Web Token carries just a single claim: the
+        expiration date. The token’s lifetime is currently set to just
+        one day<footnote>
+          <para>
+            Token’s lifetime might be configurable in the future.
+          </para>
+        </footnote>. To generate the token, Agama requires a secret key
+        that can be specified using the <literal>jwt_secret</literal>
+        configuration option in
+        <literal>/etc/agama.d/server.yml</literal>. If no key is
+        specified, Agama will generate a random 30 characters string as
+        key<footnote>
+          <para>
+            <link xlink:href="https://crates.io/crates/rand">rand</link>:
+            Random number generators and other randomness functionality.
+          </para>
+        </footnote>.
+      </para>
+      <para>
+        :::tip The disadvantage of not setting a secret key is that, if
+        you restart Agama, all previously generated tokens become
+        invalid. So if you are doing some development work, you might be
+        interested on setting a key. :::
+      </para>
+    </section>
+    <section xml:id="skipping-the-authentication">
+      <title>Skipping the authentication</title>
+      <para>
+        When using Agama locally (e.g., in the installation medium), it
+        would be unpleasant to ask for a password. For that reason,
+        Agama creates and stores a token on the file system
+        (<literal>/run/agama/token</literal>) that any client can use
+        for authentication. Obviously, the file is protected and it is
+        readable only for the <literal>root</literal> user.
+      </para>
+      <para>
+        Therefore, the command-line interface, when ran as
+        <literal>root</literal>, can use that token to authenticate each
+        request.
+      </para>
+      <para>
+        However, the web interface does not have access to the token, so
+        it needs some magic to inject the token into the browser.
+        Agama’s HTTP server implements an end-point that allows to
+        authenticate using a valid token<footnote>
+          <para>
+            The <literal>/login?token=$TOKEN</literal> is a helper URL
+            that allows importing the token into the browser.
+          </para>
+        </footnote>. So Agama’s
+        <link xlink:href="https://github.com/openSUSE/agama/blob/1ca19ace4ae918029bbecb3c1956bccfcb8626ce/live/root/root/.icewm/startup#L8">startup
+        script</link> injects the URL, including the token, as
+        <literal>browser.startup.homepage</literal> in
+        <link xlink:href="https://github.com/openSUSE/agama/blob/1ca19ace4ae918029bbecb3c1956bccfcb8626ce/live/root/.mozilla/firefox/profile/user.js.template#L10">Firefox’s
+        preferences</link>.
+      </para>
+    </section>
+  </section>
+</article>

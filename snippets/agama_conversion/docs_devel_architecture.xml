@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article>
+<article
+  xmlns="http://docbook.org/ns/docbook" version="5.0"
+  xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <info>
+    <title></title>
+  </info>
+  <section xml:id="architecture">
+    <title>Architecture</title>
+    <para>
+      On the surface, Agama implements a typical client-server
+      architecture. The server offers an HTTP/JSON API with a WebSocket
+      to send messages to the connected clients. The web and the
+      command-line interfaces, part of Agama, act as clients connecting
+      to that server.
+    </para>
+    <para>
+      However, things are more complex, especially on the server side.
+      The following diagram represents the main components and their
+      interactions.
+    </para>
+    <programlisting>
+flowchart LR
+  subgraph Clients
+    Browser
+    CLI
+    auto
+  end
+
+  subgraph Agama Server
+    subgraph Web[&quot;Web Server&quot;]
+      direction TB
+      UI[&quot;Web UI&quot;]
+      API[&quot;HTTP/WS API&quot;]
+      WS[&quot;WebSocket&quot;]
+    end
+
+    Web &lt;--&quot;Channel&quot; --&gt; Rust
+  end
+  Rust &lt;-- &quot;D-Bus&quot; --&gt; YaST[&quot;Agama YaST&quot;]
+
+  Browser --&gt; UI
+  Browser --&gt; API
+  Browser &lt;---&gt; WS
+  CLI --&gt; API
+  CLI &lt;---&gt; WS
+  auto --&gt; CLI
+</programlisting>
+    <para>
+      With this overview in mind, let’s have a closer look to each of
+      the components.
+    </para>
+    <section xml:id="server">
+      <title>Server</title>
+      <para>
+        On the server side, Agama is composed by the following pieces:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            <emphasis role="strong">Agama server</emphasis>: from a
+            user’s perspective, this is the core of Agama. It is
+            responsible for:
+          </para>
+          <itemizedlist spacing="compact">
+            <listitem>
+              <para>
+                Implementing (part of) the installation logic. A good
+                share of this logic is delegated to
+                <emphasis role="strong">Agama YaST</emphasis>.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Offering an HTTP and WebSocket (HTTP/WS) interface.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Making the <emphasis role="strong">web-based user
+                interface</emphasis> available to the browsers.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+        <listitem>
+          <para>
+            <emphasis role="strong">Agama YaST service</emphasis>: it is
+            written in Ruby and has direct access to YaST libraries.
+            This component implements complex parts, like storage and
+            software handling. Communication with the Agama web server
+            happens over D-Bus.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <emphasis role="strong">Agama D-Bus service</emphasis>:
+            implements a minimal API to communicate
+            <emphasis role="strong">Agama server</emphasis> and
+            <emphasis role="strong">Agama YaST service</emphasis>. It is
+            expected to be replaced by direct communication (most likely
+            via HTTP) in the future.
+          </para>
+        </listitem>
+      </itemizedlist>
+    </section>
+    <section xml:id="clients">
+      <title>Clients</title>
+      <para>
+        On the client side, these are the main components:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            <emphasis role="strong">Web user interface</emphasis>:
+            Agama’s graphical user interface. The
+            <emphasis role="strong">Agama web server</emphasis> makes
+            this React application available to browsers.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <emphasis role="strong">Command-Line Interface
+            (<literal>agama-cli</literal>)</emphasis>: it allows
+            interaction with Agama and drives the auto-installation
+            process.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <emphasis role="strong">Auto-installation
+            (<literal>autoinstallation</literal>)</emphasis>: it is
+            composed of a Systemd service
+            (<literal>agama-auto</literal>) and a script that relies on
+            <literal>agama-cli</literal> binary.
+          </para>
+        </listitem>
+      </itemizedlist>
+    </section>
+    <section xml:id="encryption">
+      <title>Encryption</title>
+      <para>
+        In the case of a remote installation, the communication between
+        the clients and the server must be encrypted. Connecting to port
+        80 (HTTP) redirects the client to port 443 (HTTPS).
+      </para>
+      <para>
+        About the certificate, Agama uses a self-signed certificate
+        unless the user injects its own.
+      </para>
+    </section>
+  </section>
+</article>

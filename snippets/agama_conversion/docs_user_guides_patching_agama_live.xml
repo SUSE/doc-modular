@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article>
+<article
+  xmlns="http://docbook.org/ns/docbook" version="5.0"
+  xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <info>
+    <title></title>
+  </info>
+  <section xml:id="patching-the-agama-live-iso">
+    <title>Patching the Agama live ISO</title>
+    <para>
+      There are some scenarios where you might need to modify an Agama
+      live image. For instance, to apply a bug fix or if you want to add
+      your own kernel module. You could rebuild the image but, usually,
+      it is much easier to just patch an existing one.
+    </para>
+    <para>
+      Agama implements a mechanism which is pretty similar to the one
+      used by YaST to update the installation image, although it does
+      not support all the features. Agama understands two formats:
+    </para>
+    <itemizedlist spacing="compact">
+      <listitem>
+        <para>
+          Plain RPM packages (only to modify the Agama live image).
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          A Driver Update Disk (although it is not necessarily a
+          <quote>disk</quote>), which is described in the
+          <link xlink:href="https://ftp.suse.com/pub/people/hvogel/Update-Media-HOWTO/Update-Media-HOWTO.html">Update
+          Media Howto</link>. It is more flexible and powerful than
+          using just RPM packages. You can create them manually or using
+          <link xlink:href="https://github.com/openSUSE/mkdud">mkdud</link>.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      :::note A note about the Driver Update Disk format
+    </para>
+    <para>
+      Agama relies on the Driver Update Disk but it ignores some parts,
+      like the <link linkend="running-scripts">scripts</link> or the
+      <quote>dist</quote> (the <literal>sle16</literal> part in
+      <literal>linux/suse/x86_64-sle16</literal>).
+    </para>
+    <para>
+      In this document, when we talk about the content of the update, we
+      will be referring to the files below
+      <literal>linux/suse/ARCH-*</literal> (where
+      <literal>ARCH</literal> is the architecture, like
+      <literal>x86_64</literal>). Bear in mind that there might be
+      multiple updates in a single file, each with a numeric prefix
+      (<literal>0/linux/suse/x86_64-sles16</literal>,
+      <literal>1/linux/suse/x86_64-sles16</literal>, etc.).
+    </para>
+    <para>
+      :::
+    </para>
+    <section xml:id="applying-an-update">
+      <title>Applying an update</title>
+      <para>
+        To load an update, you must specify the URL using the
+        <literal>inst.dud</literal> kernel option. You can set this
+        option multiple times and each URL will be processed in the
+        given order. The supported URL formats are described in the
+        <link xlink:href="/docs/user/reference/urls">Agama URLs</link>
+        section.
+      </para>
+      <para>
+        Updates are applied by a
+        <link xlink:href="https://github.com/dracut-ng/dracut-ng">dracut</link>
+        module before Agama’s live system boots so it gives us the
+        chance to modify almost anything from the live system.
+      </para>
+    </section>
+    <section xml:id="features">
+      <title>Features</title>
+      <para>
+        There are several things you can do with an update. It is
+        possible to:
+      </para>
+      <itemizedlist spacing="compact">
+        <listitem>
+          <para>
+            Modify the Agama live image. It allows applying bug fixes to
+            Agama or any related tool, changing the configuration of the
+            live image, etc.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Add packages for installation. You could install a patched
+            version of a package instead of the one included in the
+            repositories.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Add or update kernel modules. It enables you to use an
+            updated kernel module (unloading the old one automatically)
+            or adding your own modules.
+          </para>
+        </listitem>
+      </itemizedlist>
+      <para>
+        If you are familiar with Driver Update Disks, you might be
+        wondering how to run your own scripts. The
+        <link linkend="running-scripts">Running scripts</link> section
+        explains how you do it.
+      </para>
+      <section xml:id="modifying-the-image">
+        <title>Modifying the image</title>
+        <para>
+          You can modify the Agama live image using an RPM package or a
+          Driver Update Disk. If you use an RPM, it is unpacked to the
+          live image (without running any package script). If you prefer
+          a Driver Update Disk, the files under the
+          <link xlink:href="https://ftp.suse.com/pub/people/hvogel/Update-Media-HOWTO/Update-Media-HOWTO.html#id_inst_sys">inst-sys
+          directory</link> will be copied to the live image.
+        </para>
+      </section>
+      <section xml:id="adding-packages-for-installation">
+        <title>Adding packages for installation</title>
+        <para>
+          If you want to replace a package (or add a new one), you can
+          place them under the <literal>install</literal> directory of
+          your Driver Update Disk. Those packages will be copied to a
+          special repository that Agama will use during installation.
+          That repository will have higher priority than the product
+          repositories, so those packages will be preferred.
+        </para>
+        <para>
+          The purpose of this feature is replacing existing packages
+          with updated or patched versions. If you want to add packages
+          that are not in the distribution, you might need to
+          <link xlink:href="/docs/user/reference/profile/software">tell
+          Agama about those packages</link> using a profile. Check the
+          <link linkend="running-scripts">Running scripts</link> to
+          learn how to use a profile as part of the update process.
+        </para>
+      </section>
+      <section xml:id="adding-or-updating-kernel-modules">
+        <title>Adding or updating kernel modules</title>
+        <para>
+          The <literal>modules</literal> directory of your Driver Update
+          Disk might contain a set of kernel modules. Agama will copy
+          them to the live image (under the <literal>updates</literal>
+          directory of the kernel modules path), unloading the old
+          version of the replaced modules if needed.
+        </para>
+        <para>
+          If you want to make sure that a module is unloaded (e.g.,
+          because it is a dependency of an updated module) or loaded,
+          you can add its name (withouth the suffix
+          <literal>.ko*</literal>) to the
+          <literal>module.order</literal> file. Agama will unload those
+          modules in reverse order and it will make sure that systemd
+          loads them when booting the live system.
+        </para>
+      </section>
+    </section>
+    <section xml:id="running-scripts">
+      <title>Running scripts</title>
+      <para>
+        Agama update mechanism will ignore the
+        <literal>update.*</literal> scripts included in the Driver
+        Update Disk. There are two reasons for this:
+      </para>
+      <orderedlist numeration="arabic" spacing="compact">
+        <listitem>
+          <para>
+            Agama already offers a mechanism to run scripts.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Most of those scripts will not work because the installation
+            media has changed quite a lot.
+          </para>
+        </listitem>
+      </orderedlist>
+      <para>
+        However, you can run scripts (and do many more things) if you
+        include a partial Agama profile as part of the update. Place the
+        file (<literal>autoinst.jsonnet</literal>,
+        <literal>autoinst.json</literal> or
+        <literal>autoinst.xml</literal>) in the
+        <literal>inst-sys</literal> directory. It will be copied and
+        automatically processed by Agama later. Please, refer to the
+        <link xlink:href="/docs/overview/unattended#starting-the-installation">Starting
+        the installation</link> for further information.
+      </para>
+      <para>
+        Following this approach, you could use an
+        <literal>autoinst.jsonnet</literal> file containing as many
+        scripts as you want:
+      </para>
+      <programlisting>
+{
+  scripts: {
+    pre: [
+      {
+        name: &quot;script.sh&quot;,
+        content: |||
+          #!/usr/bin/bash
+
+          echo &quot;Running at the beginning of the installation&quot;
+        |||
+    ]
+  }
+}
+</programlisting>
+      <para>
+        Or, if you prefer, you could use a separate file for the script:
+      </para>
+      <programlisting>
+{
+  scripts: {
+    pre: [
+      {
+        name: &quot;script.sh&quot;,
+        url: &quot;script.sh&quot;
+      }
+    ]
+  }
+}
+</programlisting>
+      <para>
+        Of course, combining a Driver Update Disk with an Agama profile
+        enables you to do more things that just running a script (e.g.,
+        selecting a package for installation).
+      </para>
+    </section>
+    <section xml:id="skipping-security-checks">
+      <title>Skipping security checks</title>
+      <para>
+        Although it is not recommended, you might want to skip security
+        checks in some situations. You can use the following kernel
+        arguments:
+      </para>
+      <itemizedlist spacing="compact">
+        <listitem>
+          <para>
+            <literal>inst.dud_insecure</literal>: ignores SSL/TLS
+            problems like a self-signed certificate when downloading the
+            update from an HTTPS server.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>inst.dud_packages.gpg</literal>: enables/disables
+            GPG signatures check when installing the packages included
+            in the DUD to the target system. The check is enable by
+            default; set <literal>inst.dud_packages.gpg=0</literal> to
+            disable it.
+          </para>
+        </listitem>
+      </itemizedlist>
+    </section>
+    <section xml:id="debugging">
+      <title>Debugging</title>
+      <para>
+        If the update was not applied as you expected, you can switch to
+        a console (e.g., pressing <literal>ctrl+alt+f8</literal>) and
+        check the logs with the following command:
+      </para>
+      <programlisting language="bash">
+journalctl -u dracut-pre-pivot
+</programlisting>
+    </section>
+  </section>
+</article>

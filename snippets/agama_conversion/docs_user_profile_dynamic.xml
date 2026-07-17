@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article>
+<article
+  xmlns="http://docbook.org/ns/docbook" version="5.0"
+  xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <info>
+    <title></title>
+  </info>
+  <section xml:id="writing-a-dynamic-profile">
+    <title>Writing a dynamic profile</title>
+    <para>
+      It is not unusual that you need to write a profile that adapts
+      dynamically to the underlying system. For instance, you might want
+      Agama to take some decisions depending on the hardware of the
+      system you are installing.
+    </para>
+    <para>
+      Fortunately, Jsonnet can work as a templating language and it
+      offers many structures that allow generating data. For that
+      reason, Agama injects the hardware information that you can
+      process using the powerful
+      <link xlink:href="https://jsonnet.org/ref/stdlib.html">Jsonnet
+      standard library</link>.
+    </para>
+    <para>
+      You can access to the hardware information by importing the
+      <literal>hw.libsonnet</literal> library, as you can see in the
+      example below.
+    </para>
+    <programlisting>
+// There are included also helpers to search this hardware tree. To see helpers check
+// &quot;/usr/share/agama-cli/agama.libsonnet&quot;
+local agama = import 'hw.libsonnet';
+
+// Find the biggest disk which is suitable for installing the system.
+local findBiggestDisk(disks) =
+  local sizedDisks = std.filter(function(d) std.objectHas(d, 'size'), disks);
+  local sorted = std.sort(sizedDisks, function(x) -x.size);
+  sorted[0].logicalname;
+
+// Find how much physical memory system has.
+local memory = agama.findByID(agama.lshw, 'memory').size;
+
+{
+  product: {
+    id: if memory &lt; 8000000000 then 'MicroOS' else 'Tumbleweed',
+  },
+  user: {
+    fullName: 'Jane Doe',
+    userName: 'jane.doe',
+    password: '123456',
+  },
+  root: {
+    password: 'nots3cr3t',
+    sshPublicKey: '...',
+  },
+  storage: {
+    boot: {
+      configure: true,
+      device: 'boot',
+    },
+    drives: [
+      {
+        search: findBiggestDisk(agama.selectByClass(agama.lshw, 'disk')),
+        alias: 'boot',
+      },
+    ],
+  },
+}
+</programlisting>
+    <para>
+      Agama ships a few helpers to make it easier to search for the
+      information you need from the hardware tree. See
+      <link xlink:href="https://github.com/agama-project/agama/blob/master/rust/share/agama.libsonnet">agama.libsonnet</link>
+      for further details.
+    </para>
+    <para>
+      :::tip Getting hardware information
+    </para>
+    <para>
+      You can inspect the available data by installing the
+      <literal>lshw</literal> package and running the following command:
+      <literal>lshw -json</literal>.
+    </para>
+    <para>
+      :::
+    </para>
+  </section>
+</article>

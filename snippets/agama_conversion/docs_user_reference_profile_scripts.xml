@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article>
+<article
+  xmlns="http://docbook.org/ns/docbook" version="5.0"
+  xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <info>
+    <title></title>
+  </info>
+  <section xml:id="scripts">
+    <title>Scripts</title>
+    <para>
+      Agama allows to execute scripts at the following points of the
+      installation process:
+    </para>
+    <itemizedlist spacing="compact">
+      <listitem>
+        <para>
+          Previous to any installation work (pre-installation scripts).
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          After the system is installed (post-installation scripts).
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          During the first boot of the installed system (init scripts).
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      This section describes how to specify a script and goes through
+      some use-cases.
+    </para>
+    <para>
+      For a more general script feature wrapping the whole installation
+      process, see
+      <link xlink:href="/docs/overview/unattended#fully-scripted-installation">Fully
+      scripted installation</link> at the starter’s guide.
+    </para>
+    <section xml:id="scripts-definition">
+      <title>Scripts definition</title>
+      <para>
+        User scripts are defined in the <literal>scripts</literal>
+        section of the Agama profile. There is a key for each of the
+        three scripts types, and each key can contain a list of scripts.
+      </para>
+      <programlisting>
+{
+  scripts: {
+    pre: [
+      {
+        name: &quot;activate-multipath&quot;,
+        content: |||
+          #!/usr/bin/bash
+          systemctl start multipathd.socket multipathd.service
+        |||
+      }
+    ],
+    post: [
+      {
+        name: &quot;enable-sshd&quot;,
+        chroot: true,
+        content: |||
+          #!/usr/bin/bash
+          systemctl enable sshd.service
+        |||
+      }
+    ],
+    init: [
+      {
+        name: &quot;run-ansible&quot;,
+        url: &quot;https://192.168.1.1/provisioning.sh&quot;
+      }
+    ]
+  }
+}
+</programlisting>
+      <para>
+        :::note Better use Jsonnet for profiles containing scripts
+      </para>
+      <para>
+        JSON does not allow multiline strings, so it might be better to
+        use Jsonnet instead. However, you need to pay attention to the
+        indentation, because it matters.
+      </para>
+      <para>
+        If you prefer JSON, you can write the <literal>\n</literal> to
+        separate lines.
+      </para>
+      <programlisting language="json">
+{
+  &quot;name&quot;: &quot;enable-sshd&quot;,
+  &quot;chroot&quot;: true,
+  &quot;content&quot;: &quot;#!/usr/bin/bash\nsystemctl enable sshd.service&quot;
+}
+</programlisting>
+      <para>
+        :::
+      </para>
+    </section>
+    <section xml:id="the-common-parts">
+      <title>The common parts</title>
+      <para>
+        All scripts share the same elements:
+      </para>
+      <itemizedlist spacing="compact">
+        <listitem>
+          <para>
+            <literal>name</literal>: a name to identify the script. It
+            makes it easier to find the script logs.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>content</literal>: the content of the script. It is
+            important to include the <emphasis>shebang</emphasis> as the
+            first line of the script.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>url</literal>: alternatively to the
+            <literal>content</literal>, you can define a URL to fetch
+            the file from. The scripts are downloaded and written to the
+            disk when loading the profile. In addition to the
+            <link xlink:href="../urls">supported URLs</link> you can use
+            a URL relative to the profile (e.g.,
+            <quote>/my-script.sh</quote>).
+          </para>
+        </listitem>
+      </itemizedlist>
+      <para>
+        :::note[A note on relative URLs]
+      </para>
+      <para>
+        If you use the <literal>inst.auto</literal> boot option to
+        specify the URL of the profile, any relative URL will use the
+        URL of the profile as its base.
+      </para>
+      <para>
+        However, loading the profile using the
+        <literal>agama config load</literal> will not work in the same
+        way. Check the
+        <link xlink:href="../../profile/working_with_profiles#manually-loading-a-profile">Manually
+        loading a profile</link> section for further information.
+      </para>
+      <para>
+        :::
+      </para>
+      <para>
+        Check the following sections to find out the differences between
+        the script types.
+      </para>
+    </section>
+    <section xml:id="pre-installation-scripts">
+      <title>Pre-installation scripts</title>
+      <para>
+        The pre-installation scripts are executed before the system is
+        analyzed. They are useful for enabling hardware, tweaking the
+        installation media, etc.
+      </para>
+      <para>
+        :::warning[Pre-installation scripts cannot modify the current
+        profile]
+      </para>
+      <para>
+        Unlike AutoYaST, the pre-installation scripts cannot modify the
+        current profile. We recommend using Jsonnet to build a dynamic
+        profile. If you need something that behaves exactly like
+        AutoYaST, you can still use an AutoYaST profile with its own
+        pre-scripts section.
+      </para>
+      <para>
+        :::
+      </para>
+    </section>
+    <section xml:id="post-partitioning-scripts">
+      <title>Post-partitioning scripts</title>
+      <para>
+        The post-partitioning scripts are executed during the
+        installation, after the storage is set up. A typical use case is
+        to create configuration files that can modify the behavior of
+        the RPM scripts.
+      </para>
+    </section>
+    <section xml:id="post-installation-scripts">
+      <title>Post-installation scripts</title>
+      <para>
+        The post-installation scripts are executed after the system is
+        installed. They are helpful for enabling services, adjusting
+        system configuration, installing or removing software, etc.
+        These scripts have an additional option,
+        <literal>chroot</literal>, that determines
+        <emphasis>where</emphasis> to run:
+      </para>
+      <itemizedlist spacing="compact">
+        <listitem>
+          <para>
+            On the installation media (<literal>chroot</literal> is set
+            to <literal>false</literal>), which is the behavior by
+            default. You can find the installed system mounted at
+            <literal>/mnt</literal>.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            On the installed system (<literal>chroot</literal> is set to
+            <literal>true</literal>). Beware that systemd is not running
+            on the installed system. For that reason, some commands
+            might not work. If that’s a problem, check the init scripts.
+          </para>
+        </listitem>
+      </itemizedlist>
+    </section>
+    <section xml:id="init-scripts">
+      <title>Init scripts</title>
+      <para>
+        The init scripts run during the first boot of the installed
+        system. They are special because Agama is not present at that
+        point. However, if they are included in a profile, Agama will
+        install a special <literal>agama-scripts</literal> service which
+        takes care of running them. Once the scripts run, the service is
+        disabled.
+      </para>
+      <para>
+        They are a good alternative for those cases where a post-script
+        falls short. The system is fully operational in this case, so
+        there are no limitations.
+      </para>
+    </section>
+    <section xml:id="troubleshooting">
+      <title>Troubleshooting</title>
+      <para>
+        You can find the scripts and their logs at
+        <literal>/var/log/agama-installation/scripts</literal> after the
+        installation has finished. There is a directory for each kind of
+        script (<literal>pre</literal>, <literal>post</literal> and
+        <literal>init</literal>). Each folder contains the scripts
+        (named according to the <literal>name</literal> element) and
+        their corresponding standard output
+        (<literal>[name].log</literal>), standard error
+        (<literal>[name].err</literal>) and exit status
+        (<literal>[name].out</literal>).
+      </para>
+      <para>
+        If you need to debug a problem during installation, you can find
+        those files at <literal>/run/agama/scripts</literal>.
+      </para>
+    </section>
+  </section>
+</article>

@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article>
+<article
+  xmlns="http://docbook.org/ns/docbook" version="5.0"
+  xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <info>
+    <title></title>
+  </info>
+  <section xml:id="agama-urls">
+    <title>Agama URLs</title>
+    <para>
+      In addition to well known protocols, like
+      <literal>http(s)://</literal>. <literal>ftp://</literal>,
+      <literal>file://</literal>, etc., Agama understands most of
+      <link xlink:href="https://doc.opensuse.org/projects/autoyast/#Commandline-ay">YaST
+      and AutoYaST specific URLs</link>. So when you need to specify a
+      URL (e.g., if you want to perform an unattended installation), you
+      can use any of those options.
+    </para>
+    <section xml:id="supported-schemes">
+      <title>Supported schemes</title>
+      <para>
+        Agama supports the following standard schemes<footnote>
+          <para>
+            Agama relies on
+            <link xlink:href="https://curl.se/">curl</link> to support
+            generic protocols (network protocols and
+            <literal>file://</literal>). So it might happen that some
+            protocol is supported <quote>by accident</quote>. However,
+            only the documented protocols are really supported by Agama.
+          </para>
+        </footnote>:
+      </para>
+      <itemizedlist spacing="compact">
+        <listitem>
+          <para>
+            <literal>http</literal> and <literal>https</literal> for
+            HTTP and HTTPS.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>ftp</literal> and <literal>ftps</literal> for FTP
+            and FTP over TSL.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>smb</literal> and <literal>smbs</literal> for the
+            Server Message Block (SMB) protocol<footnote>
+              <para>
+                Use <literal>smb</literal> instead of
+                <literal>cifs</literal>, although in the future you
+                should be able to use any of them.
+              </para>
+            </footnote>.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>file</literal> for local files.
+          </para>
+        </listitem>
+      </itemizedlist>
+      <para>
+        In addition to those schemes, Agama supports a set of specific
+        ones which can be rather useful:
+      </para>
+      <itemizedlist spacing="compact">
+        <listitem>
+          <para>
+            <link linkend="device"><literal>device</literal></link> for
+            finding files on specific devices (even unmounted ones).
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <link linkend="usb"><literal>usb</literal></link> for
+            finding files in USB devices (even unmounted ones).
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <link linkend="label"><literal>label</literal></link> for
+            finding files in a file system with a given label.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <link linkend="cd-dvd-and-hd"><literal>cd</literal>,
+            <literal>dvd</literal>, <literal>hd</literal></link> for
+            finding files on specific devices (prefer
+            <literal>device</literal>).
+          </para>
+        </listitem>
+      </itemizedlist>
+    </section>
+    <section xml:id="relative-references">
+      <title>Relative references</title>
+      <para>
+        For <literal>&quot;scripts&quot;</literal> and
+        <literal>&quot;files&quot;</literal> in the Agama JSON config,
+        the <literal>&quot;url&quot;</literal> property can be a
+        relative reference, where the resolution base is the URL of the
+        containing config.
+      </para>
+      <para>
+        This is a replacement for the
+        <emphasis role="strikethrough"><literal>relurl</literal></emphasis>
+        scheme used in AutoYaST.
+      </para>
+      <para>
+        For example, if the configuration below is retrieved from
+        <literal>https://example.com/machines/sles16.jsonnet</literal>,
+        it refers to
+        <literal>https://example.com/machines/scripts/snapshot.sh</literal>.
+      </para>
+      <programlisting>
+{
+  scripts: {
+    postPartitioning: [
+      {
+        name: &quot;snapshot&quot;,
+        url: &quot;scripts/snapshot.sh&quot;
+      }
+    ]
+  }
+}
+</programlisting>
+    </section>
+    <section xml:id="agama-specific-schemes">
+      <title>Agama specific schemes</title>
+      <para>
+        The typical protocols are enough for most use cases. However,
+        more specific URLs can be handy in many situations. For
+        instance, instead of serving your profile through HTTP, you
+        could just put it on a USB stick and tell Agama about it with
+        <literal>usb:///profile.json</literal>. Agama would search on
+        all your USB devices for the profile to use.
+      </para>
+      <para>
+        Let’s have a look to the different kind of URLs that Agama
+        offers.
+      </para>
+      <section xml:id="device">
+        <title><literal>device</literal></title>
+        <para>
+          This is the most flexible scheme. The general form is
+          <literal>device://[DEVICE]/PATH</literal>. Let’s have a look
+          to some examples to better understand of how it works.
+        </para>
+        <para>
+          In the following example, Agama will search for the
+          <literal>profile.json</literal> file in the
+          <literal>/dev/sda1</literal> device:
+        </para>
+        <programlisting>
+device://sda1/profile.json
+</programlisting>
+        <para>
+          It is possible to search in a given directory. In this case,
+          the <literal>/profiles/sles.json</literal> file in the
+          <literal>/dev/sda1</literal> device:
+        </para>
+        <programlisting>
+device://sda1/profiles/sles.json
+</programlisting>
+        <para>
+          Nested devices are supported too:
+        </para>
+        <programlisting>
+device:///cciss/c1d0p5/sles.json
+</programlisting>
+      </section>
+      <section xml:id="usb">
+        <title><literal>usb</literal></title>
+        <para>
+          The <literal>usb://</literal> scheme is a particular form of
+          the <literal>device://</literal> but limited to USB devices.
+          As mentioned before, the following URL will search the
+          <literal>profile/sles.json</literal> on all USB devices.
+        </para>
+        <programlisting>
+usb:///profile/sles.json
+</programlisting>
+      </section>
+      <section xml:id="label">
+        <title><literal>label</literal></title>
+        <para>
+          The <literal>label://</literal> scheme allows to search on
+          file systems with a given label. It has the form
+          <literal>label://LABEL/PATH</literal>. In the following
+          example, Agama will search for the
+          <literal>sles.json</literal> in a file system labeled as
+          <literal>OEMDRV</literal>:
+        </para>
+        <programlisting>
+label://OEMDRV/sles.json
+</programlisting>
+      </section>
+      <section xml:id="cd-dvd-and-hd">
+        <title><literal>cd</literal>, <literal>dvd</literal> and
+        <literal>hd</literal></title>
+        <para>
+          This is another particular case of
+          <literal>device://</literal> but with a slightly different
+          form. In Agama, there is no difference between these forms
+          (<literal>hd</literal>, <literal>dvd</literal> and
+          <literal>cd</literal>). The syntax is
+          <literal>dvd:/PATH?devices=DEVICE</literal>:
+        </para>
+        <programlisting>
+hd:/sles.jsonnet?devices=/dev/sr0
+dvd:/autoinst.xml?devices=sr1
+</programlisting>
+        <note>
+          <para>
+            Prefer <literal>device</literal> to <literal>cd</literal>,
+            <literal>dvd</literal> or <literal>hd</literal> Given that
+            <literal>cd</literal>, <literal>dvd</literal> and
+            <literal>hd</literal> do not offer any advantage, using
+            <literal>device</literal> might be a better option.
+          </para>
+        </note>
+      </section>
+      <section xml:id="not-supported-yet">
+        <title>Not supported yet</title>
+        <para>
+          The <literal>repo://</literal> URLs are not supported yet, but
+          there are plans to implement them.
+        </para>
+      </section>
+    </section>
+  </section>
+</article>

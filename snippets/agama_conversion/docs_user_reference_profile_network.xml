@@ -1,0 +1,548 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article>
+<article
+  xmlns="http://docbook.org/ns/docbook" version="5.0"
+  xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <info>
+    <title></title>
+  </info>
+  <section xml:id="network">
+    <title>Network</title>
+    <para>
+      Along with the storage setup, the network configuration is
+      probably the most complex area. Agama needs to cover many
+      different requirements that, in some cases, conflict with each
+      other.
+    </para>
+    <para>
+      To set up the network, you can:
+    </para>
+    <itemizedlist spacing="compact">
+      <listitem>
+        <para>
+          Specify the network configuration at boot time, so it is set
+          up even before Agama starts.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Define the configuration as part of the Agama profile.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      In some cases, you might also want to combine both approaches. A
+      typical scenario is when you do not have a DHCP server and you
+      need to set up the network so Agama can fetch the profile.
+    </para>
+    <para>
+      The rest of this section explains how to configure the network
+      using an Agama profile. For the boot options, please check the
+      <link xlink:href="../boot_options">boot options section</link>.
+    </para>
+    <section xml:id="defining-network-connections">
+      <title>Defining network connections</title>
+      <para>
+        The main concept of the network configuration is the
+        <emphasis>connection</emphasis>. The <literal>network</literal>
+        section includes a list of <literal>connections</literal> where
+        you can define as many as needed.
+      </para>
+      <programlisting>
+{
+  network: {
+    connections: [
+      {
+        id: &quot;Ethernet device 1&quot;,
+        method4: &quot;auto&quot;,
+      },
+      {
+        id: &quot;Wireless device 1&quot;,
+        method4: &quot;auto&quot;,
+        wireless: {
+          ssid: &quot;HOME_NETWORK&quot;,
+          password: &quot;secret&quot;,
+          security: &quot;wpa-psk&quot;,
+          mode: &quot;infrastructure&quot;
+        }
+      }
+    ]
+  }
+}
+</programlisting>
+      <para>
+        If you are familiar with
+        <emphasis><link xlink:href="https://www.networkmanager.dev/docs/">NetworkManager</link></emphasis>,
+        the connection concept will not be new for you.
+      </para>
+      <para>
+        For each type of connection, you might need a different set of
+        fields. However, many of them are common to any type of
+        connection. Those fields include the connection identifier, the
+        IPv4/IPv6 configuration, some device parameters, etc.
+      </para>
+      <itemizedlist spacing="compact">
+        <listitem>
+          <para>
+            <literal>id</literal>: Human-readable unique connection
+            identifier.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>method4</literal> and <literal>method6</literal>:
+            IPv4 and IPv6 configuration method. Possible values are
+            <literal>auto</literal> (usually DHCP),
+            <literal>manual</literal>, <literal>link-local</literal>,
+            and <literal>disabled</literal> (default).
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>interface</literal>: The name of the network
+            interface to bind to this connection. If it is not
+            specified, the connection could be applied to any device if
+            there is no conflict with other match settings like the
+            <literal>macAddress</literal> or the
+            <literal>match</literal> fields.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>macAddress</literal>: The MAC address of the
+            network interface to bind to this connection.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>customMacAddress</literal>: MAC address to assign.
+            It can be a MAC address or one of the following values:
+            <literal>preserve</literal>, <literal>permanent</literal>,
+            <literal>random</literal>, or <literal>stable</literal>.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>mtu</literal>: Connection MTU.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>gateway4</literal> and <literal>gateway6</literal>:
+            Gateway address for IPv4 and IPv6.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>addresses</literal>: IP addresses. They can be IPv4
+            and/or IPv6.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>nameservers</literal>: Name servers’ IP addresses
+            (IPv4 and/or IPv6).
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>dnsSearchlist</literal>: DNS domains to search.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>ignoreAutoDns</literal>: Whether DNS options
+            provided via DHCP are ignored or not.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>status</literal>: The wanted status for the
+            connection. It can be <literal>up</literal>,
+            <literal>down</literal>, or <literal>removed</literal>.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>autoconnect</literal>: Whether the connection
+            should be automatically activated.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>persistent</literal>: Whether the connection should
+            be kept after the installation or not.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>match</literal>: Define criteria to select the
+            device to apply the connection to. See
+            <link linkend="device-matching">Device matching</link> for
+            more details.
+          </para>
+        </listitem>
+      </itemizedlist>
+      <para>
+        These are the common fields to any kind of connection. Now, if
+        you want to set up a bridge, you need to add a
+        <literal>bridge</literal> section; for a Wi-Fi connection, you
+        need a <literal>wireless</literal> section; and so on.
+      </para>
+      <section xml:id="device-matching">
+        <title>Device matching</title>
+        <para>
+          While the <literal>interface</literal> or the
+          <literal>macAddress</literal> fields are used to match a
+          specific interface based on its name or MAC address, the
+          <literal>match</literal> section allows you to match multiple
+          devices using name, driver, PCI, or kernel criteria.
+        </para>
+        <para>
+          This is based on the <emphasis>NetworkManager</emphasis>
+          <literal>match</literal> setting (see the
+          <link xlink:href="https://networkmanager.dev/docs/api/latest/nm-settings-dbus.html">NetworkManager
+          documentation</link>).
+        </para>
+        <para>
+          For instance, you can match a device by its name:
+        </para>
+        <programlisting>
+{
+  network: {
+    connections: [
+      {
+        id: &quot;Wired connection 1&quot;,
+        match: {
+          interface: [&quot;eth0&quot;]
+        }
+      }
+    ]
+  }
+}
+</programlisting>
+        <para>
+          By its driver:
+        </para>
+        <programlisting>
+{
+  network: {
+    connections: [
+      {
+        id: &quot;Wired connection 1&quot;,
+        match: {
+          driver: [&quot;e1000e&quot;]
+        }
+      }
+    ]
+  }
+}
+</programlisting>
+        <para>
+          Or by its PCI path:
+        </para>
+        <programlisting>
+{
+  network: {
+    connections: [
+      {
+        id: &quot;Wired connection 1&quot;,
+        match: {
+          path: [&quot;pci-0000:04:00.0&quot;]
+        }
+      }
+    ]
+  }
+}
+</programlisting>
+        <para>
+          You can also use wildcards (globs) in the values. For example,
+          to match any interface starting with <literal>eth</literal> or
+          <literal>ens</literal>:
+        </para>
+        <programlisting>
+{
+  network: {
+    connections: [
+      {
+        id: &quot;Ethernet&quot;,
+        match: {
+          interface: [&quot;eth*&quot;, &quot;ens*&quot;]
+        }
+      }
+    ]
+  }
+}
+</programlisting>
+      </section>
+      <section xml:id="wi-fi-networks">
+        <title>Wi-Fi networks</title>
+        <para>
+          To connect to a Wi-Fi network, you need to include a
+          <literal>wireless</literal> section in the connection. It
+          supports the following fields:
+        </para>
+        <itemizedlist spacing="compact">
+          <listitem>
+            <para>
+              <literal>ssid</literal>: Network SSID.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>security</literal>: Security method/key
+              management. Possible values are <literal>none</literal>
+              (default), <literal>owe</literal>,
+              <literal>ieee8021x</literal>, <literal>wpa-psk</literal>,
+              <literal>sae</literal>, <literal>wpa-eap</literal>, and
+              <literal>wpa-eap-suite-b192</literal>.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>password</literal>: Password to connect to the
+              network.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>mode</literal>: Wireless mode. Possible values
+              are: <literal>infrastructure</literal> (default),
+              <literal>adhoc</literal>, <literal>mesh</literal>, and
+              <literal>ap</literal>.
+            </para>
+          </listitem>
+        </itemizedlist>
+        <programlisting>
+{
+  network: {
+    connections: [
+      {
+        id: &quot;Wireless device 1&quot;,
+        method4: &quot;auto&quot;,
+        method6: &quot;disabled&quot;,
+        interface: &quot;wlan0&quot;,
+        addresses: [
+          &quot;192.168.122.100/24&quot;
+        ],
+        wireless: {
+          ssid: &quot;HOME_NETWORK&quot;,
+          password: &quot;secret&quot;,
+          security: &quot;wpa-psk&quot;,
+          mode: &quot;infrastructure&quot;
+        }
+      }
+    ]
+  }
+}
+</programlisting>
+      </section>
+      <section xml:id="bridges">
+        <title>Bridges</title>
+        <para>
+          To create a bridge, you need to include a
+          <literal>bridge</literal> section which, among other optional
+          settings, includes the list of ports to connect.
+        </para>
+        <programlisting>
+{
+  network: {
+    connections: [
+      {
+        id: &quot;Bridge0&quot;,
+        interface: &quot;br0&quot;,
+        bridge: {
+          ports: [&quot;eth0&quot;, &quot;eth1&quot;]
+        }
+      }
+    ]
+  }
+}
+</programlisting>
+        <para>
+          The <literal>interface</literal> element specifies the device
+          name for the bridge while the <literal>id</literal> is the
+          connection name.
+        </para>
+        <para>
+          The <literal>bridge</literal> section can include:
+        </para>
+        <itemizedlist spacing="compact">
+          <listitem>
+            <para>
+              <literal>ports</literal>: A list of interfaces or
+              connections IDs which will be part of the bridge.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>stp</literal>: Whether the
+              <link xlink:href="https://es.wikipedia.org/wiki/Spanning_Tree_Protocol">Spanning
+              Tree Protocol (STP)</link> should be enabled.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>forwardDelay</literal>: STP forward delay, in
+              seconds.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>priority</literal>: STP priority. It is
+              represented by a number equal to or greater than zero.
+              Lower values are <quote>better</quote>.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>maxAge</literal>: STP maximum message age, in
+              seconds.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>helloTime</literal>: STP hello time, in seconds.
+            </para>
+          </listitem>
+        </itemizedlist>
+      </section>
+      <section xml:id="bonding">
+        <title>Bonding</title>
+        <para>
+          To create a bond, you need to include a
+          <literal>bond</literal> section which, among other optional
+          settings, includes the list of ports to connect.
+        </para>
+        <programlisting>
+{
+  network: {
+    connections: [
+      {
+        id: &quot;Bond0&quot;,
+        interface: &quot;bond0&quot;,
+        bond: {
+          ports: [&quot;eth0&quot;, &quot;eth1&quot;],
+          mode: &quot;active-backup&quot;,
+          options: &quot;primary=eth1&quot;
+        }
+      }
+    ]
+  }
+}
+</programlisting>
+        <para>
+          The <literal>interface</literal> element specifies the device
+          name for the bonding while the <literal>id</literal> is the
+          connection name.
+        </para>
+        <para>
+          The <literal>bond</literal> section can contain:
+        </para>
+        <itemizedlist spacing="compact">
+          <listitem>
+            <para>
+              <literal>ports</literal>: Devices to be included in the
+              bond.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>mode</literal>: Bond mode. Possible values:
+              <literal>balance-rr</literal> (default),
+              <literal>active-backup</literal>,
+              <literal>balance-xor</literal>,
+              <literal>broadcast</literal>, <literal>802.3ad</literal>,
+              <literal>balance-tlb</literal>,
+              <literal>balance-alb</literal>.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>options</literal>: Additional options.
+            </para>
+          </listitem>
+        </itemizedlist>
+      </section>
+      <section xml:id="vlan">
+        <title>VLAN</title>
+        <para>
+          To create a VLAN, you need to include a
+          <literal>vlan</literal> section supporting the following
+          fields:
+        </para>
+        <itemizedlist spacing="compact">
+          <listitem>
+            <para>
+              <literal>id</literal>: The VLAN identifier (an integer
+              from 0 to 4094).
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>parent</literal>: The parent interface name from
+              which the VLAN should be created.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <literal>protocol</literal>: The VLAN protocol to use for
+              encapsulation. Possible values: <literal>802.1Q</literal>
+              (default), <literal>802.1ad</literal>.
+            </para>
+          </listitem>
+        </itemizedlist>
+        <programlisting>
+{
+  network: {
+    connections: [
+      {
+        id: &quot;vlan10&quot;,
+        method4: &quot;manual&quot;,
+        method6: &quot;disabled&quot;,
+        status: &quot;up&quot;,
+        persistent: true,
+        addresses: [&quot;192.168.1.28/24&quot;],
+        gateway4: &quot;192.168.1.1&quot;,
+        nameservers: [&quot;192.168.1.1&quot;],
+        vlan: {
+          id: 10,
+          parent: &quot;eth0&quot;
+        }
+      }
+    ]
+  }
+}
+</programlisting>
+      </section>
+    </section>
+    <section xml:id="deleting-network-connections">
+      <title>Deleting network connections</title>
+      <para>
+        As mentioned in previous sections, the <literal>status</literal>
+        field allows bringing a connection <literal>up</literal>,
+        <literal>down</literal>, or even <literal>remove</literal> an
+        existing one. It might be useful to delete an existing
+        connection before creating a new one, especially when it is
+        already applied to a specific interface.
+      </para>
+      <programlisting>
+{
+  network: {
+    connections: [
+      {
+        id: &quot;default&quot;,
+        status: &quot;removed&quot;
+      },
+      {
+        id: &quot;enp1s0&quot;,
+        interface: &quot;enp1s0&quot;,
+        status: &quot;up&quot;
+      }
+    ]
+  }
+}
+</programlisting>
+    </section>
+  </section>
+</article>

@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article>
+<article
+  xmlns="http://docbook.org/ns/docbook" version="5.0"
+  xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <info>
+    <title></title>
+  </info>
+  <section xml:id="iscsi">
+    <title>iSCSI</title>
+    <para>
+      Sharing block devices via iSCSI (Internet Small Computer Systems
+      Interface) is a common way to make those devices available through
+      the network. In order to use those network storage devices, the
+      <literal>iscsi</literal> section allows to configure the system as
+      an iSCSI initiator and to define connections to one or many iSCSI
+      targets. That allows to access the block devices served by those
+      targets and to use them as drives in the
+      <link xlink:href="./storage"><literal>storage</literal></link>
+      section of the Agama configuration.
+    </para>
+    <para>
+      The <literal>iscsi</literal> section contains only two properties:
+      <literal>initiator</literal> and <literal>targets</literal>.
+    </para>
+    <section xml:id="initiator-name-configuration">
+      <title>Initiator name configuration</title>
+      <para>
+        In order to access the available resources, the system needs to
+        identify itself with an unique name within the iSCSI SAN (iSCSI
+        Storage Area Network). The attribute
+        <literal>initiator</literal> allows to specify that name.
+      </para>
+    </section>
+    <section xml:id="list-of-targets">
+      <title>List of targets</title>
+      <para>
+        The property <literal>targets</literal> contains a list of
+        objects. Each object describes the connection to an iSCSI target
+        and can contain the following properties (only the first four
+        are mandatory):
+      </para>
+      <itemizedlist spacing="compact">
+        <listitem>
+          <para>
+            <literal>address</literal>: IP address (or hostname) of the
+            target.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>port</literal>: TCP port.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>name</literal>: iSCSI name of the target.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>interface</literal>: iSCSI interface to use, not to
+            be confused with the network interface. It can be
+            <quote>default</quote> or the name of any interface defined
+            at <literal>/var/lib/iscsi/ifaces/</literal>.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>startup</literal>: The startup mode for the iSCSI
+            node. The possible values are <quote>onboot</quote>,
+            <quote>manual</quote> and <quote>automatic</quote>.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>authByTarget</literal>: Optional pair of username
+            and password, used if CHAP authentication should be
+            performed by the target. See below.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>authByInitiator</literal>: Optional pair of
+            username and password, used if CHAP authentication should be
+            performed by the initiator. See below.
+          </para>
+        </listitem>
+      </itemizedlist>
+    </section>
+    <section xml:id="iscsi-authentication">
+      <title>iSCSI authentication</title>
+      <para>
+        When performing discovery and login operations, an iSCSI system
+        can be optionally configured to request authentication between
+        targets and initiators using CHAP (Challenge Handshake
+        Authentication Protocol). There are three options:
+      </para>
+      <itemizedlist spacing="compact">
+        <listitem>
+          <para>
+            No authentication. No usernames or passwords are needed.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            CHAP authentication performed by the target. The target
+            authenticates the initiator by sending it a CHAP challenge.
+            The initiator must know the username and the password.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Bidirectional CHAP authentication. The target authenticates
+            the initiator as above and then the initiator authenticates
+            the target by sending it a CHAP challenge. In addition to
+            knowing the username and password for the first challenge,
+            the initiator must set a pair of username and password for
+            the second one.
+          </para>
+        </listitem>
+      </itemizedlist>
+      <para>
+        As a result, a given entry in the <literal>targets</literal>
+        list can have:
+      </para>
+      <itemizedlist spacing="compact">
+        <listitem>
+          <para>
+            No attributes related to authentication.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            An entry for <literal>authByTarget</literal>.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            An entry for <literal>authByTarget</literal> and another one
+            for <literal>authByInitiator</literal>.
+          </para>
+        </listitem>
+      </itemizedlist>
+      <para>
+        In the last two cases, the format of each entry is always the
+        same: an object with two properties <literal>username</literal>
+        and <literal>password</literal>. See the examples below.
+      </para>
+    </section>
+    <section xml:id="example-configuration">
+      <title>Example Configuration</title>
+      <programlisting language="json">
+{
+  &quot;iscsi&quot;: {
+    &quot;initiator&quot;: &quot;iqn.2013-02.de.suse:01:e229358d2dea&quot;,
+    &quot;targets&quot;: [
+      {
+        &quot;address&quot;: &quot;192.168.1.10&quot;,
+        &quot;port&quot;: 3260,
+        &quot;name&quot;: &quot;iqn.2001-15.com.doe:data&quot;,
+        &quot;interface&quot;: &quot;default&quot;
+      },
+      {
+        &quot;address&quot;: &quot;192.168.1.1&quot;,
+        &quot;port&quot;: 3260,
+        &quot;name&quot;: &quot;iqn.2001-05.com.doe:test1&quot;,
+        &quot;interface&quot;: &quot;default&quot;,
+        &quot;startup&quot;: &quot;onboot&quot;,
+        &quot;authByTarget&quot;: {
+          &quot;username&quot;: &quot;test&quot;,
+          &quot;password&quot;: &quot;12345&quot;
+        }
+      },
+      {
+        &quot;address&quot;: &quot;192.168.1.1&quot;,
+        &quot;port&quot;: 3260,
+        &quot;name&quot;: &quot;iqn.2001-05.com.doe:test2&quot;,
+        &quot;interface&quot;: &quot;default&quot;,
+        &quot;startup&quot;: &quot;manual&quot;,
+        &quot;authByTarget&quot;: {
+          &quot;username&quot;: &quot;test&quot;,
+          &quot;password&quot;: &quot;12345&quot;
+        },
+        &quot;authByInitiator&quot;: {
+          &quot;username&quot;: &quot;test&quot;,
+          &quot;password&quot;: &quot;54321&quot;
+        }
+      }
+    ]
+  }
+}
+</programlisting>
+    </section>
+  </section>
+</article>

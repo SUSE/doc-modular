@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article>
+<article
+  xmlns="http://docbook.org/ns/docbook" version="5.0"
+  xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <info>
+    <title></title>
+  </info>
+  <section xml:id="advanced-configuration-with-the-cli">
+    <title>Advanced configuration with the CLI</title>
+    <para>
+      Agama offers a command-line interface (CLI) that can be used to
+      drive and monitor the whole interactive installation process,
+      completely replacing the graphical web interface if desired.
+    </para>
+    <para>
+      But the command-line interface can also be used as a complement
+      for the graphical web interface. Bear in mind the web interface
+      only exposes a small part of the configuration capabilities of
+      Agama. It is perfectly possible to use the web interface for most
+      of the process and rely on the command-line only to tweak those
+      aspects of the configuration that cannot be managed there.
+    </para>
+    <section xml:id="local-access-to-the-command-line-tools">
+      <title>Local access to the command-line tools</title>
+      <para>
+        The first step to use the Agama command-line tools from the
+        Agama Live installation media is to open a Linux console session
+        as the user <literal>root</literal>. The easiest way to do show
+        is to switch to one of the text consoles, for example pressing
+        <literal>Ctrl</literal>+<literal>Alt</literal>+<literal>F1</literal>.
+        Then you can log in as <literal>root</literal> using any
+        password you may have setup
+        <link xlink:href="../user/reference/boot_options">during
+        boot</link> or just typing the password you can find right above
+        the login prompt. Notice that this password is freshly
+        generated; it’s different each time the live system boots.
+        Alternatively, you can switch to <literal>Ctrl</literal> +
+        <literal>Alt</literal> + <literal>F8</literal> where no
+        authentication is required.
+      </para>
+      <para>
+        Once you are logged as <literal>root</literal>, you have the
+        <literal>agama</literal> command at your disposal.
+      </para>
+      <figure>
+        <title>Agama’s command-line interface</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="/img/user/cli.png" />
+          </imageobject>
+          <textobject><phrase>Agama’s command-line
+          interface</phrase></textobject>
+        </mediaobject>
+      </figure>
+      <para>
+        As a starting point, you can execute
+        <literal>agama config show</literal> to display the current
+        settings. If you want to inspect that configuration in a more
+        convenient format, you can combine that with other commands also
+        available in the live system. For example, you can try the
+        following.
+      </para>
+      <programlisting>
+agama config show | jq -C | less
+</programlisting>
+      <para>
+        You can switch back and forth between the graphical console and
+        several text consoles using key combinations like
+        <literal>Ctrl</literal>+<literal>Alt</literal>+<literal>F1</literal>
+        or
+        <literal>Ctrl</literal>+<literal>Alt</literal>+<literal>F2</literal>…
+        <literal>Ctrl</literal>+<literal>Alt</literal>+<literal>F8</literal>.
+        The graphical interface can usually be found at the second
+        console or at the seventh, depending whether the live system is
+        based on Wayland or X.Org. You can learn more about text
+        consoles in the
+        <link xlink:href="../user/guides/collecting_logs.md#shell">corresponding
+        section</link> of the document about collecting installation
+        logs.
+      </para>
+    </section>
+    <section xml:id="remote-access-to-the-command-line-tools">
+      <title>Remote access to the command-line tools</title>
+      <para>
+        You can also use the Agama command-line to manage the
+        installation from another machine in the same network. The
+        obvious way to achieve that is to just open a root SSH session
+        to the installation machine. Everything will work exactly the
+        same than using a local text console.
+      </para>
+      <para>
+        But asuming you have the Agama command-line tools installed on
+        your system, you can also control the installation process of
+        any other machine as long as you know its name or IP address at
+        the local network.
+      </para>
+      <para>
+        For that you first need to authenticate into the system using
+        the password of the user <literal>root</literal>.
+      </para>
+      <programlisting>
+agama --host https://agama.local auth login
+</programlisting>
+      <para>
+        In some cases, it may be convenient to also add the argument
+        <literal>insecure</literal> if you are in a fully thrustworthy
+        scenario and you want to skip the verifications for a
+        self-signed SSL certificate.
+      </para>
+      <programlisting>
+agama --insecure --host https://agama.local auth login
+</programlisting>
+      <para>
+        Once you are logged in, you can perform any operation. For
+        example, you can display the current configuration.
+      </para>
+      <programlisting>
+agama --host https://agama.local config show
+</programlisting>
+    </section>
+    <section xml:id="adjusting-the-configuration">
+      <title>Adjusting the configuration</title>
+      <para>
+        As mentioned, the command-line interface of Agama can be a nice
+        complement to the graphical instalation. Let’s start with a
+        trivial adjustment. You could create the following partial
+        configuration file to adapt the root password of the installed
+        system.
+      </para>
+      <programlisting language="json">
+{
+  &quot;root&quot;: {
+    &quot;password&quot;: &quot;s3cr3t&quot;
+  }
+}
+</programlisting>
+      <para>
+        Then, you could load that configuration with a command similar
+        to this.
+      </para>
+      <programlisting>
+agama config load secret.json
+</programlisting>
+      <para>
+        At that point, if you browse to the
+        <emphasis role="strong">Authentication</emphasis> section of the
+        web interface and click on the icon to reveal the password, you
+        could see it was effectively updated!
+      </para>
+      <para>
+        Needless to say, the loaded JSON document can contain a full
+        Agama configuration or only a partial one like in the example.
+        In the latter case, the settings corresponding to the omitted
+        sections will not be modified.
+      </para>
+      <para>
+        Of course, you can also rely on other tools to simplify the
+        process, for example something like this would save you from
+        manually creating the JSON file.
+      </para>
+      <programlisting>
+jq -n '.root.password = &quot;s3cr3t&quot; | agama config load
+</programlisting>
+      <para>
+        The CLI allows you to achieve some things that cannot be done
+        using only the web-based user interface. For example, you could
+        load the following partial configuration.
+      </para>
+      <programlisting language="json">
+{
+  &quot;root&quot;: {
+    &quot;hashedPassword&quot;: true,
+    &quot;password&quot;: &quot;$y$j9T$qGMrxRmEHUV33MD8srkPV1&quot;
+  }
+}
+</programlisting>
+      <para>
+        Although the web interface does not allow to enter an already
+        hashed password for the user <literal>root</literal>, you can
+        still check the result there.
+      </para>
+      <figure>
+        <title>Web interface for a hashed root password</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="/img/user/hashed.png" />
+          </imageobject>
+          <textobject><phrase>Web interface for a hashed root
+          password</phrase></textobject>
+        </mediaobject>
+      </figure>
+      <para>
+        Furthermore, this approach makes it possible to modify those
+        configuration options that are not even visible at the graphical
+        user interface. Let’s say you want to tweak the configuration of
+        the boot loader in some special way and you want to do it using
+        Agama, so the configuration is already applied on the first boot
+        of the new system. In that case you could create and load the
+        following partial configuration and continue with the
+        installation normally.
+      </para>
+      <programlisting language="json">
+{
+  &quot;bootloader&quot;: {
+    &quot;stopOnBootMenu&quot;: true,
+    &quot;extraKernelParams&quot;: &quot;processor.max_cstate=1&quot;
+  }
+}
+</programlisting>
+      <para>
+        When logged in at the installation media, a more convenient
+        method can be used to modify the current configuration. Just run
+        the following command.
+      </para>
+      <programlisting>
+agama config edit
+</programlisting>
+      <para>
+        That will open the default text editor (usually
+        <link xlink:href="https://www.vim.org/">Vim</link>) with the
+        current configuration already loaded. Then configuring Agama is
+        as easy as editing that JSON configuration and then saving the
+        file and quitting the editor.
+      </para>
+      <figure>
+        <title>agama config edit</title>
+        <mediaobject>
+          <imageobject>
+            <imagedata fileref="/img/user/edit.png" />
+          </imageobject>
+          <textobject><phrase>agama config edit</phrase></textobject>
+        </mediaobject>
+      </figure>
+      <para>
+        Of course, it is also possible to express the configuration in
+        the more dynamic (and usually more convenient) Jsonnet format,
+        but that requires some previous processing that is better
+        described at the
+        <link xlink:href="../user/profile/working_with_profiles">corresponding
+        section</link> of Agama’s user documentation.
+      </para>
+    </section>
+    <section xml:id="driving-the-whole-installation-process">
+      <title>Driving the whole installation process</title>
+      <para>
+        This document is focused on how to combine the web-based user
+        interface and the command-line to get the best of both worlds.
+        But actually the command-line interface is enough to
+        interactively drive the whole installation process. The
+        following sequence of commands should be enough for the simplest
+        scenario.
+      </para>
+      <programlisting>
+agama config edit
+agama install
+agama finish
+</programlisting>
+      <para>
+        There are many other commands that can be useful. All of them
+        are described at the
+        <link xlink:href="../user/reference/cli">command-line
+        reference</link>.
+      </para>
+    </section>
+  </section>
+</article>

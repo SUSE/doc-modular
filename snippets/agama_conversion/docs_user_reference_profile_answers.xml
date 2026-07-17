@@ -1,0 +1,423 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article>
+<article
+  xmlns="http://docbook.org/ns/docbook" version="5.0"
+  xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <info>
+    <title></title>
+  </info>
+  <section xml:id="questions">
+    <title>Questions</title>
+    <para>
+      Agama allows you to automate the process of answering questions
+      during an unattended installation. This feature is crucial for
+      creating truly hands-off Agama profiles, as it eliminates the need
+      for user interaction when the installer encounters a choice or
+      requires specific input.
+    </para>
+    <para>
+      This section explains how to define policies for answering
+      questions and provides a list of the question classes you can
+      configure.
+    </para>
+    <section xml:id="configuring-automatic-answers">
+      <title>Configuring automatic answers</title>
+      <para>
+        Automatic answers are configured within the
+        <literal>questions</literal> key of your Agama profile. This
+        object has two main properties: <literal>policy</literal> and
+        <literal>answers</literal>.
+      </para>
+      <programlisting language="json">
+{
+  &quot;questions&quot;: {
+    &quot;policy&quot;: &quot;auto&quot;,
+    &quot;answers&quot;: [
+      {
+        &quot;class&quot;: &quot;storage.activate_multipath&quot;,
+        &quot;answer&quot;: &quot;yes&quot;,
+      },
+      {
+        &quot;class&quot;: &quot;storage.luks_activation&quot;,
+        &quot;answer&quot;: &quot;decrypt&quot;,
+        &quot;password&quot;: &quot;my-secret-password&quot;
+        &quot;data&quot;: {
+          &quot;device&quot;: &quot;/dev/sda22&quot;
+        }
+      }
+    ]
+  }
+}
+</programlisting>
+    </section>
+    <section xml:id="the-policy-property">
+      <title>The <literal>policy</literal> property</title>
+      <para>
+        The <literal>policy</literal> property determines the default
+        behavior for questions the installer encounters. It’s a string
+        with two possible values:
+      </para>
+      <itemizedlist spacing="compact">
+        <listitem>
+          <para>
+            <emphasis role="strong"><literal>&quot;user&quot;</literal></emphasis>
+            (default): The installer will use any pre-defined answers
+            from the <literal>answers</literal> list. If a question is
+            encountered that does not have a matching answer, the
+            installer will ask the user for a response.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <emphasis role="strong"><literal>&quot;auto&quot;</literal></emphasis>:
+            The installer will use any pre-defined answers from the
+            <literal>answers</literal> list. If a question is
+            encountered that does not have a matching answer, the
+            installer will automatically select the default value for
+            that question. If there’s no default, the installation will
+            fail.
+          </para>
+        </listitem>
+      </itemizedlist>
+    </section>
+    <section xml:id="the-answers-property">
+      <title>The <literal>answers</literal> property</title>
+      <para>
+        The <literal>answers</literal> property is an array of objects,
+        where each object represents a pre-defined answer for a specific
+        question.
+      </para>
+      <para>
+        Each answer object can have the following properties:
+      </para>
+      <itemizedlist spacing="compact">
+        <listitem>
+          <para>
+            <literal>class</literal>: a unique identifier for the
+            question (e.g.,
+            <literal>&quot;storage.activate_multipath&quot;</literal>).
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>text</literal>: the full text of the question.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>answer</literal>: the value to be used as the
+            answer.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>password</literal>: an additional field that is
+            required for questions that also need a password, such as
+            <literal>storage.luks_activation</literal> with
+            <literal>decrypt</literal> answer.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>data</literal>: an optional object with additional
+            key-value pairs to match the question.
+          </para>
+        </listitem>
+      </itemizedlist>
+      <para>
+        The installer will attempt to match a question to an answer by
+        checking the <literal>class</literal>, <literal>text</literal>,
+        and <literal>data</literal> properties.
+      </para>
+      <para>
+        The installer performs a <emphasis role="strong">partial
+        match</emphasis> on the <literal>data</literal> object. If your
+        answer’s <literal>data</literal> entry contains a subset of the
+        properties in the question’s data, it will still be considered a
+        match if the values for the specified properties are identical.
+        For example, a question might contain
+        <literal>{ &quot;id&quot;: &quot;123&quot;, &quot;checksum&quot;: &quot;abc&quot;, &quot;name&quot;: &quot;file.txt&quot; }</literal>,
+        but you only need to specify
+        <literal>{ &quot;checksum&quot;: &quot;abc&quot; }</literal> to
+        match it.
+      </para>
+      <para>
+        :::warning[Beware of retries]
+      </para>
+      <para>
+        The <literal>Retry</literal> value for the
+        <literal>answer</literal> property could get the installation
+        into an infinity loop. Avoid using <literal>Retry</literal> if
+        you are not totally sure that the question is going to success
+        at some point. In the future, this problem could be overcome by
+        defining a maximum number of attempts.
+      </para>
+      <para>
+        :::
+      </para>
+    </section>
+    <section xml:id="supported-question-classes">
+      <title>Supported question classes</title>
+      <para>
+        The following table lists the possible question classes, their
+        descriptions, and the data you can use to match them.
+      </para>
+      <informaltable>
+        <tgroup cols="4">
+          <colspec colwidth="10*" align="left" />
+          <colspec colwidth="34*" align="left" />
+          <colspec colwidth="5*" align="left" />
+          <colspec colwidth="48*" align="left" />
+          <thead>
+            <row>
+              <entry>
+                Class
+              </entry>
+              <entry>
+                Description
+              </entry>
+              <entry>
+                Possible Answers
+              </entry>
+              <entry>
+                Available Data
+              </entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry>
+                <literal>autoyast.unsupported</literal>
+              </entry>
+              <entry>
+                When there are unsupported elements in an AutoYaST
+                profile.
+              </entry>
+              <entry>
+                <literal>Abort</literal>, <literal>Continue</literal>
+              </entry>
+              <entry>
+                <literal>planned</literal>: elements to be supported in
+                the future.<br /><literal>unsupported</literal>:
+                unsupported elements.
+              </entry>
+            </row>
+            <row>
+              <entry>
+                <literal>software.medium_error</literal>
+              </entry>
+              <entry>
+                When there is an issue accessing the software medium.
+              </entry>
+              <entry>
+                <literal>Retry</literal>, <literal>Skip</literal>
+              </entry>
+              <entry>
+                <literal>url</literal>: The URL where the access failed.
+              </entry>
+            </row>
+            <row>
+              <entry>
+                <literal>software.unsigned_file</literal>
+              </entry>
+              <entry>
+                When a file from a repository is not digitally signed.
+              </entry>
+              <entry>
+                <literal>Yes</literal>, <literal>No</literal>
+              </entry>
+              <entry>
+                <literal>filename</literal>: The name of the file.
+              </entry>
+            </row>
+            <row>
+              <entry>
+                <literal>software.import_gpg</literal>
+              </entry>
+              <entry>
+                When a signature is signed with an unknown GPG key.
+              </entry>
+              <entry>
+                <literal>Trust</literal>, <literal>Skip</literal>
+              </entry>
+              <entry>
+                <literal>id</literal>, <literal>name</literal>,
+                <literal>fingerprint</literal>: Details of the unknown
+                key.
+              </entry>
+            </row>
+            <row>
+              <entry>
+                <literal>software.unknown_gpg</literal>
+              </entry>
+              <entry>
+                When a file is signed by an unknown key.
+              </entry>
+              <entry>
+                <literal>Trust</literal>, <literal>Skip</literal>
+              </entry>
+              <entry>
+                <literal>id</literal>: The key
+                ID.<br /><literal>filename</literal>: The name of the
+                signed file.
+              </entry>
+            </row>
+            <row>
+              <entry>
+                <literal>software.digest.no_digest</literal>
+              </entry>
+              <entry>
+                When a file is in a signed repository, but is not listed
+                in the list of checksums.
+              </entry>
+              <entry>
+                <literal>Yes</literal>, <literal>No</literal>
+              </entry>
+              <entry>
+              </entry>
+            </row>
+            <row>
+              <entry>
+                <literal>software.digest.unknown_digest</literal>
+              </entry>
+              <entry>
+                When a file has a checksum, but the expected checksum is
+                not known. This question type is also used for wrong
+                checksums.
+              </entry>
+              <entry>
+                <literal>Yes</literal>, <literal>No</literal>
+              </entry>
+              <entry>
+              </entry>
+            </row>
+            <row>
+              <entry>
+                <literal>software.package_error.medium_error</literal>
+              </entry>
+              <entry>
+                When a package failed to be downloaded from the medium.
+              </entry>
+              <entry>
+                <literal>Retry</literal>, <literal>Continue</literal>
+              </entry>
+              <entry>
+                <literal>url</literal>: The URL of the package.
+              </entry>
+            </row>
+            <row>
+              <entry>
+                <literal>software.package_error.provide_error</literal>
+              </entry>
+              <entry>
+                When a package failed to be provided, e.g., due to an IO
+                error.
+              </entry>
+              <entry>
+                <literal>Retry</literal>, <literal>Continue</literal>
+              </entry>
+              <entry>
+              </entry>
+            </row>
+            <row>
+              <entry>
+                <literal>software.script_error</literal>
+              </entry>
+              <entry>
+                When a package script failed.
+              </entry>
+              <entry>
+                <literal>Retry</literal>, <literal>Continue</literal>
+              </entry>
+              <entry>
+                <literal>details</literal>: The details of the failure.
+              </entry>
+            </row>
+            <row>
+              <entry>
+                <literal>storage.activate_multipath</literal>
+              </entry>
+              <entry>
+                When it looks like the system has multipath and if it
+                should be activated.
+              </entry>
+              <entry>
+                <literal>yes</literal>, <literal>no</literal>
+              </entry>
+              <entry>
+              </entry>
+            </row>
+            <row>
+              <entry>
+                <literal>storage.commit_error</literal>
+              </entry>
+              <entry>
+                When some storage actions failed and if it should
+                continue.
+              </entry>
+              <entry>
+                <literal>yes</literal>, <literal>no</literal>
+              </entry>
+              <entry>
+              </entry>
+            </row>
+            <row>
+              <entry>
+                <literal>storage.luks_activation</literal>
+              </entry>
+              <entry>
+                When a LUKS encrypted device is detected and requires a
+                password to probe it.
+              </entry>
+              <entry>
+                <literal>skip</literal>, <literal>decrypt</literal>
+              </entry>
+              <entry>
+                <literal>device</literal>: The device
+                name.<br /><literal>label</literal>: The device
+                label.<br /><literal>size</literal>: The device
+                size.<br /><literal>attempt</literal>: The number of the
+                current attempt.
+              </entry>
+            </row>
+            <row>
+              <entry>
+                <literal>load.retry</literal>
+              </entry>
+              <entry>
+                Asks the user to retry loading the profile.
+              </entry>
+              <entry>
+                <literal>Yes</literal>, <literal>No</literal>
+              </entry>
+              <entry>
+                <literal>error</literal>: The text of the error message.
+              </entry>
+            </row>
+            <row>
+              <entry>
+                <literal>registration.certificate</literal>
+              </entry>
+              <entry>
+                When the registration server uses an unknown
+                certificate.
+              </entry>
+              <entry>
+                <literal>trust</literal>, <literal>reject</literal>
+              </entry>
+              <entry>
+                <literal>url</literal>: The server
+                URL.<br /><literal>issuer_name</literal>,
+                <literal>issue_date</literal>,
+                <literal>expiration_date</literal>: Certificate
+                details.<br /><literal>sha1_fingerprint</literal>,
+                <literal>sha256_fingerprint</literal>: Certificate
+                fingerprints.
+              </entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </informaltable>
+    </section>
+  </section>
+</article>

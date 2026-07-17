@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE article>
+<article
+  xmlns="http://docbook.org/ns/docbook" version="5.0"
+  xmlns:xlink="http://www.w3.org/1999/xlink" >
+  <info>
+    <title></title>
+  </info>
+  <section xml:id="linuxrc-compatibility">
+    <title>Linuxrc Compatibility</title>
+    <para>
+      Agama provides a few options to make it easier the transition from
+      linuxrc. They are not identical and work slightly differently, but
+      for a regular usage they should be sufficient. Also Agama is case
+      sensitive and requires the exact parameter unlike linuxrc which
+      allows additional dots, dashes and underscores.
+    </para>
+    <section xml:id="info-file-support">
+      <title>Info File Support</title>
+      <para>
+        Agama provides <literal>inst.info=</literal> option that act
+        similarly to linuxrc <literal>info=</literal> option. However,
+        it supports only URI schemas supported by curl. Also info file
+        can contain only agama specific options.
+      </para>
+    </section>
+    <section xml:id="network-configuration">
+      <title>Network configuration</title>
+      <para>
+        Agama added a very basic translator for the linuxrc
+        <literal>ifcfg</literal> option but we recommend to switch to
+        <literal>ip</literal> for most of the use cases.
+      </para>
+      <programlisting>
+Supported examples with the equivalent cmdline option that will be written by Agama
+
+ifcfg=*=dhcp
+ip=dhcp
+
+ifcfg=eth0=dhcp
+ip=eth0:dhcp
+
+ifcfg=eth0.10=192.168.0.100/24,192.168.0.1
+vlan=eth0.10:eth0 ip=192.168.0.100::192.168.0.1:24::eth0.10
+
+ifcfg=&quot;eth0=192.168.0.33/24 10.0.0.100/24,192.168.0.1,192.168.0.1 10.0.0.1,suse.de&quot;
+ip=192.168.0.33::192.168.0.1:24::eth0 nameserver=192.168.0.1 nameserver=10.0.0.1 ip=10.0.0.100:::24::eth0
+</programlisting>
+    </section>
+    <section xml:id="hostname-management">
+      <title>Hostname management</title>
+      <para>
+        The linuxrc <literal>hostname</literal> and
+        <literal>SetHostname</literal> options are also available in
+        Agama with almost the same behavior.
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            <literal>hostname</literal>: sets the system static hostname
+            in dracut and persist it when booting the installer. If it
+            is set then transient hostname is not used and therefore it
+            will not be modified by network configuration (DHCP).
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <literal>SetHostname</literal>: manages if the hostname can
+            be set by DHCP or not. It will set the NetworkManager
+            hostname-mode to <literal>none</literal> if sets to 0. If an
+            static hostname is set it will not be modified anyway which
+            is a change of behavior in comparison with wicked.
+          </para>
+          <programlisting>
+# Default, just keep the default NetworkManager hostname-mode
+SetHostname=1
+
+# Sets NetworkManager hostname-mode to 'none'.
+SetHostname=0
+</programlisting>
+        </listitem>
+      </itemizedlist>
+    </section>
+    <section xml:id="environment-variables">
+      <title>Environment variables</title>
+      <para>
+        There were some options that were not handled by
+        <literal>linurxc</literal> directly but passed through options
+        to <literal>YaST</literal> using the
+        <literal>install.inf</literal> file. These options were
+        available to the installer as environment variables.
+      </para>
+      <para>
+        Agama recognize the following patterns:
+        <literal>LIBSTORAGE*</literal>, <literal>YAST*</literal>,
+        <literal>Y2\*</literal>, <literal>ZYPP_FULLLOG</literal>.
+      </para>
+      <para>
+        These variables will be available to the Agama systemd services.
+      </para>
+      <programlisting>
+LIBSTORAGE_MULTIPATH_AUTOSTART=ON
+LIBSTORAGE_MDPART=ON
+YAST_ACTIVATE_LUKS=0
+YAST_REUSE_LVM=0
+Y2DEBUG
+ZYPP_FULLLOG=1
+</programlisting>
+    </section>
+  </section>
+</article>
