@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/rmt_migrate_from_smt.xml -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="rmt-smt-importing-data"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Importing &smt; data to &rmt;</title>
+    <meta name="maintainer" content="" its:translate="no"/>
+    <abstract>
+      <para>
+        Import the data exported from &smt; into a newly configured &rmt;
+        server and mirror the repositories.
+      </para>
+    </abstract>
+  </info>
+  <procedure>
+    <step>
+      <para>
+        To make sure your &rmt; installation is up to date, run
+        <command>zypper up</command>.
+      </para>
+    </step>
+    <step>
+      <para>
+        Copy the exported <literal>.tar.gz</literal> file to an empty
+        directory and unpack it. Then enter the new directory:
+      </para>
+<screen>&prompt.user;<command>mkdir <replaceable>EMPTY_DIR</replaceable></command>
+&prompt.user;<command>cd <replaceable>EMPTY_DIR</replaceable></command>
+&prompt.user;<command>tar xf <replaceable>/PATH/TO/</replaceable>smt-data-export.<replaceable>TIMESTAMP</replaceable>.tar.gz</command>
+&prompt.user;<command>cd smt-data-export</command>
+</screen>
+    </step>
+    <step>
+      <para>
+        If you chose to export the SSL certificates from &smt;, copy the CA
+        private key and certificate to <filename>/etc/rmt/ssl/</filename>:
+      </para>
+<screen>&prompt.sudo;<command>cp ssl/cacert.key /etc/rmt/ssl/rmt-ca.key</command>
+&prompt.sudo;<command>cp ssl/cacert.pem /etc/rmt/ssl/rmt-ca.crt</command></screen>
+    </step>
+    <step>
+      <para>
+        Configure &rmt; using &ansible; as described in
+        <link xlink:href="https://documentation.suse.com/sles/15-SP7/single-html/SLES-rmt/#sec-rmt-installation-ansible-configuration">&rmt; configuration with &ansible;</link>. If
+        you imported the &smt; CA certificate, ensure the domain of the &smt;
+        server is included in the SSL certificate configuration.
+      </para>
+    </step>
+    <step>
+      <para>
+        Run the &rmt; synchronization to get the products and repositories
+        data from &scc;.
+      </para>
+<screen>&prompt.sudo;<command>rmt-cli sync</command></screen>
+    </step>
+    <step>
+      <para>
+        Import the data from the &smt; server.
+      </para>
+<screen>&prompt.sudo;<command>rmt-data-import -d ./</command></screen>
+    </step>
+    <step>
+      <para>
+        Optional: if the URL of the &rmt; server changed, change the URL
+        parameter of clients in <filename>/etc/SUSEConnect</filename> to point
+        to the new &rmt; server. Alternatively, change the DNS records to
+        re-assign the host name to the &rmt; server.
+      </para>
+    </step>
+    <step>
+      <para>
+        Optional: move the mirrored repository data from &smt; to &rmt;, and
+        adjust the ownership of the copied data.
+      </para>
+<screen>&prompt.sudo;<command>cp -r /var/www/htdocs/repo/* /usr/share/rmt/public/repo/</command>
+&prompt.sudo;<command>chown -R _rmt:nginx /usr/share/rmt/public/repo</command></screen>
+      <tip>
+        <para>
+          The path for storing custom repository data on the &rmt; server is
+          different from that of &smt;. With &rmt;, it replicates the
+          directory structure of the source server's URL into a top-level
+          directory structure. For example, for a source repository at
+        </para>
+<screen>http://download.opensuse.org/debug/distribution/leap/15.6/repo/oss </screen>
+        <para>
+          its path on the &rmt; server corresponds to
+        </para>
+<screen>/usr/share/rmt/public/repo/debug/distribution/leap/15.6/repo/oss</screen>
+      </tip>
+    </step>
+    <step>
+      <para>
+        Custom repositories on the &smt; server are disabled by default. If
+        you want to mirror them to the &rmt;, enable them before mirroring.
+      </para>
+      <substeps>
+        <step>
+          <para>
+            Check for custom repositories by running:
+          </para>
+<screen>&prompt.sudo;<command>rmt-cli repos custom list</command></screen>
+          <para>
+            The command shows the table of all custom repositories. The first
+            column contains the <literal>ID</literal> of each repository and
+            the <literal>Mirror?</literal> column shows
+            <literal>false</literal>.
+          </para>
+        </step>
+        <step>
+          <para>
+            Enable each custom repository you want to mirror by running:
+          </para>
+<screen>&prompt.sudo;<command>rmt-cli repos custom enable <replaceable>ID</replaceable></command></screen>
+        </step>
+      </substeps>
+    </step>
+    <step>
+      <para>
+        Update the packages in the repositories by starting the mirroring
+        process:
+      </para>
+<screen>&prompt.sudo;<command>rmt-cli mirror</command></screen>
+    </step>
+  </procedure>
+</topic>
