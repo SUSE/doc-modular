@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+<!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to https://github.com/SUSE/doc-sle/blob/main/xml/gpu_passthru.xml -->
+<topic xml:id="gpu-passthru-host"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+ <info>
+  <title>Configuring the host</title>
+  <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+  <abstract>
+   <para>
+    Complete the following steps on the host to prepare an &nvidia; GPU for
+    pass-through to a virtualized guest.
+   </para>
+  </abstract>
+ </info>
+ <section xml:id="gpu-passthru-verify-host">
+  <title>Verify the host environment</title>
+  <procedure>
+  <step os="sles;sled;slemicro">
+    <para>
+     Verify that the host operating system is &sles; 16 or newer:
+    </para>
+    <screen>&prompt.user;<command>cat /etc/issue</command>
+
+Welcome to SUSE Linux Enterprise Server 16.1  (x86_64) - Kernel \r (\l).</screen>
+   </step>
+   <step>
+    <para>
+     Verify that the host supports
+     VT-d technology and that it is
+     already enabled in the firmware settings:
+    </para>
+    <screen>&prompt.user;<command>dmesg | grep -e "Directed I/O"</command>
+
+[   12.819760] DMAR: Intel(R) Virtualization Technology for Directed I/O</screen>
+    <substeps>
+     <step>
+      <para>
+       If VT-d is not enabled in the firmware, enable it.
+      </para>
+     </step>
+     <step>
+      <para>
+       Reboot the host.
+      </para>
+     </step>
+    </substeps>
+    </step>
+   <step>
+     <para>
+      Verify that the host has an extra GPU or VGA card:
+     </para>
+     <stepalternatives>
+      <step>
+       <para>
+        Check for a generic VGA-compatible controller:
+       </para>
+       <screen>&prompt.user;<command>lspci | grep -i "vga"</command>
+
+07:00.0 VGA compatible controller: Matrox Electronics Systems Ltd. \
+  MGA G200e [Pilot] ServerEngines (SEP1) (rev 05)</screen>
+      </step>
+      <step>
+       <para>
+        Check for an &nvidia; card directly, for example with a Tesla V100 card:
+       </para>
+       <screen>&prompt.user;<command>lspci | grep -i nvidia</command>
+
+03:00.0 3D controller: NVIDIA Corporation GV100 [Tesla V100 PCIe] (rev a1)</screen>
+       <para>
+        The output varies by card model, for example:
+       </para>
+       <itemizedlist>
+        <listitem>
+         <para>Tesla V100: <literal>NVIDIA Corporation GV100 [Tesla V100 PCIe]</literal></para>
+        </listitem>
+        <listitem>
+         <para>A100: <literal>NVIDIA Corporation A100-SXM4-40GB</literal></para>
+        </listitem>
+        <listitem>
+         <para>L4: <literal>NVIDIA Corporation L4</literal></para>
+        </listitem>
+       </itemizedlist>
+      </step>
+     </stepalternatives>
+     </step>
+   </procedure>
+  </section>
+
+  <section xml:id="gpu-passthru-enable-iommu">
+   <title>Enable IOMMU</title>
+   <para>
+    IOMMU is disabled by default. You
+    need to enable it at boot time in the
+    <filename>/etc/default/grub</filename> configuration file.
+   </para>
+   <procedure>
+    <step>
+     <para>
+      For Intel-based hosts:
+     </para>
+     <screen>GRUB_CMDLINE_LINUX="intel_iommu=on iommu=pt rd.driver.pre=vfio-pci"</screen>
+     <para>
+      For AMD-based hosts:
+     </para>
+     <screen>GRUB_CMDLINE_LINUX="iommu=pt amd_iommu=on rd.driver.pre=vfio-pci"</screen>
+    </step>
+    <step>
+     <para>
+      When you save the modified <filename>/etc/default/grub</filename>
+      file, re-generate the main &grub; configuration file
+      <filename>/boot/grub2/grub.cfg</filename>:
+     </para>
+     <screen>&prompt.sudo;<command>grub2-mkconfig -o /boot/grub2/grub.cfg</command></screen>
+    </step>
+    <step>
+     <para>
+      Reboot the host and verify that
+      IOMMU is enabled:
+     </para>
+     <screen>&prompt.user;<command>dmesg |  grep -e DMAR -e IOMMU</command></screen>
+    </step>
+   </procedure>
+  </section>
+
+  <section xml:id="gpu-passthru-blacklist-nouveau">
+   <title>Blacklist the Nouveau driver</title>
+   <para>
+    To assign the &nvidia; card to a VM guest, we need to prevent the host
+    OS from loading the built-in <literal>nouveau</literal> driver for
+    &nvidia; GPUs. Create the file
+    <filename>/etc/modprobe.d/60-blacklist-nouveau.conf</filename> with the
+    following content:
+   </para>
+   <screen>blacklist nouveau</screen>
+  </section>
+
+  <section xml:id="gpu-passthru-configure-vfio">
+   <title>Configure VFIO and isolate the GPU used for pass-through</title>
+   <procedure>
+    <step>
+     <para>
+      Find the card vendor and model IDs. Use the bus number
+      identified in the host verification step, for
+      example, <literal>03:00.0</literal>:
+     </para>
+     <screen>&prompt.user;<command>lspci -nn | grep 03:00.0</command>
+
+03:00.0 3D controller [0302]: NVIDIA Corporation GV100 [Tesla V100 PCIe] [10de:1db4] (rev a1)</screen>
+    </step>
+    <step>
+     <para>
+      Create the file <filename>/etc/modprobe.d/vfio.conf</filename> with
+      the following content:
+     </para>
+     <screen>options vfio-pci ids=10de:1db4</screen>
+     <note>
+      <title>Cards requiring an additional device ID</title>
+      <para>
+       Some cards expose a separate audio function on the same bus and
+       slot, for example, <literal>03:00.1</literal>. Check for one with
+       <command>lspci -nn | grep 03:00</command>: if an audio device
+       shows up alongside the GPU, add its ID to the
+       <option>ids=</option> parameter too, otherwise you cannot use the
+       card.
+      </para>
+     </note>
+    </step>
+   </procedure>
+  </section>
+
+  <section xml:id="gpu-passthru-load-vfio">
+    <title>Load the VFIO driver</title>
+    <para>
+     There are three ways you can load the
+     VFIO driver.
+    </para>
+    <note>
+     <title>IOMMUFD in kernel 6.12</title>
+     <para>
+      Kernel 6.12 introduces IOMMUFD as the new user API for VFIO. The legacy <literal>vfio_iommu_type1</literal> container/group model is still supported but gradually being superseded. For libvirt-based passthrough (virt-manager, virt-install), no changes are required as libvirt abstracts the VFIO interface.
+     </para>
+    </note>
+    <section xml:id="gpu-passthru-load-vfio-initrd">
+    <title>Including the driver in the initrd file</title>
+    <procedure>
+     <step>
+      <para>
+       Create the file
+       <filename>/etc/dracut.conf.d/gpu-passthrough.conf</filename> with
+       the following content (mind the leading whitespace):
+      </para>
+      <screen>add_drivers+=" vfio vfio_iommu_type1 vfio_pci vfio_virqfd"</screen>
+     </step>
+     <step>
+      <para>
+       Re-generate the initrd file:
+      </para>
+      <screen>&prompt.sudo;<command>dracut --force /boot/initrd $(uname -r)</command></screen>
+     </step>
+    </procedure>
+   </section>
+   <section xml:id="gpu-passthru-load-vfio-modules">
+    <title>Adding the driver to the list of auto-loaded modules</title>
+    <para>
+     Create the file
+     <filename>/etc/modules-load.d/vfio-pci.conf</filename> and add the
+     following content:
+    </para>
+    <screen>
+vfio
+vfio_iommu_type1
+vfio_pci
+kvm
+kvm_intel
+ </screen>
+   </section>
+   <section xml:id="gpu-passthru-load-vfio-manual">
+    <title>Loading the driver manually</title>
+    <para>
+     To load the driver manually at runtime, execute the following
+     command:
+    </para>
+    <screen>&prompt.sudo;<command>modprobe vfio-pci</command></screen>
+   </section>
+  </section>
+
+  <section xml:id="gpu-passthru-disable-msr">
+   <title>Disable MSR for &mswin; guests</title>
+   <para>
+    For &mswin; guests, we recommend disabling MSR (model-specific
+    register) to avoid the guest crashing. Create the file
+    <filename>/etc/modprobe.d/kvm.conf</filename> and add the following
+    content:
+   </para>
+   <screen>options kvm ignore_msrs=1</screen>
+  </section>
+
+  <section xml:id="gpu-passthru-ovmf">
+   <title>Install UEFI firmware</title>
+   <para>
+    For proper &gpuback; functionality, the host needs to boot using UEFI
+    firmware (that is, not using a legacy-style BIOS boot sequence).
+    Install the <package>qemu-ovmf</package> package if not already
+    installed:
+   </para>
+   <screen>&prompt.sudo;<command>zypper install qemu-ovmf</command></screen>
+  </section>
+
+  <section xml:id="gpu-passthru-reboot">
+   <title>Reboot the host machine</title>
+   <para>
+    For most of the changes in the above steps to take effect, you need to
+    reboot the host machine:
+   </para>
+   <screen>&prompt.sudo;<command>shutdown -r now</command></screen>
+  </section>
+</topic>

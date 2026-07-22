@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+<!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to https://github.com/SUSE/doc-sle/blob/main/xml/gpu_passthru.xml -->
+<topic xml:id="gpu-passthru-guest"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+ <info>
+  <title>Configuring the guest</title>
+  <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+  <abstract>
+   <para>
+    This section describes how to configure the guest virtual machine so that
+    it can use the host's &nvidia; GPU. Use virt-manager or
+    <command>virt-install</command> to install the guest VM. Find more
+    details in <link xlink:href="https://documentation.suse.com/sles/16.0/html/SLES-virtualization-libvirt/index.html#libvirt-guest-installation">Guest installation</link>.
+   </para>
+  </abstract>
+ </info>
+
+ <section xml:id="gpu-passthru-guest-general">
+  <title>Requirements for the guest configuration</title>
+  <para>
+   During the guest VM installation, select <guimenu>Customize
+   configuration before install</guimenu> and configure the following
+   devices:
+  </para>
+  <itemizedlist>
+    <listitem>
+     <para>
+      Use Q35 chipset for proper PCIe passthrough with modern GPUs.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      Install the guest VM using UEFI firmware.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      Add the following emulated devices:
+     </para>
+     <itemizedlist>
+      <listitem>
+       <para>
+        Graphic: Spice or VNC
+       </para>
+      </listitem>
+      <listitem>
+       <para>
+        Device: virtio-gpu, VGA or Virtio
+       </para>
+      </listitem>
+     </itemizedlist>
+     <para>
+      Find more information in <link
+      xlink:href="https://documentation.suse.com/smart/virtualization-cloud/html/task-configure-virtual-machine-manager/task-configure-virtual-machine-manager.html">Configuring
+      Virtual Machines with &vmm;</link>.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      Add the host PCI device (for example, <literal>03:00.0</literal>)
+      to the guest. Find more information in <link
+      xlink:href="https://documentation.suse.com/smart/virtualization-cloud/html/vm-assign-pci-device/vm-assign-pci-device.html">Assigning
+      Host Devices to Virtual Machines</link>.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      For the best performance, we recommend using virtio drivers for the
+      network card and storage.
+     </para>
+    </listitem>
+   </itemizedlist>
+ </section>
+
+ <section xml:id="gpu-passthru-guest-driver">
+  <title>Install the graphic card driver</title>
+
+  <section xml:id="gpu-passthru-guest-driver-linux-rpm">
+   <title>RPM-based Linux distributions</title>
+    <procedure>
+     <step>
+      <para>
+       Download the driver RPM package from the official &nvidia; driver download page at <link xlink:href="https://www.nvidia.com/Download/index.aspx"/>.
+      </para>
+     </step>
+     <step>
+      <para>
+       Install the downloaded RPM package:
+      </para>
+      <screen>&prompt.sudo;<command>rpm -i nvidia-diag-driver-local-repo-sles*.rpm</command></screen>
+     </step>
+     <step>
+      <para>
+       Refresh repositories and install <package>cuda-drivers</package>.
+       This step is different for non-&suse; distributions:
+      </para>
+      <screen>&prompt.sudo;<command>zypper refresh &amp;&amp; zypper install cuda-drivers</command></screen>
+     </step>
+     <step>
+      <para>
+       Reboot the guest VM:
+      </para>
+      <screen>&prompt.sudo;<command>shutdown -r now</command></screen>
+     </step>
+    </procedure>
+    <note>
+     <title>Minimum driver version for &cuda;</title>
+     <para>
+      &cuda; 13.3 requires driver version 610.43.02 or newer. The minimum driver version for &cuda; 13.x is 580.
+     </para>
+    </note>
+   </section>
+   <section xml:id="gpu-passthru-guest-driver-generic">
+    <title>Generic Linux installer</title>
+   <procedure>
+     <step>
+      <para>
+       Because the installer needs to compile the &nvidia; driver
+       modules, install the <package>gcc-c++</package> and
+       <package>kernel-devel</package> packages.
+      </para>
+     </step>
+     <step>
+       <para>
+        Disable Secure Boot on the guest, because &nvidia;'s driver
+        modules are unsigned. Disable Secure Boot in the UEFI firmware
+        setup, or use <command>mokutil</command> to enroll a Machine
+        Owner Key. Find more information about &uefisecboot; in
+        <link xlink:href="https://documentation.suse.com/sles/16.0/html/SLES-virtualization-libvirt/index.html#vle-libvirt-inst-virt-install-ovmf">Using &uefisecboot;</link>.
+       </para>
+      </step>
+     <step>
+      <para>
+       Download the driver installation script from
+       <link xlink:href="https://www.nvidia.com/Download/index.aspx?lang=en-us"/>
+       and make it executable:
+      </para>
+      <screen>&prompt.user;<command>chmod +x NVIDIA-Linux-x86_64-*.run</command></screen>
+     </step>
+     <step>
+      <para>
+       Run the script to complete the driver installation:
+      </para>
+      <screen>&prompt.sudo;<command>./NVIDIA-Linux-x86_64-*.run</command></screen>
+     </step>
+     <step>
+      <para>
+       Download &cuda; drivers from
+       <link xlink:href="https://developer.nvidia.com/cuda-downloads"/>
+       and install following the on-screen instructions.
+      </para>
+     </step>
+    </procedure>
+   </section>
+   <section xml:id="gpu-passthru-guest-driver-verify">
+    <title>Testing the Linux driver installation</title>
+    <para>
+     Regardless of which installation method you used, verify the driver
+     installation as follows.
+    </para>
+    <note>
+     <title>Display issues</title>
+     <para>
+      After you have installed the &nvidia; drivers, the virt-manager display
+      loses its connection to the guest OS. To access the guest VM, you
+      must either login via <command>ssh</command>, change to the console
+      interface, or install a dedicated VNC server in the guest. To avoid
+      a flickering screen, stop and disable the display manager:
+     </para>
+     <screen>&prompt.sudo;<command>systemctl stop display-manager &amp;&amp; systemctl disable display-manager</command></screen>
+    </note>
+    <procedure>
+     <step>
+      <para>
+       Verify the installation with the NVIDIA System Management Interface:
+      </para>
+      <screen>&prompt.user;<command>nvidia-smi</command></screen>
+     </step>
+     <step>
+      <para>
+       Change to the directory of a &cuda; sample. For example, the deviceQuery sample:
+      </para>
+      <screen>&prompt.user;<command>cd /usr/local/cuda/samples/1_Utilities/deviceQuery</command></screen>
+     </step>
+     <step>
+      <para>
+       Compile the sample:
+      </para>
+      <screen>&prompt.user;<command>sudo make</command></screen>
+     </step>
+     <step>
+      <para>
+       Run the compiled sample:
+      </para>
+      <screen>&prompt.user;<command>./deviceQuery</command></screen>
+     </step>
+    </procedure>
+   </section>
+  <section xml:id="gpu-passthru-guest-driver-windows">
+     <title>&mswin; guest</title>
+     <important>
+      <title>Hide the hypervisor from the guest drivers</title>
+      <para>
+       Before you install the &nvidia; drivers, you need to hide the
+       hypervisor from the drivers by using the <literal>&lt;hidden
+       state='on'/&gt;</literal> directive in the guest's &libvirt;
+       definition, for example:
+      </para>
+      <screen>
+&lt;features&gt;
+ &lt;acpi/&gt;
+ &lt;apic/&gt;
+ &lt;kvm&gt;
+  &lt;hidden state='on'/&gt;
+ &lt;/kvm&gt;
+&lt;/features&gt;
+  </screen>
+     </important>
+     <procedure>
+      <step>
+       <para>
+        Download and install the &nvidia; driver from
+        <link xlink:href="https://www.nvidia.com/Download/index.aspx"/>.
+       </para>
+      </step>
+      <step>
+       <para>
+        Download and install the &cuda; toolkit from
+        <link xlink:href="https://developer.nvidia.com/cuda-downloads?target_os=Windows&amp;target_arch=x86_64"/>.
+       </para>
+      </step>
+      <step>
+       <para>
+        Find several &nvidia; demo samples in the directory
+        <filename>Program Files\Nvidia GPU Computing
+        Toolkit\CUDA\v12.x\extras\demo_suite</filename> on the guest.
+       </para>
+      </step>
+     </procedure>
+     <note>
+      <title>&mswin; driver no longer bundled with the &cuda; Toolkit</title>
+      <para>
+       Starting with &cuda; 13.1, the &mswin; display driver is no longer bundled with the &cuda; Toolkit. You must download and install the appropriate &nvidia; driver separately from the official &nvidia; driver download page.
+      </para>
+     </note>
+    </section>
+  </section>
+</topic>
