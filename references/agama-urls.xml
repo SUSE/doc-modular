@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="agama-urls"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>&agama; URLs</title>
+    <!-- can be changed via merge in the assembly -->
+    <!--add author's email address-->
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <!-- can be changed via merge in the assembly -->
+      <para>
+        In addition to well-known protocols such as <literal>http(s)://</literal>,
+        <literal>ftp://</literal>, and <literal>file://</literal>, &agama; understands most &ay;-
+        and &yast;-specific URL schemes. Use any of these wherever a URL is expected, for example
+        when pointing <literal>inst.auto</literal> at an unattended installation profile.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="agama-urls-supported-schemes">
+    <title>Supported schemes</title>
+    <para>
+      &agama; supports the following standard schemes (relying on <literal>curl</literal>, so a
+      protocol may occasionally work "by accident"; only the schemes documented here are actually
+      supported):
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <literal>http</literal> and <literal>https</literal> for HTTP and HTTPS.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>ftp</literal> and <literal>ftps</literal> for FTP and FTP over TLS.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>smb</literal> and <literal>smbs</literal> for the Server Message Block (SMB)
+          protocol. Use <literal>smb</literal> rather than <literal>cifs</literal>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>file</literal> for local files.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      &agama; also supports the following &agama;-specific schemes, described in detail below:
+      <xref linkend="agama-urls-device"/>, <xref linkend="agama-urls-usb"/>,
+      <xref linkend="agama-urls-label"/>, and <xref linkend="agama-urls-cd-dvd-hd"/>.
+    </para>
+  </section>
+  <section xml:id="agama-urls-relative-references">
+    <title>Relative references</title>
+    <para>
+      For the <literal>url</literal> property in the <literal>scripts</literal> and
+      <literal>files</literal> sections of an &agama; profile, the value can be a relative
+      reference, resolved against the URL of the profile that contains it. This replaces the
+      <literal>relurl</literal> scheme used in &ay;.
+    </para>
+    <para>
+      For example, if the profile below is retrieved from
+      <literal>https://example.com/machines/sles16.jsonnet</literal>, the script URL resolves to
+      <literal>https://example.com/machines/scripts/snapshot.sh</literal>:
+    </para>
+    <example>
+      <title>Relative script URL in an &agama; installation profile</title>
+<screen>
+{
+  scripts: {
+    postPartitioning: [
+      {
+        name: "snapshot",
+        url: "scripts/snapshot.sh"
+      }
+    ]
+  }
+}
+</screen>
+    </example>
+  </section>
+  <section xml:id="agama-urls-specific-schemes">
+    <title>&agama;-specific schemes</title>
+    <para>
+      Standard protocols cover most use cases, but &agama;-specific schemes can be handy in
+      others. For example, you could distribute a profile on a USB stick instead of over HTTP,
+      with <literal>usb:///profile.json</literal>, and let &agama; search all attached USB devices
+      for it.
+    </para>
+    <section xml:id="agama-urls-device">
+      <title><literal>device</literal></title>
+      <para>
+        The most flexible scheme, in the general form <literal>device://[DEVICE]/PATH</literal>.
+      </para>
+      <para>
+        Search for <filename>profile.json</filename> on <filename>/dev/sda1</filename>:
+      </para>
+<screen>device://sda1/profile.json</screen>
+      <para>
+        Search in a specific directory on the same device:
+      </para>
+<screen>device://sda1/profiles/sles.json</screen>
+      <para>
+        Nested devices are supported too:
+      </para>
+<screen>device:///cciss/c1d0p5/sles.json</screen>
+    </section>
+    <section xml:id="agama-urls-usb">
+      <title><literal>usb</literal></title>
+      <para>
+        A form of <literal>device://</literal> limited to USB devices. Searches
+        <filename>profile/sles.json</filename> on all attached USB devices:
+      </para>
+<screen>usb:///profile/sles.json</screen>
+    </section>
+    <section xml:id="agama-urls-label">
+      <title><literal>label</literal></title>
+      <para>
+        Searches a file system with a given label, in the form
+        <literal>label://LABEL/PATH</literal>. For example, search for
+        <filename>sles.json</filename> on a file system labeled <literal>OEMDRV</literal>:
+      </para>
+<screen>label://OEMDRV/sles.json</screen>
+    </section>
+    <section xml:id="agama-urls-cd-dvd-hd">
+      <title><literal>cd</literal>, <literal>dvd</literal>, and <literal>hd</literal></title>
+      <para>
+        Another particular case of <literal>device://</literal>, with a slightly different form
+        and no difference in behavior between the three names:
+        <literal>dvd:/PATH?devices=DEVICE</literal>.
+      </para>
+<screen>hd:/sles.jsonnet?devices=/dev/sr0
+dvd:/autoinst.xml?devices=sr1</screen>
+      <note>
+        <title>Prefer <literal>device</literal></title>
+        <para>
+          Since <literal>cd</literal>, <literal>dvd</literal>, and <literal>hd</literal> offer no
+          advantage over <literal>device</literal>, prefer <literal>device</literal> instead.
+        </para>
+      </note>
+    </section>
+    <section xml:id="agama-urls-unsupported">
+      <title>Not yet supported</title>
+      <para>
+        <literal>repo://</literal> URLs are not supported yet, though there are plans to implement
+        them.
+      </para>
+    </section>
+  </section>
+</topic>

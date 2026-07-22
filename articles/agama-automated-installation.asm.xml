@@ -40,6 +40,9 @@
   </resources>
   <!-- Tasks -->
   <resources>
+    <resource xml:id="_editing-agama-profile" href="../tasks/editing-agama-profile.xml">
+      <description>Editing an &agama; installation profile</description>
+    </resource>
     <resource xml:id="_using-autoyast-profiles-with-agama" href="../tasks/using-autoyast-profiles-with-agama.xml">
       <description>Using &ay; profiles with &agama;</description>
     </resource>
@@ -50,6 +53,10 @@
     href="../tasks/activating-multipath-agama-installation.xml">
       <description>Activating multipath during &agama; installation</description>
     </resource>
+    <resource xml:id="_enabling-kdump-agama-automated-installation"
+    href="../tasks/enabling-kdump-agama-automated-installation.xml">
+      <description>Enabling &kdump; from first boot during automated installation using &agama;</description>
+    </resource>
     <resource xml:id="_post-installation-troubleshooting-agama-automated-installation" href="../tasks/post-installation-troubleshooting-agama-automated-installation.xml">
       <description>Post installation troubleshooting of automated installation using Agama</description>
     </resource>
@@ -59,6 +66,12 @@
     <resource xml:id="_agama-installation-profile-details" href="../references/agama-installation-profile-details.xml">
       <description>Details of an &agama; installation profile</description>
     </resource>
+    <resource xml:id="_agama-boot-options" href="../references/agama-boot-options.xml">
+      <description>&agama; boot options</description>
+    </resource>
+    <resource xml:id="_agama-urls" href="../references/agama-urls.xml">
+      <description>&agama; URLs</description>
+    </resource>
     <resource xml:id="_agama-advanced-storage-configuration"
     href="../references/agama-advanced-storage-configuration.xml">
       <description>Advanced storage configuration using &agama; profiles</description>
@@ -66,6 +79,9 @@
     <resource xml:id="_autoyast-agama-compatibility-reference"
     href="../references/autoyast-agama-compatibility-reference.xml">
       <description>Compatibility between &ay; and &agama; profiles</description>
+    </resource>
+    <resource xml:id="_agama-cli-reference" href="../references/agama-cli-reference.xml">
+      <description>&agama; command-line reference</description>
     </resource>
   </resources>
   <!-- Legal -->
@@ -87,6 +103,20 @@
         list most recent date/entry at the top -->
       <!-- Check https://documentation.suse.com/style/current/single-html/docu_styleguide/#sec-revhistory for detailed instructions-->
       <revhistory xml:id="agama-automated-unattended-installation">
+        <revision><date>2026-07-26</date>
+          <revdescription>
+            <para>
+              Added reference topics for &agama; boot options, supported URL schemes, and the
+              command-line interface, and new task topics for editing an installation profile,
+              converting an existing &ay; profile, and enabling &kdump; from the first boot.
+              Reworked the installation profile reference and the &ay; compatibility reference to
+              match the current &agama; release, fixing several incorrect field names and command
+              examples along the way. Reordered the article so that profile authoring and
+              storage guidance come before starting an installation, matching the order
+              administrators actually need them.
+            </para>
+          </revdescription>
+        </revision>
         <revision><date>2025-11-11</date>
           <revdescription>
             <para>
@@ -113,7 +143,7 @@
         <productname version="&productnumber;" os="sles;sles4sap">&productname;</productname>
       </meta>
       <meta name="title" its:translate="yes">Automated Installation Using &agama;</meta>
-      <meta name="description" its:translate="yes">How to automate &productname; installations for unattended bulk deployments using &agama;, ensuring efficient and consistent server provisioning</meta>
+      <meta name="description" its:translate="yes">How to automate &productname; installations for unattended bulk deployments using &agama;, for consistent server provisioning</meta>
       <meta name="social-descr" its:translate="yes">Automatically install &productnameshort; using &agama;</meta>
       <!-- suitable categories has to be identical with the category selected in the docserv config -->
 
@@ -139,85 +169,50 @@
         <dm:translation>yes</dm:translation>
       </dm:docmanager>
       <abstract>
-        <variablelist>
-          <varlistentry>
-            <term>WHAT?</term>
-            <listitem>
+        <para>
+          This article describes how to perform automated, unattended installation of
+          &productname; using &agama; on both bare metal and virtual machines. &agama; is a
+          service-based installer that reads a JSON or Jsonnet profile describing the target
+          system&mdash;partitioning, networking, software selection, user accounts and more&mdash;and
+          installs accordingly, with a high level of backward compatibility for existing &ay;
+          profiles. Read this article to understand how to plan, customize and start such an
+          installation for consistent, efficient bulk deployments.
+        </para>
+        <para><emphasis>Prerequisites:</emphasis></para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              A bare-metal server or a virtual machine. For server installations without any
+              desktop environment, &suse; recommends a minimum of 1&nbsp;CPU, 2&nbsp;GB
+              memory and 32&nbsp;GB storage (which includes storage for Btrfs snapshots in
+              the root partition, swap space, and storage for software packages).
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              An image file for the product you want to install, downloaded from the &scc;.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              An active registration code for the product you want to install. You can
+              generate a registration code for the product and activate its subscription for
+              your organization at the &scc;.
+            </para>
+            <note>
+              <title>Optional registration</title>
               <para>
-                This article describes how to automatically install &productname; using &agama;.
-                The information presented here applies to unattended installation of the product on
-                both bare metal and virtual machines.
+                Certain images that are signed with the developer's key may allow you to skip
+                registration before or during installation. Besides, certain images may
+                contain all installable packages for your operating system that you can use
+                as an offline package repository. In such cases, you may not need an active
+                registration code before installation. However, if you use software packages
+                from the official online repositories, &suse; recommends registering your
+                product with the &scc;.
               </para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term>WHY?</term>
-            <listitem>
-              <para>
-                Read this article to understand the process of automatically installing
-                &productname; using &agama;.
-              </para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term>EFFORT</term>
-            <listitem>
-              <para>
-                You need about 30 minutes to read and understand the most important sections of this
-                article. The time required for customization of Agama profiles and storage
-                configuration depends on deployment requirements.
-              </para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term>GOAL</term>
-            <listitem>
-              <para>
-                Learn how to perform automated or unattended installation of &productname; using
-                &agama;.
-              </para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term>REQUIREMENTS</term>
-            <listitem>
-              <itemizedlist>
-                <listitem>
-                  <para>
-                    A bare-metal server or a virtual machine. For server installations without any
-                    desktop environment, &suse; recommends a minimum of 1&nbsp;CPU, 2&nbsp;GB
-                    memory and 32&nbsp;GB storage (which includes storage for Btrfs snapshots in
-                    the root partition, swap space, and storage for software packages).
-                  </para>
-                </listitem>
-                <listitem>
-                  <para>
-                    An image file for the product you want to install, downloaded from the &scc;.
-                  </para>
-                </listitem>
-                <listitem>
-                  <para>
-                    An active registration code for the product you want to install. You can
-                    generate a registration code for the product and activate its subscription for
-                    your organization at the &scc;.
-                  </para>
-                  <note>
-                    <title>Optional registration</title>
-                    <para>
-                      Certain images that are signed with the developer's key may allow you to skip
-                      registration before or during installation. Besides, certain images may
-                      contain all installable packages for your operating system that you can use
-                      as an offline package repository. In such cases, you may not need an active
-                      registration code before installation. However, if you use software packages
-                      from the official online repositories, &suse; recommends registering your
-                      product with the &scc;.
-                    </para>
-                  </note>
-                </listitem>
-              </itemizedlist>
-            </listitem>
-          </varlistentry>
-        </variablelist>
+            </note>
+          </listitem>
+        </itemizedlist>
       </abstract>
     </merge>
     <!-- pull in all the topic files you need -->
@@ -233,14 +228,19 @@
     <module resourceref="_introduction-automated-installation-using-agama"
     renderas="section"/>
     <module resourceref="_understanding-agama-installation-profiles" renderas="section"/>
+    <module resourceref="_editing-agama-profile" renderas="section"/>
     <module resourceref="_agama-installation-profile-details" renderas="section"/>
-    <module resourceref="_using-autoyast-profiles-with-agama" renderas="section"/>
-    <module resourceref="_initiating-agama-automated-installation" renderas="section"/>
-    <module resourceref="_activating-multipath-agama-installation" renderas="section"/>
-    <!-- module resourceref="_post-installation-troubleshooting-agama-automated-installation"
-    renderas="section"/ -->
     <module resourceref="_agama-advanced-storage-configuration" renderas="section"/>
+    <module resourceref="_using-autoyast-profiles-with-agama" renderas="section"/>
+    <module resourceref="_activating-multipath-agama-installation" renderas="section"/>
+    <module resourceref="_enabling-kdump-agama-automated-installation" renderas="section"/>
+    <module resourceref="_initiating-agama-automated-installation" renderas="section"/>
+    <module resourceref="_agama-boot-options" renderas="section"/>
+    <module resourceref="_agama-urls" renderas="section"/>
+    <module resourceref="_post-installation-troubleshooting-agama-automated-installation"
+    renderas="section"/>
     <module resourceref="_autoyast-agama-compatibility-reference" renderas="section"/>
+    <module resourceref="_agama-cli-reference" renderas="section"/>
     <module resourceref="_more-info-automated-installation-agama" renderas="section"/>
     <!-- module resourceref="_glue-whats-next" renderas="section"/ -->
     <module resourceref="_legal"/>

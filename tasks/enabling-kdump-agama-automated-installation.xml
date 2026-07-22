@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="enabling-kdump-agama-automated-installation"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Enabling &kdump; from first boot during automated installation using &agama;</title>
+    <!-- can be changed via merge in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <!-- can be changed via merge in the assembly -->
+      <para>
+        This topic guides you through configuring an &agama; installation profile so that
+        &kdump; is active and ready to capture kernel crash dumps from the very first boot of the
+        installed system.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="enabling-kdump-agama-automated-installation-introduction">
+    <title>Why configure &kdump; before first boot</title>
+    <para>
+      &kdump; is not installed or enabled on a freshly installed system by default. A crash during
+      or shortly after first boot would then leave you without diagnostic information. A
+      post-installation script in your &agama; profile can close that gap: it installs and enables
+      &kdump; inside the target system's chroot, before the system boots for the first time.
+    </para>
+  </section>
+  <section xml:id="enabling-kdump-agama-automated-installation-requirements">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          An &agama; installation profile you control, for an unattended installation of
+          &productname;.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="enabling-kdump-agama-automated-installation-executing">
+    <title>Adding the &kdump; post-installation script</title>
+    <procedure>
+      <step>
+        <para>
+          Add a <literal>post</literal> entry to the <literal>scripts</literal> section of your
+          &agama; profile, with <literal>chroot</literal> set to <literal>true</literal> so the
+          script runs inside the installed system rather than the installation medium:
+        </para>
+<screen>
+"scripts": {
+  "post": [
+    {
+      "name": "enable-kdump",
+      "chroot": true,
+      "content": "#!/usr/bin/bash\nzypper --non-interactive install kdump\nsystemctl enable kdump-commandline.service\nsystemctl enable kdump.service\nkdumptool commandline -u"
+    }
+  ]
+}
+</screen>
+        <para>
+          The script performs the following steps:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              <command>zypper --non-interactive install kdump</command>: installs the
+              <package>kdump</package> package. The <option>--non-interactive</option> flag runs
+              &zypper; non-interactively, which is required for an unattended installation.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <command>systemctl enable kdump-commandline.service</command>: enables the auxiliary
+              service that sets up &kdump; parameters from the kernel command line during boot.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <command>systemctl enable kdump.service</command>: enables the main &kdump; service,
+              which manages capturing and saving crash dumps.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              <command>kdumptool commandline -u</command>: updates the boot loader configuration
+              with the recommended kernel command-line arguments for &kdump;.
+            </para>
+          </listitem>
+        </itemizedlist>
+      </step>
+      <step>
+        <para>
+          Merge this <literal>scripts</literal> section into your existing profile alongside your
+          other settings, such as <literal>product</literal> and <literal>user</literal>, and
+          start the unattended installation as usual (see
+          <xref linkend="initiating-agama-automated-installation"/>).
+        </para>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="enabling-kdump-agama-automated-installation-summary">
+    <title>Summary</title>
+    <para>
+      With the <literal>enable-kdump</literal> post-installation script in place, &kdump; is
+      installed, enabled, and configured on the boot loader as soon as the installed system boots
+      for the first time.
+    </para>
+  </section>
+  <section xml:id="enabling-kdump-agama-automated-installation-troubleshooting">
+    <title>Verifying &kdump; after installation</title>
+    <para>
+      After the system completes installation and reboots for the first time, verify that
+      &kdump; is enabled and configured correctly.
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Check the status of both services; each should be <literal>active (exited)</literal> or
+          <literal>active (running)</literal>:
+        </para>
+<screen>&prompt.sudo;<command>systemctl status kdump</command>
+&prompt.sudo;<command>systemctl status kdump-commandline.service</command></screen>
+      </listitem>
+      <listitem>
+        <para>
+          Check that a <literal>crashkernel=</literal> allocation is present on the kernel command
+          line:
+        </para>
+<screen>&prompt.user;<command>cat /proc/cmdline</command></screen>
+        <para>
+          You should see an entry similar to <literal>crashkernel=SIZE M@OFFSET</literal>.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <warning>
+      <title>Do not trigger a test crash on a production system</title>
+      <para>
+        To confirm &kdump; actually captures a crash dump, you can intentionally trigger a kernel
+        crash with the command below, then check the <filename>/var/crash</filename> directory
+        after the system reboots. Only do this on a non-production, disposable system.
+      </para>
+<screen>&prompt.user;<command>echo c | sudo tee /proc/sysrq-trigger</command></screen>
+    </warning>
+  </section>
+</topic>
