@@ -19,27 +19,25 @@
     <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        This section describes how to configure the &grub; bootloader for PXE-based booting on
+        This section describes how to configure the &grub; boot loader for PXE-based booting on
         &productname; &productnumber;. It covers creating the network boot directory structure,
-        setting up architecture-specific bootloaders, and implementing a flexible configuration
-        system that supports multiple architectures and installation scenarios.
+        setting up architecture-specific boot loaders, and building a boot menu that supports
+        multiple architectures and installation types.
       </para>
     </abstract>
   </info>
   <section xml:id="sles-pxe-server-configure-grub2-intro">
     <title>Introduction</title>
     <para>
-      &grub; serves as the network bootloader for PXE clients, loading kernel and initrd files to
-      start the &agama; installer. This section demonstrates how to create a sophisticated &grub;
-      configuration that automatically detects client architecture, manages network interface
-      selection, and provides a unified boot menu supporting multiple installation types and target
-      architectures.
+      &grub; serves as the network boot loader for PXE clients, loading kernel and initrd files to
+      start the &agama; installer. This section shows how to build a &grub; configuration that
+      detects the client architecture, selects the correct network interface, and provides one
+      boot menu covering multiple installation types and target architectures.
     </para>
     <para>
-      The configuration approach uses a modular design with separate files for architecture
-      detection, variable definitions, and boot menu entries. This enables support for
-      machine-specific configurations and automated installation profiles while maintaining
-      consistency across different hardware platforms.
+      The configuration is split into separate files for architecture detection, variable
+      definitions, and boot menu entries. This split lets you add machine-specific configurations
+      and automated installation profiles without duplicating the shared setup.
     </para>
   </section>
   <section xml:id="sles-pxe-server-configure-grub2-reqs">
@@ -61,7 +59,7 @@
         <para>
           &grub; packages for all target architectures must be installed:
           <package>grub2-x86_64-efi</package>, <package>grub2-i386-pc</package>,
-          <package>grub2-aarch64-efi</package>, and <package>grub2-ppc64le-ieee1275</package>
+          <package>grub2-arm64-efi</package>, and <package>grub2-powerpc-ieee1275</package>
         </para>
       </listitem>
       <listitem>
@@ -124,6 +122,8 @@ export ifcfg
 #export sconsole
 
 # Load machine-specific configuration if available
+set config="/boot/config"
+export config
 if [ -s "${config}/${net_default_mac}/grub.cfg" ]; then
   ## Source a host specific configuration of grub menu:
   source "${config}/${net_default_mac}/grub.cfg"
@@ -217,6 +217,26 @@ EOF
         installer system.
        </para>
     </note>
+    <note>
+     <title>Mixing protocols for kernel and initrd loading</title>
+     <para>
+      &grub; automatically prepends the protocol and server it booted from to every path it
+      loads, including the <literal>linux</literal> and <literal>initrd</literal> lines, so you
+      normally do not need to specify a protocol explicitly. Only specify it if you want &grub;
+      to load these particular files via a <emphasis>different</emphasis> protocol than the one
+      it booted with, for example booting via TFTP but fetching
+      <filename>linux</filename> and <filename>initrd</filename> over HTTP:
+     </para>
+<screen>menuentry 'SLES-16.0 Online Installation' {
+linux  (http,192.168.1.200)/boot/images/SLES-16.0/${arch}/linux showopts root=live:http://pxe.example.net/boot/images/SLES-16.0/${arch}/squashfs.img ${ipcfg} ${sconsole} ${autoinstall}
+initrd (http,192.168.1.200)/boot/images/SLES-16.0/${arch}/initrd
+}</screen>
+     <para>
+      Use an IP address rather than a host name in the protocol prefix. &grub; itself resolves the
+      boot server as an IP address, and using a host name here would trigger a separate DNS lookup
+      for every path.
+     </para>
+    </note>
   </section>
   <section xml:id="sles-pxe-server-configure-grub2-machine-specific">
     <title>Machine-specific configurations</title>
@@ -245,7 +265,7 @@ EOF
         </para>
 <screen>&prompt.sudo;<command>cat &gt; /srv/tftpboot/boot/config/aa:bb:cc:dd:ee:ff/grub.cfg &lt;&lt; 'EOF'</command>
 # Machine-specific configuration for aa:bb:cc:dd:ee:ff
-set default='SLES-16.0 Full Installation'
+set default='SLES-16.0 Local Installation'
 
 # Activate the menu-entry after 5sec timeout
 set timeout=5
@@ -262,8 +282,8 @@ source "/boot/grub2/menu.cfg"
 EOF
 </screen>
         <para>
-          Alternatively, provide own menu entry in the host-specific <filename>grub.cfg</filename>
-          (e.g. generated for a specific boot attempt):
+          Alternatively, provide your own menu entry in the host-specific <filename>grub.cfg</filename>,
+          for example generated for a specific boot attempt:
         </para>
 <screen>&prompt.sudo;<command>cat &gt; /srv/tftpboot/boot/config/aa:bb:cc:dd:ee:ff/grub.cfg &lt;&lt; 'EOF'</command>
 set default='SLES-16.0 Auto-Installation'
@@ -492,7 +512,7 @@ EOF
     <section xml:id="sles-pxe-server-grub2-troubleshoot-efi">
       <title>EFI boot failures</title>
       <para>
-        EFI and Secure Boot issues can prevent proper bootloader initialization or cause
+        EFI and Secure Boot issues can prevent proper boot loader initialization or cause
         authentication failures.
       </para>
       <procedure xml:id="proc-debug-efi-boot">
@@ -529,7 +549,7 @@ EOF
         </step>
         <step>
           <para>
-            Check that the DHCP configuration provides the correct bootloader paths:
+            Check that the DHCP configuration provides the correct boot loader paths:
           </para>
 <screen>&prompt.user;<command>grep -n "bootx64.efi\|shim.efi\|bootaa64.efi"
 /etc/dnsmasq.d/dhcp.conf /etc/kea/kea-dhcp?.conf /etc/dhcpd?.conf</command></screen>
@@ -606,8 +626,8 @@ EOF
     <section xml:id="sles-pxe-server-grub2-troubleshoot-logging">
       <title>Enabling detailed logging</title>
       <para>
-        For persistent issues, enable comprehensive logging to capture detailed information about
-        the boot process.
+        For persistent issues, enable logging to capture detailed information about the boot
+        process.
       </para>
       <procedure xml:id="proc-enable-grub-logging">
         <title>Setting up &grub; debug logging</title>
@@ -619,7 +639,7 @@ EOF
         </step>
         <step>
           <para>
-            Add comprehensive debug output:
+            Add debug output:
           </para>
 <screen>&prompt.sudo;<command>cat &gt; /srv/tftpboot/boot/grub2/debug.cfg &lt;&lt; 'EOF'</command>
 # Debug configuration for GRUB troubleshooting
@@ -675,51 +695,51 @@ EOF
    <itemizedlist>
     <listitem>
      <para>
-       <emphasis role="bold">DHCP boot file name</emphasis>&mdash;the boot filename delivered to the
+       <emphasis role="bold">DHCP boot file name:</emphasis> the boot filename delivered to the
        client must include the custom prefix. For example,
        <filename>/<replaceable>ENV1</replaceable>/boot/grub2/x86_64-efi/bootx64.efi</filename>.
      </para>
     </listitem>
     <listitem>
      <para>
-      <emphasis role="bold">nginx location alias</emphasis>&mdash;the <literal>location /boot</literal>
-      block in <filename>/etc/nginx/nginx.conf</filename> must be updated to expose the custom
-      prefix path.
+      <emphasis role="bold">nginx location alias:</emphasis> update the <literal>location /boot</literal>
+      block in <filename>/etc/nginx/nginx.conf</filename> to expose the custom prefix path.
      </para>
      </listitem>
      <listitem>
       <para>
-       <emphasis role="bold"><filename>grub.cfg</filename> source paths</emphasis>&mdash;the hardcoded
-       absolute paths inside <filename>/srv/tftpboot/boot/grub2/grub.cfg</filename>:
+       <emphasis role="bold"><filename>grub.cfg</filename> source paths:</emphasis> update the
+       hardcoded absolute paths inside <filename>/srv/tftpboot/boot/grub2/grub.cfg</filename>:
       </para>
 <screen>source "${config}/${net_default_mac}/grub.cfg"</screen>
 <screen>source "${prefix}/menu.cfg"</screen>
       <para>
-       Both must be updated to use the custom prefix.
+       Both must use the custom prefix.
       </para>
      </listitem>
      <listitem>
       <para>
-       <emphasis role="bold"><filename>menu.cfg</filename> paths</emphasis>&mdash;all
-       <filename>/boot/images/...</filename> paths inside <filename>menu.cfg</filename> must be
-       updated to use the custom prefix.
+       <emphasis role="bold"><filename>menu.cfg</filename> paths:</emphasis> update all
+       <filename>/boot/images/...</filename> paths inside <filename>menu.cfg</filename> to use the
+       custom prefix.
       </para>
      </listitem>
      <listitem>
       <para>
-       <emphasis role="bold">Per-MAC host configurations</emphasis>&mdash;if you use machine-specific configurations, the
-       <literal>source "/boot/grub2/menu.cfg"</literal> line inside each per-MAC <filename>grub.cfg</filename> must also be updated to use the custom prefix.
+       <emphasis role="bold">Per-MAC host configurations:</emphasis> if you use machine-specific
+       configurations, also update the <literal>source "/boot/grub2/menu.cfg"</literal> line
+       inside each per-MAC <filename>grub.cfg</filename> to use the custom prefix.
       </para>
      </listitem>
      <listitem>
       <para>
-       <emphasis role="bold">&selnx; file context</emphasis>&mdash;run <command>restorecon</command> on your custom path:
+       <emphasis role="bold">&selnx; file context:</emphasis> run <command>restorecon</command> on your custom path:
       </para>
 <screen>&prompt.sudo;<command>restorecon -Rv /srv/tftpboot/<replaceable>ENV1</replaceable></command></screen>
      </listitem>
      <listitem>
       <para>
-       <emphasis role="bold">&selnx; policy</emphasis>&mdash; running <command>setsebool -P
+       <emphasis role="bold">&selnx; policy:</emphasis> running <command>setsebool -P
        httpd_serve_cobbler_files=1</command> only covers the standard <filename>/boot</filename>
        path. A custom &selnx; policy is required for a non-standard prefix. Use <command>ausearch -m avc -ts recent</command>
        to identify denials and create the appropriate policy module.
@@ -730,7 +750,7 @@ EOF
   <section xml:id="sles-pxe-server-configure-grub2-next-steps">
     <title>Next steps</title>
     <para>
-      With &grub; properly configured, you can proceed to:
+      &grub; is now configured. The remaining tasks are:
     </para>
     <itemizedlist>
       <listitem>
@@ -740,7 +760,7 @@ EOF
       </listitem>
       <listitem>
         <para>
-          Set up DHCP services to direct PXE clients to the appropriate bootloaders
+          Set up DHCP services to direct PXE clients to the appropriate boot loaders
         </para>
       </listitem>
       <listitem>
@@ -749,10 +769,5 @@ EOF
         </para>
       </listitem>
     </itemizedlist>
-    <para>
-      The flexible &grub; configuration system provides a foundation for sophisticated PXE
-      deployment scenarios, supporting multiple architectures and installation types through a
-      unified interface.
-    </para>
   </section>
 </topic>
