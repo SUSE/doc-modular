@@ -38,12 +38,18 @@ Typical glue topics include the intro section to your article, the "For more inf
 article. This is outlined in the `glue.xml` example file.
 
 ## Abstracts
-Use the fixed abstract structure defined in the style guide to keep abstracts consistent across all articles:
- 
-WHAT? — An objective definition of the product, feature, or solution.
-WHY? — The benefit or motivation: why the reader should care.
-EFFORT — Expected time investment and required background knowledge.
-GOAL — The concrete outcome after completing the article.
+To align with modern search behaviors and optimize our documentation, write a solid introductory paragraph that acts as an AI-friendly “answer nugget.”
+
+The abstract must have the following structure:
+
+* Overall length: 40-80 words.
+* Start with an objective, direct definition of the product or feature.
+* Clearly explain the primary motivation and the technical advantage to the user.
+* State the product's or feature's benefits, where applicable.
+
+Example:
+
+SUSE Linux Enterprise Server (SLES) can be deployed remotely over a network using the Preboot eXecution Environment (PXE) of the target device. By using PXE boot images provided by the network, administrators can efficiently provision fully operating and properly configured instances of SUSE Linux Enterprise Server without the need for physical installation media.
 
 Write abstracts as factual summaries. Avoid procedural language, promises or marketing phrasing.
 
