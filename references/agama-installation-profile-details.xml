@@ -20,7 +20,6 @@
   <info>
     <title>Details of an &agama; installation profile</title>
     <!-- can be changed via merge in the assembly -->
-    <!--add author's email address-->
     <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
     <abstract>
       <!-- can be changed via merge in the assembly -->
@@ -45,15 +44,15 @@
       <title>Sample <literal>product</literal> configuration for an &agama; installation profile</title>
 <screen>
 "product": {
-  "id": "<replaceable>&productname; &productnumber;</replaceable>",
-  "registrationCode": "<replaceable>REGISTRATION-CODE</replaceable>",
-  "registrationEmail": "<replaceable>EMAIL-ADDRESS</replaceable>",
-  "registrationUrl": "<replaceable>REGISTRATION-URL</replaceable>",
+  "id": "<replaceable>PRODUCT_ID</replaceable>",
+  "registrationCode": "<replaceable>REGISTRATION_CODE</replaceable>",
+  "registrationEmail": "<replaceable>EMAIL_ADDRESS</replaceable>",
+  "registrationUrl": "<replaceable>REGISTRATION_URL</replaceable>",
   "addons": [
     {
-      "id": "<replaceable>ADDON-ID</replaceable>",
-      "version": "<replaceable>ADDON-VERSION</replaceable>",
-      "registrationCode": "<replaceable>ADDON-REGISTRATION-CODE</replaceable>"
+      "id": "<replaceable>ADDON_ID</replaceable>",
+      "version": "<replaceable>ADDON_VERSION</replaceable>",
+      "registrationCode": "<replaceable>ADDON_REGISTRATION_CODE</replaceable>"
     }
   ]
 }
@@ -67,7 +66,24 @@
         <term>id</term>
         <listitem>
           <para>
-            The product identifier used to select the base &suse; product to be installed.
+            The product identifier used to select the base &suse; product to be installed, for
+            example <literal>SLES</literal> or <literal>SLES_SAP</literal>. This field is
+            mandatory. Find the identifiers available on your installation medium by inspecting
+            the <package>agama-products</package> package's <filename>products.d/*.yaml</filename>
+            files, or by selecting the product interactively and running
+            <command>agama config show</command>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>mode</term>
+        <listitem>
+          <para>
+            Optional installation mode. Some products support more than one mode, changing how the
+            installed system behaves. For example, &productname; supports
+            <literal>standard</literal> and <literal>immutable</literal> (an immutable OS using
+            transactional updates). If omitted, the product uses its traditional default behavior;
+            it is preferred to specify the mode explicitly.
           </para>
         </listitem>
       </varlistentry>
@@ -76,7 +92,8 @@
         <listitem>
           <para>
             The registration code for the product obtained from the &scc; and used to activate
-            repositories and receive updates.
+            repositories and receive updates. Registration is available only for the &suse; Linux
+            Enterprise family of products.
           </para>
         </listitem>
       </varlistentry>
@@ -140,8 +157,8 @@
       <title>Sample <literal>hostname</literal> configuration for an &agama; installation profile</title>
 <screen>
 "hostname": {
-  "static": "<replaceable>STATIC-HOSTNAME</replaceable>",
-  "transient": "<replaceable>TRANSIENT-HOSTNAME</replaceable>"
+  "static": "<replaceable>STATIC_HOSTNAME</replaceable>",
+  "transient": "<replaceable>TRANSIENT_HOSTNAME</replaceable>"
 }
 </screen>
     </example>
@@ -178,13 +195,21 @@
       &rootuser; account. This includes a root password (either plain or pre-hashed) and an
       optional SSH public key for remote access.
     </para>
+    <note>
+      <title>Root or a first user is required</title>
+      <para>
+        For the installation to succeed, either a password or an SSH public key must be set for
+        &rootuser;, or a first user (see <xref linkend="user-configuration-agama-installation-profile"/>)
+        must be defined. Otherwise there is no way to log in to the installed system.
+      </para>
+    </note>
     <example>
       <title>Sample &rootuser; configuration for an &agama; installation profile</title>
 <screen>
 "root": {
   "hashedPassword": true,
-  "password": "<replaceable>HASHED-ROOT-PASSWORD</replaceable>",
-  "sshPublicKey": "<replaceable>SSH-PUBLIC-KEY</replaceable>"
+  "password": "<replaceable>HASHED_ROOT_PASSWORD</replaceable>",
+  "sshPublicKey": "<replaceable>SSH_PUBLIC_KEY</replaceable>"
 }
 </screen>
     </example>
@@ -197,9 +222,9 @@
         <listitem>
           <para>
             Boolean flag indicating whether the <literal>password</literal> field contains a hashed
-            value. If set to <literal>true</literal>, the password must be a SHA-512 crypt hash
-            (starting with <literal>$6$</literal>). If <literal>false</literal> or omitted, the
-            value is treated as plain text.
+            value. If set to <literal>true</literal>, the password must already be hashed using a
+            method supported by the target system (see below). If <literal>false</literal> or
+            omitted, the value is treated as plain text and hashed during installation.
           </para>
         </listitem>
       </varlistentry>
@@ -207,30 +232,48 @@
         <term>password</term>
         <listitem>
           <para>
-            The root user's password. If <literal>hashedPassword</literal> is
-            <literal>true</literal>, this must be a pre-generated hash (for example, using
-            <command>openssl passwd -6</command>). Otherwise, plain text is accepted and will be
-            hashed during installation.
+            &rootuser;'s password. If <literal>hashedPassword</literal> is
+            <literal>true</literal>, this must be a pre-generated hash. Otherwise, plain text is
+            accepted and will be hashed during installation.
           </para>
           <para>
-            You can generate a hashed password by running the following command:
+            To generate a hashed password, use the <command>mkpasswd</command> command from the
+            <package>whois</package> package. List the hashing methods supported by the target
+            system with:
           </para>
-<screen>&prompt.sudo;<command>openssl passwd -6</command></screen>
+<screen>&prompt.sudo;<command>mkpasswd --method=help</command></screen>
+          <para>
+            Then hash the password with the chosen method, for example:
+          </para>
+<screen>&prompt.sudo;<command>mkpasswd --method=yescrypt</command></screen>
+          <para>
+            Alternatively, use <command>openssl passwd -6</command> for a SHA-512 hash, or
+            <command>openssl passwd -5</command> for SHA-256.
+          </para>
+          <warning>
+            <title>Avoid DES and MD5</title>
+            <para>
+              Do not use DES- or MD5-based hashing methods, since they are considered insecure. See
+              the <literal>crypt</literal> manual page (<command>man 5 crypt</command>) for details
+              on the available hashing methods and their strength.
+            </para>
+          </warning>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term>sshPublicKey</term>
         <listitem>
           <para>
-            An optional SSH public key to be added to the root user's
-            <filename>~/.ssh/authorized_keys</filename> file. This allows passwordless root login
-            over SSH. The key must be in OpenSSH format. For example, starting with
+            An optional SSH public key, or list of keys, to be added to &rootuser;'s
+            <filename>~/.ssh/authorized_keys</filename> file. This allows passwordless &rootuser;
+            login over SSH. The key must be in OpenSSH format. For example, starting with
             <literal>ssh-rsa</literal> or <literal>ssh-ed25519</literal>.
+            <literal>sshPublicKeys</literal> is an accepted alias with identical behavior.
           </para>
           <para>
             You can generate an SSH public key by running the following command:
           </para>
-<screen>&prompt.sudo;<command>ssh-keygen -t rsa -b 4096 -C "<replaceable>YOUR-EMAIL@EXAMPLE.COM</replaceable>"
+<screen>&prompt.sudo;<command>ssh-keygen -t rsa -b 4096 -C "<replaceable>YOUR_EMAIL@EXAMPLE.COM</replaceable>"
 </command></screen>
           <para>
             Based on your requirements, choose the key type and the key size. However, it is better
@@ -245,17 +288,17 @@
     <para>
       The <literal>user</literal> section defines the initial non-root user account created during
       installation. This includes the user's full name, login name, password (plain or hashed), and
-      optional automatic login preference.
+      an optional SSH public key.
     </para>
     <example>
       <title>Sample <literal>user</literal> configuration for an &agama; installation profile</title>
 <screen>
 "user": {
   "hashedPassword": false,
-  "fullName": "<replaceable>FULL-NAME</replaceable>",
-  "userName": "<replaceable>LOGIN-NAME</replaceable>",
-  "password": "<replaceable>USER-PASSWORD</replaceable>",
-  "autologin": false
+  "fullName": "<replaceable>FULL_NAME</replaceable>",
+  "userName": "<replaceable>LOGIN_NAME</replaceable>",
+  "password": "<replaceable>USER_PASSWORD</replaceable>",
+  "sshPublicKey": "<replaceable>SSH_PUBLIC_KEY</replaceable>"
 }
 </screen>
     </example>
@@ -286,7 +329,7 @@
         <term>userName</term>
         <listitem>
           <para>
-            The system login name for the user. This becomes their Linux username and home
+            The system login name for the user. This becomes their Linux user name and home
             directory under <filename>/home</filename>. For example, <literal>jane</literal>.
           </para>
         </listitem>
@@ -302,11 +345,14 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term>autologin</term>
+        <term>sshPublicKey</term>
         <listitem>
           <para>
-            Optional boolean that determines whether the user should be automatically logged into a
-            graphical session at boot. This setting is only relevant for desktop installations.
+            An optional SSH public key, or list of keys, to be added to the user's
+            <filename>~/.ssh/authorized_keys</filename> file, in the same format as
+            &rootuser;'s <literal>sshPublicKey</literal> (see
+            <xref linkend="root-authentication-agama-installation-profile"/>).
+            <literal>sshPublicKeys</literal> is an accepted alias with identical behavior.
           </para>
         </listitem>
       </varlistentry>
@@ -315,16 +361,25 @@
   <section xml:id="localization-configuration-agama-installation-profile">
     <title>Localization configuration for an &agama; installation profile</title>
     <para>
-      The <literal>localization</literal> section defines the system language, keyboard layout, and
-      time zone settings. These parameters determine the default locale and input behavior after
+      The <literal>l10n</literal> section defines the system locale, keyboard layout, and time
+      zone settings. These parameters determine the default locale and input behavior after
       installation.
     </para>
+    <note>
+      <title>Replaces the deprecated <literal>localization</literal> section</title>
+      <para>
+        Older profiles may use a <literal>localization</literal> section instead, with
+        <literal>language</literal> and <literal>keyboard</literal> fields. &agama;'s profile
+        schema still accepts it, but marks it deprecated; use <literal>l10n</literal> in new
+        profiles.
+      </para>
+    </note>
     <example>
-      <title>Sample <literal>localization</literal> configuration for an &agama; installation profile</title>
+      <title>Sample <literal>l10n</literal> configuration for an &agama; installation profile</title>
 <screen>
-"localization": {
-  "language": "<replaceable>LANGUAGE-ID</replaceable>",
-  "keyboard": "<replaceable>KEYBOARD-LAYOUT</replaceable>",
+"l10n": {
+  "locale": "<replaceable>LOCALE_ID</replaceable>",
+  "keymap": "<replaceable>KEYMAP_ID</replaceable>",
   "timezone": "<replaceable>TIMEZONE</replaceable>"
 }
 </screen>
@@ -334,22 +389,25 @@
     </para>
     <variablelist>
       <varlistentry>
-        <term>language</term>
+        <term>locale</term>
         <listitem>
           <para>
-            The system language and locale specified as a locale string. For example,
-            <literal>en_US.UTF-8</literal> or <literal>de_DE</literal>. This controls messages,
-            number formats, date formats, and default encoding.
+            The system locale. For example, <literal>en_US.UTF-8</literal> or
+            <literal>de_DE</literal>. This controls messages, number formats, date formats, and
+            default encoding. List the locales available on the installation medium with
+            <command>localectl list-locales</command>.
           </para>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term>keyboard</term>
+        <term>keymap</term>
         <listitem>
           <para>
             The default keyboard layout identifier. For example, <literal>us</literal> or
             <literal>de</literal>. This affects key mapping on both text consoles and graphical
-            desktops.
+            desktops. List the keymaps available on the installation medium with
+            <command>localectl list-keymaps</command>; both the dash and parenthesis forms are
+            accepted, for example <literal>us-dvorak</literal> or <literal>us(dvorak)</literal>.
           </para>
         </listitem>
       </varlistentry>
@@ -385,7 +443,7 @@
     "<replaceable>curl</replaceable>"
   ]
 }
-  </screen>
+</screen>
     </example>
     <para>
       This section contains the following fields:
@@ -398,9 +456,26 @@
             A list of software patterns to be installed. Patterns are curated collections of
             packages designed to serve a functional role. For example,
             <literal>minimal_base</literal>, <literal>gnome</literal>,
-            <literal>app_server</literal>. For a complete list of patterns available for
-            &productname; and your target architecture, refer to the &scc;.
+            <literal>app_server</literal>. To list the patterns available for
+            &productname; and your target architecture, run
+            <command>zypper se --type pattern</command> on a registered system.
           </para>
+          <note>
+            <title>Providing a plain list replaces the default pattern selection</title>
+            <para>
+              If you specify <literal>patterns</literal> as a plain list, patterns that would
+              otherwise be pre-selected by the product (for example, <literal>selinux</literal>)
+              are <emphasis>not</emphasis> installed unless you include them in the list yourself.
+              To add to, or remove from, the default selection instead of replacing it, use an
+              object with <literal>add</literal> and&nbsp;<literal>remove</literal> keys:
+            </para>
+<screen>
+"patterns": {
+  "add": ["<replaceable>gnome</replaceable>", "<replaceable>office</replaceable>"],
+  "remove": ["<replaceable>selinux</replaceable>"]
+}
+</screen>
+          </note>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -409,40 +484,115 @@
           <para>
             A list of individual packages to install in addition to those brought in by selected
             patterns. For example, <package>vim</package>, <package>htop</package> and
-            <package>curl</package>. For a complete list of packages available from the official
-            &productname; repositories for your target architecture, refer to the &scc;.
+            <package>curl</package>. To list the packages available from the official
+            &productname; repositories for your target architecture, run
+            <command>zypper packages</command> on a registered system.
           </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>onlyRequired</term>
+        <listitem>
+          <para>
+            Optional boolean. If set to <literal>true</literal>, &agama; installs only mandatory
+            dependencies of the selected patterns and packages, skipping optional ones. If omitted,
+            the underlying <literal>libzypp</literal> (the library behind &zypper; and &agama;'s
+            own package resolution) default is used, which is <literal>false</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>extraRepositories</term>
+        <listitem>
+          <para>
+            A list of additional repositories to use as an installation source, alongside the
+            repositories the selected product already provides. Each entry supports the following
+            fields:
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <literal>alias</literal>: a unique identifier for the repository. Mandatory. Also
+                used as the file name when saving the repository configuration to the installed
+                system, so avoid <literal>/</literal> and other special characters, and avoid
+                spaces to keep the file name usable directly on a command line without quoting.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>url</literal>: the repository's URL, in a format recognized by
+                <literal>libzypp</literal>. Mandatory.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>priority</literal>: optional priority for this repository, where a lower
+                number means higher precedence. Defaults to <literal>99</literal>, the same as
+                other repositories. Use <literal>0</literal>-<literal>98</literal> for a higher
+                priority repository, or <literal>100</literal>-<literal>200</literal> for a lower
+                priority one.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>name</literal>: optional user-friendly name for the repository. Defaults to
+                the value of <literal>alias</literal> if omitted. Unlike <literal>alias</literal>,
+                it may contain spaces or special characters.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>enabled</literal>: optional boolean controlling whether the repository is
+                active. Useful for pre-defining a repository you plan to enable later. Repositories
+                are enabled by default.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>allowUnsigned</literal>: optional boolean. If <literal>true</literal>, the
+                repository is accepted even without a GPG signature. Useful for your own
+                repositories. Not set by default.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>gpgFingerprints</literal>: optional list of accepted GPG fingerprints for
+                the repository. Useful when the repository is signed with a key not already
+                included on the installation medium. Empty by default.
+              </para>
+            </listitem>
+          </itemizedlist>
         </listitem>
       </varlistentry>
     </variablelist>
     <note>
-      <title>Trust the GPG key for the Package Hub repository</title>
+      <title>Trust the GPG key for the &ph; repository</title>
       <para>
-        When enabling &ph; during a manual installation, users are prompted to trust the
-        repository's GPG key. To trust the key automatically during an unattended installation, use
-        the following snippet:
+        When enabling &ph; during a manual installation, you are prompted to trust the
+        repository's GPG key. To trust it automatically during an unattended installation, add a
+        <literal>software.import_gpg</literal> answer to the <literal>questions</literal> section.
+        The example below uses &ph;'s current signing key; if it has since changed, get the
+        current ID and fingerprint from a prior interactive installation or from &ph;'s
+        repository metadata:
       </para>
 <screen>
 {
-  product: {
-    id: 'SLES',
-    registrationCode: '<replaceable>SLES_REG_CODE</replaceable>',
-    addons: [
-      {
-        id: 'PackageHub',
-      }
+  "product": {
+    "id": "SLES",
+    "registrationCode": "<replaceable>SLES_REGISTRATION_CODE</replaceable>",
+    "addons": [
+      { "id": "PackageHub" }
     ]
   },
-  questions: {
-    policy: 'auto',
-    answers: [
+  "questions": {
+    "policy": "auto",
+    "answers": [
       {
-        answer: 'Trust',
-        class: 'software.import_gpg',
-        data: {
-          fingerprint: '<replaceable>BF3F 9A67 D3A2 FF98 A73F 5E07 488C 583D 287A 0027</replaceable>',
-          name: '<replaceable>openSUSE Backports for SUSE Linux 16 sle-backports-202500514@opensuse.org</replaceable>',
-          id: '<replaceable>488C583D287A0027</replaceable>'
+        "class": "software.import_gpg",
+        "answer": "Trust",
+        "data": {
+          "id": "488C583D287A0027",
+          "fingerprint": "BF3F 9A67 D3A2 FF98 A73F 5E07 488C 583D 287A 0027"
         }
       }
     ]
@@ -463,7 +613,7 @@
       <para>
         An exhaustive description of all possible storage configurations using &agama; is beyond the
         scope of this section, as it will need careful consideration of the storage model schema.
-        For information on advanced storage configuration, refer to <xref linkend="agama-advanced-storage-configuration"></xref>.
+        For information on advanced storage configuration, refer to <xref linkend="agama-advanced-storage-configuration"/>.
       </para>
     </note>
     <example>
@@ -475,20 +625,28 @@
   "mdRaids": [ ... ],
   "boot": { ... }
 }
-    </screen>
+</screen>
     </example>
     <para>
       A <literal>storage</literal> section contains several entries describing how to configure the
       corresponding storage devices, and some extra entries such as <literal>boot</literal> to
-      setup some general aspects that influence the final layout.
+      set up some general aspects that influence the final layout.
     </para>
     <para>
       Each volume group or software RAID can represent a new logical device to be created, or an
       existing device from the system to be processed. Entries below <literal>drives</literal>
       represent devices that can be used as regular disks, which includes removable and fixed
       disks, SD cards, DASD or zFCP devices, iSCSI disks, and multipath devices. Those entries
-      always correspond to devices that can be found at the system, because &agama; cannot create
-      that kind of devices.
+      always correspond to devices that can be found on the system, because &agama; cannot create
+      that kind of device.
+    </para>
+    <para>
+      If the <literal>storage</literal> section is omitted entirely, &agama; still needs a target
+      for installation, so it generates an initial proposal automatically: it attempts to install
+      onto a single disk, wiping its content and applying the product's default settings (such as
+      Btrfs snapshots and default file system sizes). If that attempt does not produce a valid
+      storage setup and the system has more than one disk, &agama; retries the same approach on
+      another disk, up to five attempts across as many different disks.
     </para>
     <note>
       <title>Compatibility with legacy &ay; storage</title>
@@ -496,7 +654,7 @@
         In some cases, <literal>storage</literal> can be replaced by the
         <literal>legacyAutoyastStorage</literal> section. This section supports everything offered
         in the <literal>partitioning</literal> section of the &ay; profile. However, &agama;
-        does not validate this special section&mdash;be careful to provide valid &ay;
+        does not validate this special section, so be careful to provide valid &ay;
         options.
       </para>
     </note>
@@ -506,28 +664,35 @@
     <para>
       The <literal>bootloader</literal> section defines boot-time behavior, including whether to
       pause at the boot menu and what extra kernel parameters to pass. It affects the installed
-      system's GRUB configuration.
+      system's boot loader configuration, whether that is &grub; or, as a preview feature,
+      <literal>systemd-boot</literal> (see <xref linkend="agama-boot-options-advanced"/>).
     </para>
     <example>
       <title>Sample <literal>bootloader</literal> configuration for an &agama; installation profile</title>
 <screen>
 "bootloader": {
-  "stopOnBootMenu": false,
   "timeout": 5,
-  "extraKernelParams": "<replaceable>KERNEL-PARAMETERS</replaceable>"
+  "extraKernelParams": "<replaceable>KERNEL_PARAMETERS</replaceable>"
 }
 </screen>
     </example>
     <para>
       This section contains the following fields:
     </para>
+    <note>
+      <title>stopOnBootMenu and timeout are mutually exclusive</title>
+      <para>
+        Set at most one of <literal>stopOnBootMenu</literal> and <literal>timeout</literal> in the
+        same profile. Setting both at once fails schema validation.
+      </para>
+    </note>
     <variablelist>
       <varlistentry>
         <term>stopOnBootMenu</term>
         <listitem>
           <para>
             Boolean flag that, if set to <literal>true</literal>, forces the system to stop at the
-            GRUB boot menu instead of proceeding automatically. This is useful for debugging or
+            &grub; boot menu instead of proceeding automatically. This is useful for debugging or
             choosing alternate boot options manually.
           </para>
         </listitem>
@@ -536,7 +701,8 @@
         <term>timeout</term>
         <listitem>
           <para>
-            Number of seconds the GRUB boot menu is shown before continuing with the default entry.
+            Number of seconds the &grub; boot menu is shown before continuing with the default
+            entry.
             Set to <literal>0</literal> to boot immediately.
           </para>
         </listitem>
@@ -551,15 +717,27 @@
           </para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term>updateNvram</term>
+        <listitem>
+          <para>
+            Available since &suselinux; 16.1. Optional boolean. Determines whether the
+            installer modifies the system's NVRAM (Non-Volatile RAM) to update the boot order or
+            entries. If set to <literal>false</literal>, the NVRAM is left untouched, which is
+            useful for preserving an existing boot manager or specific firmware configuration.
+          </para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </section>
   <section xml:id="network-configuration-agama-installation-profile">
     <title>Network configuration for an &agama; installation profile</title>
     <para>
-      The <literal>network</literal> section defines one or more network connections to be
-      configured during installation. Each connection supports IP setup, interface binding,
-      wireless settings, bonding, bridging, and optional enterprise-grade authentication mechanisms
-      like IEEE 802.1X.
+      The <literal>network</literal> section defines a list of network
+      <literal>connections</literal> to be configured, using the same connection concept as
+      &nm;. Each connection supports a common set of fields plus, depending on the connection
+      type, an additional <literal>wireless</literal>, <literal>bridge</literal>,
+      <literal>bond</literal>, or <literal>vlan</literal> section.
     </para>
     <example>
       <title>Sample <literal>network</literal> configuration for an &agama; installation profile</title>
@@ -567,7 +745,7 @@
 "network": {
   "connections": [
     {
-      "id": "<replaceable>ETH0-CONNECTION</replaceable>",
+      "id": "<replaceable>ETH0_CONNECTION</replaceable>",
       "interface": "<replaceable>eth0</replaceable>",
       "method4": "manual",
       "addresses": ["<replaceable>192.168.100.10/24</replaceable>"],
@@ -576,7 +754,7 @@
       "autoconnect": true
     },
     {
-      "id": "<replaceable>WIFI-HOME</replaceable>",
+      "id": "<replaceable>WIFI_HOME</replaceable>",
       "interface": "<replaceable>wlan0</replaceable>",
       "method4": "auto",
       "wireless": {
@@ -608,10 +786,10 @@
       }
     },
     {
-      "id": "<replaceable>SECURE-ETH</replaceable>",
+      "id": "<replaceable>SECURE_ETH</replaceable>",
       "interface": "<replaceable>eth4</replaceable>",
       "method4": "auto",
-      "ieee-8021x": { <co xml:id="ieee-8021x"></co>
+      "ieee-8021x": {
         "eap": ["peap"],
         "identity": "<replaceable>USERNAME</replaceable>",
         "password": "<replaceable>PASSWORD</replaceable>",
@@ -620,30 +798,27 @@
     }
   ]
 }
-  </screen>
-      <calloutlist>
-        <callout arearefs="ieee-8021x">
-          <note>
-            <para>
-              Support for IEEE 802.1X authentication is intended for advanced enterprise
-              deployments where authentication is required at the link layer, before an IP is
-              assigned. This commonly involves integration with RADIUS and certificate-based trust.
-              Misconfiguration can result in complete network inaccessibility. Refer to
-              <literal>systemd-networkd</literal> documentation for authoritative guidance.
-            </para>
-          </note>
-        </callout>
-      </calloutlist>
+</screen>
     </example>
     <para>
-      This section contains the following connection attributes:
+      The following fields are common to any connection type:
     </para>
     <variablelist>
       <varlistentry>
         <term>id</term>
         <listitem>
           <para>
-            Unique name for the network connection.
+            Human-readable, unique name for the connection.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>method4 / method6</term>
+        <listitem>
+          <para>
+            IPv4 and IPv6 addressing method. Possible values are <literal>auto</literal> (usually
+            DHCP), <literal>manual</literal>, <literal>link-local</literal>, and
+            <literal>disabled</literal> (the default).
           </para>
         </listitem>
       </varlistentry>
@@ -651,31 +826,36 @@
         <term>interface</term>
         <listitem>
           <para>
-            Name of the network interface to bind to (for example, <literal>eth0</literal>).
+            Name of the network interface to bind to this connection (for example,
+            <literal>eth0</literal>). If omitted, the connection can apply to any device that does
+            not conflict with other match settings such as <literal>macAddress</literal> or
+            <literal>match</literal>.
           </para>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term>method4</term>
+        <term>macAddress</term>
         <listitem>
           <para>
-            IPv4 addressing method (<literal>auto</literal>, <literal>manual</literal>, etc.).
+            MAC address of the network interface to bind to this connection.
           </para>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term>method6</term>
+        <term>customMacAddress</term>
         <listitem>
           <para>
-            IPv6 addressing method (<literal>auto</literal>, <literal>manual</literal>, etc.).
+            MAC address to assign to the connection. Either a literal MAC address, or one of
+            <literal>preserve</literal>, <literal>permanent</literal>, <literal>random</literal>, or
+            <literal>stable</literal>.
           </para>
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term>addresses</term>
+        <term>mtu</term>
         <listitem>
           <para>
-            List of static addresses in CIDR format.
+            The connection's MTU (Maximum Transmission Unit).
           </para>
         </listitem>
       </varlistentry>
@@ -688,10 +868,47 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term>addresses</term>
+        <listitem>
+          <para>
+            List of static IP addresses (IPv4 and/or IPv6) in CIDR format.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term>nameservers</term>
         <listitem>
           <para>
-            List of DNS server IPs.
+            List of name server IP addresses (IPv4 and/or IPv6).
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>dnsSearchList</term>
+        <listitem>
+          <para>
+            List of DNS domains to search. <literal>dnsSearchlist</literal> (lowercase
+            <literal>l</literal>) is accepted too, but is deprecated; prefer
+            <literal>dnsSearchList</literal> in new profiles.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>ignoreAutoDns</term>
+        <listitem>
+          <para>
+            Boolean. Whether DNS options provided automatically (for example, through DHCP) are
+            ignored.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>status</term>
+        <listitem>
+          <para>
+            The desired status for the connection: <literal>up</literal>, <literal>down</literal>,
+            or <literal>removed</literal>. Setting <literal>removed</literal> is useful to delete an
+            existing connection, for example before creating a new one on the same interface.
           </para>
         </listitem>
       </varlistentry>
@@ -704,10 +921,33 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term>persistent</term>
+        <listitem>
+          <para>
+            Boolean. Whether the connection should be kept on the installed system after
+            installation.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>match</term>
+        <listitem>
+          <para>
+            Criteria to select the device to apply the connection to, based on
+            &nm;'s own device-matching mechanism, as an alternative to
+            <literal>interface</literal> or <literal>macAddress</literal>. Supports matching by
+            <literal>interface</literal> name, <literal>driver</literal>, or PCI <literal>path</literal>,
+            each accepting a list of values that may include wildcards. For example,
+            <literal>{"interface": ["eth*", "ens*"]}</literal> matches any interface starting with
+            <literal>eth</literal> or <literal>ens</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term>wireless</term>
         <listitem>
           <para>
-            Defines wireless-specific settings:
+            Configures a Wi-Fi connection:
           </para>
           <itemizedlist>
             <listitem>
@@ -722,60 +962,17 @@
             </listitem>
             <listitem>
               <para>
-                <literal>security</literal>: Key management (for example,
-                <literal>wpa-psk</literal>).
-              </para>
-            </listitem>
-          </itemizedlist>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>bridge</term>
-        <listitem>
-          <para>
-            Defines bridge-specific settings:
-          </para>
-          <itemizedlist>
-            <listitem>
-              <para>
-                <literal>stp</literal>: Boolean. Enables the Spanning Tree Protocol.
+                <literal>security</literal>: key management method. Possible values are
+                <literal>none</literal> (the default), <literal>owe</literal>,
+                <literal>ieee8021x</literal>, <literal>wpa-psk</literal>, <literal>sae</literal>,
+                <literal>wpa-eap</literal>, and <literal>wpa-eap-suite-b-192</literal>.
               </para>
             </listitem>
             <listitem>
               <para>
-                <literal>forwardDelay</literal>: STP forwarding delay in seconds.
-              </para>
-            </listitem>
-            <listitem>
-              <para>
-                <literal>ports</literal>: Interfaces to include in the bridge.
-              </para>
-            </listitem>
-          </itemizedlist>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>bond</term>
-        <listitem>
-          <para>
-            Defines bonding configuration:
-          </para>
-          <itemizedlist>
-            <listitem>
-              <para>
-                <literal>mode</literal>: Bonding mode (for example,
-                <literal>active-backup</literal>).
-              </para>
-            </listitem>
-            <listitem>
-              <para>
-                <literal>options</literal>: Optional bonding parameters (for example,
-                <literal>miimon=100</literal>).
-              </para>
-            </listitem>
-            <listitem>
-              <para>
-                <literal>ports</literal>: List of interfaces in the bond.
+                <literal>mode</literal>: wireless mode. Possible values are
+                <literal>infrastructure</literal> (the default), <literal>adhoc</literal>,
+                <literal>mesh</literal>, and <literal>ap</literal>.
               </para>
             </listitem>
           </itemizedlist>
@@ -785,31 +982,210 @@
         <term>ieee-8021x</term>
         <listitem>
           <para>
-            Defines enterprise authentication settings:
+            Configures IEEE 802.1X (EAP) authentication for a connection, for enterprise networks
+            that authenticate at the link layer before an IP address is assigned:
           </para>
           <itemizedlist>
             <listitem>
               <para>
-                <literal>eap</literal>: List of EAP methods (for example, <literal>peap</literal>,
-                <literal>tls</literal>).
+                <literal>eap</literal>: list of EAP methods to use. Possible values:
+                <literal>leap</literal>, <literal>md5</literal>, <literal>tls</literal>,
+                <literal>peap</literal>, <literal>ttls</literal>, <literal>pwd</literal>,
+                <literal>fast</literal>.
               </para>
             </listitem>
             <listitem>
               <para>
-                <literal>identity</literal>: Login identity (typically username).
+                <literal>phase2Auth</literal>: phase 2 inner authentication method. Possible
+                values: <literal>pap</literal>, <literal>chap</literal>,
+                <literal>mschap</literal>, <literal>mschapv2</literal>, <literal>gtc</literal>,
+                <literal>otp</literal>, <literal>md5</literal>, <literal>tls</literal>.
               </para>
             </listitem>
             <listitem>
               <para>
-                <literal>password</literal>: Authentication password (if needed).
+                <literal>identity</literal>: identity string, often the user's login name.
               </para>
             </listitem>
             <listitem>
               <para>
-                <literal>caCert</literal>: Path to trusted CA certificate.
+                <literal>password</literal>: password used for EAP authentication.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>caCert</literal> / <literal>caCertPassword</literal>: path to the CA
+                certificate, and its password if the certificate is encrypted.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>clientCert</literal> / <literal>clientCertPassword</literal>: path to the
+                client certificate, and its password if the certificate is encrypted.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>privateKey</literal> / <literal>privateKeyPassword</literal>: path to the
+                private key, and its password if the key is encrypted.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>anonymousIdentity</literal>: anonymous identity string for EAP methods
+                that support it.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>peapVersion</literal>: which PEAP version to use, when
+                <literal>peap</literal> is set as the EAP method. Possible values:
+                <literal>0</literal>, <literal>1</literal>.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>peapLabel</literal>: optional boolean that forces use of the new PEAP
+                label during key derivation.
               </para>
             </listitem>
           </itemizedlist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>bridge</term>
+        <listitem>
+          <para>
+            Configures a network bridge. The <literal>interface</literal> field sets the bridge's own
+            device name, while <literal>id</literal> is the connection name.
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <literal>interface</literal>: the bridge device's own name.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>id</literal>: the connection name.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>ports</literal>: interfaces or connection IDs to include in the bridge.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>stp</literal>: boolean. Enables the Spanning Tree Protocol.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>forwardDelay</literal>: STP forward delay, in seconds.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>priority</literal>: STP priority, an integer of zero or higher, where
+                lower values take precedence.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>maxAge</literal>: STP maximum message age, in seconds.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>helloTime</literal>: STP hello time, in seconds.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>bond</term>
+        <listitem>
+          <para>
+            Configures a network bond. The <literal>interface</literal> field sets the bond's own
+            device name, while <literal>id</literal> is the connection name.
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <literal>interface</literal>: the bond device's own name.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>id</literal>: the connection name.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>ports</literal>: devices to include in the bond.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>mode</literal>: bonding mode. Possible values:
+                <literal>balance-rr</literal> (the default), <literal>active-backup</literal>,
+                <literal>balance-xor</literal>, <literal>broadcast</literal>,
+                <literal>802.3ad</literal>, <literal>balance-tlb</literal>,
+                <literal>balance-alb</literal>.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>options</literal>: additional bonding options (for example,
+                <literal>miimon=100</literal>).
+              </para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>vlan</term>
+        <listitem>
+          <para>
+            Configures a VLAN. Supported fields:
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <literal>id</literal>: the VLAN identifier, an integer from 0 to 4094.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>parent</literal>: name of the parent interface the VLAN is created from.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>protocol</literal>: encapsulation protocol. Either
+                <literal>802.1Q</literal> (the default) or <literal>802.1ad</literal>.
+              </para>
+            </listitem>
+          </itemizedlist>
+          <example>
+            <title>Sample <literal>vlan</literal> connection for an &agama; installation profile</title>
+<screen>
+{
+  "id": "<replaceable>vlan10</replaceable>",
+  "method4": "manual",
+  "status": "up",
+  "persistent": true,
+  "addresses": ["<replaceable>192.168.1.28/24</replaceable>"],
+  "gateway4": "<replaceable>192.168.1.1</replaceable>",
+  "vlan": {
+    "id": 10,
+    "parent": "<replaceable>eth0</replaceable>"
+  }
+}
+</screen>
+          </example>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -842,8 +1218,8 @@
         <term>sslCertificates</term>
         <listitem>
           <para>
-            A list of custom SSL certificates to install into the system’s trust store. Each item
-            specifies the certificate’s fingerprint and the hashing algorithm used.
+            A list of custom SSL certificates to install into the system's trust store. Each item
+            specifies the certificate's fingerprint and the hashing algorithm used.
           </para>
           <itemizedlist>
             <listitem>
@@ -894,31 +1270,31 @@
 "scripts": {
   "pre": [
     {
-      "name": "<replaceable>PRE-CHECK-DISK.sh</replaceable>",
+      "name": "<replaceable>PRE_CHECK_DISK.sh</replaceable>",
       "content": "#!/bin/bash\nif [ ! -e /dev/sda ]; then echo 'Disk not found' &gt;&amp;2; exit 1; fi"
     }
   ],
   "postPartitioning": [
     {
-      "name": "<replaceable>CREATE-MOUNTS.sh</replaceable>",
+      "name": "<replaceable>CREATE_MOUNTS.sh</replaceable>",
       "url": "<replaceable>http://EXAMPLE.COM/SCRIPTS/MOUNTS.sh</replaceable>"
     }
   ],
   "post": [
     {
-      "name": "<replaceable>FINALIZE-INSTALL.sh</replaceable>",
+      "name": "<replaceable>FINALIZE_INSTALL.sh</replaceable>",
       "content": "#!/bin/bash\necho 'Installation complete'",
       "chroot": true
     }
   ],
   "init": [
     {
-      "name": "<replaceable>FIRST-BOOT.sh</replaceable>",
+      "name": "<replaceable>FIRST_BOOT.sh</replaceable>",
       "content": "#!/bin/bash\necho 'System booted for the first time'"
     }
   ]
 }
-  </screen>
+</screen>
     </example>
     <para>
       This section defines the following script categories:
@@ -947,7 +1323,7 @@
         <listitem>
           <para>
             Scripts run after installation finishes. These can optionally execute within the target
-            system’s root via chroot.
+            system's root via chroot.
           </para>
         </listitem>
       </varlistentry>
@@ -958,6 +1334,16 @@
             Scripts executed during the first boot of the installed system. These are useful for
             final configuration, logging, or notifications.
           </para>
+          <note>
+            <title>Troubleshooting init scripts</title>
+            <para>
+              On the installed system, <literal>init</literal> scripts are written to
+              <filename>/var/lib/agama/scripts/init/</filename> and run once, in name order, by
+              the <literal>agama-scripts.service</literal> unit at first boot; the service then
+              disables itself. Each script's output is logged to
+              <filename>/var/lib/agama/scripts/init/log/<replaceable>SCRIPT_NAME</replaceable>.log</filename>.
+            </para>
+          </note>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -996,7 +1382,7 @@
         <listitem>
           <para>
             Boolean. If <literal>true</literal>, the script is executed inside the installed
-            system’s root via chroot. Applies only to <literal>post</literal> scripts.
+            system's root via chroot. Applies only to <literal>post</literal> scripts.
           </para>
         </listitem>
       </varlistentry>
@@ -1014,8 +1400,8 @@
 <screen>
 "files": [
   {
-    "destination": "<replaceable>ABSOLUTE-FILE-PATH</replaceable>",
-    "content": "<replaceable>FILE-CONTENT</replaceable>",
+    "destination": "<replaceable>ABSOLUTE_FILE_PATH</replaceable>",
+    "content": "<replaceable>FILE_CONTENT</replaceable>",
     "permissions": "0644",
     "user": "<replaceable>USERNAME</replaceable>",
     "group": "<replaceable>GROUPNAME</replaceable>"
@@ -1068,7 +1454,7 @@
         <term>user</term>
         <listitem>
           <para>
-            Optional owner username to assign to the file. The user must already exist in the
+            Optional owner user name to assign to the file. The user must already exist in the
             installed system.
           </para>
         </listitem>
@@ -1125,7 +1511,7 @@
         <term>legacyAutoyastStorage</term>
         <listitem>
           <para>
-            An array of JSON objects compatible with the XML structure used in &ay;’s
+            An array of JSON objects compatible with the XML structure used in &ay;'s
             <filename>partitioning</filename> section. This allows experienced administrators to
             reuse complex partitioning logic without switching to &agama;-native storage syntax.
           </para>
@@ -1140,34 +1526,51 @@
       targets that should be discovered and mounted during system installation. This is
       particularly relevant for systems that boot from SAN or use iSCSI-based storage volumes.
     </para>
+    <para>
+      The <literal>iscsi</literal> section corresponds to the &agama; storage schema and contains
+      only two properties: <literal>initiator</literal> and <literal>targets</literal>.
+    </para>
     <example>
       <title>Sample <literal>iSCSI</literal> configuration for an &agama; installation profile</title>
 <screen>
 "iscsi": {
-  "initiatorName": "<replaceable>IQN-OF-INITIATOR</replaceable>",
+  "initiator": "<replaceable>iqn.2013-02.de.suse:01:e229358d2dea</replaceable>", <co xml:id="iscsi-initiator"/>
   "targets": [
     {
-      "address": "<replaceable>TARGET-IP</replaceable>",
+      "address": "<replaceable>TARGET_IP</replaceable>",
       "port": 3260,
-      "target": "<replaceable>IQN-OF-TARGET</replaceable>",
-      "user": "<replaceable>CHAP-USERNAME</replaceable>",
-      "password": "<replaceable>CHAP-PASSWORD</replaceable>",
-      "autoLogin": true
+      "name": "<replaceable>IQN_OF_TARGET</replaceable>",
+      "interface": "default",
+      "startup": "onboot",
+      "authByTarget": {
+        "username": "<replaceable>CHAP_USERNAME</replaceable>",
+        "password": "<replaceable>CHAP_PASSWORD</replaceable>"
+      }
     }
   ]
 }
-  </screen>
+</screen>
+      <calloutlist>
+        <callout arearefs="iscsi-initiator">
+          <para>
+            An existing system typically already has a generated initiator name in
+            <filename>/etc/iscsi/initiatorname.iscsi</filename>. To generate a new one instead,
+            use the <command>iscsi-iname</command> command from the <package>open-iscsi</package>
+            package.
+          </para>
+        </callout>
+      </calloutlist>
     </example>
     <para>
       This section contains the following configuration keys:
     </para>
     <variablelist>
       <varlistentry>
-        <term>initiatorName</term>
+        <term>initiator</term>
         <listitem>
           <para>
-            The iSCSI initiator name (IQN) of the client system. Must follow the iSCSI naming
-            convention. For example, <literal>iqn.2025-05.com.suse:agama-client</literal>.
+            The unique iSCSI initiator name (IQN) the system identifies itself with on the iSCSI
+            SAN. For example, <literal>iqn.2013-02.de.suse:01:e229358d2dea</literal>.
           </para>
         </listitem>
       </varlistentry>
@@ -1176,7 +1579,9 @@
         <listitem>
           <para>
             An array of target definitions to connect to. Each target supports the following
-            fields:
+            fields (only the first four&mdash;<literal>address</literal>,
+            <literal>port</literal>, <literal>name</literal>, and
+            <literal>interface</literal>&mdash;are mandatory):
           </para>
           <itemizedlist>
             <listitem>
@@ -1186,25 +1591,41 @@
             </listitem>
             <listitem>
               <para>
-                <literal>port</literal>: TCP port of the target. Default is
-                <literal>3260</literal>.
+                <literal>port</literal>: TCP port of the target.
               </para>
             </listitem>
             <listitem>
               <para>
-                <literal>target</literal>: IQN of the iSCSI target to connect to.
+                <literal>name</literal>: iSCSI name (IQN) of the target.
               </para>
             </listitem>
             <listitem>
               <para>
-                <literal>user</literal> and <literal>password</literal>: CHAP authentication
-                credentials, if required by the target.
+                <literal>interface</literal>: the iSCSI interface to use, not to be confused
+                with the network interface. Either <literal>default</literal> or the name of an
+                interface defined at <filename>/var/lib/iscsi/ifaces/</filename>.
               </para>
             </listitem>
             <listitem>
               <para>
-                <literal>autoLogin</literal>: Boolean flag indicating whether to automatically log
-                in to the target during boot.
+                <literal>startup</literal>: the startup mode for the iSCSI node. Supported values
+                are <literal>onboot</literal>, <literal>manual</literal>, and
+                <literal>automatic</literal>.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>authByTarget</literal>: optional CHAP (Challenge Handshake Authentication
+                Protocol) credentials used if the target authenticates the initiator. An object
+                with <literal>username</literal> and <literal>password</literal>.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>authByInitiator</literal>: optional CHAP credentials used, in addition to
+                <literal>authByTarget</literal>, for bidirectional authentication where the
+                initiator also authenticates the target. Same format as
+                <literal>authByTarget</literal>.
               </para>
             </listitem>
           </itemizedlist>
@@ -1225,10 +1646,9 @@
 "dasd": {
   "devices": [
     {
-      "channel": "<replaceable>0.0.1234</replaceable>",
+      "channel": "<replaceable>0.0.1234</replaceable>", <co xml:id="dasd-channel"/>
       "state": "active",
-      "format": true,
-      "diag": false
+      "format": true
     },
     {
       "channel": "<replaceable>0.0.5678</replaceable>",
@@ -1236,7 +1656,15 @@
     }
   ]
 }
-  </screen>
+</screen>
+      <calloutlist>
+        <callout arearefs="dasd-channel">
+          <para>
+            List the channel (Bus-ID) of every DASD device visible to the system with the
+            <command>lsdasd</command> command.
+          </para>
+        </callout>
+      </calloutlist>
     </example>
     <para>
       This section defines the following keys:
@@ -1275,10 +1703,383 @@
                 have its diagnostic (diag) flag set. If unspecified, the existing state is
                 preserved.
               </para>
+              <warning>
+                <title>Expert setting</title>
+                <para>
+                  Only set <literal>diag</literal> if you specifically need to and understand the
+                  consequences. Modifying the diagnostic flag on the wrong DASD device can make it
+                  stick, disappear, or behave unexpectedly.
+                </para>
+              </warning>
             </listitem>
           </itemizedlist>
         </listitem>
       </varlistentry>
     </variablelist>
+  </section>
+  <section xml:id="zfcp-configuration-agama-installation-profile">
+    <title>zFCP configuration for an &agama; installation profile</title>
+    <para>
+      The <literal>zfcp</literal> section activates zFCP (Fibre Channel Protocol) storage on
+      &zseries; (&s390x;) systems for use as installation targets. There are two ways to activate
+      zFCP storage. If your storage server supports LUN masking, activating the controller alone
+      triggers an automatic LUN scan. Otherwise, you must define each disk manually using its
+      hardware coordinates.
+    </para>
+    <example>
+      <title>Sample <literal>zfcp</literal> configuration for an &agama; installation profile</title>
+<screen>
+"zfcp": {
+  "controllers": ["<replaceable>0.0.fa00</replaceable>", "<replaceable>0.0.fc00</replaceable>"],
+  "devices": [
+    {
+      "channel": "<replaceable>0.0.fa00</replaceable>",
+      "wwpn": "<replaceable>0x500507630300c562</replaceable>",
+      "lun": "<replaceable>0x4010403300000000</replaceable>" <co xml:id="zfcp-coordinates"/>
+    },
+    {
+      "channel": "<replaceable>0.0.fb00</replaceable>",
+      "wwpn": "<replaceable>0x500507630300c563</replaceable>",
+      "lun": "<replaceable>0x4010403300000000</replaceable>",
+      "active": false
+    }
+  ]
+}
+</screen>
+      <calloutlist>
+        <callout arearefs="zfcp-coordinates">
+          <para>
+            List the channel, WWPN, and LUN of every zFCP device visible to the system with the
+            <command>lszdev zfcp</command> command; each <literal>zfcp-lun</literal> entry's ID
+            column shows the three values colon-separated, in that order.
+          </para>
+        </callout>
+      </calloutlist>
+    </example>
+    <para>
+      This section contains the following fields:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>controllers</term>
+        <listitem>
+          <para>
+            A list of zFCP controller channel IDs to activate for automatic LUN scanning. For
+            example, <literal>0.0.fa00</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>devices</term>
+        <listitem>
+          <para>
+            A list of individual disks to activate explicitly. Required when the controller cannot
+            discover LUNs automatically. Each entry supports the following fields:
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <literal>channel</literal>: the channel ID of the zFCP controller the disk is
+                attached to.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>wwpn</literal>: the World Wide Port Name of the storage server port.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>lun</literal>: the Logical Unit Number of the disk volume.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>active</literal>: optional boolean to explicitly enable or disable the
+                disk. If a device is listed here without its controller also listed under
+                <literal>controllers</literal>, &agama; activates that controller automatically.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="ntp-configuration-agama-installation-profile">
+    <title>Network Time Protocol configuration for an &agama; installation profile</title>
+    <para>
+      Having the correct date and time during installation matters: an incorrect clock can
+      cause unexpected errors. The &agama; installation medium ships <literal>chrony</literal>,
+      which synchronizes the system clock automatically. The optional <literal>ntp</literal>
+      section lets you force &agama; to synchronize using specific NTP sources instead, and copies
+      that configuration to the installed system.
+    </para>
+    <example>
+      <title>Sample <literal>ntp</literal> configuration for an &agama; installation profile</title>
+<screen>
+"ntp": {
+  "sources": [
+    {
+      "type": "pool",
+      "address": "<replaceable>2.opensuse.pool.ntp.org</replaceable>",
+      "iburst": true,
+      "offline": false
+    }
+  ]
+}
+</screen>
+    </example>
+    <para>
+      The <literal>sources</literal> list defines the systems to synchronize with. Each source
+      supports the following fields:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>address</term>
+        <listitem>
+          <para>
+            The host name or IP address of the NTP source.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>type</term>
+        <listitem>
+          <para>
+            The type of NTP source:
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <literal>pool</literal>: a pool of NTP servers (for example,
+                <literal>pool.ntp.org</literal>); the pool name resolves to multiple servers and
+                <literal>chrony</literal> picks the best ones.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>server</literal>: a specific NTP server to synchronize with.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>peer</literal>: an NTP peer for symmetric (bidirectional) time exchange.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>iburst</term>
+        <listitem>
+          <para>
+            Optional boolean. If <literal>true</literal>, <literal>chrony</literal> sends a burst
+            of packets at startup to speed up the initial synchronization. Defaults to
+            <literal>false</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>offline</term>
+        <listitem>
+          <para>
+            Optional boolean. If <literal>true</literal>, the source is initially marked offline.
+            Useful for sources that require network connectivity that may not be present at boot
+            time. Defaults to <literal>false</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <note>
+      <title>Synchronizing time before &agama; starts</title>
+      <para>
+        If you need to synchronize the date and time before &agama; itself starts (for example, if
+        the system has no working clock), use the <literal>rd.ntp</literal> boot option instead of
+        the profile's <literal>ntp</literal> section.
+      </para>
+    </note>
+  </section>
+  <section xml:id="access-configuration-agama-installation-profile">
+    <title>Access configuration for an &agama; installation profile</title>
+    <para>
+      The <literal>access</literal> section configures how the installed system can be accessed
+      remotely, over SSH and the &agama; web console.
+    </para>
+    <example>
+      <title>Sample <literal>access</literal> configuration for an &agama; installation profile</title>
+<screen>
+"access": {
+  "ssh": "enabled",
+  "webConsole": "default"
+}
+</screen>
+    </example>
+    <para>
+      This section contains the following fields:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>ssh</term>
+        <listitem>
+          <para>
+            Whether SSH access is enabled. If omitted, SSH access is enabled automatically when
+            either the <literal>user</literal> or <literal>root</literal> section defines
+            <literal>sshPublicKeys</literal>. Supported values:
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <literal>enabled</literal>: ensures SSH is accessible. Root login using a password
+                can still be restricted by the product's default configuration.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>default</literal>: keeps the product's default behavior.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>webConsole</term>
+        <listitem>
+          <para>
+            Whether access to the &agama; web console is enabled. Supported values:
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <literal>enabled</literal>: ensures the web console is accessible. Root login can
+                still be prevented by the product's default configuration.
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                <literal>default</literal>: keeps the product's default behavior.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="questions-configuration-agama-installation-profile">
+    <title>Questions configuration for an &agama; installation profile</title>
+    <para>
+      The <literal>questions</literal> section automates the answers to questions the installer
+      would otherwise ask interactively, so an unattended installation does not stall waiting for
+      a response.
+    </para>
+    <example>
+      <title>Sample <literal>questions</literal> configuration for an &agama; installation profile</title>
+<screen>
+"questions": {
+  "policy": "auto",
+  "answers": [
+    {
+      "class": "storage.activate_multipath",
+      "answer": "yes"
+    },
+    {
+      "class": "storage.luks_activation",
+      "answer": "decrypt",
+      "password": "<replaceable>LUKS_PASSWORD</replaceable>",
+      "data": {
+        "device": "<replaceable>/dev/sda22</replaceable>"
+      }
+    }
+  ]
+}
+</screen>
+    </example>
+    <para>
+      The <literal>policy</literal> field determines the default behavior for questions that have
+      no matching predefined answer:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <literal>user</literal> (default): the installer prompts the user for a response.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>auto</literal>: the installer automatically selects the question's default
+          value. If the question has no default, the installation fails.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      Each entry in the <literal>answers</literal> list can contain the following fields:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <literal>class</literal>: a unique identifier for the question, for example
+          <literal>storage.activate_multipath</literal>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>text</literal>: optional. The full text of the question, used for matching.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>answer</literal>: the value to use as the answer.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>password</literal>: required only for questions that also need a password, such
+          as <literal>storage.luks_activation</literal> with the <literal>decrypt</literal> answer.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>data</literal>: optional object with additional key-value pairs to match the
+          question. Matching against <literal>data</literal> is a partial match: if your
+          entry's <literal>data</literal> is a subset of the question's data and all specified
+          values are identical, it counts as a match.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <warning>
+      <title>Avoid the <literal>Retry</literal> answer unless certain</title>
+      <para>
+        Using <literal>Retry</literal> as an answer can send the installation into an infinite
+        loop if the retried action is never going to succeed. Only use it when you are certain the
+        question will eventually succeed.
+      </para>
+    </warning>
+    <para>
+      The following question classes are currently available:
+    </para>
+    <table frame="all">
+      <title>Supported question classes</title>
+      <tgroup cols="3">
+        <thead>
+          <row><entry>Class</entry><entry>Description</entry><entry>Possible answers</entry></row>
+        </thead>
+        <tbody>
+          <row><entry><literal>autoyast.unsupported</literal></entry><entry>There are unsupported elements in an &ay; profile.</entry><entry><literal>Abort</literal>, <literal>Continue</literal></entry></row>
+          <row><entry><literal>software.medium_error</literal></entry><entry>There is an issue accessing the software medium.</entry><entry><literal>Retry</literal>, <literal>Skip</literal></entry></row>
+          <row><entry><literal>software.unsigned_file</literal></entry><entry>A file from a repository is not digitally signed.</entry><entry><literal>Yes</literal>, <literal>No</literal></entry></row>
+          <row><entry><literal>software.import_gpg</literal></entry><entry>A signature is signed with an unknown GPG key.</entry><entry><literal>Trust</literal>, <literal>Skip</literal></entry></row>
+          <row><entry><literal>software.unknown_gpg</literal></entry><entry>A file is signed by an unknown key.</entry><entry><literal>Trust</literal>, <literal>Skip</literal></entry></row>
+          <row><entry><literal>software.digest.no_digest</literal></entry><entry>A file is in a signed repository but not listed among the checksums.</entry><entry><literal>Yes</literal>, <literal>No</literal></entry></row>
+          <row><entry><literal>software.digest.unknown_digest</literal></entry><entry>A file's checksum is not known, or does not match (wrong checksum).</entry><entry><literal>Yes</literal>, <literal>No</literal></entry></row>
+          <row><entry><literal>software.package_error.medium_error</literal></entry><entry>A package failed to download from the medium.</entry><entry><literal>Retry</literal>, <literal>Continue</literal></entry></row>
+          <row><entry><literal>software.package_error.provide_error</literal></entry><entry>A package failed to be provided, for example due to an I/O error.</entry><entry><literal>Retry</literal>, <literal>Continue</literal></entry></row>
+          <row><entry><literal>software.script_error</literal></entry><entry>A package script failed.</entry><entry><literal>Retry</literal>, <literal>Continue</literal></entry></row>
+          <row><entry><literal>storage.activate_multipath</literal></entry><entry>The system appears to have multipath storage, and whether to activate it.</entry><entry><literal>yes</literal>, <literal>no</literal></entry></row>
+          <row><entry><literal>storage.commit_error</literal></entry><entry>Some storage actions failed, and whether to continue.</entry><entry><literal>yes</literal>, <literal>no</literal></entry></row>
+          <row><entry><literal>storage.luks_activation</literal></entry><entry>A LUKS-encrypted device is detected and needs a password to probe it.</entry><entry><literal>skip</literal>, <literal>decrypt</literal></entry></row>
+          <row><entry><literal>load.retry</literal></entry><entry>Asks whether to retry loading the profile.</entry><entry><literal>Yes</literal>, <literal>No</literal></entry></row>
+          <row><entry><literal>registration.certificate</literal></entry><entry>The registration server uses an unknown certificate.</entry><entry><literal>trust</literal>, <literal>reject</literal></entry></row>
+        </tbody>
+      </tgroup>
+    </table>
   </section>
 </topic>

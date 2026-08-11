@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="creating-agama-profile"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Creating an &agama; profile</title>
+    <!-- can be changed via merge in the assembly -->
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <!-- can be changed via merge in the assembly -->
+      <para>
+        This topic shows how to write a minimal &agama; profile with the basic configuration
+        needed for an automated installation.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="creating-agama-profile-requirements">
+    <title>Requirements</title>
+    <para>
+      The product identifier of your target product, and, if applicable, a registration code
+      and email.
+    </para>
+  </section>
+  <section xml:id="creating-agama-profile-executing">
+    <title>Writing a minimal profile</title>
+    <para>
+      A minimal &agama; JSON profile must at least include sections for product identification,
+      product registration, and credentials for the root user. &agama; uses the defaults for the
+      rest of the profile. As a best practice, you should also configure the following:
+    </para>
+    <itemizedlist>
+      <listitem><para>A host name</para></listitem>
+      <listitem><para>A non-root user</para></listitem>
+      <listitem><para>Minimal localization settings</para></listitem>
+    </itemizedlist>
+    <example xml:id="agama-minimal-profile">
+      <title>A minimal &agama; profile for automated installation</title>
+<screen>
+{
+  "product": {
+    "id": "<replaceable>PRODUCT_ID</replaceable>",
+    "registrationCode": "<replaceable>REGISTRATION_CODE</replaceable>",
+    "registrationEmail": "<replaceable>EMAIL</replaceable>"
+  },
+  "hostname": {
+    "static": "<replaceable>STATIC_HOSTNAME</replaceable>",
+    "transient": "<replaceable>TRANSIENT_HOSTNAME</replaceable>"
+  },
+  "root": {
+    "hashedPassword": true,
+    "password": "<replaceable>HASHED_ROOT_PASSWORD</replaceable>", <co xml:id="hashed-password"/>
+    "sshPublicKey": "<replaceable>SSH_PUBLIC_KEY</replaceable>" <co xml:id="ssh-pub-key"/>
+  },
+  "user": {
+    "hashedPassword": false,
+    "fullName": "<replaceable>FULL_NAME</replaceable>",
+    "userName": "<replaceable>USERNAME</replaceable>",
+    "password": "<replaceable>PLAINTEXT_PASSWORD</replaceable>",
+    "sshPublicKey": "<replaceable>SSH_PUBLIC_KEY</replaceable>" <co xml:id="user-ssh-pub-key"/>
+  },
+  "l10n": {
+    "locale": "<replaceable>LOCALE</replaceable>",
+    "keymap": "<replaceable>KEYMAP</replaceable>",
+    "timezone": "<replaceable>TIMEZONE</replaceable>"
+  }
+}
+</screen>
+      <calloutlist>
+        <callout arearefs="hashed-password">
+          <para>
+            See <xref linkend="root-authentication-agama-installation-profile"/> for how to
+            generate a hashed password.
+          </para>
+        </callout>
+        <callout arearefs="ssh-pub-key user-ssh-pub-key">
+          <para>
+            You can generate an SSH public key by running the following command:
+          </para>
+<screen>&prompt.sudo;<command>ssh-keygen -t rsa -b 4096 -C "<replaceable>YOUR_EMAIL@EXAMPLE.COM</replaceable>"
+</command></screen>
+          <para>
+            Based on your requirements, choose the key type and the key size. However, it is better
+            to adopt stronger security.
+          </para>
+        </callout>
+      </calloutlist>
+    </example>
+    <para>
+      To evaluate the correctness of the profile, run the following command:
+    </para>
+<screen>&prompt.root;<command>agama config validate <replaceable>AGAMA_PROFILE</replaceable>.json</command></screen>
+  </section>
+  <section xml:id="creating-agama-profile-full-example">
+    <title>A more complete example</title>
+    <para>
+      The following profile combines several sections into one working example: product
+      registration, root and user accounts, localization, software selection, a single-disk
+      storage layout using the product's default partitioning, a static network connection, a
+      boot loader timeout, and a post-installation script. Adapt the values to your own
+      environment; see <xref linkend="agama-installation-profile-details"/> for every field
+      each section accepts.
+    </para>
+    <example xml:id="agama-full-profile">
+      <title>A more complete &agama; profile for automated installation</title>
+<screen>
+{
+  "product": {
+    "id": "<replaceable>PRODUCT_ID</replaceable>", <co xml:id="full-product-id"/>
+    "registrationCode": "<replaceable>REGISTRATION_CODE</replaceable>",
+    "registrationEmail": "<replaceable>EMAIL</replaceable>"
+  },
+  "hostname": {
+    "static": "<replaceable>STATIC_HOSTNAME</replaceable>"
+  },
+  "root": {
+    "hashedPassword": true,
+    "password": "<replaceable>HASHED_ROOT_PASSWORD</replaceable>", <co xml:id="full-hashed-password"/>
+    "sshPublicKey": "<replaceable>SSH_PUBLIC_KEY</replaceable>" <co xml:id="full-ssh-pub-key"/>
+  },
+  "user": {
+    "fullName": "<replaceable>FULL_NAME</replaceable>",
+    "userName": "<replaceable>USERNAME</replaceable>",
+    "hashedPassword": false,
+    "password": "<replaceable>PLAINTEXT_PASSWORD</replaceable>"
+  },
+  "l10n": {
+    "locale": "<replaceable>LOCALE</replaceable>",
+    "keymap": "<replaceable>KEYMAP</replaceable>",
+    "timezone": "<replaceable>TIMEZONE</replaceable>"
+  },
+  "software": {
+    "patterns": ["minimal_base", "selinux"],
+    "packages": ["vim", "htop"]
+  },
+  "storage": {
+    "drives": [
+      { "partitions": [ { "generate": "default" } ] }
+    ]
+  },
+  "network": {
+    "connections": [
+      {
+        "id": "<replaceable>ETH0_CONNECTION</replaceable>",
+        "interface": "<replaceable>eth0</replaceable>",
+        "method4": "manual",
+        "addresses": ["<replaceable>192.168.100.10/24</replaceable>"],
+        "gateway4": "<replaceable>192.168.100.1</replaceable>",
+        "nameservers": ["<replaceable>192.168.100.1</replaceable>"],
+        "autoconnect": true
+      }
+    ]
+  },
+  "bootloader": {
+    "timeout": 5
+  },
+  "scripts": {
+    "post": [
+      {
+        "name": "enable-firewall",
+        "chroot": true,
+        "content": "#!/bin/bash\nsystemctl enable firewalld"
+      }
+    ]
+  }
+}
+</screen>
+      <calloutlist>
+        <callout arearefs="full-product-id">
+          <para>
+            Find the identifiers available on your installation medium by inspecting the
+            <package>agama-products</package> package's <filename>products.d/*.yaml</filename>
+            files, or by selecting the product interactively and running
+            <command>agama config show</command>.
+          </para>
+        </callout>
+        <callout arearefs="full-hashed-password">
+          <para>
+            Generate a hashed password the same way as in the minimal profile above (see
+            <xref linkend="root-authentication-agama-installation-profile"/>).
+          </para>
+        </callout>
+        <callout arearefs="full-ssh-pub-key">
+          <para>
+            Generate an SSH public key the same way as in the minimal profile above:
+            <command>ssh-keygen -t rsa -b 4096</command>.
+          </para>
+        </callout>
+      </calloutlist>
+    </example>
+  </section>
+  <section xml:id="creating-agama-profile-from-interactive">
+    <title>Generating a profile from an interactive installation</title>
+    <para>
+      Instead of writing a profile by hand, you can configure a system interactively through the
+      &agama; Web-based interface or CLI, then capture the resulting configuration as a profile
+      to reuse for future automated installations of similar systems.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Start the &agama; installer and configure the system interactively: product, storage,
+          network, users, and any other section you need. Do not start the installation yet.
+        </para>
+      </step>
+      <step>
+        <para>
+          Before &agama; installs the system, generate a profile from the current configuration:
+        </para>
+<screen>&prompt.root;<command>agama config show --output profile.json</command></screen>
+        <para>
+          Settings left at their default value are not included in the output.
+        </para>
+      </step>
+      <step>
+        <para>
+          Review <filename>profile.json</filename>, and remove or adjust anything specific to
+          this one machine, such as a static host name or address, before reusing it for other
+          installations.
+        </para>
+      </step>
+    </procedure>
+    <para>
+      The saved profile can then be loaded like any other, either with
+      <command>agama config load</command> during another interactive session, or by pointing
+      <literal>inst.auto</literal> at it for an unattended installation.
+    </para>
+  </section>
+  <section xml:id="creating-agama-profile-summary">
+    <title>Summary</title>
+    <para>
+      With the sections above in place, you have a working &agama; profile that installs
+      &productname; with a host name, a non-root user, and basic localization settings. Add
+      further sections, such as <literal>storage</literal>, <literal>network</literal>, or
+      <literal>software</literal>, as your deployment requires, or generate a starting point
+      automatically from an interactive installation with <command>agama config show</command>.
+    </para>
+  </section>
+</topic>

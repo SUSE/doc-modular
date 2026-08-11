@@ -18,81 +18,166 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Post-installation troubleshooting of automated installation using &agama;</title><!-- can be changed via merge
-in the assembly -->
-    <!-- add author's e-mail -->
+    <title>Post-installation troubleshooting of automated installation using &agama;</title>
+    <!-- can be changed via merge in the assembly -->
     <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
-    <abstract><!-- can be changed via merge in the assembly -->
+    <abstract>
+      <!-- can be changed via merge in the assembly -->
       <para>
-       Introductory text
+        This topic guides you through collecting &agama; installation logs for troubleshooting an
+        unattended installation, and saving them to a permanent location for later inspection or a
+        bug report.
       </para>
     </abstract>
   </info>
-  <section xml:id="task-example-introduction">
-    <title>Introduction</title>
+  <section xml:id="troubleshooting-agama-automated-installation-introduction">
+    <title>Why collect logs from the command line</title>
     <para>
-      A paragraph of text.
+      &agama; installation logs are what you need to diagnose why an unattended installation failed
+      or behaved unexpectedly. An unattended installation typically runs without an interactive
+      graphical session, so the command-line workflow described here is usually the most practical
+      way to get hold of them.
+    </para>
+    <para>
+      The installation itself runs from a RAM disk, so any logs you collect there are lost once the
+      live session ends or the system boots into the newly installed system. Always copy collected
+      logs to a permanent location before that happens.
     </para>
   </section>
-  <section xml:id="task-example-requirements">
+  <section xml:id="troubleshooting-agama-automated-installation-requirements">
     <title>Requirements</title>
     <itemizedlist>
       <listitem>
         <para>
-          An
+          Access to a shell on the machine running the &agama; installation, either directly on the
+          console or over SSH.
         </para>
       </listitem>
       <listitem>
         <para>
-          Unordered
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          List
+          A permanent location to copy the logs to: a networked machine reachable over
+          <command>scp</command>, or a mountable USB stick or SD card.
         </para>
       </listitem>
     </itemizedlist>
-    <para>
-      A paragraph of text.
-    </para>
   </section>
-  <section xml:id="task-example-executing">
-    <title>Executing the task</title>
+  <section xml:id="troubleshooting-agama-automated-installation-timing">
+    <title>Choosing when to collect the logs</title>
     <para>
-      A paragraph of text.
+      When you actually run the collection procedure below depends on how the installation went:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          If the installation completes, wait until the final page appears, then run it.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          If the installation crashes and you still have shell access, run it right after the
+          crash.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          If the whole live system hangs or crashes, try connecting over SSH from outside the
+          machine instead. SSH is enabled by default; set a root password with
+          <literal>live.password</literal> in advance so you can log in (see
+          <xref linkend="agama-boot-options-live-system"/>).
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="troubleshooting-agama-automated-installation-executing">
+    <title>Collecting and saving the logs</title>
+    <para>
+      Run the following procedure from a shell on the machine running the installation.
     </para>
     <procedure>
-      <para>
-        A short introduction to the procedure.
-      </para>
       <step>
         <para>
-          A step.
+          Collect and store the logs in a compressed archive:
+        </para>
+<screen>&prompt.root;<command>agama logs store</command></screen>
+        <para>
+          The command prints the exact path and file name where it stored the logs. See also
+          <xref linkend="agama-cli-logs-store"/> in the &agama; command-line reference.
         </para>
       </step>
       <step>
         <para>
-          A second step.
+          Copy the archive to a permanent location before the live session ends or the system
+          reboots. Choose one of the following methods.
         </para>
-      </step>
-      <step>
-        <para>
-          A third step.
-        </para>
+        <stepalternatives>
+          <step>
+            <para>
+              Copy the archive to a networked machine over <command>scp</command>, to a
+              non-privileged user's home directory rather than the world-writable
+              <filename>/tmp</filename> directory on the target:
+            </para>
+<screen>&prompt.root;<command>scp <replaceable>/tmp/agama-logs*.tar.gz</replaceable> <replaceable>user@myworkingmachine</replaceable>:</command></screen>
+            <para>
+              You can use an IP address instead of a host name. Find the installation machine's
+              address with <command>ip a</command>.
+            </para>
+          </step>
+          <step>
+            <para>
+              Copy the archive to a mounted USB stick or SD card:
+            </para>
+<screen>&prompt.root;<command>lsblk</command></screen>
+            <para>
+              Identify the device name from the output, then mount it, copy the archive, and unmount
+              it again:
+            </para>
+<screen>&prompt.root;<command>mount <replaceable>/dev/sdX1</replaceable> /mnt
+cp <replaceable>/tmp/agama-logs*.tar.gz</replaceable> /mnt
+umount /mnt</command></screen>
+            <para>
+              If <filename>/mnt</filename> is busy, create and use another mount point, such as
+              <filename>/mnt2</filename>, instead.
+            </para>
+          </step>
+        </stepalternatives>
       </step>
     </procedure>
   </section>
-  <section xml:id="task-example-summary">
-    <title>Summary</title>
+  <section xml:id="troubleshooting-agama-automated-installation-installed-system">
+    <title>Collecting logs after a successful installation</title>
     <para>
-      A paragraph of text, summing up the result of the task.
+      If the installation succeeded and you can boot into and log in to the newly installed
+      system, the &agama; installation logs are already preserved at
+      <filename>/var/log/agama-installation</filename>. No separate collection step is needed.
     </para>
   </section>
-  <section xml:id="task-example-troubleshooting">
-    <title>Troubleshooting</title>
+  <section xml:id="troubleshooting-agama-automated-installation-summary">
+    <title>Summary</title>
     <para>
-      Add some troubleshooting information, if applicable.
+      Use <command>agama logs store</command> to collect a compressed archive of the installation
+      logs, then copy that archive off the machine before the live session ends. For a system that
+      finished installing successfully, the logs are already preserved at
+      <filename>/var/log/agama-installation</filename> on the installed system.
     </para>
+  </section>
+  <section xml:id="troubleshooting-agama-automated-installation-troubleshooting">
+    <title>Troubleshooting</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          If you have no shell access because the system is hung and no root password was set at
+          boot, you will not be able to log in over SSH to collect logs from that session. Consider
+          adding the <literal>live.password</literal> boot option in future installation attempts
+          to keep this option available. See <xref linkend="agama-boot-options-live-system"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          If <command>agama logs store</command> fails or the archive seems incomplete, verify that
+          you are running the command inside the live installation environment, not on an already
+          rebooted target system.
+        </para>
+      </listitem>
+    </itemizedlist>
   </section>
 </topic>
