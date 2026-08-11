@@ -20,20 +20,40 @@
     <abstract>
       <para>
         This section explains how to configure NTP services using <systemitem>chrony</systemitem>
-        to provide accurate time synchronization for PXE clients during &productname;
-        &productnumber; installations. Proper time synchronization avoids certificate validation
-        errors and keeps system logs accurately timestamped during network-based installations.
+        to keep the PXE server's clock accurate and, where needed, provide time synchronization to
+        PXE clients during &productname; &productnumber; installations. Proper time
+        synchronization avoids certificate validation errors and keeps system logs accurately
+        timestamped during network-based installations.
       </para>
     </abstract>
   </info>
   <section xml:id="sles-pxe-server-configure-ntp-intro">
     <title>The role of NTP time synchronization in PXE boot</title>
     <para>
-      NTP services ensure accurate time synchronization across network infrastructure. For PXE boot
-      environments, synchronized time avoids certificate validation errors during HTTPS
-      connections, keeps log timestamps accurate and coordinates system operations. This section
-      provides basic NTP server configuration using <systemitem>chrony</systemitem>.
+      Synchronized time avoids certificate validation errors during HTTPS connections and keeps
+      log timestamps accurate, though NTP is not strictly required for a PXE deployment to work.
+      Whether the PXE server itself needs to serve time to PXE clients depends on your network:
     </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          If PXE clients can already reach an NTP source other than the PXE server, such as a
+          gateway or router operated separately from it (the setup used throughout the rest of
+          this article, where the sample network's NTP server is the gateway at
+          <literal>192.168.1.1</literal>), you only need <systemitem>chrony</systemitem> to keep
+          the PXE server's own clock accurate. PXE clients get their NTP server address from that
+          external source via DHCP, not from the PXE server.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          If the PXE server also acts as the network's gateway, for example in an air-gapped or
+          isolated test network with no other NTP source reachable by clients, configure
+          <systemitem>chrony</systemitem> on the PXE server to also serve time to those clients,
+          as shown below.
+        </para>
+      </listitem>
+    </itemizedlist>
   </section>
   <section xml:id="sles-pxe-server-configure-ntp-reqs">
     <title>Requirements for configuring chrony NTP services</title>
@@ -70,6 +90,23 @@
         </para>
 <screen>&prompt.sudo;<command>systemctl enable --now chronyd.service</command></screen>
       </step>
+      <step>
+        <para>
+          Optional: if PXE clients cannot reach an NTP source other than the PXE server itself,
+          for example because the PXE server also acts as the network's gateway, allow them to
+          sync time from this server:
+        </para>
+<screen>&prompt.sudo;<command>cat &gt;&gt; /etc/chrony.conf &lt;&lt; 'EOF'</command>
+# Allow NTP clients on the PXE network to sync from this server
+allow 192.168.1.0/24
+allow 2001:db8:0:1::/64
+EOF
+</screen>
+        <para>
+          Restart <systemitem>chrony</systemitem> to apply the change:
+        </para>
+<screen>&prompt.sudo;<command>systemctl restart chronyd.service</command></screen>
+      </step>
     </procedure>
   </section>
   <section xml:id="sles-pxe-server-configure-ntp-verify">
@@ -102,6 +139,13 @@
           Check NTP server statistics:
         </para>
 <screen>&prompt.user;<command>chronyc sourcestats</command></screen>
+      </step>
+      <step>
+        <para>
+          Optional: if you configured <systemitem>chrony</systemitem> to serve PXE clients, verify
+          the <literal>allow</literal> directive is in place:
+        </para>
+<screen>&prompt.user;<command>grep allow /etc/chrony.conf</command></screen>
       </step>
     </procedure>
   </section>
