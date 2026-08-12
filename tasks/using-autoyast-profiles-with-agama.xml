@@ -20,264 +20,117 @@
   <info>
     <title>Using &ay; profiles with &agama;</title>
     <!-- can be changed via merge in the assembly -->
-    <!--add author's email address-->
     <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
     <abstract>
       <!-- can be changed via merge in the assembly -->
       <para>
-        &agama; introduces a modern, declarative installation framework that diverges significantly
-        from the legacy &ay; system, even though both aim to automate &productname;
-        deployments. While partial reuse of existing &ay; profiles is possible, direct
-        compatibility is limited due to schema differences, semantic mismatches, and architectural
-        shifts. This topic outlines how to load &ay; profiles in &agama;, identifies
-        supported modules, and offers practical guidance for converting legacy profiles using
-        recommended tools and conventions.
+        &agama; can reuse an existing &ay; profile for automated installation by converting it
+        into its own JSON format, instead of requiring you to rewrite it from scratch. Support is
+        not complete: some &ay; sections have no equivalent in &agama;, or behave differently.
+        This topic shows how to convert an &ay; profile using the &agama; CLI and what to check
+        afterward.
       </para>
     </abstract>
   </info>
-  <section xml:id="benefits-using-autoyast-profiles-in-agama">
-    <title>Benefits of using &ay; profiles in &agama;</title>
+  <section xml:id="using-autoyast-profiles-with-agama-introduction">
+    <title>What &agama; does with an &ay; profile</title>
     <para>
-      Reusing existing &ay; profiles in &agama; provides a pragmatic starting point for teams
-      migrating to the new installer without discarding prior investments. Although direct
-      compatibility is limited, leveraging &ay; profiles accelerates transition efforts by
-      retaining core configuration logic, organizational conventions, and validated deployment
-      workflows.
+      The <command>agama config generate</command> command accepts a path or URL and converts its
+      content into a native &agama; JSON configuration. It recognizes an &ay; profile
+      automatically: if the given path or URL ends in <literal>.xml</literal>,
+      <literal>.erb</literal>, or a trailing slash (for a <literal>rules</literal> or
+      <literal>classes</literal> directory), &agama; downloads and processes it as &ay;
+      content, evaluating any Embedded Ruby (ERB) templating or rules/classes selection along the
+      way, before converting the result to JSON. Any other input is treated as an already
+      &agama;-native JSON or Jsonnet profile and passed through unchanged.
     </para>
     <para>
-      Using &ay; profiles in &agama; has the following benefits:
+      &agama; is not a drop-in replacement for &ay;, and the conversion does not cover every
+      &ay; section. For the exact list of which &ay; elements are supported, and which
+      &agama; field they map to, refer to
+      <xref linkend="autoyast-agama-compatibility-reference"/>.
     </para>
-    <variablelist>
-      <varlistentry>
-        <term>Reduced duplication of effort</term>
-        <listitem>
-          <para>
-            Existing infrastructure-as-code assets can inform &agama; profile structure, minimizing
-            rework.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>Faster onboarding</term>
-        <listitem>
-          <para>
-            Administrators familiar with &ay; can map known modules to &agama; fields
-            incrementally.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>Incremental migration</term>
-        <listitem>
-          <para>
-            Supported &ay; elements can be reused while unsupported ones are refactored or
-            omitted over time.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>Validation of system assumptions</term>
-        <listitem>
-          <para>
-            Reviewing legacy profiles helps surface deprecated patterns and adapt them to &agama;’s
-            declarative model.
-          </para>
-        </listitem>
-      </varlistentry>
-    </variablelist>
   </section>
-  <section xml:id="limitations-using-autoyast-profiles-in-agama">
-    <title>Limitations of using &ay; profiles in &agama;</title>
-    <para>
-      While reusing &ay; profiles in &agama; may provide a head start during migration, it
-      also introduces significant limitations. The fundamental differences in schema structure,
-      execution model, and configuration philosophy mean that &ay;-based profiles can
-      constrain the effectiveness and clarity of &agama; workflows if carried over directly.
-    </para>
-    <para>
-      Using &ay; profiles in &agama; has the following limitations:
-    </para>
-    <variablelist>
-      <varlistentry>
-        <term>Procedural bias</term>
-        <listitem>
-          <para>
-            &ay; profiles often rely on execution order, embedded scripts, and imperative
-            constructs, which have no counterpart in &agama;’s declarative design.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>Semantic mismatch</term>
-        <listitem>
-          <para>
-            Many &ay; modules encapsulate behavior or assumptions not explicitly modeled in
-            &agama;, leading to subtle incompatibilities or misconfigurations during reuse.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>Reduced transparency</term>
-        <listitem>
-          <para>
-            Profiles imported from &ay; tend to obscure the declarative simplicity of
-            &agama;, making troubleshooting and peer review harder.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>Missed modernization opportunities</term>
-        <listitem>
-          <para>
-            Clinging to legacy profiles may prevent users from fully adopting &agama;’s modular,
-            readable, and cloud-native configuration style.
-          </para>
-        </listitem>
-      </varlistentry>
-    </variablelist>
-  </section>
-  <section xml:id="loading-autoyast-profiles-with-agama">
-    <title>Loading &ay; profiles with &agama;</title>
-    <para>
-      &agama; supports loading &ay; profiles as part of its transitional support for legacy
-      automation systems. This allows administrators to reuse existing configuration assets while
-      gradually migrating to the native &agama; profile format. Several loading mechanisms are
-      available depending on the deployment context and profile structure.
-    </para>
-    <procedure xml:id="proc-loading-autoyast-agama">
-      <title>Loading an &ay; profile using &agama;</title>
-      <para>
-        Use the following steps to load an &ay; profile in &agama;. Profiles can be supplied
-        either through kernel boot parameters or imported using the &agama; CLI.
-      </para>
-      <step>
+  <section xml:id="using-autoyast-profiles-with-agama-requirements">
+    <title>Requirements</title>
+    <itemizedlist>
+      <listitem>
         <para>
-          Select a method for providing the &ay; profile to &agama;:
+          An existing &ay; profile, reachable as a local path or a URL from the machine running
+          the &agama; CLI. The profile can use ERB templating or rules/classes selection.
         </para>
-        <stepalternatives>
-          <step>
-            <para>
-              Load the profile using a kernel boot parameter. Add the <literal>inst.auto</literal>
-              parameter to the kernel command line and specify the URL of the &ay; profile:
-            </para>
-<screen>&prompt.sudo;<command>linux inst.auto=<replaceable>http://EXAMPLE.NET/AGAMA/SLES.xml</replaceable></command></screen>
-            <para>
-              This method is commonly used in PXE boot setups or custom ISO builds.
-            </para>
-          </step>
-          <step>
-            <para>
-              Import the profile using the &agama; CLI. Run the following command to fetch and
-              preprocess the &ay; profile:
-            </para>
-<screen>&prompt.sudo;<command>agama profile import <replaceable>URL</replaceable></command></screen>
-            <para>
-              Supported formats include:
-            </para>
-            <itemizedlist>
-              <listitem>
-                <para>
-                  &agama; profiles: <literal>.json</literal>, <literal>.jsonnet</literal>,
-                  <literal>.sh</literal>
-                </para>
-              </listitem>
-              <listitem>
-                <para>
-                  &ay; profiles: <literal>.xml</literal>, <literal>.erb</literal>, and
-                  directories such as <literal>rules/</literal> or <literal>classes/</literal>
-                </para>
-              </listitem>
-            </itemizedlist>
-            <para>
-              For more information on supported URL types, refer to
-              <link xlink:href="https://agama-project.github.io/docs/user/reference/urls"></link>.
-            </para>
-            <para>
-              When importing &ay; content, the CLI automatically evaluates dynamic features
-              such as:
-            </para>
-            <itemizedlist>
-              <listitem>
-                <para>
-                  Rules and classes for conditional profile selection
-                </para>
-              </listitem>
-              <listitem>
-                <para>
-                  Embedded Ruby (ERB) for template-based profile generation
-                </para>
-              </listitem>
-              <listitem>
-                <para>
-                  Pre-installation scripts to dynamically modify profile content
-                </para>
-              </listitem>
-            </itemizedlist>
-          </step>
-        </stepalternatives>
-      </step>
-      <step>
+      </listitem>
+      <listitem>
         <para>
-          Display the loaded or imported profile, or pipe it to a JSON file:
+          Familiarity with which &ay; sections &agama; supports, to review after conversion. See
+          <xref linkend="autoyast-agama-compatibility-reference"/>.
         </para>
-<screen>&prompt.sudo;<command>agama config show &gt; profile.json</command></screen>
-      </step>
-    </procedure>
+      </listitem>
+    </itemizedlist>
   </section>
-  <section xml:id="best-practices-convert-autoyast-profiles-to-agama-profiles">
-    <title>Best practices for converting &ay; profiles to &agama; profiles</title>
-    <para>
-      Converting &ay; profiles to &agama; profiles involves transforming the original XML
-      into &agama;'s JSON or Jsonnet format. This procedure outlines the recommended steps using
-      the &agama; CLI.
-    </para>
-    <procedure xml:id="proc-convert-autoyast-to-agama">
-      <title>Best practices for converting &ay; profiles to &agama; profiles</title>
+  <section xml:id="using-autoyast-profiles-with-agama-executing">
+    <title>Converting and using an &ay; profile</title>
+    <procedure xml:id="proc-using-autoyast-profiles-with-agama">
       <step>
         <para>
-          Convert the &ay; profile to a JSON file by piping the CLI output to a destination
+          Convert the &ay; profile to a native &agama; JSON profile, writing the result to a
           file:
         </para>
-<screen>&prompt.sudo;<command>agama profile autoyast <replaceable>http://EXAMPLE.NET/AUTOYAST.xml</replaceable> > <replaceable>profile.json</replaceable></command></screen>
+<screen>&prompt.root;<command>agama config generate <replaceable>http://example.net/autoyast/profile.xml</replaceable> &gt; profile.json</command></screen>
+      </step>
+      <step>
         <para>
-          This command fetches and processes the &ay; profile, then writes the resulting
-          &agama;-compatible JSON to the specified file.
+          Validate the converted profile against the &agama; profile schema:
+        </para>
+<screen>&prompt.root;<command>agama config validate profile.json</command></screen>
+      </step>
+      <step>
+        <para>
+          Open <filename>profile.json</filename> in a text editor and review it against
+          <xref linkend="autoyast-agama-compatibility-reference"/>. The converter simply omits
+          any &ay; element it does not support from the generated profile, so review it for
+          missing configuration rather than relying on <command>agama config validate</command>
+          to catch it: validation only rejects a profile that is itself malformed, not one that is
+          silently missing settings the source &ay; profile had.
         </para>
       </step>
       <step>
         <para>
-          Validate the converted profile:
+          Load the reviewed profile into the running &agama; installation session:
         </para>
-<screen>&prompt.sudo;<command>agama profile validate <replaceable>profile.json</replaceable></command></screen>
-        <para>
-          This ensures schema compliance and helps identify any unsupported or misconverted fields.
-        </para>
-      </step>
-      <step>
-        <para>
-          Manually rework or remove unsupported sections, using &agama;'s schema documentation as a
-          reference.
-        </para>
-      </step>
-      <step>
-        <para>
-          If you require dynamic behavior, convert the profile to Jsonnet. You can then evaluate it
-          to JSON:
-        </para>
-<screen>&prompt.sudo;<command>agama profile evaluate <replaceable>profile.jsonnet</replaceable> &gt; <replaceable>profile.json</replaceable></command></screen>
-      </step>
-      <step>
-        <para>
-          Test the final profile by loading it into an &agama; installation session:
-        </para>
-<screen>&prompt.sudo;<command>agama config load <replaceable>profile.json</replaceable></command></screen>
-      </step>
-      <step>
-        <para>
-          Make final edits to the loaded profile before starting installation:
-        </para>
-<screen>&prompt.sudo;<command>agama config edit</command></screen>
+<screen>&prompt.root;<command>agama config load profile.json</command></screen>
       </step>
     </procedure>
+  </section>
+  <section xml:id="using-autoyast-profiles-with-agama-summary">
+    <title>Summary</title>
+    <para>
+      <command>agama config generate</command> lets you carry over an existing &ay; profile
+      instead of writing an &agama; profile from scratch, but the two formats are not fully
+      compatible. Always validate and review the converted profile before loading it, so
+      unsupported &ay; sections are caught before installation rather than during it.
+    </para>
+  </section>
+  <section xml:id="using-autoyast-profiles-with-agama-troubleshooting">
+    <title>Troubleshooting</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          If the installed system is missing configuration that was present in the original
+          &ay; profile, check <xref linkend="autoyast-agama-compatibility-reference"/> for
+          that section. &agama; reports an unsupported field in the web interface when the
+          profile is loaded, though a command started from the CLI may otherwise appear to make
+          no progress; check the web interface if that happens.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          If your &ay; profile relies heavily on the <literal>partitioning</literal> section and
+          converting it to the native &agama; <literal>storage</literal> format is impractical,
+          consider using the <literal>legacyAutoyastStorage</literal> section instead, described
+          in <link xlink:href="https://documentation.suse.com/sles/16.0/html/SLES-x86-64-agama-automated-installation/index.html#agama-advanced-storage-configuration">Advanced storage configuration using &agama; profiles</link>.
+        </para>
+      </listitem>
+    </itemizedlist>
   </section>
 </topic>

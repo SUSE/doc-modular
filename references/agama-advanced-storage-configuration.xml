@@ -20,63 +20,32 @@
   <info>
     <title>Advanced storage configuration using &agama; profiles</title>
     <!-- can be changed via merge in the assembly -->
-    <!--add author's email address-->
     <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
     <abstract>
       <!-- can be changed via merge in the assembly -->
       <para>
-        Storage configuration in &agama; is one of the most powerful and flexible components of the
-        automated installation process. It allows you to declaratively define everything from
-        simple partition layouts to sophisticated combinations&mdash;all before the system is
-        booted for the first time.
+        The <literal>storage</literal> section of an &agama; profile lets you declaratively define
+        the target disk layout, from simple partition schemes to complex combinations of
+        partitions, LVM, and software RAID, all before the system boots for the first time.
       </para>
 
       <para>
         This section illustrates several common use cases with examples. For an exhaustive
         reference of all elements, refer to the schema
-        <link xlink:href="https://github.com/agama-project/agama/blob/master/rust/agama-lib/share/storage.schema.json"></link>.
+        <link xlink:href="https://github.com/agama-project/agama/blob/master/rust/share/storage.schema.json"/>.
       </para>
     </abstract>
   </info>
   <section xml:id="schema-basics-agama-storage">
     <title>Basic structure of the <literal>storage</literal> schema</title>
     <para>
-      A <literal>storage</literal> section contains several entries describing how to configure the
-      corresponding storage devices, and some extra entries such as <literal>boot</literal> to
-      setup some general aspects that influence the final layout.
+      This section builds on the <literal>storage</literal> section introduced in
+      <xref linkend="storage-configuration-agama-installation-profile"/>, going into more detail on
+      how to describe devices, match existing hardware, size volumes, and control booting.
     </para>
     <para>
-      Each volume group or software RAID can represent a new logical device to be created, or an
-      existing device from the system to be processed. Entries below <literal>drives</literal>
-      represent devices that can be used as regular disks, which includes removable and fixed
-      disks, SD cards, DASD or zFCP devices, iSCSI disks, and multipath devices. Those entries
-      always correspond to devices that can be found at the system, because &agama; cannot create
-      that kind of devices.
-    </para>
-    <example>
-      <title>Top-level <literal>storage</literal> section syntax</title>
-<screen>
-"storage": {
-  "drives": [ ... ],
-  "volumeGroups": [ ... ],
-  "mdRaids": [ ... ],
-  "boot": { ... }
-}
-    </screen>
-    </example>
-    <note>
-      <title>Compatibility with legacy &ay; storage</title>
-      <para>
-        In some cases, <literal>storage</literal> can be replaced by the
-        <literal>legacyAutoyastStorage</literal> section. This section supports everything offered
-        by the <literal>partitioning</literal> section of the &ay; profile. However, &agama;
-        does not validate this special section&mdash;be careful to provide valid &ay;
-        options.
-      </para>
-    </note>
-    <para>
-      The following sections illustrate certain common use-cases with examples. Before execution,
-      it is recommended to validate the configurations using the tools provided by &agama;.
+      The following sections illustrate common use cases with examples. Before running an
+      installation, validate the configuration using the tools provided by &agama;.
     </para>
   </section>
   <section xml:id="describe-devices-agama-storage">
@@ -96,7 +65,7 @@
   "partitions": [ ... ],
   "ptableType": "..."
 }
-    </screen>
+</screen>
     </example>
     <para>
       Usually, a device represented by a <literal>drive</literal> entry is divided into several
@@ -116,10 +85,10 @@
   "delete": ...,
   "deleteIfNeeded": ...
 }
-    </screen>
+</screen>
     </example>
     <para>
-      Drives and partitions can be combined such that the one disk is used to create partitions and
+      Drives and partitions can be combined such that one disk is used to create partitions and
       the other is directly formatted.
     </para>
     <example>
@@ -140,7 +109,7 @@
       ]
     },
     {
-      "filesystem": { "path": "/home" },
+      "filesystem": { "path": "/home" }
     }
   ]
 }
@@ -161,7 +130,7 @@
   "peSize": ... ,
   "delete": ...
 }
-    </screen>
+</screen>
     </example>
     <para>
       Entries of <literal>logicalVolumes</literal> are relatively similar to the ones used to
@@ -184,7 +153,7 @@
   "delete": ...,
   "deleteIfNeeded": ...
 }
-    </screen>
+</screen>
     </example>
     <para>
       To understand how all the previously described elements fit together, consider the following
@@ -226,7 +195,7 @@
     }
   ]
 }
-    </screen>
+</screen>
     </example>
     <para>
       &agama; can also manage software-defined MD RAID arrays represented as entries at the
@@ -384,7 +353,7 @@
     <para>
       If there is not a single system device matching the scope and the conditions of a given
       search, then <literal>ifNotFound</literal> is used. If the value is <literal>skip</literal>,
-      the device definition is ignored. If the value is <literal>"error"</literal> the whole
+      the device definition is ignored. If the value is <literal>error</literal>, the whole
       process is aborted.
     </para>
     <para>
@@ -417,8 +386,8 @@
 </screen>
     </example>
     <para>
-      The string <literal>*</literal> allows to match all the devices from the current context, if
-      any. This is specially useful to match all partitions or logical volumes in a device,
+      The string <literal>*</literal> allows you to match all the devices from the current context,
+      if any. This is especially useful to match all partitions or logical volumes in a device,
       irrespective of whether there is any. For example, the two following search sections are
       equivalent:
     </para>
@@ -431,6 +400,95 @@
 { "search": { "ifNotFound": "skip" } }
 </screen>
     </example>
+  </section>
+  <section xml:id="additional-search-conditions-agama-storage">
+    <title>Additional search conditions</title>
+    <para>
+      Besides matching by name, size, or partition number, a <literal>search</literal> section's
+      <literal>condition</literal> also accepts the following conditions. Availability depends on
+      the kind of device: <literal>driver</literal> and <literal>boss</literal> apply only to
+      <literal>drives</literal>; <literal>id</literal> applies only to <literal>partitions</literal>;
+      <literal>filesystem</literal> and <literal>partitions</literal> apply to
+      <literal>drives</literal>, <literal>partitions</literal>, and <literal>mdRaids</literal>
+      (except that a <literal>partitions</literal> condition on a <literal>partitions</literal>
+      entry does not make sense, since partitions do not themselves contain partitions).
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><literal>filesystem</literal></term>
+        <listitem>
+          <para>
+            Matches by the presence, type, or label of a file system. Use the shortcut string
+            <literal>"any"</literal> to match formatted devices, or <literal>"none"</literal> to
+            match unformatted ones; otherwise provide an object with <literal>type</literal> or
+            <literal>label</literal>.
+          </para>
+<screen>{ "search": { "condition": { "filesystem": "any" } } }
+{ "search": { "condition": { "filesystem": { "type": "xfs" } } } }
+{ "search": { "condition": { "filesystem": { "label": "DATA" } } } }</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>id</literal></term>
+        <listitem>
+          <para>
+            Matches a partition by its libstorage-ng partition id, such as <literal>esp</literal>,
+            <literal>bios_boot</literal>, <literal>linux</literal>, <literal>swap</literal>,
+            <literal>lvm</literal>, or <literal>raid</literal>.
+          </para>
+<screen>{ "search": { "condition": { "id": "esp" } } }</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>driver</literal></term>
+        <listitem>
+          <para>
+            Matches drives handled by the given kernel driver, as reported by
+            <command>hwinfo</command>. A drive can be handled by several drivers; the condition
+            matches if any of them is the given one.
+          </para>
+<screen>{ "search": { "condition": { "driver": "ahci" } } }</screen>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>boss</literal></term>
+        <listitem>
+          <para>
+            Boolean. Whether the drive is a BOSS (Boot Optimized Storage Solution) device, a
+            technology introduced by Dell. Use <literal>false</literal> to match any other drive.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>partitions</literal></term>
+        <listitem>
+          <para>
+            Matches a drive or MD RAID by the presence or properties of its partitions. Use the
+            shortcut string <literal>"any"</literal> or <literal>"none"</literal> for presence
+            alone, or an object with <literal>any</literal>, <literal>none</literal>,
+            <literal>all</literal>, or <literal>count</literal> to match against a nested
+            condition.
+          </para>
+<screen>{ "search": { "condition": { "partitions": "any" } } }
+{ "search": { "condition": { "partitions": { "any": { "size": { "greater": "10 GiB" } } } } } }
+{ "search": { "condition": { "partitions": { "count": { "min": 2, "max": 3 } } } } }</screen>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+    <para>
+      Combine conditions with <literal>and</literal>, <literal>or</literal>, and
+      <literal>not</literal> operators, each taking one or more nested conditions:
+    </para>
+<screen>{
+  "search": {
+    "condition": {
+      "and": [
+        { "boss": false },
+        { "size": { "greater": "100 GiB" } }
+      ]
+    }
+  }
+}</screen>
   </section>
   <section xml:id="reference-other-devices-agama-storage">
     <title>Referencing other devices</title>
@@ -463,7 +521,7 @@
     </example>
     <para>
       If a section matching several existing devices contains an alias, that alias is considered as
-      a reference to all the devices. Consider the following equivalent examples that assumes there
+      a reference to all the devices. Consider the following equivalent examples that assume there
       are at least two disks in the system:
     </para>
     <example>
@@ -474,14 +532,14 @@
     {
       "search": {
         "sort": { "size": "desc" },
-        "max": 1,
+        "max": 1
       },
       "alias": "biggest"
     },
     {
       "search": {
         "sort": { "size": "desc" },
-        "max": 1,
+        "max": 1
       },
       "alias": "secondBiggest"
     }
@@ -499,7 +557,7 @@
     {
       "search": {
         "sort": { "size": "desc" },
-        "max": 2,
+        "max": 2
       },
       "alias": "big"
     }
@@ -536,7 +594,7 @@
       If the size property is completely omitted for an existing device (for example, combined with
       search), &agama; acts as if both minimum and maximum limits were set to
       <literal>current</literal>. This characteristic implies that the partition or logical volume
-      are not be resized. If the size is omitted for a device that will be created but includes a
+      is not resized. If the size is omitted for a device that will be created but includes a
       file system entry specifying a mount point, &agama; can determine the size limits by applying
       the settings of the installation product. In &agama; terminology, the product is the
       operating system being installed, and it specifies the default size ranges for its relevant
@@ -548,7 +606,7 @@
     <title>Partition needed for booting</title>
     <para>
       You can use the <literal>boot</literal> entry to configure whether &agama; should calculate
-      and create extra partitions needed for booting. The behavior is same when using an alias. If
+      and create extra partitions needed for booting. The behavior is the same when using an alias. If
       the device is not specified, &agama; takes the location of the root file system as reference.
     </para>
     <example>
@@ -606,7 +664,7 @@
       these flags is active for a partition, it is illogical to specify any other usage for it,
       such as declaring a file system. For example, you can configure the proposal to
       unconditionally delete partition number <literal>1</literal> and then conditionally delete
-      other partitions as needed to secure the space for a new <literal>30 Gib</literal> partition.
+      other partitions as needed to secure the space for a new <literal>30 GiB</literal> partition.
     </para>
     <example>
       <title>Deleting and shrinking existing devices</title>
@@ -666,16 +724,13 @@
 }
 </screen>
     <para>
-      You can use other combinations to specify how a device could be resized, if possible. See the
-      following examples with explanatory file system labels.
+      You can use other combinations to specify how a device could be resized, if possible. The
+      following examples match existing partitions by their file system label (set beforehand
+      with a tool such as <command>e2label</command> or during a prior installation), using the
+      <literal>filesystem</literal> search condition's <literal>label</literal> field.
     </para>
-    <warning>
-      <para>
-        The condition <literal>fsLabel</literal> is not yet implemented.
-      </para>
-    </warning>
     <example>
-      <title>Deleting and shrinking of existing devices including the <literal>fsLabel</literal> condition for file system labels</title>
+      <title>Deleting and shrinking of existing devices matched by file system label</title>
 <screen>
 "storage": {
   "drives": [
@@ -683,28 +738,28 @@
       "partitions": [
         {
           "search": {
-            "condition": { "fsLabel": "shrinkIfNeeded" }
+            "condition": { "filesystem": { "label": "shrinkIfNeeded" } }
           },
           "size": { "min": 0, "max": "current" }
         },
         {
           "search": {
-            "condition": { "fsLabel": "resizeToFixedSize" }
+            "condition": { "filesystem": { "label": "resizeToFixedSize" } }
           },
           "size": "15 GiB"
         },
         {
           "search": {
-            "condition": { "fsLabel": "resizeByRange" }
+            "condition": { "filesystem": { "label": "resizeByRange" } }
           },
           "size": { "min": "10 GiB", "max": "50 GiB" }
         },
         {
           "search": {
-            "condition": { "fsLabel": "growAsMuchAsPossible" }
+            "condition": { "filesystem": { "label": "growAsMuchAsPossible" } }
           },
           "size": { "min": "current" }
-        },
+        }
       ]
     }
   ]
