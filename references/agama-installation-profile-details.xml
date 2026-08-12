@@ -76,18 +76,6 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term>mode</term>
-        <listitem>
-          <para>
-            Optional installation mode. Some products support more than one mode, changing how the
-            installed system behaves. For example, &productname; supports
-            <literal>standard</literal> and <literal>immutable</literal> (an immutable OS using
-            transactional updates). If omitted, the product uses its traditional default behavior;
-            it is preferred to specify the mode explicitly.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
         <term>registrationCode</term>
         <listitem>
           <para>
@@ -268,7 +256,6 @@
             <filename>~/.ssh/authorized_keys</filename> file. This allows passwordless &rootuser;
             login over SSH. The key must be in OpenSSH format. For example, starting with
             <literal>ssh-rsa</literal> or <literal>ssh-ed25519</literal>.
-            <literal>sshPublicKeys</literal> is an accepted alias with identical behavior.
           </para>
           <para>
             You can generate an SSH public key by running the following command:
@@ -297,8 +284,7 @@
   "hashedPassword": false,
   "fullName": "<replaceable>FULL_NAME</replaceable>",
   "userName": "<replaceable>LOGIN_NAME</replaceable>",
-  "password": "<replaceable>USER_PASSWORD</replaceable>",
-  "sshPublicKey": "<replaceable>SSH_PUBLIC_KEY</replaceable>"
+  "password": "<replaceable>USER_PASSWORD</replaceable>"
 }
 </screen>
     </example>
@@ -341,18 +327,6 @@
             The user's password, in plain text or pre-hashed, depending on the
             <literal>hashedPassword</literal> flag. If plaintext is provided, it will be
             automatically hashed.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>sshPublicKey</term>
-        <listitem>
-          <para>
-            An optional SSH public key, or list of keys, to be added to the user's
-            <filename>~/.ssh/authorized_keys</filename> file, in the same format as
-            &rootuser;'s <literal>sshPublicKey</literal> (see
-            <xref linkend="root-authentication-agama-installation-profile"/>).
-            <literal>sshPublicKeys</literal> is an accepted alias with identical behavior.
           </para>
         </listitem>
       </varlistentry>
@@ -714,17 +688,6 @@
             Additional kernel command-line parameters to append to the default ones during boot.
             These are passed directly to the Linux kernel. For example,
             <literal>console=ttyS0</literal> or <literal>quiet splash</literal>.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>updateNvram</term>
-        <listitem>
-          <para>
-            Available since &suselinux; 16.1. Optional boolean. Determines whether the
-            installer modifies the system's NVRAM (Non-Volatile RAM) to update the boot order or
-            entries. If set to <literal>false</literal>, the NVRAM is left untouched, which is
-            useful for preserving an existing boot manager or specific firmware configuration.
           </para>
         </listitem>
       </varlistentry>
@@ -1741,7 +1704,6 @@
       "channel": "<replaceable>0.0.fb00</replaceable>",
       "wwpn": "<replaceable>0x500507630300c563</replaceable>",
       "lun": "<replaceable>0x4010403300000000</replaceable>",
-      "active": false
     }
   ]
 }
@@ -1791,172 +1753,6 @@
             <listitem>
               <para>
                 <literal>lun</literal>: the Logical Unit Number of the disk volume.
-              </para>
-            </listitem>
-            <listitem>
-              <para>
-                <literal>active</literal>: optional boolean to explicitly enable or disable the
-                disk. If a device is listed here without its controller also listed under
-                <literal>controllers</literal>, &agama; activates that controller automatically.
-              </para>
-            </listitem>
-          </itemizedlist>
-        </listitem>
-      </varlistentry>
-    </variablelist>
-  </section>
-  <section xml:id="ntp-configuration-agama-installation-profile">
-    <title>Network Time Protocol configuration for an &agama; installation profile</title>
-    <para>
-      Having the correct date and time during installation matters: an incorrect clock can
-      cause unexpected errors. The &agama; installation medium ships <literal>chrony</literal>,
-      which synchronizes the system clock automatically. The optional <literal>ntp</literal>
-      section lets you force &agama; to synchronize using specific NTP sources instead, and copies
-      that configuration to the installed system.
-    </para>
-    <example>
-      <title>Sample <literal>ntp</literal> configuration for an &agama; installation profile</title>
-<screen>
-"ntp": {
-  "sources": [
-    {
-      "type": "pool",
-      "address": "<replaceable>2.opensuse.pool.ntp.org</replaceable>",
-      "iburst": true,
-      "offline": false
-    }
-  ]
-}
-</screen>
-    </example>
-    <para>
-      The <literal>sources</literal> list defines the systems to synchronize with. Each source
-      supports the following fields:
-    </para>
-    <variablelist>
-      <varlistentry>
-        <term>address</term>
-        <listitem>
-          <para>
-            The host name or IP address of the NTP source.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>type</term>
-        <listitem>
-          <para>
-            The type of NTP source:
-          </para>
-          <itemizedlist>
-            <listitem>
-              <para>
-                <literal>pool</literal>: a pool of NTP servers (for example,
-                <literal>pool.ntp.org</literal>); the pool name resolves to multiple servers and
-                <literal>chrony</literal> picks the best ones.
-              </para>
-            </listitem>
-            <listitem>
-              <para>
-                <literal>server</literal>: a specific NTP server to synchronize with.
-              </para>
-            </listitem>
-            <listitem>
-              <para>
-                <literal>peer</literal>: an NTP peer for symmetric (bidirectional) time exchange.
-              </para>
-            </listitem>
-          </itemizedlist>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>iburst</term>
-        <listitem>
-          <para>
-            Optional boolean. If <literal>true</literal>, <literal>chrony</literal> sends a burst
-            of packets at startup to speed up the initial synchronization. Defaults to
-            <literal>false</literal>.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>offline</term>
-        <listitem>
-          <para>
-            Optional boolean. If <literal>true</literal>, the source is initially marked offline.
-            Useful for sources that require network connectivity that may not be present at boot
-            time. Defaults to <literal>false</literal>.
-          </para>
-        </listitem>
-      </varlistentry>
-    </variablelist>
-    <note>
-      <title>Synchronizing time before &agama; starts</title>
-      <para>
-        If you need to synchronize the date and time before &agama; itself starts (for example, if
-        the system has no working clock), use the <literal>rd.ntp</literal> boot option instead of
-        the profile's <literal>ntp</literal> section.
-      </para>
-    </note>
-  </section>
-  <section xml:id="access-configuration-agama-installation-profile">
-    <title>Access configuration for an &agama; installation profile</title>
-    <para>
-      The <literal>access</literal> section configures how the installed system can be accessed
-      remotely, over SSH and the &agama; web console.
-    </para>
-    <example>
-      <title>Sample <literal>access</literal> configuration for an &agama; installation profile</title>
-<screen>
-"access": {
-  "ssh": "enabled",
-  "webConsole": "default"
-}
-</screen>
-    </example>
-    <para>
-      This section contains the following fields:
-    </para>
-    <variablelist>
-      <varlistentry>
-        <term>ssh</term>
-        <listitem>
-          <para>
-            Whether SSH access is enabled. If omitted, SSH access is enabled automatically when
-            either the <literal>user</literal> or <literal>root</literal> section defines
-            <literal>sshPublicKeys</literal>. Supported values:
-          </para>
-          <itemizedlist>
-            <listitem>
-              <para>
-                <literal>enabled</literal>: ensures SSH is accessible. Root login using a password
-                can still be restricted by the product's default configuration.
-              </para>
-            </listitem>
-            <listitem>
-              <para>
-                <literal>default</literal>: keeps the product's default behavior.
-              </para>
-            </listitem>
-          </itemizedlist>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>webConsole</term>
-        <listitem>
-          <para>
-            Whether access to the &agama; web console is enabled. Supported values:
-          </para>
-          <itemizedlist>
-            <listitem>
-              <para>
-                <literal>enabled</literal>: ensures the web console is accessible. Root login can
-                still be prevented by the product's default configuration.
-              </para>
-            </listitem>
-            <listitem>
-              <para>
-                <literal>default</literal>: keeps the product's default behavior.
               </para>
             </listitem>
           </itemizedlist>
