@@ -20,9 +20,81 @@
     <title>Troubleshooting software RAID devices</title>
     <abstract>
 <para>
-
+  Troubleshooting RAID is critical because RAID provides redundancy, not a true backup—meaning an undetected drive failure leaves your system just one disk away from total data loss. Timely diagnosis ensures you can replace failing drives and rebuild degraded arrays before a secondary failure leads to catastrophic downtime.
 </para>
     </abstract>
   </info>
-  <para></para>
+  <section xml:id="failed-disk">
+<title>Array is degraded or running with a failed disk</title>
+<itemizedlist>
+<listitem><para><emphasis role="bold">Symptom:</emphasis> The command <command>cat /proc/mdstat</command> shows missing disk flags like [U_] instead of [UU], or system alerts report an active disk failure.</para></listitem>
+<listitem><para><emphasis role="bold">Solution:</emphasis> Fail, remove, replace, and trigger array rebuild.</para>
+<orderedlist>
+<listitem><para>Mark drive failed (if kernel hasn't already):</para>
+<screen>&prompt.sudo; mdadm /dev/md0 --fail /dev/sdb1</screen>
+</listitem>
+<listitem><para>Remove failed partition:</para>
+<screen>&prompt.sudo;  mdadm /dev/md0 --remove /dev/sdb1 </screen>
+  </listitem>
+  <listitem><para>Clone partition layout to new disk:</para>
+<screen>&prompt.sudo; sfdisk -d /dev/sda | sfdisk /dev/sdb</screen>
+    </listitem>
+    <listitem><para>Add new disk partition:</para>
+<screen>&prompt.sudo;  mdadm /dev/md0 --add /dev/sdb1</screen>
+      </listitem>
+      <listitem><para>Monitor resync progress:</para>
+ <screen>&prompt.sudo; watch -n 1 cat /proc/mdstat</screen>
+        </listitem>
+</orderedlist>
+</listitem>
+</itemizedlist>
+  </section>
+   <section xml:id="array-assemble">
+        <title> Array refuses to assemble after a reboot or power outage</title>
+        <itemizedlist>
+          <listitem><para><emphasis role="bold">Symptom:</emphasis>  System drops to emergency shell, or <filename>/dev/md0</filename> does not exist because drive ordering shifted (e.g., /dev/sdb became /dev/sdc).
+          </para></listitem>
+          <listitem><para><emphasis role="bold">Solution:</emphasis> Auto-scan and force assembly using drive metadata superblocks.</para>
+          <orderedlist>
+          <listitem><para>Discover and assemble inactive arrays:</para>
+<screen>&prompt.sudo; mdadm --assemble --scan</screen>
+          </listitem>
+          <listitem><para>If an array dropped out-of-sync drives, force start it: </para>
+<screen>&prompt.sudo; mdadm --assemble --force /dev/md0 /dev/sda1 /dev/sdb1</screen>
+            </listitem>
+            <listitem><para>Update <filename>/etc/mdadm/mdadm.conf</filename> with persistent UUIDs:</para>
+<screen>&prompt.sudo; mdadm --detail --scan &gt;&gt; /etc/mdadm/mdadm.conf</screen>
+              </listitem>
+              <listitem><para>Update initramfs to fix boot failure:</para>
+<screen>&prompt.sudo; dracut -f</screen>
+                </listitem>
+          </orderedlist>
+          </listitem>
+          </itemizedlist>
+          </section>
+          <section xml:id="data-corrupion">
+            <title> Silent data corruption or parity inconsistency</title>
+            <itemizedlist>
+              <listitem><para><emphasis role="bold">Symptom:</emphasis> File system errors occur despite the array reporting all member drives as healthy ([UU]).
+              </para></listitem>
+              <listitem><para><emphasis role="bold">Solution:</emphasis> Run array scrubbing and check status logs.</para>
+              <orderedlist>
+              <listitem><para>Trigger background data check:</para>
+<screen>&prompt.sudo; echo check &gt; /sys/block/md0/md/sync_action
+    </screen>
+              </listitem>
+              <listitem><para>Check mismatch count (0 means healthy): </para>
+<screen>&prompt.sudo; cat /sys/block/md0/md/mismatch_cnt </screen>
+                </listitem>
+                <listitem><para>Inspect kernel logs for bad sectors:</para>
+<screen>&prompt.sudo; dmesg | grep -E "md|sd|nvme|I/O error"</screen>
+                  </listitem>
+                  <listitem><para>Repair inconsistencies if non-zero:</para>
+    <screen>&prompt.sudo; echo repair &gt; /sys/block/md0/md/sync_action
+    </screen>
+                    </listitem>
+              </orderedlist>
+              </listitem>
+              </itemizedlist>
+              </section>
     </topic>
