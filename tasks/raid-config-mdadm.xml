@@ -175,11 +175,521 @@ Executing these steps out of order will result in an unbootable system or data l
 <step><para>Create the <literal>mdadm</literal> software RAID 1 array by assembling <filename>/dev/sda2</filename> and <filename>/dev/sdb2</filename> into a mirrored RAID 1 array named <filename>/dev/md0</filename>:</para>
 <screen>&prompt.sudo; mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/sda2 /dev/sdb2 --metadata=1.2</screen>
 </step>
+<step><para>Format the RAID array <filename>/dev/md0</filename>  with Btrfs (the SLES default) and format both EFI partitions with FAT32:</para>
+<screen>&prompt.sudo; mkfs.btrfs -f -L SLES_ROOT /dev/md0 </screen>
+<screen>&prompt.sudo; mkfs.vfat -F 32 -n EFI_A /dev/sda1</screen>
+<screen>&prompt.sudo; mkfs.vfat -F 32 -n EFI_B /dev/sdb1</screen>
+</step>
+<step><para>Mount root to target installation <filename>/chroot</filename> directory:</para>
+<screen>&prompt.sudo; mount /dev/md0 /mnt</screen>
+<screen>&prompt.sudo; mkdir -p /mnt/boot/efi</screen>
+<screen>&prompt.sudo; mount /dev/sda1 /mnt/boot/efi</screen>
+</step>
+<step><para>Write the RAID configuration:</para>
+<screen>&prompt.sudo; mkdir -p /mnt/etc
+ mdadm --detail --scan &gt;&gt; /mnt/etc/mdadm.conf
+   </screen>
+</step>
+<step><para>Get UUID of RAID device and EFI partition:</para>
+<screen>ROOT_UUID=$(blkid -s UUID -o value /dev/md0)
+  EFI_UUID=$(blkid -s UUID -o value /dev/sda1)
+  </screen>
+</step>
+<step><para>Append entries to <filename>/mnt/etc/fstab</filename>:</para>
+<screen>&prompt.sudo; cat &lt;&gt; /mnt/etc/fstab
+  UUID=$ROOT_UUID  /  btrfs  defaults  0 0
+  UUID=$EFI_UUID  /boot/efi  vfat  utf8  0 2
+  EOF
+   </screen>
+</step>
+<step><para>Bind-mount system virtual file systems to prepare the environment for boot loader and initrd configuration:</para>
+<screen>&prompt.sudo; for dir in /dev /dev/pts /proc /sys /run; do
+  mount --bind $dir /mnt$dir
+done
+chroot /mnt /bin/bash
+</screen>
+</step>
+<step><para>Ensure <literal>mdraid</literal> module is loaded into initrd:</para>
+<screen>&prompt.sudo; echo 'add_dracutmodules+=" mdraid "' &gt; /etc/dracut.conf.d/raid.conf</screen>
+</step>
+<step><para>Regenerate the initrd image:</para>
+<screen>&prompt.sudo; dracut --force</screen>
+</step>
+<step><para>Install GRUB2 onto both primary and secondary drives:</para>
+<screen>&prompt.sudo; grub2-install /dev/sda </screen>
+<screen>&prompt.sudo; grub2-install /dev/sdb </screen>
+</step>
+<step><para>Generate GRUB2 configuration:</para>
+<screen>&prompt.sudo; grub2-mkconfig -o /boot/grub2/grub.cfg
+</screen>
+</step>
 </procedure>
 </section>
 <section xml:id="raid-10-devices">
   <title>Creating software RAID 10 devices </title>
-<para></para>
+<para>A nested RAID device combines RAID 1 (mirroring) and RAID 0 (striping) arrays, configured either as striped mirrors (RAID 1+0) or mirrored stripes (RAID 0+1).</para>
+<section>
+  <title>Creating nested RAID 10 devices with <command>mdadm</command></title>
+
+  <para>
+   A nested RAID device consists of a RAID array that uses another RAID array
+   as its basic element, instead of using physical disks. The goal of this
+   configuration is to improve the performance and fault tolerance of the RAID.
+   Setting up nested RAID levels is not supported by &yast;, but can be done by
+   using the <command>mdadm</command> command line tool.
+  </para>
+
+  <para>
+   Based on the order of nesting, two different nested RAIDs can be set up.
+   This document uses the following terminology:
+  </para>
+
+  <itemizedlist mark="bullet" spacing="normal">
+   <listitem>
+    <formalpara>
+     <title>RAID 1+0:</title>
+     <para>
+      RAID 1 (mirror) arrays are built first, then combined to form a RAID 0
+      (stripe) array.
+     </para>
+    </formalpara>
+   </listitem>
+   <listitem>
+    <formalpara>
+     <title>RAID 0+1:</title>
+     <para>
+      RAID 0 (stripe) arrays are built first, then combined to form a RAID 1
+      (mirror) array.
+     </para>
+</formalpara>
+   </listitem>
+  </itemizedlist>
+
+  <para>
+   The following table describes the advantages and disadvantages of RAID 10
+   nesting as 1+0 versus 0+1. It assumes that the storage objects you use
+   reside on different disks, each with a dedicated I/O capability.
+  </para>
+
+  <table>
+   <title>Nested RAID levels</title>
+   <tgroup cols="3">
+    <colspec colnum="1" colname="1" colwidth="20*"/>
+    <colspec colnum="2" colname="2" colwidth="30*"/>
+    <colspec colnum="3" colname="3" colwidth="60*"/>
+    <thead>
+     <row>
+      <entry>
+       <para>
+        RAID Level
+       </para>
+      </entry>
+      <entry>
+       <para>
+        Description
+       </para>
+      </entry>
+      <entry>
+<para>
+        Performance and Fault Tolerance
+       </para>
+      </entry>
+     </row>
+    </thead>
+    <tbody>
+     <row>
+      <entry>
+       <para>
+        10 (1+0)
+       </para>
+      </entry>
+      <entry>
+       <para>
+        RAID 0 (stripe) built with RAID 1 (mirror) arrays
+       </para>
+      </entry>
+      <entry>
+       <para>
+        RAID 1+0 provides high levels of I/O performance, data redundancy, and
+        disk fault tolerance. Because each member device in the RAID 0 is
+        mirrored individually, multiple disk failures can be tolerated and data
+        remains available as long as the disks that fail are in different
+        mirrors.
+       </para>
+       <para>
+        You can optionally configure a spare for each underlying mirrored
+        array, or configure a spare to serve a spare group that serves all
+ mirrors.
+       </para>
+      </entry>
+     </row>
+     <row>
+      <entry>
+       <para>
+        10 (0+1)
+       </para>
+      </entry>
+      <entry>
+       <para>
+        RAID 1 (mirror) built with RAID 0 (stripe) arrays
+       </para>
+      </entry>
+      <entry>
+       <para>
+        RAID 0+1 provides high levels of I/O performance and data redundancy,
+        but slightly less fault tolerance than a 1+0. If multiple disks fail on
+        one side of the mirror, then the other mirror is available. However, if
+        disks are lost concurrently on both sides of the mirror, all data is
+        lost.
+       </para>
+       <para>
+        This solution offers less disk fault tolerance than a 1+0 solution, but
+        if you need to perform maintenance or maintain the mirror on a
+        different site, you can take an entire side of the mirror offline and
+        still have a fully functional storage device. Also, if you lose the
+        connection between the two sites, either site operates independently of
+        the other. That is not true if you stripe the mirrored segments,
+        because the mirrors are managed at a lower level.
+       </para>
+       <para>
+        If a device fails, the mirror on that side fails because RAID 1 is not
+ fault-tolerant. Create a new RAID 0 to replace the failed side, then
+        resynchronize the mirrors.
+       </para>
+      </entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+</section>
+
+
+
+
+
+<section>
+  <title>Creating nested RAID 10 (1+0) with mdadm</title>
+  <para>
+   A nested RAID 1+0 is built by creating two or more RAID 1 (mirror) devices,
+   then using them as component devices in a RAID 0.
+  </para>
+  <important>
+   <title>Multipathing</title>
+   <para>
+    If you need to manage multiple connections to the devices, you must
+    configure multipath I/O before configuring the RAID devices. </para>
+  </important>
+  <para>
+   The procedure in this section uses the device names shown in the following
+   table. Ensure that you modify the device names with the names of your own
+   devices.
+  </para>
+  <table>
+   <title>Scenario for creating a RAID 10 (1+0) by nesting</title>
+   <tgroup cols="3">
+    <colspec colnum="1" colname="1" colwidth="3334*"/>
+    <colspec colnum="2" colname="2" colwidth="3334*"/>
+    <colspec colnum="3" colname="3" colwidth="3334*"/>
+    <thead>
+     <row>
+      <entry>
+<para>
+        Raw Devices
+       </para>
+      </entry>
+      <entry>
+       <para>
+        RAID 1 (mirror)
+       </para>
+      </entry>
+      <entry>
+       <para>
+        RAID 1+0 (striped mirrors)
+       </para>
+      </entry>
+     </row>
+    </thead>
+    <tbody>
+     <row>
+      <entry>
+       <simplelist>
+        <member><filename>/dev/sdb1</filename>
+        </member>
+        <member><filename>/dev/sdc1</filename>
+        </member>
+       </simplelist>
+      </entry>
+      <entry>
+       <para>
+        <filename>/dev/md0</filename>
+</para>
+      </entry>
+      <entry morerows="1">
+       <para/>
+       <para>
+        <filename>/dev/md2</filename>
+       </para>
+      </entry>
+     </row>
+     <row>
+      <entry>
+       <simplelist>
+        <member><filename>/dev/sdd1</filename>
+        </member>
+        <member><filename>/dev/sde1</filename>
+        </member>
+       </simplelist>
+      </entry>
+      <entry>
+       <para>
+        <filename>/dev/md1</filename>
+       </para>
+      </entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+  <procedure>
+<step>
+    <para>
+     Open a terminal.
+    </para>
+   </step>
+   <step>
+    <para>
+     If necessary, create four 0xFD Linux RAID partitions of equal size using
+     a disk partitioner such as parted.
+    </para>
+   </step>
+   <step>
+    <para>
+     Create two software RAID&nbsp;1 devices, using two different devices for
+     each device. At the command prompt, enter these two commands:
+    </para>
+<screen>&prompt.sudo;mdadm --create /dev/md0 --run --level=1 --raid-devices=2 /dev/sdb1 /dev/sdc1
+sudo mdadm --create /dev/md1 --run --level=1 --raid-devices=2 /dev/sdd1 /dev/sde1</screen>
+   </step>
+   <step>
+    <para>
+     Create the nested RAID 1+0 device. At the command prompt, enter the
+     following command using the software RAID 1 devices you created in the
+     previous step:
+    </para>
+<screen>&prompt.sudo;mdadm --create /dev/md2 --run --level=0 --chunk=64 \
+--raid-devices=2 /dev/md0 /dev/md1</screen>
+    <para>
+     The default chunk size is 64 KB.
+</para>
+   </step>
+   <step>
+    <para>
+     Create a file system on the RAID 1+0 device
+     <filename>/dev/md2</filename>, for example an XFS file system:
+    </para>
+<screen>&prompt.sudo;mkfs.xfs /dev/md2</screen>
+    <para>
+     Modify the command to use a different file system.
+    </para>
+   </step>
+   <step>
+    <para>
+     Edit the <filename>/etc/mdadm.conf</filename> file or create it, if it
+     does not exist (for example by running <command>sudo vi
+     /etc/mdadm.conf</command>). Add the following lines (if the file already
+     exists, the first line probably already exists).
+    </para>
+<screen>DEVICE containers partitions
+ARRAY /dev/md0 UUID=<replaceable>UUID</replaceable>
+ARRAY /dev/md1 UUID=<replaceable>UUID</replaceable>
+ARRAY /dev/md2 UUID=<replaceable>UUID</replaceable></screen>
+<para>
+     The UUID of each device can be retrieved with the following command:
+    </para>
+<screen>&prompt.sudo;mdadm -D /dev/<replaceable>DEVICE</replaceable> | grep UUID</screen>
+   </step>
+   <step>
+    <para>
+     Edit the <filename>/etc/fstab</filename> file to add an entry for the
+     RAID 1+0 device <filename>/dev/md2</filename>. The following example
+     shows an entry for a RAID device with the XFS file system and
+     <filename>/data</filename> as a mount point.
+    </para>
+<screen>/dev/md2 /data xfs defaults 1 2</screen>
+   </step>
+   <step>
+    <para>
+     Mount the RAID device:
+    </para>
+<screen>&prompt.sudo;mount /data</screen>
+   </step>
+  </procedure>
+ </section>
+<section>
+  <title>Creating nested RAID 10 (0+1) with mdadm</title>
+  <para>
+   A nested RAID 0+1 is built by creating two to four RAID 0 (striping)
+   devices, then mirroring them as component devices in a RAID 1.
+  </para>
+  <important>
+   <title>Multipathing</title>
+   <para>
+    If you need to manage multiple connections to the devices, you must
+    configure multipath I/O before configuring the RAID devices.
+   </para>
+  </important>
+  <para>
+   In this configuration, spare devices cannot be specified for the underlying
+   RAID&nbsp;0 devices because RAID&nbsp;0 cannot tolerate a device loss. If a
+   device fails on one side of the mirror, you must create a replacement
+   RAID&nbsp;0 device, than add it into the mirror.
+  </para>
+  <para>
+   The procedure in this section uses the device names shown in the following
+   table. Ensure that you modify the device names with the names of your own
+   devices.
+  </para>
+  <table>
+   <title>Scenario for creating a RAID 10 (0+1) by nesting</title>
+   <tgroup cols="3">
+    <colspec colnum="1" colname="1" colwidth="3334*"/>
+    <colspec colnum="2" colname="2" colwidth="3334*"/>
+    <colspec colnum="3" colname="3" colwidth="3334*"/>
+<thead>
+     <row>
+      <entry>
+       <para>
+        Raw Devices
+       </para>
+      </entry>
+      <entry>
+       <para>
+        RAID 0 (stripe)
+       </para>
+      </entry>
+      <entry>
+       <para>
+        RAID 0+1 (mirrored stripes)
+       </para>
+      </entry>
+     </row>
+    </thead>
+    <tbody>
+     <row>
+      <entry>
+       <simplelist>
+        <member><filename>/dev/sdb1</filename>
+        </member>
+        <member><filename>/dev/sdc1</filename>
+        </member>
+       </simplelist>
+      </entry>
+      <entry>
+       <para>
+        <filename>/dev/md0</filename>
+       </para>
+</entry>
+      <entry morerows="1">
+       <para/>
+       <para>
+        <filename>/dev/md2</filename>
+       </para>
+      </entry>
+     </row>
+     <row>
+      <entry>
+       <simplelist>
+        <member><filename>/dev/sdd1</filename>
+        </member>
+        <member><filename>/dev/sde1</filename>
+        </member>
+       </simplelist>
+      </entry>
+      <entry>
+       <para>
+        <filename>/dev/md1</filename>
+       </para>
+      </entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+  <procedure>
+   <step>
+    <para>
+
+Open a terminal.
+    </para>
+   </step>
+   <step>
+    <para>
+     If necessary, create four 0xFD Linux RAID partitions of equal size using
+     a disk partitioner such as parted.
+    </para>
+   </step>
+   <step>
+    <para>
+     Create two software RAID&nbsp;0 devices, using two different devices for
+     each RAID 0 device. At the command prompt, enter these two commands:
+    </para>
+<screen>&prompt.sudo;mdadm --create /dev/md0 --run --level=0 --chunk=64 \
+--raid-devices=2 /dev/sdb1 /dev/sdc1
+sudo mdadm --create /dev/md1 --run --level=0 --chunk=64 \
+--raid-devices=2 /dev/sdd1 /dev/sde1</screen>
+    <para>
+     The default chunk size is 64 KB.
+    </para>
+   </step>
+   <step>
+    <para>
+     Create the nested RAID 0+1 device. At the command prompt, enter the
+     following command using the software RAID&nbsp;0 devices you created in
+     the previous step:
+    </para>
+<screen>&prompt.sudo;mdadm --create /dev/md2 --run --level=1 --raid-devices=2 /dev/md0 /dev/md1</screen>
+   </step>
+   <step>
+    <para>
+     Create a file system on the RAID 1+0 device
+     <filename>/dev/md2</filename>, for example an XFS file system:
+    </para>
+<screen>&prompt.sudo;mkfs.xfs /dev/md2</screen>
+    <para>
+     Modify the command to use a different file system.
+    </para>
+   </step>
+   <step>
+    <para>
+     Edit the <filename>/etc/mdadm.conf</filename> file or create it, if it
+     does not exist (for example by running <command>sudo vi
+     /etc/mdadm.conf</command>). Add the following lines (if the file exists,
+     the first line probably already exists, too).
+    </para>
+<screen>DEVICE containers partitions
+ARRAY /dev/md0 UUID=<replaceable>UUID</replaceable>
+ARRAY /dev/md1 UUID=<replaceable>UUID</replaceable>
+ARRAY /dev/md2 UUID=<replaceable>UUID</replaceable></screen>
+    <para>
+     The UUID of each device can be retrieved with the following command:
+    </para>
+<screen>&prompt.sudo;mdadm -D /dev/<replaceable>DEVICE</replaceable> | grep UUID</screen>
+   </step>
+   <step>
+<para>
+     Edit the <filename>/etc/fstab</filename> file to add an entry for the
+     RAID 1+0 device <filename>/dev/md2</filename>. The following example
+     shows an entry for a RAID device with the XFS file system and
+     <filename>/data</filename> as a mount point.
+    </para>
+<screen>/dev/md2 /data xfs defaults 1 2</screen>
+   </step>
+   <step>
+    <para>
+     Mount the RAID device:
+    </para>
+<screen>&prompt.sudo;mount /data</screen>
+   </step>
+  </procedure>
+</section>
 </section>
 <section xml:id="raid-degrade-array">
   <title> Creating a degraded RAID array</title>
