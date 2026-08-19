@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="minimal-vm-without-cloud-init"
+role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Deploying an image without <literal>cloud-init</literal></title>
+    <meta name="maintainer" content="eliska.romanova@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Learn how to configure non-cloud &minvm; images using interactive &jeosfirstboot; or
+        automated &combustion; deployment.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    This section applies to the <literal>kvm-and-xen</literal>, <literal>Hyper-V</literal> and
+    <literal>VMware</literal> images, which do not contain <literal>cloud-init</literal>.
+  </para>
+  <para>
+    Before starting the virtual machine for the first time, choose one of the following deployment
+    methods:
+  </para>
+  <orderedlist>
+    <listitem>
+      <para>
+        <emphasis role="bold">Interactive setup (&jeosfirstboot;):</emphasis> Boot the virtual
+        machine normally and manually complete the text-based wizard on the system console.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <emphasis role="bold">Automated setup (&combustion;):</emphasis> Prepare a configuration
+        script and attach it to the virtual machine before powering it on.
+        &combustion; applies the settings automatically and bypasses the interactive wizard.
+      </para>
+    </listitem>
+  </orderedlist>
+  <section xml:id="jeosfirstboot">
+    <title>Interactive setup with &jeosfirstboot;</title>
+    <para>
+      Deploying involves two tasks:
+    </para>
+    <orderedlist>
+      <listitem>
+        <para>
+          Start the virtual machine on your platform.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Configure the system on the first boot with &jeosfirstboot;.
+        </para>
+      </listitem>
+    </orderedlist>
+    <para>
+      Because starting a virtual machine varies wildly by platform, the exact procedure depends on
+      your hypervisor. For <literal>Hyper-V</literal> and <literal>VMware</literal> images, use
+      their management tools to create the virtual machine.
+    </para>
+    <section xml:id="starting-kvm-vm">
+      <title>Starting a &kvm; virtual machine</title>
+      <para>
+        For <literal>kvm-and-xen</literal> images, you can start the virtual machine directly by
+        using &qemu; or <command>virt-install</command>.
+      </para>
+      <para>
+        &qemu;:
+      </para>
+<screen>&prompt.user;qemu-system-x86_64 \
+    -enable-kvm \
+    -cpu host \
+    -m 1G \
+    -smp 1 \
+    -drive if=virtio,format=qcow2,file=<replaceable>IMAGE</replaceable>.qcow2 \
+    -nographic \
+    -netdev user,id=net0,hostfwd=tcp::2222-:22 \
+    -device virtio-net-pci,netdev=net0</screen>
+      <para>
+        <command>virt-install</command>:
+      </para>
+<screen>&prompt.user;virt-install \
+    --name <replaceable>VM_NAME</replaceable> \
+    --memory 1024 \
+    --vcpus 1 \
+    --import \
+    --disk <replaceable>IMAGE</replaceable>.qcow2,bus=virtio \
+    --osinfo detect=on,require=off
+</screen>
+    </section>
+    <section xml:id="config-jeosfirstboot">
+      <title>Configuring a system interactively with &jeosfirstboot;</title>
+      <para>
+        &jeosfirstboot; is a text-based wizard that runs on the first boot and collects the basic
+        settings. It appears on the console of the virtual machine, whichever platform you started
+        it on.
+      </para>
+      <procedure>
+        <step>
+          <para>
+            Select the keyboard layout.
+          </para>
+        </step>
+        <step>
+          <para>
+            Read and accept the license agreement. You cannot proceed without accepting it.
+          </para>
+        </step>
+        <step>
+          <para>
+            Select the time zone.
+          </para>
+        </step>
+        <step>
+          <para>
+            Enter and confirm the &rootuser; password.
+          </para>
+        </step>
+        <step>
+          <para>
+            Optionally, enroll keys for SSH access and create additional user accounts.
+          </para>
+        </step>
+        <step>
+          <para>
+            After the first boot, register the system. For more information see <xref linkend="minimal-vm-post-deployment"></xref>. If you are only testing the image, you can
+            skip registration.
+          </para>
+        </step>
+      </procedure>
+    </section>
+  </section>
+  <section xml:id="combustion">
+    <title>Automated setup using &combustion;</title>
+    <para>
+      &sleminvm; comes with the &combustion; configuration tool, which configures the system on
+      first boot from a script that you supply. This can be particularly useful when you need to
+      deploy multiple virtual machines with an identical initial configuration. When &combustion;
+      runs successfully, &jeosfirstboot; does not start.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Generate a hash of your desired &rootuser; password:
+        </para>
+<screen>&prompt.user;openssl passwd -6</screen>
+      </step>
+      <step>
+        <para>
+          Create a configuration file named <filename>script</filename>. To ensure you can log in
+          to the &minvm; as the &rootuser; user, add the following line to the script, replacing
+          <replaceable>HASH</replaceable> with the value you just generated:
+        </para>
+<screen>echo 'root:<replaceable>HASH</replaceable>' | chpasswd -e</screen>
+        <para>
+          For more information about how to create the script, see
+          <link xlink:href="https://documentation.suse.com/sle-micro/html/Micro-deployment-raw-images-virtual-machines/index.html#configuring-combustion-script"/>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Make the script executable:
+        </para>
+<screen>&prompt.user;chmod +x script</screen>
+      </step>
+      <step>
+        <para>
+          Pass the script to the virtual machine. Use the method that matches your platform.
+        </para>
+        <variablelist>
+          <varlistentry>
+            <term><literal>kvm-and-xen</literal></term>
+            <listitem>
+              <para>
+                Pass the script file directly with <literal>fw_cfg</literal>.
+              </para>
+              <para>
+                &qemu;:
+              </para>
+<screen>&prompt.user;qemu-system-x86_64 \
+    -enable-kvm \
+    -cpu host \
+    -m 1G \
+    -smp 1 \
+    -drive if=virtio,format=qcow2,file=<replaceable>IMAGE</replaceable>.qcow2 \
+    -nographic \
+    -netdev user,id=net0,hostfwd=tcp::2222-:22 \
+    -device virtio-net-pci,netdev=net0 \
+    -fw_cfg name=opt/org.opensuse.combustion/script,file=script</screen>
+              <para>
+                <command>virt-install</command>:
+              </para>
+<screen>&prompt.user;virt-install \
+    --name <replaceable>VM_NAME</replaceable> \
+    --memory 1024 \
+    --vcpus 1 \
+    --import \
+    --disk <replaceable>IMAGE</replaceable>.qcow2,bus=virtio \
+    --osinfo detect=on,require=off \
+    --sysinfo type=fwcfg,entry0.name="opt/org.opensuse.combustion/script",entry0.file="<replaceable>ABSOLUTE_PATH_TO_SCRIPT</replaceable>"
+            </screen>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term>&hyperv;, &vmware; and other platforms</term>
+            <listitem>
+              <para>
+                Provide the script on a storage device with the file system label
+                <literal>combustion</literal>, holding the script at
+                <literal>combustion/script</literal>.
+              </para>
+              <para>
+                To build such a device as an ISO image:
+              </para>
+<screen>&prompt.user;mkdir -p iso_root/combustion
+&prompt.user;mv script iso_root/combustion/
+&prompt.user;mkisofs -output combustion.iso -volid combustion -rational-rock iso_root</screen>
+              <para>
+                Create the virtual machine using your downloaded &minvm; image as the primary
+                virtual hard disk. Before booting the virtual machine for the first time, attach
+                <filename>combustion.iso</filename> as a virtual disc drive.
+              </para>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+      </step>
+    </procedure>
+    <para>
+      &combustion; produces no output while it runs. The indication that it worked is that
+      &jeosfirstboot; does not start and you can log in as &rootuser; with the password you
+      generated.
+    </para>
+  </section>
+</topic>
