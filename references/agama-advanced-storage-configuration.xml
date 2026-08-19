@@ -44,8 +44,8 @@
       how to describe devices, match existing hardware, size volumes, and control booting.
     </para>
     <para>
-      The following sections illustrate common use cases with examples. Before running an
-      installation, validate the configuration using the tools provided by &agama;.
+      Before running an installation, validate the configuration using the tools provided by
+      &agama;.
     </para>
   </section>
   <section xml:id="describe-devices-agama-storage">
@@ -122,13 +122,11 @@
       <title>Structure of <literal>volumeGroups</literal></title>
 <screen>
 {
-  "alias": "...",
   "name": "...",
   "search": { ... },
+  "extentSize": ...,
   "physicalVolumes": [ ... ],
-  "logicalVolumes": [ ... ],
-  "peSize": ... ,
-  "delete": ...
+  "logicalVolumes": [ ... ]
 }
 </screen>
     </example>
@@ -209,6 +207,7 @@
   "name": "...",
   "search": { ... },
   "level": "...",
+  "parity": ...,
   "chunkSize": ... ,
   "devices": [ ... ],
   "size": { ... },
@@ -216,7 +215,6 @@
   "filesystem": { ... },
   "partitions": [ ... ],
   "ptableType": "...",
-  "delete": ...
 }
 </screen>
     </example>
@@ -298,8 +296,10 @@
     </example>
     <para>
       The scope of each search depends on the place in the profile of the <literal>search</literal>
-      section. In the example, the devices from the system that are considered as possible
-      candidates. A search section inside the description of an MD RAID only matches the software
+      section. In the example, the search in the <literal>drives</literal> section considers all
+      disks in the system, while the search in the <literal>partitions</literal> subsection only
+      considers the partitions of the disks matched by the outer search. A search section inside
+      the description of an MD RAID only matches the software
       RAID devices. A search section inside the <literal>partitions</literal> subsection of that
       RAID description only matches the partitions of RAIDs that have matched the conditions of the
       most external search.
@@ -405,14 +405,35 @@
     <title>Additional search conditions</title>
     <para>
       Besides matching by name, size, or partition number, a <literal>search</literal> section's
-      <literal>condition</literal> also accepts the following conditions. Availability depends on
-      the kind of device: <literal>driver</literal> and <literal>boss</literal> apply only to
-      <literal>drives</literal>; <literal>id</literal> applies only to <literal>partitions</literal>;
-      <literal>filesystem</literal> and <literal>partitions</literal> apply to
-      <literal>drives</literal>, <literal>partitions</literal>, and <literal>mdRaids</literal>
-      (except that a <literal>partitions</literal> condition on a <literal>partitions</literal>
-      entry does not make sense, since partitions do not themselves contain partitions).
+      <literal>condition</literal> also accepts the following conditions. Which ones are available
+      depends on the kind of device:
     </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <literal>driver</literal> and <literal>boss</literal> apply only to
+          <literal>drives</literal>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>id</literal> applies only to <literal>partitions</literal>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>filesystem</literal> applies to <literal>drives</literal>,
+          <literal>mdRaids</literal>, <literal>partitions</literal>, and
+          <literal>logicalVolumes</literal>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>partitions</literal> applies to <literal>drives</literal> and
+          <literal>mdRaids</literal>.
+        </para>
+      </listitem>
+    </itemizedlist>
     <variablelist>
       <varlistentry>
         <term><literal>filesystem</literal></term>
@@ -432,10 +453,60 @@
         <term><literal>id</literal></term>
         <listitem>
           <para>
-            Matches a partition by its libstorage-ng partition id, such as <literal>esp</literal>,
-            <literal>bios_boot</literal>, <literal>linux</literal>, <literal>swap</literal>,
-            <literal>lvm</literal>, or <literal>raid</literal>.
+            Matches a partition by its <literal>id</literal>. The following table lists every
+            recognized value and the partition table types that accept it.
           </para>
+          <table frame="all">
+            <title>Partition id values</title>
+            <tgroup cols="3">
+              <thead>
+                <row><entry>Value</entry><entry>Description</entry><entry>Partition table</entry></row>
+              </thead>
+              <tbody>
+                <row><entry><literal>dos12</literal></entry><entry>FAT12 partition</entry><entry>MS-DOS</entry></row>
+                <row><entry><literal>dos16</literal></entry><entry>FAT16 partition</entry><entry>MS-DOS</entry></row>
+                <row><entry><literal>ntfs</literal></entry><entry>NTFS or HPFS partition</entry><entry>MS-DOS</entry></row>
+                <row><entry><literal>dos32</literal></entry><entry>FAT32 partition</entry><entry>MS-DOS</entry></row>
+                <row><entry><literal>extended</literal></entry><entry>Extended partition</entry><entry>MS-DOS</entry></row>
+                <row><entry><literal>diag</literal></entry><entry>Diagnostics partition</entry><entry>MS-DOS, GPT</entry></row>
+                <row><entry><literal>prep</literal></entry><entry>PPC PReP boot partition</entry><entry>MS-DOS, GPT</entry></row>
+                <row><entry><literal>swap</literal></entry><entry>Swap partition</entry><entry>MS-DOS, GPT, DASD</entry></row>
+                <row><entry><literal>linux</literal></entry><entry>Linux partition</entry><entry>MS-DOS, GPT, DASD, implicit</entry></row>
+                <row><entry><literal>irst</literal></entry><entry>Intel Rapid Start Technology partition</entry><entry>MS-DOS, GPT</entry></row>
+                <row><entry><literal>lvm</literal></entry><entry>LVM partition</entry><entry>MS-DOS, GPT, DASD</entry></row>
+                <row><entry><literal>raid</literal></entry><entry>RAID partition</entry><entry>MS-DOS, GPT, DASD</entry></row>
+                <row><entry><literal>xbootldr</literal></entry><entry>Boot Loader Specification partition</entry><entry>MS-DOS, GPT</entry></row>
+                <row><entry><literal>esp</literal></entry><entry>EFI System Partition</entry><entry>MS-DOS, GPT</entry></row>
+                <row><entry><literal>bios_boot</literal></entry><entry>BIOS boot partition</entry><entry>GPT</entry></row>
+                <row><entry><literal>windows_basic_data</literal></entry><entry>Windows basic data partition</entry><entry>GPT</entry></row>
+                <row><entry><literal>microsoft_reserved</literal></entry><entry>Microsoft reserved partition</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_home</literal></entry><entry>Linux home partition</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_server_data</literal></entry><entry>Linux server data partition</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_root_arm</literal></entry><entry>Linux root partition (arm)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_root_aarch64</literal></entry><entry>Linux root partition (aarch64)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_root_ppc32</literal></entry><entry>Linux root partition (ppc)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_root_ppc64be</literal></entry><entry>Linux root partition (ppc64be)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_root_ppc64le</literal></entry><entry>Linux root partition (ppc64le)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_root_riscv32</literal></entry><entry>Linux root partition (riscv32)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_root_riscv64</literal></entry><entry>Linux root partition (riscv64)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_root_s390</literal></entry><entry>Linux root partition (s390)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_root_s390x</literal></entry><entry>Linux root partition (s390x)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_root_x86</literal></entry><entry>Linux root partition (x86)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_root_x86_64</literal></entry><entry>Linux root partition (x86_64)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_usr_arm</literal></entry><entry>Linux usr partition (arm)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_usr_aarch64</literal></entry><entry>Linux usr partition (aarch64)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_usr_ppc32</literal></entry><entry>Linux usr partition (ppc)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_usr_ppc64be</literal></entry><entry>Linux usr partition (ppc64be)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_usr_ppc64le</literal></entry><entry>Linux usr partition (ppc64le)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_usr_riscv32</literal></entry><entry>Linux usr partition (riscv32)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_usr_riscv64</literal></entry><entry>Linux usr partition (riscv64)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_usr_s390</literal></entry><entry>Linux usr partition (s390)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_usr_s390x</literal></entry><entry>Linux usr partition (s390x)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_usr_x86</literal></entry><entry>Linux usr partition (x86)</entry><entry>GPT</entry></row>
+                <row><entry><literal>linux_usr_x86_64</literal></entry><entry>Linux usr partition (x86_64)</entry><entry>GPT</entry></row>
+              </tbody>
+            </tgroup>
+          </table>
 <screen>{ "search": { "condition": { "id": "esp" } } }</screen>
         </listitem>
       </varlistentry>
@@ -587,8 +658,9 @@
     <para>
       For configurations targeting existing partitions or Logical Volumes (LVs)&mdash;which must
       include a search section&mdash;the special keyword <literal>current</literal> can be used as
-      a minimum or maximum size limit. The use of <literal>current</literal> and how it affects
-      resizing the corresponding devices is explained separately.
+      a minimum or maximum size limit. For the use of <literal>current</literal> and how it affects
+      resizing the corresponding devices, see
+      <xref linkend="delete-shrink-existing-devices-agama-storage"/>.
     </para>
     <para>
       If the size property is completely omitted for an existing device (for example, combined with
@@ -636,10 +708,9 @@
   <section xml:id="keep-existing-filesystem-encryption-agama-storage">
     <title>Keeping an existing file system or encryption layer</title>
     <para>
-      The entries for both <literal>filesystem</literal> and <literal>encryption</literal> contains
-      a <literal>reuse</literal> flag with a default value of <literal>false</literal>. You can use
-      it in combination with <literal>search</literal> to specify that the device must not be
-      re-formatted or re-encrypted.
+      The entry <literal>filesystem</literal> contains a <literal>reuseIfPossible</literal> flag
+      with a default value of <literal>false</literal>. You can use it in combination with
+      <literal>search</literal> to specify that the device must not be re-formatted.
     </para>
   </section>
   <section xml:id="delete-shrink-existing-devices-agama-storage">
@@ -795,8 +866,9 @@
   <section xml:id="generate-default-volumes-agama-storage">
     <title>Generating default volumes</title>
     <para>
-      Every product provides a configuration which defines the storage volumes. For example,
-      feasible file systems for root and default partitions to create. The default or mandatory
+      Every product provides a configuration which defines the storage volumes, such as the
+      partitions to create by default and the file systems that are supported for each of them.
+      The default or mandatory
       product volumes can be automatically generated by using a <literal>generate</literal> section
       in the <literal>partitions</literal> or <literal>logicalVolumes</literal> sections.
     </para>
