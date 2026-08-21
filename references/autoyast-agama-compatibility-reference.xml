@@ -314,8 +314,33 @@
       <title><literal>networking/interfaces[]</literal></title>
       <para>
         This section is supported. It corresponds to the &agama; <literal>connections</literal>
-        element, but the format is not exactly the same.
+        element, but the format is not exactly the same. Besides regular Ethernet and wireless
+        devices, &agama; also supports bonding, bridge, and VLAN interfaces.
       </para>
+      <para>
+        &agama; determines the interface type from the fields present in the &ay; interface
+        definition, not from an explicit type field:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            An interface is a bond if it defines at least one <literal>bonding_slaveN</literal>
+            element.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            An interface is a bridge if it defines <literal>bridge_ports</literal>, or if it is
+            explicitly marked with <literal>&lt;bridge&gt;yes&lt;/bridge&gt;</literal>.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            An interface is a VLAN if it defines <literal>etherdevice</literal> or
+            <literal>vlan_id</literal>.
+          </para>
+        </listitem>
+      </itemizedlist>
       <table frame="all">
         <title><literal>networking/interfaces[]</literal> compatibility</title>
         <tgroup cols="4">
@@ -325,6 +350,8 @@
           <tbody>
             <row><entry><literal>device</literal></entry><entry>Supported</entry><entry><literal>network.connections[].interface</literal></entry><entry/></row>
             <row><entry><literal>name</literal></entry><entry>Supported</entry><entry><literal>network.connections[].id</literal></entry><entry/></row>
+            <row><entry><literal>bootproto</literal></entry><entry>Supported</entry><entry><literal>network.connections[].method4</literal>, <literal>network.connections[].method6</literal></entry><entry>Different set of values. <literal>ibft</literal> and <literal>dhcp+autoip</literal> fall back to <literal>auto</literal>.</entry></row>
+            <row><entry><literal>startmode</literal></entry><entry>Supported</entry><entry><literal>network.connections[].autoconnect</literal></entry><entry><literal>manual</literal> and <literal>off</literal> disable the auto-connection and keep the connection down. The rest enable it.</entry></row>
             <row><entry><literal>lladdr</literal></entry><entry>Supported</entry><entry><literal>network.connections[].macAddress</literal></entry><entry/></row>
             <row><entry><literal>ipaddr</literal></entry><entry>Supported</entry><entry><literal>network.connections[].addresses[]</literal></entry><entry/></row>
             <row><entry><literal>prefixlen</literal></entry><entry>Supported</entry><entry><literal>network.connections[].addresses[]</literal></entry><entry/></row>
@@ -333,8 +360,16 @@
             <row><entry><literal>broadcast</literal></entry><entry>Supported</entry><entry><literal>network.connections[].addresses[]</literal></entry><entry/></row>
             <row><entry><literal>network</literal></entry><entry>Supported</entry><entry><literal>network.connections[].addresses[]</literal></entry><entry/></row>
             <row><entry><literal>wireless</literal></entry><entry>Supported</entry><entry><literal>network.connections[].wireless</literal></entry><entry>It uses a different format.</entry></row>
-            <row><entry><literal>bonding_module_opts</literal></entry><entry>Supported</entry><entry><literal>network.connections[].bond.options</literal></entry><entry/></row>
+            <row><entry><literal>bonding_master</literal></entry><entry>Supported</entry><entry/><entry>Implied by the presence of the <literal>bonding_slaveN</literal> elements.</entry></row>
+            <row><entry><literal>bonding_module_opts</literal></entry><entry>Supported</entry><entry><literal>network.connections[].bond.options</literal></entry><entry>The <literal>mode</literal> option is set in <literal>network.connections[].bond.mode</literal> instead. Numeric modes (for example, <literal>mode=1</literal>) are supported too.</entry></row>
             <row><entry><literal>bonding_slave0</literal>&ndash;<literal>bonding_slave9</literal></entry><entry>Supported</entry><entry><literal>network.connections[].bond.ports[]</literal></entry><entry/></row>
+            <row><entry><literal>bridge</literal></entry><entry>Supported</entry><entry/><entry>Implied by the presence of the <literal>bridge_ports</literal> element.</entry></row>
+            <row><entry><literal>bridge_forward_delay</literal></entry><entry>Supported</entry><entry><literal>network.connections[].bridge.forwardDelay</literal></entry><entry>Negative values are ignored.</entry></row>
+            <row><entry><literal>bridge_forwarddelay</literal></entry><entry>Supported</entry><entry><literal>network.connections[].bridge.forwardDelay</literal></entry><entry>Deprecated spelling of <literal>bridge_forward_delay</literal>.</entry></row>
+            <row><entry><literal>bridge_ports</literal></entry><entry>Supported</entry><entry><literal>network.connections[].bridge.ports[]</literal></entry><entry/></row>
+            <row><entry><literal>bridge_stp</literal></entry><entry>Supported</entry><entry><literal>network.connections[].bridge.stp</literal></entry><entry/></row>
+            <row><entry><literal>etherdevice</literal></entry><entry>Supported</entry><entry><literal>network.connections[].vlan.parent</literal></entry><entry>Inferred from the device name (for example, <literal>eth0</literal> for <literal>eth0.10</literal>) when not set.</entry></row>
+            <row><entry><literal>vlan_id</literal></entry><entry>Supported</entry><entry><literal>network.connections[].vlan.id</literal></entry><entry>Inferred from the device name (for example, 10 for <literal>eth0.10</literal>) when not set. Must be lower than 4095, which is reserved.</entry></row>
             <row><entry><literal>wireless_auth_mode</literal></entry><entry>Supported</entry><entry><literal>network.connections[].wireless.security</literal></entry><entry>Maps <literal>psk</literal> to <literal>wpa-psk</literal> and <literal>eap</literal> to <literal>wpa-eap</literal>; anything else becomes <literal>none</literal>.</entry></row>
             <row><entry><literal>wireless_essid</literal></entry><entry>Supported</entry><entry><literal>network.connections[].wireless.ssid</literal></entry><entry/></row>
             <row><entry><literal>wireless_mode</literal></entry><entry>Supported</entry><entry><literal>network.connections[].wireless.mode</literal></entry><entry>Maps <literal>ad-hoc</literal> to <literal>adhoc</literal>, <literal>master</literal> to <literal>ap</literal>, and <literal>managed</literal> to <literal>infrastructure</literal>.</entry></row>
@@ -354,13 +389,6 @@
           section of any profile converted from an &ay; configuration that uses bonding.
         </para>
       </warning>
-      <note>
-        <title>No control over automatic connection setup</title>
-        <para>
-          &agama; has no equivalent to <literal>startmode</literal>: do not define a connection
-          in the profile if you do not want it set up.
-        </para>
-      </note>
     </section>
   </section>
   <section xml:id="autoyast-ntp-client">
