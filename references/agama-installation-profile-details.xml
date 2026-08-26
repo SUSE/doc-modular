@@ -517,7 +517,7 @@
             <listitem>
               <para>
                 <literal>enabled</literal>: optional boolean controlling whether the repository is
-                active. Useful for pre-defining a repository you plan to enable later. Repositories
+                active. Useful for predefining a repository you plan to enable later. Repositories
                 are enabled by default.
               </para>
             </listitem>
@@ -1285,8 +1285,8 @@
         <term>post</term>
         <listitem>
           <para>
-            Scripts run after installation finishes. These can optionally execute within the target
-            system's root via chroot.
+            Scripts run after installation finishes. These can optionally execute within the
+            target system's root via chroot, which is one way to enable a service.
           </para>
         </listitem>
       </varlistentry>
@@ -1345,11 +1345,27 @@
         <listitem>
           <para>
             Boolean. If <literal>true</literal>, the script is executed inside the installed
-            system's root via chroot. Applies only to <literal>post</literal> scripts.
+            system's root via chroot. Applies only to <literal>post</literal> scripts. Defaults
+            to <literal>true</literal> when omitted.
+          </para>
+          <para>
+            systemd does not run inside the chroot, so a chrooted script can enable a service
+            (a symlink operation) but cannot start one. If a command needs a running systemd,
+            use an <literal>init</literal> script instead.
           </para>
         </listitem>
       </varlistentry>
     </variablelist>
+    <example xml:id="agama-post-script-enable-service">
+      <title>Enabling a service from a post-installation script</title>
+<screen>
+{
+  "name": "<replaceable>enable-apache2.sh</replaceable>",
+  "chroot": true,
+  "content": "#!/bin/bash\nsystemctl enable apache2.service"
+}
+</screen>
+    </example>
   </section>
   <section xml:id="files-configuration-agama-installation-profile">
     <title>Files configuration for an &agama; installation profile</title>
@@ -1755,10 +1771,27 @@
                 <literal>lun</literal>: the Logical Unit Number of the disk volume.
               </para>
             </listitem>
+            <listitem>
+              <para>
+                <literal>active</literal>: optional boolean to explicitly enable or disable the
+                disk. If a device is listed here without its controller also listed under
+                <literal>controllers</literal>, &agama; activates that controller automatically.
+              </para>
+            </listitem>
           </itemizedlist>
         </listitem>
       </varlistentry>
     </variablelist>
+    <warning>
+      <title>Unknown LUNs could fail to activate</title>
+      <para>
+        If a LUN that is not already known to the system&mdash;common with storage from vendors
+        other than IBM DS8000&mdash;fails to activate when listed under
+        <literal>devices</literal>, activate it manually before installation instead. For
+        example, use the <parameter>rd.zdev</parameter> boot parameter, or run
+        <command>chzdev</command> and then rescan the devices.
+      </para>
+    </warning>
   </section>
   <section xml:id="questions-configuration-agama-installation-profile">
     <title>Questions configuration for an &agama; installation profile</title>
