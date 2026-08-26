@@ -13,17 +13,101 @@
        xmlns:xi="http://www.w3.org/2001/XInclude"
        xmlns:xlink="http://www.w3.org/1999/xlink"
        xmlns:trans="http://docbook.org/ns/transclusion">
-    <info>
-        <title>For more information</title>
-        <!-- can be changed via merge in the
-             assembly -->
-        <!--add author's e-mail address-->
-        <meta name="daria.vladykina@suse.com" content="" its:translate="no"/>
-        <!-- add an abstract/para here, if you need one -->
-        <!-- can be changed via merge in the assembly -->
-    </info>
-    <para>
-        For information on &kdump;, refer to the following resources:
-    </para>
-    
+  <info>
+    <title>Measuring latencies with <systemitem>cyclictest</systemitem></title>
+    <abstract>
+      <para>
+        This section describes how to measure operating system latencies using the
+        <systemitem>cyclictest</systemitem> tool. It guides you through installing the test suite
+        on &suselinux;&nbsp;16.1. It also details running the benchmark to generate latency
+        histogram files.
+      </para>
+    </abstract>
+    <meta name="daria.vladykina@suse.com" content="" its:translate="no"/>
+    <!-- add an abstract/para here, if you need one -->
+    <!-- can be changed via merge in the assembly -->
+  </info>
+  <para>
+    The <command>cyclictest</command> command is part of the real-time kernel test suite, contained
+    in the <systemitem>rt-tests</systemitem> RPM package distributed as part of
+    &suselinux;&nbsp;16.1.
+  </para>
+  <para>
+    Before you run this test, make sure your hardware is configured as described in
+    <xref linkend="rt-hardware-testing-prep"/>, and that you are logged in as &rootuser; or can run
+    commands with <command>sudo</command>.
+  </para>
+  <procedure xml:id="pro-hwtest-cyclictest-run">
+    <title>Running the cyclictest tool</title>
+    <step>
+      <para>
+        Install the <systemitem>rt-tests</systemitem> package if it is not already present:
+      </para>
+<screen>&prompt.sudo;<command>zypper install rt-tests</command></screen>
+    </step>
+    <step>
+      <para>
+        Determine your test parameters from the <command>cyclictest</command> options listed in
+        <xref linkend="rt-hardware-testing-tool-options"/>.
+      </para>
+    </step>
+    <step>
+      <para>
+        Start <command>cyclictest</command>. For example, to run 1000 cycles with a latency
+        histogram tracked up to 1000 microseconds, execute:
+      </para>
+<screen>&prompt.sudo;<command>cyclictest --loops=1000 --histogram=1000</command></screen>
+      <para>
+        By default, <command>cyclictest</command> writes the histogram data to standard output
+        after the run. To save it to a file for later analysis instead, redirect the output:
+      </para>
+<screen>&prompt.sudo;<command>cyclictest --loops=1000 --histogram=1000 &gt; histogram</command></screen>
+    </step>
+    <step>
+      <para>
+        Analyze the recorded minimal, actual, average and maximum latencies.
+      </para>
+      <para>
+        A typical result on a multi-core system looks like:
+      </para>
+<screen>
+<command>cyclictest --loops=1000 --histogram=1000</command>
+policy: fifo: loadavg: 0.12 0.08 0.03 1/342 4821
+            
+T: 0 ( 4822) P:99 I:1000 C:  1000 Min:      4 Act:    6 Avg:    7 Max:      31
+T: 1 ( 4823) P:99 I:1500 C:   667 Min:      3 Act:    5 Avg:    6 Max:      24</screen>
+      <para>
+        Each line reports one measurement thread (<literal>T:</literal>), its process ID,
+        scheduling priority (<literal>P:</literal>) and interval in microseconds
+        (<literal>I:</literal>). Four values matter for evaluation: <literal>Min</literal>,
+        <literal>Act</literal> (the latency of the most recent cycle), <literal>Avg</literal> and
+        <literal>Max</literal>. All four are reported in microseconds by default. Use
+        <option>--nsec</option> if you need nanosecond resolution.
+      </para>
+      <para>
+        <literal>Max</literal> is the value to compare against the deadline of your application: it
+        is the single worst-case scheduling latency observed during the run. As a rough order of
+        magnitude, well-tuned real-time systems generally report <literal>Max</literal> values in
+        the tens of microseconds. Results climbing into the hundreds of microseconds suggest an
+        unresolved source of interference, and results in the thousands of microseconds indicate
+        the system is not meeting real-time deadlines at all. These figures vary by hardware,
+        workload and kernel configuration. Compare this <literal>Max</literal> value against the
+        <literal>Max Latency</literal> reported by <command>hwlatdetect</command> in
+        <xref linkend="rt-hardware-testing-evaluate-with-hwlat"/>. Per
+        <xref linkend="rt-hardware-testing-concept"/>, <command>cyclictest</command> is expected to
+        report somewhat higher latencies, since it includes scheduling and interrupt handling
+        overhead that <command>hwlatdetect</command> does not measure.
+      </para>
+      <para>
+        The <literal>Max</literal> value from <command>cyclictest</command> includes hardware
+        latency plus kernel scheduling overhead. The <literal>Max Latency</literal> value from
+        <command>hwlatdetect</command> does not. So <command>cyclictest</command> is expected to
+        report a higher number. The two tools are not measuring the same thing.
+      </para>
+      <para>
+        What matters is the size of the gap. A small gap is normal software overhead. A gap of
+        orders of magnitude points to a real problem in the operating system, not the hardware.
+      </para>
+    </step>
+  </procedure>
 </topic>
