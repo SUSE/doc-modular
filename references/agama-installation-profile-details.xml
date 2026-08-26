@@ -1324,8 +1324,11 @@
         <term>post</term>
         <listitem>
           <para>
-            Scripts run after installation finishes. These can optionally execute within the target
-            system's root via chroot.
+            Scripts run after installation finishes. These can optionally execute within the
+            target system's root via chroot, which is one way to enable a service. For enabling
+            SSH or &cockpit; access specifically, prefer the <literal>access</literal> section
+            (see <xref linkend="access-configuration-agama-installation-profile"/>) over a
+            custom script.
           </para>
         </listitem>
       </varlistentry>
@@ -1384,11 +1387,27 @@
         <listitem>
           <para>
             Boolean. If <literal>true</literal>, the script is executed inside the installed
-            system's root via chroot. Applies only to <literal>post</literal> scripts.
+            system's root via chroot. Applies only to <literal>post</literal> scripts. Defaults
+            to <literal>true</literal> when omitted.
+          </para>
+          <para>
+            systemd does not run inside the chroot, so a chrooted script can enable a service
+            (a symlink operation) but cannot start one. If a command needs a running systemd,
+            use an <literal>init</literal> script instead.
           </para>
         </listitem>
       </varlistentry>
     </variablelist>
+    <example xml:id="agama-post-script-enable-service">
+      <title>Enabling a service from a post-installation script</title>
+<screen>
+{
+  "name": "<replaceable>enable-apache2.sh</replaceable>",
+  "chroot": true,
+  "content": "#!/bin/bash\nsystemctl enable apache2.service"
+}
+</screen>
+    </example>
   </section>
   <section xml:id="files-configuration-agama-installation-profile">
     <title>Files configuration for an &agama; installation profile</title>
@@ -1807,6 +1826,16 @@
         </listitem>
       </varlistentry>
     </variablelist>
+    <warning>
+      <title>Unknown LUNs could fail to activate</title>
+      <para>
+        If a LUN that is not already known to the system&mdash;common with storage from vendors
+        other than IBM DS8000&mdash;fails to activate when listed under
+        <literal>devices</literal>, activate it manually before installation instead. For
+        example, use the <parameter>rd.zdev</parameter> boot parameter, or run
+        <command>chzdev</command> and then rescan the devices.
+      </para>
+    </warning>
   </section>
   <section xml:id="ntp-configuration-agama-installation-profile">
     <title>Network Time Protocol configuration for an &agama; installation profile</title>
@@ -1906,7 +1935,7 @@
     <title>Access configuration for an &agama; installation profile</title>
     <para>
       The <literal>access</literal> section configures how the installed system can be accessed
-      remotely, over SSH and the &agama; Web console.
+      remotely, over SSH and &cockpit;.
     </para>
     <example>
       <title>Sample <literal>access</literal> configuration for an &agama; installation profile</title>
@@ -1948,12 +1977,13 @@
         <term>webConsole</term>
         <listitem>
           <para>
-            Whether access to the &agama; Web console is enabled. Supported values:
+            Whether access to &cockpit;, the system's Web-based management console, is enabled.
+            Supported values:
           </para>
           <itemizedlist>
             <listitem>
               <para>
-                <literal>enabled</literal>: ensures the Web console is accessible. Root login can
+                <literal>enabled</literal>: ensures &cockpit; is accessible. Root login can
                 still be prevented by the product's default configuration.
               </para>
             </listitem>
