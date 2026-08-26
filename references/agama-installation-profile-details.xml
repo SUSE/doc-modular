@@ -1322,8 +1322,8 @@
         <term>post</term>
         <listitem>
           <para>
-            Scripts run after installation finishes. These can optionally execute within the target
-            system's root via chroot.
+            Scripts run after installation finishes. These can optionally execute within the
+            target system's root via chroot, which is one way to enable a service.
           </para>
         </listitem>
       </varlistentry>
@@ -1382,11 +1382,27 @@
         <listitem>
           <para>
             Boolean. If <literal>true</literal>, the script is executed inside the installed
-            system's root via chroot. Applies only to <literal>post</literal> scripts.
+            system's root via chroot. Applies only to <literal>post</literal> scripts. Defaults
+            to <literal>true</literal> when omitted.
+          </para>
+          <para>
+            systemd does not run inside the chroot, so a chrooted script can enable a service
+            (a symlink operation) but cannot start one. If a command needs a running systemd,
+            use an <literal>init</literal> script instead.
           </para>
         </listitem>
       </varlistentry>
     </variablelist>
+    <example xml:id="agama-post-script-enable-service">
+      <title>Enabling a service from a post-installation script</title>
+<screen>
+{
+  "name": "<replaceable>enable-apache2.sh</replaceable>",
+  "chroot": true,
+  "content": "#!/bin/bash\nsystemctl enable apache2.service"
+}
+</screen>
+    </example>
   </section>
   <section xml:id="files-configuration-agama-installation-profile">
     <title>Files configuration for an &agama; installation profile</title>
@@ -1804,165 +1820,16 @@
         </listitem>
       </varlistentry>
     </variablelist>
-  </section>
-  <section xml:id="ntp-configuration-agama-installation-profile">
-    <title>Network Time Protocol configuration for an &agama; installation profile</title>
-    <para>
-      Having the correct date and time during installation matters: an incorrect clock can
-      cause unexpected errors. The &agama; installation medium ships <literal>chrony</literal>,
-      which synchronizes the system clock automatically. The optional <literal>ntp</literal>
-      section lets you force &agama; to synchronize using specific NTP sources instead, and copies
-      that configuration to the installed system.
-    </para>
-    <example>
-      <title>Sample <literal>ntp</literal> configuration for an &agama; installation profile</title>
-<screen>
-"ntp": {
-  "sources": [
-    {
-      "type": "pool",
-      "address": "<replaceable>2.opensuse.pool.ntp.org</replaceable>",
-      "iburst": true,
-      "offline": false
-    }
-  ]
-}
-</screen>
-    </example>
-    <para>
-      The <literal>sources</literal> list defines the systems to synchronize with. Each source
-      supports the following fields:
-    </para>
-    <variablelist>
-      <varlistentry>
-        <term>address</term>
-        <listitem>
-          <para>
-            The host name or IP address of the NTP source.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>type</term>
-        <listitem>
-          <para>
-            The type of NTP source:
-          </para>
-          <itemizedlist>
-            <listitem>
-              <para>
-                <literal>pool</literal>: a pool of NTP servers (for example,
-                <literal>pool.ntp.org</literal>); the pool name resolves to multiple servers and
-                <literal>chrony</literal> picks the best ones.
-              </para>
-            </listitem>
-            <listitem>
-              <para>
-                <literal>server</literal>: a specific NTP server to synchronize with.
-              </para>
-            </listitem>
-            <listitem>
-              <para>
-                <literal>peer</literal>: an NTP peer for symmetric (bidirectional) time exchange.
-              </para>
-            </listitem>
-          </itemizedlist>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>iburst</term>
-        <listitem>
-          <para>
-            Optional boolean. If <literal>true</literal>, <literal>chrony</literal> sends a burst
-            of packets at startup to speed up the initial synchronization. Defaults to
-            <literal>false</literal>.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>offline</term>
-        <listitem>
-          <para>
-            Optional boolean. If <literal>true</literal>, the source is initially marked offline.
-            Useful for sources that require network connectivity that may not be present at boot
-            time. Defaults to <literal>false</literal>.
-          </para>
-        </listitem>
-      </varlistentry>
-    </variablelist>
-    <note>
-      <title>Synchronizing time before &agama; starts</title>
+    <warning>
+      <title>Unknown LUNs could fail to activate</title>
       <para>
-        If you need to synchronize the date and time before &agama; itself starts (for example, if
-        the system has no working clock), use the <literal>rd.ntp</literal> boot option instead of
-        the profile's <literal>ntp</literal> section.
+        If a LUN that is not already known to the system&mdash;common with storage from vendors
+        other than IBM DS8000&mdash;fails to activate when listed under
+        <literal>devices</literal>, activate it manually before installation instead. For
+        example, use the <parameter>rd.zdev</parameter> boot parameter, or run
+        <command>chzdev</command> and then rescan the devices.
       </para>
-    </note>
-  </section>
-  <section xml:id="access-configuration-agama-installation-profile">
-    <title>Access configuration for an &agama; installation profile</title>
-    <para>
-      The <literal>access</literal> section configures how the installed system can be accessed
-      remotely, over SSH and the &agama; web console.
-    </para>
-    <example>
-      <title>Sample <literal>access</literal> configuration for an &agama; installation profile</title>
-<screen>
-"access": {
-  "ssh": "enabled",
-  "webConsole": "default"
-}
-</screen>
-    </example>
-    <para>
-      This section contains the following fields:
-    </para>
-    <variablelist>
-      <varlistentry>
-        <term>ssh</term>
-        <listitem>
-          <para>
-            Whether SSH access is enabled. If omitted, SSH access is enabled automatically when
-            either the <literal>user</literal> or <literal>root</literal> section defines
-            <literal>sshPublicKeys</literal>. Supported values:
-          </para>
-          <itemizedlist>
-            <listitem>
-              <para>
-                <literal>enabled</literal>: ensures SSH is accessible. Root login using a password
-                can still be restricted by the product's default configuration.
-              </para>
-            </listitem>
-            <listitem>
-              <para>
-                <literal>default</literal>: keeps the product's default behavior.
-              </para>
-            </listitem>
-          </itemizedlist>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term>webConsole</term>
-        <listitem>
-          <para>
-            Whether access to the &agama; web console is enabled. Supported values:
-          </para>
-          <itemizedlist>
-            <listitem>
-              <para>
-                <literal>enabled</literal>: ensures the web console is accessible. Root login can
-                still be prevented by the product's default configuration.
-              </para>
-            </listitem>
-            <listitem>
-              <para>
-                <literal>default</literal>: keeps the product's default behavior.
-              </para>
-            </listitem>
-          </itemizedlist>
-        </listitem>
-      </varlistentry>
-    </variablelist>
+    </warning>
   </section>
   <section xml:id="questions-configuration-agama-installation-profile">
     <title>Questions configuration for an &agama; installation profile</title>
