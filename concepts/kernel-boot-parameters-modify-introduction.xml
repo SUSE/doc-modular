@@ -25,8 +25,10 @@
     <abstract>
       <!-- can be changed via merge in the assembly -->
       <para>
-        Before modifying kernel boot parameters, it is important to understand the basic concepts:
-        definition, methods, benefits and examples of modifying kernel boot parameters.
+        Kernel boot parameters tell the &sle; kernel how to behave at startup. Knowing where they
+        come from and how &grub; passes them to the kernel makes it easier to change them
+        correctly. This knowledge also helps you reason about which change to make for a given
+        problem.
       </para>
     </abstract>
   </info>
@@ -36,8 +38,8 @@
       Kernel boot parameters are configurations passed to the &sle; kernel during the boot process
       managed by the &grub;. The configurations are instructions to the &grub; boot loader on how
       to configure certain features and make them behave in the intended manner. The method of
-      modification depends on whether you want the changes to impact only the next boot, or all
-      subsequent boots until further changes are made.
+      modification depends on whether you want the change to affect only the next boot, or all
+      subsequent boots.
     </para>
   </section>
   <section xml:id="kernel-boot-parameters-modification-types">
@@ -60,10 +62,11 @@
         <term>Permanently</term>
         <listitem>
           <para>
-            Changes are written to <filename>/etc/default/grub</filename> file and persist across
-            all subsequent boot processes. For permanent changes, we
-            <emphasis role="strong">recommend</emphasis> using the &yastcc; instead of directly
-            editing the <filename>/etc/default/grub</filename> file.
+            Changes are written to the <filename>/etc/default/grub</filename> file and persist
+            across all subsequent boot processes. For permanent changes, we
+            <emphasis role="strong">recommend</emphasis> using the
+            <command>update-bootloader</command> command instead of directly editing the
+            <filename>/etc/default/grub</filename> file.
           </para>
           <para>
             However, if you directly edit the <filename>/etc/default/grub</filename> file, modify
@@ -80,18 +83,15 @@
   <section xml:id="kernel-boot-parameters-modify-reason">
     <title>Benefits of modifying kernel boot parameters</title>
     <para>
-      Modifying kernel boot parameters is essential for achieving specific system configurations
-      and addressing several scenarios, including:
+      A few common reasons to modify kernel boot parameters:
     </para>
     <itemizedlist>
       <listitem>
         <formalpara>
-          <title>Performance optimization</title>
+          <title>Performance</title>
           <para>
-            Tweaking parameters to enhance system performance, responsiveness, and overall
-            efficiency based on specific system requirements. For example, using the
-            <code>quiet</code> parameter suppresses most boot messages, reducing boot time and
-            improving performance during startup.
+            Tune the kernel for a specific workload. For example, the <code>quiet</code> parameter
+            suppresses most boot messages, which shortens boot time.
           </para>
         </formalpara>
       </listitem>
@@ -99,10 +99,9 @@
         <formalpara>
           <title>Hardware compatibility</title>
           <para>
-            Tailoring parameters to ensure compatibility with specific hardware components,
-            addressing potential compatibility issues. For example, the <code>acpi=off</code>
-            parameter can be used to disable the Advanced Configuration and Power Interface (ACPI)
-            to resolve boot problems on older hardware.
+            Work around a hardware quirk the kernel misdetects by default. For example, the
+            <code>acpi=off</code> parameter disables the Advanced Configuration and Power
+            Interface (ACPI), which can resolve boot problems on older hardware.
           </para>
         </formalpara>
       </listitem>
@@ -110,10 +109,9 @@
         <formalpara>
           <title>Troubleshooting</title>
           <para>
-            Altering parameters to troubleshoot issues such as graphics driver problems, ensuring a
-            more stable and functional system. For instance, the <parameter>nomodeset</parameter>
-            parameter can disable kernel mode setting, which is helpful when troubleshooting issues
-            with graphics drivers that prevent the system from booting.
+            Isolate a driver or subsystem that is preventing the system from booting. For
+            instance, the <parameter>nomodeset</parameter> parameter disables kernel mode setting,
+            which helps when a graphics driver prevents the system from booting.
           </para>
         </formalpara>
       </listitem>
@@ -122,9 +120,7 @@
   <section xml:id="kernel-boot-parameters-modify-examples">
     <title>Examples of commonly modified kernel boot parameters</title>
     <para>
-      There are several kernel parameters that you can optionally modify to customize your boot
-      process. Based on your use case, you can consider a few of the most commonly modified kernel
-      boot parameters:
+      A few of the most commonly modified kernel boot parameters:
     </para>
     <itemizedlist>
       <listitem>
@@ -158,6 +154,15 @@
           (ACPI) settings.
         </para>
       </listitem>
+      <listitem>
+        <para>
+          <parameter>selinux=0</parameter>: Disables SELinux, which is enabled by default on &sle;
+          16. For the recommended approach, the <literal>permissive</literal> mode alternative, and
+          how to relabel the file system after reenabling SELinux, see
+          <link xlink:href="https://documentation.suse.com/sles/16.0/html/SLES-SELinux/index.html#selinux-enable-disable">Disabling
+          and reenabling SELinux</link>.
+        </para>
+      </listitem>
     </itemizedlist>
     <para>
       For a detailed understanding of all available kernel parameters and their possible values,
@@ -181,10 +186,8 @@
           <itemizedlist>
             <listitem>
               <para>
-                In &yast;, select <menuchoice><guimenu>System</guimenu><guimenu>Boot
-                Loader</guimenu><guimenu>Boot Loader Settings</guimenu><guimenu>Kernel
-                Parameters</guimenu></menuchoice>. Enter parameters in the <guimenu>Optional Kernel
-                Command Line Parameter</guimenu> field with spaces between them.
+                With <command>update-bootloader</command>, add each parameter with its own
+                <option>--add-option</option> call. The command inserts the spacing for you.
               </para>
             </listitem>
             <listitem>
@@ -232,16 +235,18 @@
           </para>
           <variablelist>
             <varlistentry>
-              <term>&yastcc; Boot Loader</term>
+              <term><command>update-bootloader</command></term>
               <listitem>
-                <para>
-                  Enter the value with quotes directly in the parameter field; the &yastcc; handles
-                  the spacing appropriately before passing it on to &grub;.
-                </para>
-                <example>
-                  <title>Kernel parameter values containing spaces in the &yastcc;</title>
-<screen>root="/dev/mapper/<replaceable>USER VOLUME</replaceable>"</screen>
-                </example>
+                <warning>
+                  <title>Configuration corruption from unescaped spaces</title>
+                  <para>
+                    <command>update-bootloader --add-option</command> does not quote or escape a
+                    value for you: a value containing a space is split into two separate boot
+                    parameters, corrupting the configuration. For a value containing spaces, edit
+                    <filename>/etc/default/grub</filename> directly or use the &grub; boot menu
+                    instead, both described below.
+                  </para>
+                </warning>
               </listitem>
             </varlistentry>
             <varlistentry>
@@ -273,15 +278,15 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term>Multiple values for a kernel parameter</term>
+        <term>Multiple values for a kernel boot parameter</term>
         <listitem>
           <para>
             Use commas without spaces to separate multiple values for a single parameter in all
             methods:
           </para>
           <example>
-            <title>Multiple values for a kernel parameter</title>
-<screen>console=tty0,tty1 video=HDMI-A-1:1920x1080@60,VGA-1:1024x768</screen>
+            <title>Multiple values for a kernel boot parameter</title>
+<screen>module_blacklist=nouveau,radeon</screen>
           </example>
         </listitem>
       </varlistentry>

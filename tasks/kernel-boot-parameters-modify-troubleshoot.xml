@@ -24,18 +24,17 @@
     <abstract>
       <!-- can be changed via merge in the assembly -->
       <para>
-        While modifying kernel boot parameters, challenges may arise, potentially leading to system
-        instability or boot failure. It is important to understand the potential challenges and
-        systematic approaches to resolving configuration issues.
+        A wrong or unsupported kernel boot parameter can leave a system unstable or unable to
+        boot. This section covers how to identify a bad parameter, recover a system that no
+        longer boots, and confirm stability after a change.
       </para>
     </abstract>
   </info>
   <section xml:id="kernel-boot-parameters-modify-troubleshoot-common-problems">
-    <title>Troubleshooting kernel boot parameter modifications</title>
+    <title>Troubleshooting modifications to kernel boot parameters</title>
     <para>
-      Effective troubleshooting requires a methodical investigation of system behaviors and
-      configuration changes. A few troubleshooting strategies and steps to address a few common
-      issues are listed in this section.
+      The following steps cover the most common issues: an incorrect parameter, a system that
+      fails to boot, and a system that boots but behaves unpredictably afterward.
     </para>
     <section xml:id="sec-kernel-troubleshoot-incorrect-parameters">
       <title>Identifying and correcting parameter issues</title>
@@ -57,10 +56,10 @@
             </step>
             <step>
               <para>
-                Confirm that the parameters are recognized by the kernel. If you are modifying a
-                parameter that is already part of the standard configuration, check the output of
-                the <command>cat /proc/cmdline</command> command. For a complete list of allowed
-                parameters, refer to the kernel documentation at
+                Confirm that the parameters are recognized by the kernel. If the parameter is
+                already part of the standard configuration, check the current value with
+                <command>cat /proc/cmdline</command>. For a complete list of allowed parameters,
+                refer to the kernel documentation at
                 <link xlink:href="https://www.kernel.org/doc/Documentation/admin-guide/kernel-parameters.txt"/>.
               </para>
             </step>
@@ -71,7 +70,12 @@
             Investigate system logs for detailed error information:
           </para>
 <screen>&prompt.sudo;<command>dmesg | grep -i error</command></screen>
-<screen>&prompt.sudo;<command>journalctl -b | grep -i "kernel parameter"</command></screen>
+<screen>&prompt.sudo;<command>journalctl -k -b</command></screen>
+        <para>
+          The <command>journalctl -k -b</command> output includes a <literal>Command line:</literal>
+          entry showing the exact kernel boot parameters the kernel received for the current boot,
+          which you can compare against what you intended to set.
+        </para>
         </step>
         <step>
           <para>
@@ -84,71 +88,72 @@
     </section>
     <section xml:id="sec-kernel-troubleshoot-boot-failures">
       <title>Recovering from boot failures</title>
+      <para>
+        A system that fails to boot is no longer reachable over the network. You need physical
+        or remote console access (for example, a hypervisor console or a hardware management
+        interface) to perform the following steps.
+      </para>
       <procedure>
         <step>
           <para>
-            Access system recovery options:
+            Boot into recovery mode:
           </para>
-          <itemizedlist>
-            <listitem>
+          <substeps>
+            <step>
               <para>
-                Use the &grub; recovery mode during system startup.
+                Restart the system.
               </para>
-            </listitem>
-            <listitem>
+            </step>
+            <step>
               <para>
-                Select advanced boot options to enter a minimal working environment.
+                If the &grub; menu does not appear, press <keycap function="escape"/> while the
+                &sle; boot logo shows to interrupt the boot.
               </para>
-            </listitem>
-          </itemizedlist>
+            </step>
+            <step>
+              <para>
+                At the &grub; menu, select <guimenu>Advanced options for &productnameshort;
+                &productnumber;</guimenu>.
+              </para>
+            </step>
+            <step>
+              <para>
+                Select the <literal>(recovery mode)</literal> entry for the kernel version you
+                want to boot.
+              </para>
+            </step>
+          </substeps>
+          <para>
+            Recovery mode boots the system in single-user mode, without the parameters set for
+            normal boot. It gives you a minimal working environment to fix the configuration.
+          </para>
         </step>
         <step>
           <para>
-            Restoration methods for different configuration approaches:
+            Fix the configuration. Recovery mode does not use
+            <varname>GRUB_CMDLINE_LINUX_DEFAULT</varname>, so you have a working root shell
+            regardless of what it currently contains:
           </para>
-          <variablelist>
-            <varlistentry>
-              <term>&yastcc; modifications</term>
-              <listitem>
-                <orderedlist>
-                  <listitem>
-                    <para>
-                      Open the &yast; Boot Loader module.
-                    </para>
-                  </listitem>
-                  <listitem>
-                    <para>
-                      Revert to the previous working boot configuration.
-                    </para>
-                  </listitem>
-                  <listitem>
-                    <para>
-                      Save changes and reboot.
-                    </para>
-                  </listitem>
-                </orderedlist>
-              </listitem>
-            </varlistentry>
-            <varlistentry>
-              <term>Direct &grub; configuration restoration</term>
-              <listitem>
-                <orderedlist>
-                  <listitem>
-                    <para>
-                      Restore from pre-modification backup:
-                    </para>
+          <stepalternatives>
+            <step>
+              <para>
+                If you have a pre-modification backup, restore it:
+              </para>
 <screen>&prompt.sudo;<command>cp /etc/default/grub.bak /etc/default/grub</command></screen>
-                  </listitem>
-                  <listitem>
-                    <para>
-                      Regenerate the &grub; configuration:
-                    </para>
-<screen>&prompt.sudo;<command>grub2-mkconfig -o /boot/grub2/grub.cfg</command></screen>
-                  </listitem>
-                </orderedlist>
-              </listitem>
-            </varlistentry>
-          </variablelist>
+            </step>
+            <step>
+              <para>
+                If you do not have a backup, remove the offending parameter directly:
+              </para>
+<screen>&prompt.sudo;<command>update-bootloader --del-option <replaceable>PARAMETER</replaceable></command></screen>
+            </step>
+          </stepalternatives>
+        </step>
+        <step>
+          <para>
+            Regenerate the &grub; configuration:
+          </para>
+<screen>&prompt.sudo;<command>update-bootloader --config</command></screen>
         </step>
       </procedure>
     </section>
@@ -157,28 +162,33 @@
       <procedure>
         <step>
           <para>
-            Perform a comprehensive system log analysis:
-          </para>
-<screen>&prompt.sudo;<command>journalctl -xe</command></screen>
-<screen>&prompt.sudo;<command>dmesg | tail</command></screen>
-<screen>&prompt.sudo;<command>systemd-analyze verify</command></screen>
-        </step>
-        <step>
-          <para>
-            Systematically remove the recently added kernel parameters.
-          </para>
-        </step>
-        <step>
-          <para>
-            Create configuration backups before modifications:
+            Before making further changes, back up the current, still-working configuration:
           </para>
 <screen>&prompt.sudo;<command>cp /etc/default/grub /etc/default/grub.bak</command></screen>
 <screen>&prompt.sudo;<command>cp /boot/grub2/grub.cfg /boot/grub2/grub.cfg.bak</command></screen>
         </step>
         <step>
           <para>
-            If the issues persist, consider restoring the working configurations from a backup or
-            booting using a previously working system snapshot.
+            Check the system logs for errors or warnings introduced by the change:
+          </para>
+<screen>&prompt.sudo;<command>journalctl -xe</command></screen>
+<screen>&prompt.sudo;<command>dmesg | tail</command></screen>
+        <para>
+          If a parameter change made the boot noticeably slower, check which units took the
+          longest to start:
+        </para>
+<screen><command>systemd-analyze blame</command></screen>
+        </step>
+        <step>
+          <para>
+            Remove the recently added parameters one at a time, rebooting after each, to find
+            the cause.
+          </para>
+        </step>
+        <step>
+          <para>
+            If the issues persist, restore the backup from the first step, or boot from a
+            previously working system snapshot.
           </para>
         </step>
       </procedure>

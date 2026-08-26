@@ -26,63 +26,72 @@
     <abstract>
       <!-- can be changed via merge in the assembly -->
       <para>
-        To change kernel boot parameters persistently for all subsequent boot processes, edit the
-        kernel parameters using &yastcc; as <literal>root</literal> or a user with equivalent
-        administrative privileges.
+        To change kernel boot parameters persistently for all subsequent boot processes, use the
+        <command>update-bootloader</command> command as <literal>root</literal> or a user with
+        equivalent administrative privileges.
       </para>
     </abstract>
   </info>
-  <example>
-    <title>Permanently modify kernel boot parameters using &yastcc;</title>
+  <tip>
+    <title>Test before making a change permanent</title>
     <para>
-      As an example of modifying kernel boot parameters persistently for all subsequent boot
-      processes, we disable the splash screen that you can see during the boot.
+      On a production system, test the parameter temporarily first, as described in
+      <xref linkend="kernel-boot-parameters-modify-temporary"/>. Confirm it has the effect you
+      expect before committing to a change that applies to every subsequent boot.
+    </para>
+  </tip>
+  <example>
+    <title>Permanently modify kernel boot parameters using update-bootloader</title>
+    <para>
+      As an example of modifying kernel boot parameters permanently, we disable the splash screen
+      that appears during boot.
     </para>
     <warning>
       <para>
         Before modifying kernel boot parameters, create a copy of the existing stable &grub;
-        configuration (<filename>/etc/default/grub</filename>) somewhere outside of your system. If
-        the boot loader gets corrupted and your system fails to boot, or you face problems after
-        booting your system, the backup helps you compare and restore the parameters to the last
-        known working configuration.
+        configuration (<filename>/etc/default/grub</filename>) somewhere outside of your system.
+        If the boot loader gets corrupted, or you face problems after booting, your system might
+        fail to start. The backup lets you compare and restore the last known working
+        configuration.
       </para>
     </warning>
     <procedure>
       <step>
         <para>
-          Log in to your system as root, or switch to a user with equivalent administrative
-          privileges after logging in to your system.
+          Log in as root, or switch to a user with equivalent administrative privileges.
         </para>
       </step>
       <step>
         <para>
-          In your running system, open a root shell and run the following command:
+          Check whether the parameter you want to change is already set:
         </para>
-<screen>&prompt.root;<command>yast bootloader</command></screen>
+<screen>&prompt.root;<command>update-bootloader --get-option splash</command></screen>
         <para>
-          Alternatively, open the &yastcc; application and select
-          <menuchoice><guimenu>System</guimenu><guimenu>Boot Loader</guimenu></menuchoice>.
-        </para>
-      </step>
-      <step>
-        <para>
-          Under the <guimenu>Kernel Parameters</guimenu> tab, edit the string for the
-          <guimenu>Optional Kernel Command Line Parameter</guimenu> field.
-        </para>
-<screen><emphasis role="strong">splash=silent</emphasis> resume=/dev/disk/by-uuid/69ff0e54-23a7-4ba8-8983-5a29c54ffa5e  quiet security=apparmor crashkernel=301M,high crashkernel=72M,low</screen>
-        <para>
-          As you can see, the string <parameter>splash=silent</parameter> is printed. Remove
-          <parameter>splash=silent</parameter> from the string.
+          The command prints the currently configured value, for example
+          <literal>splash=silent</literal>.
         </para>
       </step>
       <step>
         <para>
-          Select <guimenu>OK</guimenu> to save the boot loader configuration.
+          Remove the parameter from the default boot options:
+        </para>
+<screen>&prompt.root;<command>update-bootloader --del-option splash</command></screen>
+        <para>
+          To add or change a parameter instead of removing one, use
+          <command>update-bootloader --add-option <replaceable>PARAMETER</replaceable>=<replaceable>VALUE</replaceable></command>.
+          Setting an already-present parameter again replaces its value rather than adding a
+          duplicate entry.
         </para>
       </step>
       <step>
         <para>
-          Reboot. You should see that the splash screen does not appear.
+          Apply the change to the boot loader configuration:
+        </para>
+<screen>&prompt.root;<command>update-bootloader --config</command></screen>
+      </step>
+      <step>
+        <para>
+          Reboot to confirm the splash screen no longer appears.
         </para>
       </step>
     </procedure>
@@ -93,8 +102,9 @@
     <note>
       <title>Editing the &grub; configuration file directly</title>
       <para>
-        &yastcc; is the recommended way to change kernel boot parameters persistently. If you edit
-        <filename>/etc/default/grub</filename> directly instead, see
+        <command>update-bootloader</command> works consistently across the boot loaders &sle;
+        supports, including &grub; and the <literal>systemd-boot</literal> preview. If you prefer
+        to edit <filename>/etc/default/grub</filename> directly instead, see
         <xref linkend="kernel-boot-parameters-modification-types"/> for the variables to modify and
         the command required to apply the change.
       </para>
