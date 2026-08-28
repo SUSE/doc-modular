@@ -25,7 +25,7 @@
     <abstract>
       <!-- can be changed via merge in the assembly -->
       <para>
-        Kernel boot parameters tell the &sle; kernel how to behave at startup. Knowing where they
+        Kernel boot parameters tell the kernel how to behave at startup. Knowing where they
         come from and how &grub; passes them to the kernel makes it easier to change them
         correctly. This knowledge also helps you reason about which change to make for a given
         problem.
@@ -35,7 +35,7 @@
   <section xml:id="kernel-boot-parameters-modify-definition">
     <title>What are kernel boot parameters?</title>
     <para>
-      Kernel boot parameters are configurations passed to the &sle; kernel during the boot process
+      Kernel boot parameters are configurations passed to the kernel during the boot process
       managed by the &grub;. The configurations are instructions to the &grub; boot loader on how
       to configure certain features and make them behave in the intended manner. The method of
       modification depends on whether you want the change to affect only the next boot, or all
@@ -76,6 +76,21 @@
             privileges.
           </para>
 <screen>&prompt.sudo;<command>grub2-mkconfig -o /boot/grub2/grub.cfg</command></screen>
+          <para>
+            <command>update-bootloader</command> is also available on &slm;, whose read-only root
+            file system is only writable inside a new transactional snapshot. Run it through
+            <command>transactional-update</command> instead of calling it directly:
+          </para>
+<screen>&prompt.sudo;<command>transactional-update run update-bootloader --add-option <replaceable>PARAMETER</replaceable>=<replaceable>VALUE</replaceable></command></screen>
+          <para>
+            To only regenerate the &grub; configuration, without adding or removing a parameter,
+            use the dedicated subcommand instead:
+          </para>
+<screen>&prompt.sudo;<command>transactional-update grub.cfg</command></screen>
+          <para>
+            On &slm;, changes take effect only after a reboot, since they live in a new snapshot
+            until then.
+          </para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -122,48 +137,69 @@
     <para>
       A few of the most commonly modified kernel boot parameters:
     </para>
-    <itemizedlist>
-      <listitem>
-        <para>
-          <parameter>root=</parameter>: Specifies the path to the root file system.
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          <parameter>quiet</parameter>: Suppresses most boot messages.
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          <parameter>splash</parameter>: Displays a graphical boot splash screen.
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          <parameter>nomodeset</parameter>: Disables kernel mode setting.
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          <parameter>debug</parameter>: Enables debugging output.
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          <parameter>acpi=</parameter>: Toggles the Advanced Configuration and Power Interface
-          (ACPI) settings.
-        </para>
-      </listitem>
-      <listitem>
-        <para>
-          <parameter>selinux=0</parameter>: Disables SELinux, which is enabled by default on &sle;
-          16. For the recommended approach, the <literal>permissive</literal> mode alternative, and
-          how to relabel the file system after reenabling SELinux, see
-          <link xlink:href="https://documentation.suse.com/sles/16.0/html/SLES-SELinux/index.html#selinux-enable-disable">Disabling
-          and reenabling SELinux</link>.
-        </para>
-      </listitem>
-    </itemizedlist>
+    <variablelist>
+      <varlistentry>
+        <term><parameter>root=</parameter></term>
+        <listitem>
+          <para>
+            Specifies the path to the root file system.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><parameter>quiet</parameter></term>
+        <listitem>
+          <para>
+            Suppresses most boot messages.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><parameter>splash</parameter></term>
+        <listitem>
+          <para>
+            Displays a graphical boot splash screen.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><parameter>nomodeset</parameter></term>
+        <listitem>
+          <para>
+            Disables kernel mode setting.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><parameter>debug</parameter></term>
+        <listitem>
+          <para>
+            Enables debugging output.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><parameter>acpi=</parameter></term>
+        <listitem>
+          <para>
+            Toggles the Advanced Configuration and Power Interface (ACPI) settings.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><parameter>selinux=0</parameter></term>
+        <listitem>
+          <para>
+            Disables SELinux, which is enabled by default on &productnameshort; 16. For the
+            recommended approach, the <literal>permissive</literal> mode alternative, and how to
+            relabel the file system after reenabling SELinux, see
+            <link os="sles" xlink:href="https://documentation.suse.com/sles/16.0/html/SLES-SELinux/index.html#selinux-enable-disable">Disabling
+            and reenabling SELinux</link><link os="sles4sap" xlink:href="https://documentation.suse.com/sles-sap/16.0/html/SAP-SELinux/index.html#selinux-enable-disable">Disabling
+            and reenabling SELinux</link>.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
     <para>
       For a detailed understanding of all available kernel parameters and their possible values,
       source documentation is available at
@@ -187,8 +223,10 @@
             <listitem>
               <para>
                 With <command>update-bootloader</command>, add each parameter with its own
-                <option>--add-option</option> call. The command inserts the spacing for you.
+                <option>--add-option</option> call. The command inserts the spacing for you:
               </para>
+<screen>&prompt.sudo;<command>update-bootloader --add-option quiet</command>
+&prompt.sudo;<command>update-bootloader --add-option splash</command></screen>
             </listitem>
             <listitem>
               <para>
