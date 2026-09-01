@@ -18,15 +18,11 @@ role="task" xml:lang="en"
     <meta name="maintainer" content="eliska.romanova@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        Learn how to configure non-cloud &minvm; images using interactive &jeosfirstboot; or
-        automated &combustion; deployment.
+        Learn how to configure &minvm; images using interactive &jeosfirstboot; or automated
+        &combustion; deployment.
       </para>
     </abstract>
   </info>
-  <para>
-    This section applies to the <literal>kvm-and-xen</literal>, <literal>Hyper-V</literal> and
-    <literal>VMware</literal> images, which do not contain <literal>cloud-init</literal>.
-  </para>
   <para>
     Before starting the virtual machine for the first time, choose one of the following deployment
     methods:
@@ -44,7 +40,9 @@ role="task" xml:lang="en"
         script and attach it to the virtual machine before powering it on. &combustion; applies the
         settings automatically and bypasses the interactive wizard.
       </para>
-      <note os="sles">
+    </listitem>
+  </orderedlist>
+  <note os="sles">
     <title>Exception for &zseries;</title>
     <para>
       On &s390x; flavors targeting z/VM (such as DASD and FCP), the &jeosfirstboot; wizard is not
@@ -52,8 +50,6 @@ role="task" xml:lang="en"
       is used instead.
     </para>
   </note>
-    </listitem>
-  </orderedlist>
   <section xml:id="jeosfirstboot">
     <title>Interactive setup with &jeosfirstboot;</title>
     <para>
@@ -156,26 +152,45 @@ role="task" xml:lang="en"
       first boot from a script that you supply. This can be particularly useful when you need to
       deploy multiple virtual machines with an identical initial configuration. When &combustion;
       runs successfully, &jeosfirstboot; does not start. Because &minvm; does not configure a
-      default &rootuser; password, it is mandatory to set it via the &combustion; script.
+      default &rootuser; password, the script must include a login method, either a &rootuser;
+      password or an SSH public key for remote access.
     </para>
     <procedure>
       <step>
         <para>
-          Generate a hash of your desired &rootuser; password:
+          Create a configuration file named <filename>script</filename>.
         </para>
-<screen>&prompt.user;openssl passwd -6</screen>
-      </step>
-      <step>
-        <para>
-          Create a configuration file named <filename>script</filename>. To ensure you can log in
-          to the &minvm; as the &rootuser; user, add the following line to the script, replacing
-          <replaceable>HASH</replaceable> with the value you just generated:
-        </para>
-<screen>echo 'root:<replaceable>HASH</replaceable>' | chpasswd -e</screen>
         <para>
           For more information about how to create the script, see
           <link xlink:href="https://documentation.suse.com/sle-micro/html/Micro-deployment-raw-images-virtual-machines/index.html#configuring-combustion-script"/>.
         </para>
+      </step>
+      <step>
+        <para>
+          Add at least one login method to the script:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              To log in with a password, generate a hash of your desired &rootuser; password:
+            </para>
+<screen>&prompt.user;openssl passwd -6</screen>
+            <para>
+              Add the following line to the script, replacing <replaceable>HASH</replaceable> with
+              the value you just generated:
+            </para>
+<screen>echo 'root:<replaceable>HASH</replaceable>' | chpasswd -e</screen>
+          </listitem>
+          <listitem>
+            <para>
+              To enable remote login with an SSH key, add the following lines to the script. The
+              last line enables the SSH service, which is required for remote login:
+            </para>
+<screen>mkdir -pm 700 /root/.ssh
+echo '<replaceable>SSH_PUBLIC_KEY</replaceable>' >> /root/.ssh/authorized_keys
+systemctl enable sshd.service</screen>
+          </listitem>
+        </itemizedlist>
       </step>
       <step>
         <para>
@@ -246,9 +261,9 @@ role="task" xml:lang="en"
       </step>
     </procedure>
     <para>
-      &combustion; produces no output while it runs. The indication that it worked is that
-      &jeosfirstboot; does not start and you can log in as &rootuser; with the password you
-      generated.
+      By default, &combustion; produces no output while it runs. The indication that it worked is
+      that &jeosfirstboot; does not start and you can log in as &rootuser; using the method you
+      configured in the script.
     </para>
   </section>
 </topic>
