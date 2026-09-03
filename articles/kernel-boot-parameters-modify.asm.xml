@@ -61,6 +61,67 @@
       <!--subtitle>Subtitle if necessary</subtitle-->
       <!-- Create changelog to enable versioning; add most recent entries at the top. -->
       <revhistory xml:id="rh-kernel-boot-parameters-modify">
+        <revision><date>2026-08-26</date>
+          <revdescription>
+            <itemizedlist>
+              <listitem>
+                <para>
+                  Updated the permanent kernel boot parameter procedure, replacing &yastcc; Boot
+                  Loader instructions with the <command>update-bootloader</command> command, since
+                  &productnameshort; 16 no longer includes &yast;.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  Updated the security configuration information to reflect that
+                  &productnameshort; 16 uses SELinux by default instead of AppArmor.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  Updated the <literal>linuxrc</literal> comparison to reflect that
+                  <literal>linuxrc</literal> no longer exists on &productnameshort; 16; early-boot
+                  parameters formerly associated with it are now documented as ordinary kernel
+                  boot parameters handled by dracut.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  Corrected the boot menu procedure to confirm that both <keycap>F10</keycap> and
+                  <keycombo><keycap function="control"/><keycap>X</keycap></keycombo> boot the
+                  edited &grub; entry, and clarified that recovering from a boot failure means
+                  selecting the <literal>(recovery mode)</literal> entry under
+                  <guimenu>Advanced options for &productnameshort; &productnumber;</guimenu>, not
+                  a separate recovery mode.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  Added the physical or remote console access requirement for temporarily
+                  modifying kernel boot parameters and for recovering from a boot failure; neither
+                  works over SSH.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  Added instructions for revealing the &grub; boot menu on systems where it is
+                  hidden by default.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  Added a recommendation to test a parameter temporarily before making it
+                  permanent.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  Added a recovery path for a boot failure when no pre-modification backup exists.
+                </para>
+              </listitem>
+            </itemizedlist>
+          </revdescription>
+        </revision>
         <revision><date>2025-11-04</date>
           <revdescription>
             <para>
@@ -72,109 +133,63 @@
       <!-- TODO: provide a listing of possible and validatable meta entry values. Maybe in our geekodoc repo? -->
       <!-- add author's e-mail -->
       <meta name="maintainer" content="ssarkar@suse.com" its:translate="no"/>
-      <!-- ISO date of last update as YYYY-MM-DD -->
-      <meta name="updated" content="2024-11-28" its:translate="no"/>
-      <!-- this does not work yet. Use the dm tags listed below for now
-        <meta name="bugtracker" its:translate="no">
-        <phrase role="url">https://bugzilla.suse.com/enter_bug.cgi</phrase>
-        <phrase role="component">Non-product-specific documentation</phrase>
-        <phrase role="product">Smart Docs</phrase>
-        <phrase role="assignee">assignee@suse.com</phrase>
-        </meta>
-        -->
-      <!-- not supported, yet. Use dm: tag for now
-        <meta name="translation" its:translate="no">
-        <phrase role="trans">yes</phrase>
-        <phrase role="language">de-de,cs-cz</phrase>
-        </meta>
-        -->
-      <!-- enter the platform identifier or a list of
-        identifiers, separated by ; -->
-      <meta name="architecture" content="x86" its:translate="no"/>
-      <meta name="productname" its:translate="no"><productname version="15 SP6">&sles;</productname>
+      <meta name="architecture">
+        <phrase>&x86-64;</phrase>
+        <phrase>&aarch64;</phrase>
+        <phrase>&ppc64le;</phrase>
+        <phrase>&zseries;</phrase>
+      </meta>
+      <meta name="productname" its:translate="no">
+        <productname version="16.0" os="sles;sles4sap">&productname;</productname>
       </meta>
       <meta name="title" its:translate="yes">Modifying Kernel Boot Parameters</meta>
-      <meta name="description" its:translate="yes">How to modify kernel boot parameters for customizing the boot process</meta>
+      <meta name="description" its:translate="yes">How to modify kernel boot parameters temporarily for a single boot or permanently with update-bootloader, and troubleshoot a change that goes wrong</meta>
       <meta name="social-descr" its:translate="yes">Modify kernel boot parameters</meta>
-      <!-- suitable category, comma-separated list of categories -->
-      <meta name="category" content="Systems Management" its:translate="no"/>
+      <!-- suitable categories has to be identical with the category selected in the docserv config -->
+      <meta name="category" its:translate="no">
+        <phrase>Systems Management</phrase>
+      </meta>
       <meta name="task" its:translate="no"><phrase>Administration</phrase><phrase>Configuration</phrase><phrase>Troubleshooting</phrase>
       </meta>
+      <meta name="series" its:translate="no">Products &amp; Solutions</meta>
       <dm:docmanager xmlns:dm="urn:x-suse:ns:docmanager">
         <dm:bugtracker>
           <dm:url>https://bugzilla.suse.com/enter_bug.cgi</dm:url>
-          <dm:product>SUSE Linux Enterprise Server 16.0</dm:product>
           <dm:component>Documentation</dm:component>
+          <dm:product os="sles">SUSE Linux Enterprise Server 16.0</dm:product>
+          <dm:product os="sles4sap">SUSE Linux Enterprise Server 16.0</dm:product>
           <dm:assignee>ssarkar@suse.com</dm:assignee>
         </dm:bugtracker>
         <dm:translation>yes</dm:translation>
       </dm:docmanager>
       <abstract>
-        <variablelist>
-          <varlistentry>
-            <term>WHAT?</term>
-            <listitem>
-              <para>
-                This article introduces the concepts, examples and modification process for kernel
-                boot parameters to customize the boot process and optimize the resulting
-                environment.
-              </para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term>WHY?</term>
-            <listitem>
-              <para>
-                Modifying kernel boot parameters is essential for achieving specific system
-                configurations and addressing several scenarios, including performance
-                optimization, better hardware compatibility, and troubleshooting issues such as
-                graphics drivers.
-              </para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term>EFFORT</term>
-            <listitem>
-              <para>
-                It takes 15 minutes to fully understand the concepts and the process, and five
-                minutes to modify kernel boot parameters and observe their effect after a reboot.
-              </para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term>GOAL</term>
-            <listitem>
-              <para>
-                Modify kernel parameters to customize the boot process and the subsequent
-                environment.
-              </para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term>REQUIREMENTS</term>
-            <listitem>
-              <para>
-                Depending on whether you want to apply changes in kernel boot parameters to the
-                upcoming boot process, or all subsequent boot processes, the requirements are as
-                follows:
-              </para>
-              <itemizedlist>
-                <listitem>
-                  <para>
-                    To change kernel boot parameters on an experimental basis only for the upcoming
-                    boot process, there are no requirements.
-                  </para>
-                </listitem>
-                <listitem>
-                  <para>
-                    To change kernel boot parameters for all subsequent boot processes, you should
-                    have <literal>root</literal> or equivalent administrative privileges.
-                  </para>
-                </listitem>
-              </itemizedlist>
-            </listitem>
-          </varlistentry>
-        </variablelist>
+        <para>
+          Kernel boot parameters configure how the &productname; kernel starts and behaves, controlling
+          areas such as hardware compatibility, performance and diagnostics. Set them
+          temporarily from the &grub; boot menu to test a change for a single boot. To apply a
+          change to every subsequent boot, set it permanently in the boot loader configuration
+          instead. Understanding the correct syntax and where to apply it lets you tune a system
+          for a specific workload and resolve hardware-related boot problems. You can also roll
+          back safely if a change causes issues.
+        </para>
+        <para><emphasis>Prerequisites:</emphasis></para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              To change kernel boot parameters on an experimental basis for the upcoming boot
+              process, you need physical or remote console access to the system. Examples
+              include a hypervisor console or a hardware management interface. This method does
+              not work over SSH, since the system is not yet reachable over the network at that
+              point in the boot process.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              To change kernel boot parameters for all subsequent boot processes, you need
+              <literal>root</literal> or equivalent administrative privileges.
+            </para>
+          </listitem>
+        </itemizedlist>
       </abstract>
     </merge>
     <!-- pull in all the topic files you need -->
@@ -208,4 +223,3 @@
     </module>
   </structure>
 </assembly>
-<!--Delete later; adding just for the sake of testing a push-->
