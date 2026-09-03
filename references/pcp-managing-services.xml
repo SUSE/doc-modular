@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="pcp-managing-services"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Managing PCP services</title>
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        The topic focuses on the services that make up PCP, and how to enable
+        and start them.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    Installing the <package>pcp</package> package installs several
+    &systemd; services, all disabled by default:
+  </para>
+  <variablelist>
+    <varlistentry>
+      <term><systemitem class="daemon">pmcd</systemitem></term>
+      <listitem>
+        <para>
+          The Performance Metrics Collector Daemon. It coordinates the
+          gathering and exporting of performance statistics in response to
+          requests from PCP tools, and is required by every other PCP
+          service. By default, it listens only on the local host, on port
+          <emphasis>44321</emphasis>.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><systemitem class="daemon">pmlogger</systemitem></term>
+      <listitem>
+        <para>
+          Records the metrics exported by <command>pmcd</command> to archive
+          logs, by default under
+          <filename>/var/log/pcp/pmlogger/<replaceable>HOSTNAME</replaceable>/</filename>.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><systemitem class="daemon">pmproxy</systemitem></term>
+      <listitem>
+        <para>
+          Exposes a REST API (PMWEBAPI) to access metrics remotely, on port
+          <emphasis>44322</emphasis> by default. Unlike
+          <command>pmcd</command>, it listens on all interfaces by default.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><systemitem class="daemon">pmie</systemitem></term>
+      <listitem>
+        <para>
+          The inference engine. It evaluates the exported metrics against a
+          set of rules and can trigger an action, for example, an alert, when
+          a rule matches.
+        </para>
+      </listitem>
+    </varlistentry>
+  </variablelist>
+  <para>
+    Enable and start the services you need with <command>systemctl</command>. A single
+    <option>enable --now</option> call both starts the service immediately and
+    keeps it running across reboots, so no separate step is needed to persist
+    it. For example, to enable local metric collection and logging:
+  </para>
+<screen>&prompt.sudo;<command>systemctl enable --now pmcd pmlogger</command></screen>
+  <para>
+    Add <literal>pmproxy</literal> or <literal>pmie</literal> to the same
+    command if you need the REST API or the inference engine.
+  </para>
+  <note>
+    <title>Enabling services on the immutable mode</title>
+    <para>
+      Enabling and starting a service only writes to
+      <filename>/etc</filename>, which remains writable through an overlay
+      even on the immutable mode of &productnameshort;, so the command above
+      works there too without going through &tr-up;. Run it after the reboot
+      that activates a freshly installed <package>pcp</package> package,
+      rather than chaining it together with the installation itself. A live
+      <filename>/etc</filename> change made against the snapshot you are
+      about to leave is not guaranteed to carry over to the new one.
+    </para>
+  </note>
+  <para>
+    By default, <command>pmcd</command> only accepts connections from the
+    local host, and &firewalld; does not open a port for either
+    <command>pmcd</command> or <command>pmproxy</command>. If you need
+    to reach either service from another system, open the corresponding port:
+  </para>
+<screen>&prompt.sudo;<command>firewall-cmd --add-port=<replaceable>PORT</replaceable>/tcp --permanent</command>
+&prompt.sudo;<command>firewall-cmd --reload</command></screen>
+  <para>
+    Use port <emphasis>44321</emphasis> for <command>pmcd</command> and
+    <emphasis>44322</emphasis> for <command>pmproxy</command>. Allowing
+    remote connections to <command>pmcd</command> also requires changing
+    <literal>PMCD_LOCAL</literal>, as described in
+    <xref linkend="pcp-service-configuration"/>.
+  </para>
+</topic>
