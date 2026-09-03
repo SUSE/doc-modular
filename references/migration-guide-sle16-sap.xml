@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+<!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+%entities;
+]>
+<!-- refers to legacy doc: https://susedoc.github.io/doc-modular/main/single-html/SLE-comparison/ -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="migration-guide-sle16-sap"
+       role="reference" xml:lang="en"
+       xmlns="http://docbook.org/ns/docbook" version="5.2"
+       xmlns:its="http://www.w3.org/2005/11/its"
+       xmlns:xi="http://www.w3.org/2001/XInclude"
+       xmlns:xlink="http://www.w3.org/1999/xlink"
+       xmlns:trans="http://docbook.org/ns/transclusion">
+    <info>
+        <title>&sap; on &suselinux;&nbsp;16</title>
+        <!-- can be changed via merge in the assembly -->
+        <meta name="maintainer" content="daria.vladykina@suse.com" its:translate="no"/>
+        <abstract>
+            <para>
+                &suselinux;&nbsp;16 modernizes &sap; workloads by consolidating system tuning into <package>saptune</package>
+                and removing <package>sapconf</package>. For &ha;, the platform standardizes on the next-generation 
+                <package>SAPHanaSR-angi</package> resource agent for &hana; and mandates a static simple-mount architecture
+                for &s4h;. These changes accelerate failover times, simplify cluster management and safeguard custom settings 
+                during upgrades.
+            </para>
+        </abstract>
+    </info>
+    
+    <table xml:id="tab-sap-comparison" frame="all">
+        <title>Key &sap;-specific feature changes in &suselinux;&nbsp;16</title>
+        <tgroup cols="4">
+            <colspec colname="c1" colwidth="1*"/>
+            <colspec colname="c2" colwidth="2*"/>
+            <colspec colname="c3" colwidth="2*"/>
+            <colspec colname="c4" colwidth="2*"/>
+            <thead>
+                <row>
+                    <entry>Component / Feature</entry>
+                    <entry>&slea;&nbsp;15</entry>
+                    <entry>&suselinux;&nbsp;16</entry>
+                    <entry>Primary technical benefit</entry>
+                </row>
+            </thead>
+            <tbody>
+                <row>
+                    <entry><emphasis role="bold">&sap; OS Tuning</emphasis></entry>
+                    <entry>Dual utilities: <package>sapconf</package> (basic systemd tuning) and 
+                        <package>saptune</package> (advanced profile tuning)</entry>
+                    <entry><package>sapconf</package> is fully removed: <package>saptune</package> is the 
+                        single consolidated tuning tool</entry>
+                    <entry>Configurations moved out of <filename>/etc</filename>. Safe <command>saptune configure</command> 
+                        commands introduced.</entry>
+                </row>
+                <row>
+                    <entry><emphasis role="bold">&hana; High Availability</emphasis></entry>
+                    <entry>Classic resource agents: <package>SAPHanaSR</package> (scale-up) and <package>SAPHanaSR-ScaleOut</package> (scale-out).</entry>
+                    <entry><package>SAPHanaSR-angi</package> (Advanced Next Generation Interface) is the sole
+                        standard.</entry>
+                    <entry>Unified codebase with faster failover response times.</entry>
+                </row>
+                <row>
+                    <entry><emphasis role="bold">&s4h; Application HA</emphasis></entry>
+                    <entry>Dynamic shared file system resources mounted/unmounted at runtime via Pacemaker</entry>
+                    <entry>Mandatory simple-mount file system structure</entry>
+                    <entry>Eliminates storage bottlenecks and node fencing loops.</entry>
+                </row>
+            </tbody>
+        </tgroup>
+    </table>
+    
+    <section xml:id="sec-sapconf-to-saptune">
+        <title>OS tuning for &sap; workloads: moving from <package>sapconf</package> to <package>saptune</package></title>
+        <para>
+            In &slea;&nbsp;15, &sap; operating system tuning was handled by two separate packages:
+            <package>sapconf</package>, which provided basic, systemd-based tuning, and <package>saptune</package> 
+            which offered advanced, profile-based tuning with active monitoring and verification.
+        </para>
+        <para>
+            &suselinux;&nbsp;16 simplifies this model by fully removing <package>sapconf</package>. 
+            <package>saptune</package> is now the single, consolidated tool for tuning the operating system 
+            for &sap; workloads and is included directly in the base &suselinux;&nbsp;16 product repositories, 
+            making it universally available.
+        </para>
+        <para>
+            Key architectural modifications in <package>saptune</package> on &suselinux;&nbsp;16 include:
+        </para>
+        <itemizedlist>
+            <listitem>
+                <para>
+                    <emphasis role="bold">Moving configuration out of <filename>/etc</filename>:</emphasis> 
+                    To align with the &suselinux;&nbsp;16 <filename>/usr/etc</filename> transition, 
+                    <package>saptune</package> vendor default configurations have been moved away from 
+                    <filename>/etc</filename>. This ensures that any subsequent package or OS updates will 
+                    not silently overwrite custom parameters.
+                </para>
+            </listitem>
+            <listitem>
+                <para>
+                    <emphasis role="bold">Introduction of <command>saptune configure</command> commands:</emphasis> 
+                    &suselinux;&nbsp;16 introduces an interactive and safe configuration editing model. 
+                    Users must use commands such as <command>saptune configure <replaceable>OPTION VALUE</replaceable></command>. 
+                    This command performs immediate sanity checks and verification before saving, preventing unworkable 
+                    tuning configurations.
+                </para>
+            </listitem>
+            <listitem>
+                <para>
+                    <emphasis role="bold">Built-in safeguards:</emphasis> Safeguards prevent administrators from saving 
+                    broken values, ensuring the stability of the kernel and memory parameters required for &hana; databases 
+                    and NetWeaver.
+                </para>
+            </listitem>
+        </itemizedlist>
+    </section>
+    
+    <section xml:id="sec-saphanasr-angi">
+        <title>How is &hana; High Availability managed in &suselinux;&nbsp;16?</title>
+        <para>
+            For &hana; System Replication (SR) setups, &slea;&nbsp;15 supported classic resource agents:
+            <package>SAPHanaSR</package> for scale-up and <package>SAPHanaSR-ScaleOut</package> for scale-out 
+            setups.
+        </para>
+        <para>
+            In &sles4sap;&nbsp;16, <package>SAPHanaSR-angi</package> 
+            completely replaces these legacy resource agents for all new installations.
+        </para>
+        <para>
+            Benefits of <package>SAPHanaSR-angi</package> over the legacy agents include:
+        </para>
+        <itemizedlist>
+            <listitem>
+                <para>
+                    <emphasis role="bold">Reduced complexity:</emphasis> Scale-up and scale-out 
+                    scenarios use the identical software package and highly similar configuration files, 
+                    unifying deployment logic across the landscape.
+                </para>
+            </listitem>
+            <listitem>
+                <para>
+                    <emphasis role="bold">Faster takeovers:</emphasis> The agent features optimized, 
+                    low-latency failure detection. It triggers significantly faster database takeover 
+                    times during critical events, such as file system outages, node crashes, or an 
+                    unresponsive HANA database.
+                </para>
+            </listitem>
+            <listitem>
+                <para>
+                    <emphasis role="bold">Resilience to administrative errors:</emphasis> ANGI is 
+                    designed to be more robust and forgiving during manual cluster maintenance. It 
+                    reduces the likelihood of false failover triggers caused by administrator missteps.
+                </para>
+            </listitem>
+        </itemizedlist>
+    </section>
+    
+    <section xml:id="sec-simple-mount">
+        <title>Configuring &s4h; High Availability</title>
+        <para>
+            Legacy &slehaa; environments configured shared file systems, such as NFS or EFS mounts 
+            for the ABAP Central Services (ASCS) and Enqueue Replication Server (ERS), as individual 
+            Pacemaker cluster resources. Pacemaker mounted and unmounted these file systems dynamically 
+            during failovers, a model that frequently caused storage bottlenecks, 
+            hung mount points and node fencing loops.
+        </para>
+        <para>
+            In &sles4sap;&nbsp;16, the simple-mount file system structure is mandatory for all new 
+            &s4h; high availability deployments.
+        </para>
+        <section xml:id="sec-what-is-simple-mount">
+            <title>What is the simple mount architecture?</title>
+            <para>
+                Instead of Pacemaker controlling NFS/EFS resources at runtime, file systems are 
+                statically mounted on all cluster nodes at boot time via systemd (configured in 
+                <filename>/etc/fstab</filename>). Pacemaker no longer manages file system mounting. 
+                It only manages the start, stop, and monitoring of SAP service instances using 
+                the lightweight <package>SAPStartSrv</package> resource agent, leading to highly 
+                robust and stable failover behavior.
+            </para>
+        </section>
+    </section>
+    
+</topic>
