@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="minimal-vm-combustion"
+role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Automated setup using &combustion;</title>
+    <meta name="maintainer" content="eliska.romanova@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Learn how to configure &minimalvm; images using automated &combustion; deployment.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    &sleminvm; comes with the &combustion; configuration tool, which configures the system on first
+    boot from a script that you supply. This can be particularly useful when you need to deploy
+    multiple virtual machines with an identical initial configuration. When &combustion; runs
+    successfully, &jeosfirstboot; does not start. Because &minimalvm; does not configure a default
+    &rootuser; password, the script must include a login method, either a &rootuser; password or an
+    SSH public key for remote access.
+  </para>
+  <procedure>
+    <step>
+      <para>
+        Create a configuration file named <filename>script</filename>.
+      </para>
+      <para>
+        For more information about how to create the script, see
+        <link xlink:href="https://documentation.suse.com/sle-micro/html/Micro-deployment-raw-images-virtual-machines/index.html#configuring-combustion-script"/>.
+      </para>
+    </step>
+    <step>
+      <para>
+        Add at least one login method to the script:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            To log in with a password, generate a hash of your desired &rootuser; password:
+          </para>
+<screen>&prompt.user;openssl passwd -6</screen>
+          <para>
+            Add the following line to the script, replacing <replaceable>HASH</replaceable> with
+            the value you just generated:
+          </para>
+<screen>echo 'root:<replaceable>HASH</replaceable>' | chpasswd -e</screen>
+        </listitem>
+        <listitem>
+          <para>
+            To enable remote login with an SSH key, add the following lines to the script. The last
+            line enables the SSH service, which is required for remote login:
+          </para>
+<screen>mkdir -pm 700 /root/.ssh
+echo '<replaceable>SSH_PUBLIC_KEY</replaceable>' >> /root/.ssh/authorized_keys
+systemctl enable sshd.service</screen>
+        </listitem>
+      </itemizedlist>
+    </step>
+    <step>
+      <para>
+        Make the script executable:
+      </para>
+<screen>&prompt.user;chmod +x script</screen>
+    </step>
+    <step>
+      <para>
+        Pass the script to the virtual machine. Use the method that matches your platform.
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><literal>kvm-and-xen</literal></term>
+          <listitem>
+            <para>
+              Pass the script file directly with <literal>fw_cfg</literal>.
+            </para>
+            <para>
+              &qemu;:
+            </para>
+<screen>&prompt.user;qemu-system-x86_64 \
+    -enable-kvm \
+    -cpu host \
+    -m 1G \
+    -smp 1 \
+    -drive if=virtio,format=qcow2,file=<replaceable>IMAGE</replaceable>.qcow2 \
+    -nographic \
+    -netdev user,id=net0,hostfwd=tcp::2222-:22 \
+    -device virtio-net-pci,netdev=net0 \
+    -fw_cfg name=opt/org.opensuse.combustion/script,file=script</screen>
+            <para>
+              <command>virt-install</command>:
+            </para>
+<screen>&prompt.user;virt-install \
+    --name <replaceable>VM_NAME</replaceable> \
+    --memory 1024 \
+    --vcpus 1 \
+    --import \
+    --disk <replaceable>IMAGE</replaceable>.qcow2,bus=virtio \
+    --osinfo detect=on,require=off \
+    --sysinfo type=fwcfg,entry0.name="opt/org.opensuse.combustion/script",entry0.file="<replaceable>ABSOLUTE_PATH_TO_SCRIPT</replaceable>"
+            </screen>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>&hyperv;, &vmware; and other platforms</term>
+          <listitem>
+            <para>
+              Provide the script on a storage device with the file system label
+              <literal>combustion</literal>, holding the script at
+              <literal>combustion/script</literal>.
+            </para>
+            <para>
+              To build such a device as an ISO image:
+            </para>
+<screen>&prompt.user;mkdir -p iso_root/combustion
+&prompt.user;mv script iso_root/combustion/
+&prompt.user;mkisofs -output combustion.iso -volid combustion -rational-rock iso_root</screen>
+            <para>
+              Create the virtual machine using your downloaded &minimalvm; image as the primary
+              virtual hard disk. Before booting the virtual machine for the first time, attach
+              <filename>combustion.iso</filename> as a virtual disc drive.
+            </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </step>
+  </procedure>
+  <para>
+    By default, &combustion; produces no output while it runs. The indication that it worked is
+    that &jeosfirstboot; does not start and you can log in as &rootuser; using the method you
+    configured in the script.
+  </para>
+</topic>

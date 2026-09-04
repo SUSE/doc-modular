@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<topic xml:id="minimal-vm-cloud-init"
+role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Deploying an image with <literal>cloud-init</literal></title>
+    <meta name="maintainer" content="eliska.romanova@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Learn how to write a <filename>user-data</filename> configuration file and supply it as a
+        data source to deploy a cloud &minimalvm; image with <literal>cloud-init</literal>
+      </para>
+    </abstract>
+  </info>
+  <para>
+    The cloud &minimalvm; image uses <literal>cloud-init</literal> to configure the system on first
+    boot from a <filename>user-data</filename> file. Deploying with <literal>cloud-init</literal>
+    has two parts: writing the configuration and making it available to the virtual machine through
+    a data source.
+  </para>
+  <para>
+    If no data source is provided, the system defaults to &jeosfirstboot; on initial boot.
+  </para>
+  <note>
+    <title>Scope of the <literal>cloud-init</literal> section</title>
+    <para>
+      This section applies to the cloud image on a local hypervisor, where
+      <literal>cloud-init</literal> uses the <literal>NoCloud</literal> data source.
+    </para>
+    <para>
+      On &ostack; and other cloud platforms, supply your <filename>user-data</filename> through the
+      interface of the platform. For the data sources that <literal>cloud-init</literal> supports,
+      see
+      <link xlink:href="https://docs.cloud-init.io/en/latest/reference/datasources.html#datasources-supported"/>.
+    </para>
+  </note>
+  <section xml:id="how-to-write-user-data">
+    <title>How to write the <filename>user-data</filename> file</title>
+    <para>
+      To deploy the image with <literal>cloud-init</literal>, you must first create the
+      <filename>user-data</filename> file. The first line of the file must be
+      <literal>#cloud-config</literal>.
+    </para>
+    <para>
+      To view the default &suse; configuration for <literal>cloud-init</literal>, check the
+      <filename>/etc/cloud/cloud.cfg</filename> file provided by the
+      <package>cloud-init-config-suse</package> package.
+    </para>
+    <para>
+      By default, <literal>cloud-init</literal> does not set a &rootuser; password. Instead, it
+      creates a user account called <systemitem class="username">sles</systemitem> that acts as the
+      default user and has &sudo; rights. Use the following example to create passwords for both
+      users.
+    </para>
+    <example xml:id="cloud-init-passwd">
+      <title>Add passwords</title>
+<screen>
+#cloud-config
+chpasswd:
+  list: |
+    root:$6$HdJCmMKHZT2NLcwv$4cRJ4yGGmDpPIvt0pqSa3KeEOKMKT8vR4DrYX23LlYrvM6suF79CzWomCFyreiT645fWVaFXMtyUM5zFOJMa9/
+    sles:$6$HdJCmMKHZT2NLcwv$4cRJ4yGGmDpPIvt0pqSa3KeEOKMKT8vR4DrYX23LlYrvM6suF79CzWomCFyreiT645fWVaFXMtyUM5zFOJMa9/
+  expire: False</screen>
+    </example>
+    <para>
+      To create the SHA-512 hashes used in the example, run the command: <command>openssl passwd
+      -6</command>.
+    </para>
+    <warning>
+      <title>User passwords</title>
+      <para>
+        To prevent potential security risks, avoid using passwords in production environments. When
+        using hashed passwords, you are exposed to dictionary attacks. For better security, use SSH
+        authentication instead.
+      </para>
+      <para>
+        However, local logins, for example, in a recovery scenario, still require a password. This
+        is why setting a &rootuser; password, as shown in the previous example, might still be
+        necessary even when you use SSH keys for regular access.
+      </para>
+    </warning>
+    <para>
+      When creating users, keep in mind that logging in with a password is disabled by default
+      (<literal>lock_passwd: true</literal>), and that the newly created users do not have &sudo;
+      rights.
+    </para>
+    <para>
+      The following examples show configurations for creating different users.
+    </para>
+    <example xml:id="cloud-init-user1">
+      <title>New user with password and &sudo;</title>
+<screen>#cloud-config
+users:
+  - default
+  - name: <replaceable>USER</replaceable>
+    shell: /bin/bash
+    groups: users
+    # lock_passwd: Disable password login. Defaults to true
+    lock_passwd: false
+    passwd: <replaceable>HASH</replaceable>
+    sudo: ALL=(ALL) NOPASSWD:ALL</screen>
+    </example>
+    <example xml:id="cloud-init-user2">
+      <title>New user with SSH keys and &sudo;</title>
+<screen>#cloud-config
+users:
+  - name: <replaceable>USER</replaceable>
+    shell: /bin/bash
+    groups: users
+    ssh_import_id: None
+    lock_passwd: true
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      - <replaceable>SSH_PUBLIC_KEY_1</replaceable>
+      - <replaceable>SSH_PUBLIC_KEY_2</replaceable></screen>
+    </example>
+    <para>
+      To connect and register with the &smlm;, &rmt; or &suseconnect;, use
+      <literal>runcmd</literal> to run the desired commands, for example:
+    </para>
+    <example xml:id="suseconnect">
+      <title>&suseconnect; configuration</title>
+<screen>#cloud-config
+runcmd:
+  - SUSEConnect -r <replaceable>REGISTRATION_CODE</replaceable> -e <replaceable>EMAIL_ADDRESS</replaceable></screen>
+    </example>
+    <example xml:id="rmt">
+      <title>&rmt; configuration</title>
+<screen>#cloud-config
+runcmd:
+ - curl --output rmt-client-setup http://<replaceable>RMT_SERVER</replaceable>/tools/rmt-client-setup
+ - sh rmt-client-setup --host <replaceable>RMT_SERVER</replaceable>
+     --regcert http://<replaceable>RMT_SERVER</replaceable>/rmt.crt
+     --fingerprint <replaceable>FINGERPRINT</replaceable> --yes
+    </screen>
+      <para>
+        Replace <replaceable>FINGERPRINT</replaceable> with the output of the following command
+        that you run on your &rmt; server:
+      </para>
+<screen>&prompt.sudo;openssl x509 -noout -fingerprint -in /etc/rmt/ssl/rmt-ca.crt</screen>
+      <para>
+        For example: <literal>0F:1F:2F:3F:4F:5F:6F:7F:8F:9F:AF:BF:CF:DF:EF:FF</literal>.
+      </para>
+      <para>
+        For further information, see
+        <link xlink:href="https://documentation.suse.com/sles-15/html/SLES-all/cha-rmt-client.html"/>.
+      </para>
+    </example>
+    <example xml:id="smlm">
+      <title>&smlm; configuration</title>
+<screen>#cloud-config
+runcmd:
+  - curl -SksO https://<replaceable>SERVER_HOSTNAME</replaceable>/pub/bootstrap/bootstrap.sh
+  - /bin/bash bootstrap.sh</screen>
+      <para>
+        For further information, see
+        <link xlink:href="https://documentation.suse.com/multi-linux-manager/en/docs/client-configuration/registration-bootstrap.html"/>.
+      </para>
+    </example>
+    <para>
+      The following example shows a configuration that installs a package and starts a service
+      during the first boot.
+    </para>
+    <example xml:id="cloud-init-package-service">
+      <title>Add <replaceable>PACKAGE</replaceable> and start a service</title>
+<screen>#cloud-config
+packages:
+  - <replaceable>PACKAGE</replaceable>
+runcmd:
+  - systemctl enable <replaceable>SERVICE</replaceable>.service
+  - systemctl start --no-block <replaceable>SERVICE</replaceable>.service</screen>
+    </example>
+    <note>
+      <title>Optional configuration files</title>
+      <para>
+        You can optionally create other configuration files, called <filename>meta-data</filename>,
+        <filename>network-config</filename> and <filename>vendor-data</filename>. For more
+        information, see
+        <link xlink:href="https://docs.cloud-init.io/en/latest/reference/datasources/nocloud.html"/>.
+      </para>
+    </note>
+    <para>
+      After you write the <filename>user-data</filename> file, provide the file to the virtual
+      machine, as described in the following section.
+    </para>
+  </section>
+  <section xml:id="providing-user-data-to-vm">
+    <title>Providing the user-data file to the virtual machine</title>
+    <para>
+      Choose the method that matches your tooling.
+    </para>
+    <section xml:id="qemu">
+      <title>Deploying with &qemu;</title>
+      <para>
+        There are two ways to deliver the configuration: on a seed image attached as a CD-ROM or
+        from a Web server.
+      </para>
+      <procedure>
+        <step>
+          <para>
+            Make the configuration available to the virtual machine. Use either a seed image or a
+            Web server:
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                <emphasis role="bold">Seed image:</emphasis> Create the seed image containing the
+                <filename>user-data</filename> file:
+              </para>
+<screen>&prompt.user;mkisofs \
+    -output seed.iso \
+    -volid cidata -rational-rock -joliet \
+    user-data</screen>
+            </listitem>
+            <listitem>
+              <para>
+                <emphasis role="bold">Web server:</emphasis> Copy the configuration file into a
+                directory served by a Web server, for example,
+                <literal>/srv/www/htdocs/cloud-init/</literal>, served at
+                <uri>http://www.example.com/cloud-init/</uri>.
+              </para>
+            </listitem>
+          </itemizedlist>
+        </step>
+        <step>
+          <para>
+            Start the virtual machine.
+          </para>
+<screen>&prompt.user;qemu-system-x86_64 \
+    -enable-kvm \
+    -cpu host \
+    -m 1G \
+    -smp 1 \
+    -drive if=virtio,format=qcow2,file=<replaceable>IMAGE</replaceable>.qcow2 \
+    -nographic \
+    -netdev user,id=net0,hostfwd=tcp::2222-:22 \
+    -device virtio-net-pci,netdev=net0 \
+    <replaceable>DATA_SOURCE_OPTION</replaceable></screen>
+          <para>
+            Replace <replaceable>DATA_SOURCE_OPTION</replaceable> based on the chosen method from
+            the previous step:
+          </para>
+          <itemizedlist>
+            <listitem>
+              <para>
+                If you use seed image data source:
+              </para>
+<screen>-drive file=seed.iso,media=cdrom</screen>
+            </listitem>
+            <listitem>
+              <para>
+                If you use Web server data source:
+              </para>
+<screen>-smbios 'type=1,serial=ds=nocloud-net;s=http://www.example.com/cloud-init/'</screen>
+            </listitem>
+          </itemizedlist>
+        </step>
+      </procedure>
+    </section>
+    <section xml:id="libvirt">
+      <title>Deploying with <command>virt-install</command></title>
+      <para>
+        If you deploy with &libvirt;, <command>virt-install</command> can generate the data source
+        for you:
+      </para>
+<screen>&prompt.user;virt-install \
+    --name <replaceable>VM_NAME</replaceable> \
+    --memory 1024 \
+    --vcpus 1 \
+    --import \
+    --disk <replaceable>IMAGE</replaceable>.qcow2,bus=virtio \
+    --cloud-init user-data=./user-data \
+    --osinfo detect=on,require=off</screen>
+    </section>
+  </section>
+</topic>
