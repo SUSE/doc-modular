@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/tuning_kexec.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="kdump-enable-and-configure"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Installing and enabling &kdump;</title>
+    <meta name="maintainer" content="ssarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        &kdump; is not installed or enabled by default. Install and enable it so a crash
+        produces a dump you can analyze afterward.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="kdump-enable-and-configure-standard">
+    <title>Installing &kdump; on a standard (non-immutable) system</title>
+    <procedure>
+      <step>
+        <para>
+          Install the &kdump; package. This pulls in <package>kexec-tools</package> and
+          <package>makedumpfile</package> as dependencies:
+        </para>
+        <screen>&prompt.sudo; zypper install kdump</screen>
+      </step>
+      <step>
+        <para>
+          Determine and, if needed, set the crash kernel memory reservation. See
+          <xref linkend="kdump-crashkernel-memory-sizing"/>. The default
+          <literal>KDUMP_CRASHKERNEL="auto"</literal> works for most systems.
+        </para>
+      </step>
+      <step>
+        <para>
+          Enable and start the &kdump; service:
+        </para>
+        <screen>&prompt.sudo; systemctl enable --now kdump</screen>
+      </step>
+      <step>
+        <para>
+          Reboot so the crash kernel memory reservation takes effect:
+        </para>
+        <screen>&prompt.sudo; reboot</screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="kdump-enable-and-configure-immutable">
+    <title>Installing &kdump; on the immutable variant</title>
+    <para>
+      On the immutable variant of &productnameshort;, install and enable &kdump; through
+      <command>transactional-update</command> rather than plain <command>zypper</command>. Note
+      that a plain <command>zypper install</command> does not fail on the read-only root file
+      system either. &zypper; transparently wraps the operation through
+      <command>tukit</command>, creating a new snapshot that only takes effect after a reboot.
+      <command>transactional-update setup-kdump</command> is still the recommended way to
+      install &kdump;, since it installs, enables and calibrates the crash kernel memory
+      reservation in a single step:
+    </para>
+    <screen>&prompt.sudo; transactional-update setup-kdump</screen>
+    <para>
+      To provide a custom crash kernel memory size instead of the automatically calculated one,
+      append <literal>--crashkernel</literal>:
+    </para>
+    <screen>&prompt.sudo; transactional-update setup-kdump --crashkernel=<replaceable>LOW</replaceable>,<replaceable>HIGH</replaceable></screen>
+    <para>
+      Reboot to activate the new snapshot and start using the updated &kdump; configuration:
+    </para>
+    <screen>&prompt.sudo; reboot</screen>
+    <note>
+      <title><filename>/etc/sysconfig/kdump</filename> is directly editable on the immutable
+      variant</title>
+      <para>
+        Unlike most of the file system, <filename>/etc</filename> is its own writable subvolume
+        on the immutable variant. Editing <filename>/etc/sysconfig/kdump</filename> directly
+        with a text editor takes effect immediately, without needing
+        <command>transactional-update</command> or a reboot, for options that do not require a
+        new crash kernel memory reservation.
+      </para>
+    </note>
+    <important>
+      <title>Changing the crash kernel memory reservation needs an explicit bootloader update</title>
+      <para>
+        <command>transactional-update setup-kdump</command> sets
+        <literal>KDUMP_UPDATE_BOOTLOADER="false"</literal>. Unlike on a non-immutable system,
+        <literal>kdump-commandline.service</literal> does not automatically update the boot
+        loader on this variant even after a reboot: if the running kernel command line does not
+        match what <literal>KDUMP_CRASHKERNEL</literal> expects, the service only logs a
+        warning and exits with an error, leaving the old reservation in place. After editing
+        <literal>KDUMP_CRASHKERNEL</literal> directly, push the change into the boot loader
+        configuration explicitly:
+      </para>
+      <screen>&prompt.sudo; transactional-update run kdumptool commandline -u</screen>
+      <para>
+        Then reboot to activate the new snapshot. Only after this does the new
+        <literal>crashkernel=</literal> value appear on the kernel command line.
+      </para>
+    </important>
+  </section>
+  <section xml:id="kdump-enable-and-configure-startup-flow">
+    <title>What happens when &kdump; starts</title>
+    <para>
+      When <literal>kdump.service</literal> starts, it loads the capture kernel and its
+      <filename>initramfs</filename> into the reserved memory area. Afterward,
+      <literal>kdump-commandline.service</literal> runs and checks whether the running kernel's
+      command line (<filename>/proc/cmdline</filename>) already contains the
+      <literal>crashkernel=</literal> options that
+      <command>kdumptool calibrate</command>/<literal>KDUMP_CRASHKERNEL</literal> expect. If
+      they are missing or different, and <literal>KDUMP_UPDATE_BOOTLOADER</literal> is set to
+      its default of <literal>true</literal>, <literal>kdump-commandline.service</literal>
+      updates the boot loader configuration through <command>pbl</command>(8) so the expected
+      options are applied on the next boot.
+    </para>
+    <para>
+      To check whether the service found and applied any change:
+    </para>
+    <screen>&prompt.sudo; journalctl -u kdump-commandline.service</screen>
+    <para>Sample output, from a system that had no crash kernel memory reserved yet:</para>
+    <screen>Kdump expects these crashkernel= values on the kernel command line:
+    crashkernel=72M,low crashkernel=394M,high
+(based on the output of 'kdumptool calibrate')
+No crashkernel= found in /proc/cmdline. Kdump can't be started.
+Updated the command line options in the bootloader.
+Changes will take effect on next boot.</screen>
+    <para>
+      If <literal>kdump-commandline.service</literal> updated the boot loader configuration, a
+      reboot is required before the new <literal>crashkernel=</literal> values take effect and
+      &kdump; can start capturing dumps.
+    </para>
+  </section>
+</topic>

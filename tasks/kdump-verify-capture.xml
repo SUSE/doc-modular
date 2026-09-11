@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/tuning_kexec.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="kdump-verify-capture"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Verifying that &kdump; captures a crash dump</title>
+    <meta name="maintainer" content="ssarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        After configuring &kdump;, confirm it works by simulating a real kernel crash.
+        Otherwise you only find out &kdump; is misconfigured when an actual crash happens,
+        when it is too late to fix.
+      </para>
+    </abstract>
+  </info>
+  <warning>
+    <title>This test crashes the system</title>
+    <para>
+      Triggering a kernel panic immediately restarts the system, the same as a real crash
+      would. Make sure no important workloads are running and no other users are logged in
+      before you continue.
+    </para>
+  </warning>
+  <procedure>
+    <step>
+      <para>
+        Force an emergency sync of cached data to disk, to reduce the chance of data loss from
+        the deliberate crash:
+      </para>
+      <screen>&prompt.sudo; echo s &gt; /proc/sysrq-trigger</screen>
+    </step>
+    <step>
+      <para>
+        Force an emergency remount of file systems to read-only, to reduce the risk of
+        corruption:
+      </para>
+      <screen>&prompt.sudo; echo u &gt; /proc/sysrq-trigger</screen>
+    </step>
+    <step>
+      <para>
+        Trigger the crash:
+      </para>
+      <screen>&prompt.sudo; echo c &gt; /proc/sysrq-trigger</screen>
+      <para>
+        The system panics immediately. &kdump; captures a dump, then the system reboots on its
+        own. This can take a few minutes depending on how much memory needs to be written.
+      </para>
+    </step>
+    <step>
+      <para>
+        Once the system is back, confirm a dump was captured:
+      </para>
+      <example>
+        <title>Confirming a captured crash dump</title>
+        <screen>&prompt.sudo; ls -la /var/crash/</screen>
+        <para>Sample output:</para>
+        <screen>drwx------ 1 root root 42 Sep 10 11:33 2026-09-10-11-33</screen>
+      </example>
+      <para>
+        &kdump; creates one directory per captured dump, named after the date and time of the
+        crash (<literal>YYYY-MM-DD-HH-MM</literal>). Inside it:
+      </para>
+      <example>
+        <title>Contents of a captured dump directory</title>
+        <screen>&prompt.sudo; ls -la "/var/crash/<replaceable>DUMP_DIRECTORY</replaceable>/"</screen>
+        <para>Sample output:</para>
+        <screen>-rw------- 1 root root    80731 Sep 10 11:33 dmesg
+-rw------- 1 root root      309 Sep 10 11:33 README.txt
+-rw------- 1 root root 67188846 Sep 10 11:33 vmcore</screen>
+      </example>
+      <itemizedlist>
+        <listitem>
+          <para>
+            <filename>dmesg</filename> is the kernel's own ring buffer log at the moment of the
+            crash.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <filename>vmcore</filename> is the actual memory snapshot. See
+            <xref linkend="kdump-analyze-vmcore"/> to read it.
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            <filename>README.txt</filename> summarizes the capture itself: kernel version,
+            crash and dump time stamps, dump level, and dump format. Check it first if a
+            capture looks incomplete or was truncated.
+          </para>
+        </listitem>
+      </itemizedlist>
+    </step>
+  </procedure>
+</topic>

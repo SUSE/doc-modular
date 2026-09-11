@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/tuning_kexec.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="kdump-remote-dump-storage"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Saving crash dumps to a remote target</title>
+    <meta name="maintainer" content="ssarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        By default, &kdump; saves crash dumps locally under <filename>/var/crash</filename>.
+        On systems with limited local storage, or where dumps must be collected centrally,
+        configure <literal>KDUMP_SAVEDIR</literal> to save dumps to a remote target instead.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="kdump-remote-dump-storage-protocols">
+    <title>Supported remote storage protocols</title>
+    <para>
+      <literal>KDUMP_SAVEDIR</literal> in <filename>/etc/sysconfig/kdump</filename> accepts a
+      URL in the form <replaceable>PROTOCOL</replaceable>://<replaceable>SPECIFICATION</replaceable>.
+      Install the client package matching the protocol you plan to use:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <package>nfs-client</package>, for <literal>nfs://</literal> targets.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <package>cifs-utils</package>, for <literal>cifs://</literal> targets (Samba/Windows
+          shares).
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <package>lftp</package>, for <literal>ftp://</literal> targets.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <package>openssh-clients</package>, for <literal>ssh://</literal> and
+          <literal>sftp://</literal> targets.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      For example, to save dumps to an FTP server:
+    </para>
+    <screen>KDUMP_SAVEDIR="ftp://<replaceable>USERNAME</replaceable>:<replaceable>PASSWORD</replaceable>@<replaceable>FTP_HOST</replaceable>:<replaceable>PORT</replaceable>/var/crash"</screen>
+  </section>
+  <section xml:id="kdump-remote-dump-storage-ssh">
+    <title>Saving dumps over SSH</title>
+    <para>
+      A crash dump can contain sensitive data from system memory. SSH keeps that data encrypted
+      in transit. SFTP is the preferred transport, since it does not require the target host to
+      run any special server-side commands beyond the SFTP subsystem, which is enabled by
+      default on &productnameshort;.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Make the target host's identity known to &kdump; ahead of time, so a dump is never
+          sent to an impersonating host. Connect to the target once as &rootuser; from the
+          &kdump; host so its key is recorded:
+        </para>
+        <screen>&prompt.sudo; ssh <replaceable>TARGET_HOST</replaceable></screen>
+      </step>
+      <step>
+        <para>
+          Create a dedicated key for &kdump; rather than reusing &rootuser;'s own key:
+        </para>
+        <screen>&prompt.sudo; ssh-keygen -f /root/.ssh/kdump_key -N ""</screen>
+        <para>
+          Leave the passphrase empty, since the capture kernel environment cannot prompt for
+          one.
+        </para>
+      </step>
+      <step>
+        <para>
+          Authorize the new key on the target host:
+        </para>
+        <screen>&prompt.sudo; ssh-copy-id -i /root/.ssh/kdump_key <replaceable>TARGET_HOST</replaceable></screen>
+      </step>
+      <step>
+        <para>
+          In <filename>/etc/sysconfig/kdump</filename>, point &kdump; at the new key and set the
+          save directory:
+        </para>
+        <screen>KDUMP_SSH_IDENTITY="/root/.ssh/kdump_key"
+KDUMP_SAVEDIR="sftp://<replaceable>TARGET_HOST</replaceable>/path/to/dumps"</screen>
+      </step>
+      <step>
+        <para>
+          Restart &kdump; to apply the new configuration:
+        </para>
+        <screen>&prompt.sudo; systemctl restart kdump</screen>
+      </step>
+    </procedure>
+  </section>
+</topic>
