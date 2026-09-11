@@ -10,7 +10,7 @@
 <!-- point back to this document with a similar comment added to your legacy doc piece -->
 <!-- refer to README.md for file and id naming conventions -->
 <!-- metadata is dealt with on the assembly level -->
-<topic xml:id="logging-journalctl-options"
+<topic xml:id="logging-journalctl-usage"
  role="reference" xml:lang="en"
  xmlns="http://docbook.org/ns/docbook" version="5.2"
  xmlns:its="http://www.w3.org/2005/11/its"
@@ -18,34 +18,36 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Usage of the <command>journalctl</command> command</title>
+    <title>Querying the journal with <command>journalctl</command></title>
     <!-- can be changed via merge in the assembly -->
     <!--add author's email address-->
-    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
     <abstract>
       <!-- can be changed via merge in the assembly -->
       <para>
-        This section introduces several common useful options to enhance the
-        default <command>journalctl</command> behavior.
+        Because the journal stores data in a binary format, you cannot open it
+        directly with tools such as <command>cat</command> or
+        <command>less</command>. Use the <command>journalctl</command> command
+        to query and display its content instead.
       </para>
     </abstract>
   </info>
   <para>
-    The <command>journalctl</command> command has the following syntax:
+    Called without any options, <command>journalctl</command> shows all
+    logged messages, oldest first, piped through a pager:
   </para>
-<screen>
-    <command>journalctl [options…] [matches…]</command>
-  </screen>
+<screen>&prompt.sudo;<command>journalctl [options…] [matches…]</command></screen>
   <tip>
-    <title>Messages related to a specific executable</title>
+    <title>Matching by executable</title>
     <para>
-      To show all journal messages related to a specific executable, specify
-      the full path to the executable:
+      Besides options, <command>journalctl</command> also accepts a bare
+      executable path as a match, showing only messages from that
+      executable.
     </para>
-<screen>&prompt.sudo;journalctl /usr/lib/systemd/systemd</screen>
   </tip>
+<screen>&prompt.sudo;journalctl /usr/lib/systemd/systemd</screen>
   <para>
-    The command takes the following options:
+    The following options cover the most common queries:
   </para>
   <variablelist>
     <varlistentry>
@@ -85,18 +87,87 @@
       </listitem>
     </varlistentry>
     <varlistentry>
-      <term>-u</term>
+      <term>-u <replaceable>UNIT</replaceable></term>
       <listitem>
         <para>
           Shows only messages for the specified &systemd; unit. This is
           equivalent to the field match
           <literal>_SYSTEMD_UNIT=<replaceable>UNIT</replaceable></literal>.
         </para>
-<screen>&prompt.sudo;journalctl -u apache2
- [...]
- Jun 03 10:07:11 pinkiepie systemd[1]: Starting The Apache Webserver...
- Jun 03 10:07:12 pinkiepie systemd[1]: Started The Apache Webserver.</screen>
+        <example>
+          <title>Viewing messages from a single service</title>
+<screen>&prompt.sudo;<command>journalctl -u sshd</command></screen>
+          <para>Sample output:</para>
+<screen>Sep 07 09:23:59 sles16 sshd-session[4782]: Accepted publickey for tux
+from 192.168.122.1 port 57432 ssh2
+Sep 07 09:23:59 sles16 sshd-session[4782]: pam_unix(sshd:session): session
+opened for user tux(uid=1000) by tux(uid=0)</screen>
+        </example>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>-b [<replaceable>OFFSET</replaceable>]</term>
+      <listitem>
+        <para>
+          Shows messages from the current boot, or, with a negative offset,
+          from an earlier one. For example, <literal>-b -1</literal> shows the
+          previous boot.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>-p <replaceable>PRIORITY</replaceable></term>
+      <listitem>
+        <para>
+          Shows only messages at the given priority level or more severe (so
+          <literal>-p err</literal> shows <literal>err</literal>,
+          <literal>crit</literal>, <literal>alert</literal>, and
+          <literal>emerg</literal>, but not <literal>warning</literal> or
+          anything less severe). See
+          <xref linkend="logging-interpreting-log-entries"/> for what the
+          priority levels mean.
+        </para>
+<screen>&prompt.sudo;journalctl -p err -b</screen>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>--since, --until</term>
+      <listitem>
+        <para>
+          Limits the output to a time range, for example,
+          <literal>--since today</literal> or
+          <literal>--since "09:00" --until "10:00"</literal>.
+        </para>
       </listitem>
     </varlistentry>
   </variablelist>
+  <para>
+    For the complete list of options and journal field names, see
+    <command>man 1 journalctl</command> and
+    <command>man 7 systemd.journal-fields</command>.
+  </para>
+  <important>
+    <title>logrotate does not manage the journal</title>
+    <para>
+      <command>logrotate</command> only rotates the plain-text files under
+      <filename>/var/log</filename>. The journal's own binary storage in
+      <filename>/var/log/journal/</filename> is unaffected by it and, unless
+      you have set a limit in a <filename>journald.conf.d</filename>
+      drop-in, is only capped by &systemd;'s built-in default (a percentage
+      of the file system it resides on).
+    </para>
+  </important>
+  <para>
+    Check the journal's current disk usage, and trim it manually if needed,
+    with:
+  </para>
+<screen>&prompt.sudo;journalctl --disk-usage
+&prompt.sudo;journalctl --vacuum-size=500M</screen>
+  <para>
+    <literal>--vacuum-time=<replaceable>TIME</replaceable></literal> (for
+    example, <literal>--vacuum-time=2weeks</literal>) and
+    <literal>--vacuum-files=<replaceable>COUNT</replaceable></literal> work
+    the same way, removing the oldest archived journal files until the given
+    age or file count is reached.
+  </para>
 </topic>

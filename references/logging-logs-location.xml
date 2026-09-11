@@ -21,7 +21,7 @@
     <title>Where to find system log files?</title>
     <!-- can be changed via merge in the assembly -->
     <!--add author's email address-->
-    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
     <abstract>
       <!-- can be changed via merge in the assembly -->
       <para>
@@ -32,17 +32,19 @@
   </info>
   <para>
     Kernel messages and messages of system services registered with &systemd;
-    are logged in &systemd; journal (see
-    <xref linkend="logging-journald-about"/>). Other system log files are
-    located under the <filename>/var/log</filename> directory. &selnx; messages
-    are logged in <filename>/var/log/audit/audit.log</filename>. For details,
-    refer to
-    <link xlink:href="https://documentation.suse.com/smart/systems-management/html/setroubleshoot-slemicro/index.html">&selnx;
-    troubleshooting</link>.
+    are logged in the &systemd; journal (see
+    <xref linkend="logging-journald-about"/>). The journal also forwards
+    messages to <systemitem class="daemon">rsyslog</systemitem>, which writes
+    most of them to plain-text files under the <filename>/var/log</filename>
+    directory. &selnx; messages are logged
+    separately, in <filename>/var/log/audit/audit.log</filename>. For details,
+    refer to <link os="sles4sap" xlink:href="https://documentation.suse.com/sles-sap/16.0/html/SAP-SELinux/index.html#selinux-troubleshooting"><citetitle>&selnx;
+    troubleshooting</citetitle></link><link os="sles" xlink:href="https://documentation.suse.com/sles/16.0/html/SLES-SELinux/index.html#selinux-troubleshooting"><citetitle>&selnx;
+    troubleshooting</citetitle></link>.
   </para>
   <para>
     The following list provides an overview of all system log files found in
-    &productname; after a default installation. Depending on your installation
+    &productnameshort; after a default installation. Depending on your installation
     scope, <filename>/var/log</filename> also contains log files from other
     services and applications not listed here. Some files and directories
     described below are <quote>placeholders</quote> and are only used when the
@@ -55,7 +57,7 @@
     <para>
       <literal>utmp</literal>, <literal>wtmp</literal> and
       <literal>lastlog</literal> have been removed from &productnameshort; and
-      are no longed supported. If there are any applications that write into
+      are no longer supported. If there are any applications that write into
       these log files, remember that the log files are incomplete then.
       <literal>wtmp</literal> has been replaced with <literal>wtmpdb</literal>,
       <literal>lastlog</literal> with <literal>lastlog2</literal>.
@@ -63,20 +65,37 @@
   </important>
   <variablelist>
     <varlistentry>
-      <term><filename>audit/</filename></term>
+      <term><filename>audit/audit.log</filename></term>
       <listitem>
         <para>
-          Logs from the audit framework.
+          Logs from the audit framework, including &selnx; access control
+          decisions.
         </para>
       </listitem>
     </varlistentry>
     <varlistentry>
-      <term><filename>ConsoleKit/</filename></term>
+      <term><filename>boot.log</filename></term>
       <listitem>
         <para>
-          Logs of the <systemitem class="daemon">ConsoleKit</systemitem> daemon
-          (daemon for tracking what users are logged in and how they interact
-          with the computer).
+          Messages logged during the current boot, mirroring what is also
+          shown on the console while the system starts up.
+          <filename>boot.msg</filename> and <filename>boot.omsg</filename>
+          are the corresponding raw kernel ring buffer dumps (the same
+          content <command>dmesg</command> shows) from the current and
+          previous boot, respectively&mdash;useful when you need the exact
+          kernel command line a boot used.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><filename>chrony/</filename></term>
+      <listitem>
+        <para>
+          Logs from the Network Time Protocol daemon (&chrony;). This
+          directory is empty by default. Files only appear here once you
+          enable specific logging directives (for example,
+          <literal>log measurements</literal>) in
+          <filename>/etc/chrony.conf</filename>.
         </para>
       </listitem>
     </varlistentry>
@@ -90,10 +109,23 @@
       </listitem>
     </varlistentry>
     <varlistentry>
-      <term><filename>firewalld</filename></term>
+      <term><filename>firewall</filename>, <filename>firewalld</filename></term>
       <listitem>
         <para>
-          Firewall logs.
+          <filename>firewall</filename> catches kernel-level packet-filter
+          messages. <filename>firewalld</filename> holds errors and warnings
+          from the <systemitem class="daemon">firewalld</systemitem> daemon
+          itself. Neither is the place to look for logged network traffic
+          unless you have explicitly enabled that in your firewall rules.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><filename>journal/</filename></term>
+      <listitem>
+        <para>
+          The &systemd; journal's own storage location. See
+          <xref linkend="logging-journald-about"/>.
         </para>
       </listitem>
     </varlistentry>
@@ -101,23 +133,91 @@
       <term><filename>krb5/</filename></term>
       <listitem>
         <para>
-          Log files from the Kerberos network authentication system.
+          Log files from the Kerberos network authentication system. Empty
+          unless you have installed and configured Kerberos client or server
+          tools.
         </para>
       </listitem>
     </varlistentry>
     <varlistentry>
-      <term><filename>chrony/</filename></term>
+      <term><filename>localmessages</filename></term>
       <listitem>
         <para>
-          Logs from the Network Time Protocol daemon (&chrony;).
+          Messages logged to the <literal>local0</literal> through
+          <literal>local7</literal> facilities, commonly used by third-party
+          applications that do not have a dedicated log file of their own.
+          This file only appears once something logs to one of these
+          facilities.
         </para>
       </listitem>
     </varlistentry>
     <varlistentry>
-      <term><filename>YaST2/</filename></term>
+      <term><filename>mail</filename>, <filename>mail.info</filename>,
+      <filename>mail.warn</filename>, <filename>mail.err</filename></term>
       <listitem>
         <para>
-          All &yast; log files.
+          Mail server logs, split by severity. Empty unless a mail transfer
+          agent such as <systemitem class="service">postfix</systemitem> is
+          installed.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><filename>messages</filename></term>
+      <listitem>
+        <para>
+          The default destination for kernel and system log messages,
+          forwarded from the journal by <systemitem
+          class="daemon">rsyslog</systemitem>. Together with
+          <filename>/var/log/warn</filename>, this should be the first place
+          to look in case of problems.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><filename>NetworkManager</filename></term>
+      <listitem>
+        <para>
+          <systemitem class="service">NetworkManager</systemitem> log files.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><filename>pbl.log</filename></term>
+      <listitem>
+        <para>
+          Log of the <command>update-bootloader</command> tool (also known as
+          <command>pbl</command>), which configures the boot loader on
+          &productnameshort;. Check this file after a kernel update or a
+          manual boot loader change if the system does not boot as expected.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><filename>pcp/</filename></term>
+      <listitem>
+        <para>
+          Logs from Performance Co-Pilot, installed and enabled by default
+          for system performance monitoring.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><filename>snapper.log</filename></term>
+      <listitem>
+        <para>
+          Log of <systemitem class="service">snapper</systemitem>, the tool
+          that manages Btrfs snapshots. Check this file if a scheduled
+          snapshot did not run or a snapshot could not be deleted.
+        </para>
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><filename>warn</filename></term>
+      <listitem>
+        <para>
+          All system warnings and errors, filtered from
+          <filename>/var/log/messages</filename>.
         </para>
       </listitem>
     </varlistentry>
