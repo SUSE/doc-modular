@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/rmt_install.xml -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="rmt-deploying-on-kubernetes"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Deploying &rmt; on top of the &kube; cluster</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+       This section describes how to deploy &rmt; on a &kube; cluster.
+          It uses <productname>Helm</productname> as the package manager to interact with
+          the &kube; cluster. Find more details about using <productname>Helm</productname> at
+          <link xlink:href="https://helm.sh/docs/intro/using_helm/"/>.
+      </para>
+    </abstract>
+  </info>
+
+  <section xml:id="rmt-deploying-on-kubernetes-prerequisites">
+    <title>Prerequisites</title>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Running &kube; cluster
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <command>helm</command> command configured to interact with the
+          cluster
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+
+  <section xml:id="rmt-deploying-on-kubernetes-components">
+    <title>Application components</title>
+    <para>
+      Each component of the &rmt; application is deployed in its own
+      container. &rmt; consists of the following components:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>&rmt; server</term>
+        <listitem>
+          <para>
+            Containerized version of the &rmt; application server with the
+            ability to pass its configuration via Helm values. Storage is
+            done on a volume that is allocated to the &kube; cluster. You
+            need to adjust the size of the storage depending on the number of
+            repositories you need to mirror.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>&mariadb;</term>
+        <listitem>
+          <para>
+            The database back-end for &rmt;. No post-installation task is
+            needed since &rmt; creates the required database and tables
+            at start-up. If passwords are not
+            specified in the <filename>values.yaml</filename> file, they are
+            generated automatically.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>nginx</term>
+        <listitem>
+          <para>
+            A Web server configured for &rmt; routes. Having a properly
+            configured Web server allows you to target your Ingress traffic
+            (for &rmt;) to this nginx service directly. You do not need to
+            configure Ingress for &rmt; -specific path handling, as nginx is
+            configured to take care of this itself.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+
+  <section xml:id="rmt-deploying-on-kubernetes-values">
+    <title>The <filename>values.yaml</filename> file</title>
+    <para>
+      The &rmt; chart includes the <filename>values.yaml</filename> file
+      where all parameters are documented and their default values are
+      defined. You can override these values by providing your own values
+      file, for example:
+    </para>
+<screen>&prompt.user;cat &lt;&lt; EOF &gt; rmt-config.yaml
+---
+app:
+  storage:
+    class: local-path<co xml:id="co-kubernetes-values-appstorage"/>
+  scc:
+    enabled: false
+    username: "UXXXXXXX"
+    password: "PASSXXXX"
+    products_enable:
+      - SLES/15.3/x86_64
+      - sle-module-python2/15.3/x86_64
+    products_disable:
+      - sle-module-legacy/15.3/x86_64
+      - sle-module-cap-tools/15.3/x86_64
+db:
+  storage:
+    class: local-path<co xml:id="co-kubernetes-values-dbstorage"/>
+ingress:
+  enabled: true
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: "/"
+          pathType: Prefix
+  tls:
+    - secretName: rmt-cert
+      hosts:
+        - chart-example.local
+EOF
+</screen>
+    <calloutlist>
+      <callout arearefs="co-kubernetes-values-appstorage co-kubernetes-values-dbstorage">
+        <para>
+          The <literal>local-path</literal> storage class is only available in
+          Rancher workloads. To make the Helm chart succeed, you need to install the
+          <literal>local-path</literal> storage provisioner by running the following
+          command:
+        </para>
+<screen>&prompt.user;kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.26/deploy/local-path-storage.yaml</screen>
+      </callout>
+    </calloutlist>
+    <para>
+      And to install &rmt;, run:
+    </para>
+<screen>&prompt.user;helm install rmtsle oci://registry.suse.com/suse/rmt-helm -f rmt-config.yaml</screen>
+
+    <section xml:id="rmt-deploying-on-kubernetes-required-values">
+      <title>Required values</title>
+      <variablelist>
+        <varlistentry>
+          <term><emphasis role="strong">Key</emphasis>: app.scc.password</term>
+          <listitem>
+            <para>
+              <emphasis role="strong">Type</emphasis>: string
+            </para>
+            <para>
+              <emphasis role="strong">Default</emphasis>:
+              <literal>nil</literal>
+            </para>
+            <para>
+              <emphasis role="strong">Description</emphasis>: <link xlink:href="&sccurl;">&scc;</link> proxy password. The password string needs to be
+              put inside quotes. If the quote character <literal>"</literal> is part of the
+              string, it has to be escaped with <literal>\</literal>.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><emphasis role="strong">Key</emphasis>: app.scc.username</term>
+          <listitem>
+            <para>
+              <emphasis role="strong">Type</emphasis>: string
+            </para>
+            <para>
+              <emphasis role="strong">Default</emphasis>:
+              <literal>nil</literal>
+            </para>
+            <para>
+              <emphasis role="strong">Description</emphasis>: <link xlink:href="&sccurl;">&scc;</link> proxy user name. The user name string needs to be
+              put inside quotes. If the quote character <literal>"</literal> is part of the
+              string, it has to be escaped with <literal>\</literal>.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><emphasis role="strong">Key</emphasis>: app.scc.products_enable</term>
+          <listitem>
+            <para>
+              <emphasis role="strong">Type</emphasis>: list
+            </para>
+            <para>
+              <emphasis role="strong">Default</emphasis>:
+              <literal>[]</literal>
+            </para>
+            <para>
+              <emphasis role="strong">Description</emphasis>: list of
+              products to enable for mirroring
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><emphasis role="strong">Key</emphasis>: app.scc.products_disable</term>
+          <listitem>
+            <para>
+              <emphasis role="strong">Type</emphasis>: list
+            </para>
+            <para>
+              <emphasis role="strong">Default</emphasis>:
+              <literal>[]</literal>
+            </para>
+            <para>
+              <emphasis role="strong">Description</emphasis>: list of
+              products to disable for mirroring
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><emphasis role="strong">Key</emphasis>: app.storage.class</term>
+          <listitem>
+            <para>
+              <emphasis role="strong">Type</emphasis>: string
+            </para>
+            <para>
+              <emphasis role="strong">Default</emphasis>:
+              <literal>""</literal>
+            </para>
+            <para>
+              <emphasis role="strong">Description</emphasis>: Kubernetes
+              <literal>storageclass</literal>.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><emphasis role="strong">Key</emphasis>: db.storage.class</term>
+          <listitem>
+            <para>
+              <emphasis role="strong">Type</emphasis>: string
+            </para>
+            <para>
+              <emphasis role="strong">Default</emphasis>:
+              <literal>""</literal>
+            </para>
+            <para>
+              <emphasis role="strong">Description</emphasis>: Kubernetes
+              <literal>storageclass</literal>.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><emphasis role="strong">Key</emphasis>: ingress.enabled</term>
+          <listitem>
+            <para>
+              <emphasis role="strong">Type</emphasis>: bool
+            </para>
+            <para>
+              <emphasis role="strong">Default</emphasis>:
+              <literal>false</literal>
+            </para>
+            <para>
+              <emphasis role="strong">Description</emphasis>: Ingress Enabled
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><emphasis role="strong">Key</emphasis>: ingress.hosts[0]</term>
+          <listitem>
+            <para>
+              <emphasis role="strong">Type</emphasis>: object
+            </para>
+            <para>
+              <emphasis role="strong">Default</emphasis>:
+              <literal>{"host":"chart-example.local","paths":[{"path":"/","pathType":"Prefix"}]}</literal>
+            </para>
+            <para>
+              <emphasis role="strong">Description</emphasis>: DNS name at
+              which the &rmt; service will be accessible from clients
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><emphasis role="strong">Key</emphasis>: ingress.tls[0].hosts[0]</term>
+          <listitem>
+            <para>
+              <emphasis role="strong">Type</emphasis>: string
+            </para>
+            <para>
+              <emphasis role="strong">Default</emphasis>:
+              <literal>"chart-example.local"</literal>
+            </para>
+            <para>
+              <emphasis role="strong">Description</emphasis>: DNS name at
+              which the &rmt; service will be accessible from clients
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><emphasis role="strong">Key</emphasis>: ingress.tls[0].secretName</term>
+          <listitem>
+            <para>
+              <emphasis role="strong">Type</emphasis>: string
+            </para>
+            <para>
+              <emphasis role="strong">Default</emphasis>:
+              <literal>"rmt-cert"</literal>
+            </para>
+            <para>
+              <emphasis role="strong">Description</emphasis>: TLS Ingress
+              Certificate
+            </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </section>
+  </section>
+</topic>
