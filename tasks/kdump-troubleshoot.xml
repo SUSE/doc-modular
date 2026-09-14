@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/tuning_kexec.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="kdump-troubleshoot"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Troubleshooting &kdump;</title>
+    <meta name="maintainer" content="ssarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        &kdump; usually fails at one of three points: the crash kernel memory reservation is
+        insufficient, the capture kernel fails to boot or save the dump, or the dump cannot be
+        written to its destination. Use the checks below to narrow down which stage is failing.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="kdump-troubleshoot-insufficient-memory">
+    <title>Crash kernel memory reservation is insufficient</title>
+    <para>
+      If a crash produces error messages about low memory, or the Out Of Memory (OOM) killer
+      being invoked inside the capture kernel, the reserved crash kernel memory is too small for
+      this system. This can happen even after following
+      <xref linkend="kdump-crashkernel-memory-sizing"/>, since the right amount depends on the
+      actual workload running at the time of the crash.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Check the currently reserved amount from the kernel command line:
+        </para>
+        <screen>&prompt.sudo; cat /proc/cmdline</screen>
+        <para>
+          Add up every <literal>crashkernel=</literal> value shown (a plain value, or separate
+          <literal>,low</literal>/<literal>,high</literal> values) to get the current total
+          reservation in MiB.
+        </para>
+      </step>
+      <step>
+        <para>
+          Edit <filename>/etc/sysconfig/kdump</filename> and roughly double
+          <literal>KDUMP_CRASHKERNEL</literal> from the current total:
+        </para>
+        <screen>KDUMP_CRASHKERNEL="crashkernel=<replaceable>DOUBLED_SIZE</replaceable>M"</screen>
+      </step>
+      <step>
+        <para>
+          Reboot to apply the new reservation, then try to reproduce the crash again. See
+          <xref linkend="kdump-verify-capture"/>.
+        </para>
+        <screen>&prompt.sudo; reboot</screen>
+      </step>
+      <step>
+        <para>
+          Repeat with smaller increases until the dump completes reliably. A note taken between
+          the last failing and the last working size narrows down a reasonable final value
+          faster than repeatedly doubling.
+        </para>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="kdump-troubleshoot-other-issues">
+    <title>Other common issues</title>
+    <variablelist>
+      <varlistentry>
+        <term>The screen stays blank during the capture kernel boot</term>
+        <listitem>
+          <para>
+            Configure a serial console so the capture kernel's boot messages are captured
+            somewhere you can read them. A blank local console gives you nothing to debug from.
+            Once you have output, increase logging by setting
+            <literal>KDUMP_VERBOSE="11"</literal> in
+            <filename>/etc/sysconfig/kdump</filename>. This removes the
+            <literal>quiet</literal> kernel option from the capture kernel's command line and
+            runs both the dump-saving step and <command>makedumpfile</command> with debugging
+            output enabled.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>makedumpfile</command> or network configuration errors during capture</term>
+        <listitem>
+          <para>
+            Set <literal>KDUMP_CONTINUE_ON_ERROR="false"</literal> or
+            <literal>KDUMP_IMMEDIATE_REBOOT="false"</literal>. Instead of rebooting
+            automatically, this drops you into an interactive shell inside the capture
+            environment when an error occurs, or once <command>makedumpfile</command> finishes,
+            so you can inspect the problem directly.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Dracut errors during the capture kernel boot</term>
+        <listitem>
+          <para>
+            Add dracut's own debugging options to
+            <literal>KDUMP_COMMANDLINE_APPEND</literal> in
+            <filename>/etc/sysconfig/kdump</filename>, for example,
+            <literal>KDUMP_COMMANDLINE_APPEND="rd.debug"</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>The capture <literal>initramfs</literal> does not generate correctly</term>
+        <listitem>
+          <para>
+            Regenerate it with debugging enabled to see where it fails:
+          </para>
+          <screen>&prompt.sudo; mkdumprd -f -d</screen>
+          <para>
+            To inspect the contents of the generated image directly:
+          </para>
+          <screen>&prompt.sudo; lsinitrd --unpack /var/lib/kdump/initrd</screen>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+</topic>
