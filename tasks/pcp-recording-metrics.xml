@@ -17,124 +17,92 @@
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
     <title>Recording metrics from remote systems</title>
-    <!-- can be changed via merge
-      in the assembly -->
-    <!-- add author's e-mail -->
     <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
     <abstract>
-      <!-- can be changed via merge in the assembly -->
       <para>
-        The topic covers collecting of the PCP metrics.
+        The topic covers collecting PCP metrics from other systems on a
+        central monitoring host.
       </para>
     </abstract>
   </info>
   <para>
-    You can deploy collector containers that collect metrics from different
-    remote systems than the ones where the <command>pmlogger</command>
-    containers are running. Each remote collector system needs the
-    <command>pmcd</command> daemon and a set of <emphasis>pmda</emphasis>. To
-    deploy several collectors with a centralized monitoring system, proceed as
-    follows.
+    You can collect metrics from several remote systems (clients) on a
+    central monitoring system. Each client needs only <command>pmcd</command>
+    running and reachable; <command>pmlogger</command> on the monitoring
+    system then pulls the metrics from every client and logs them locally.
   </para>
   <procedure>
     <step>
       <para>
-        On each system you want to collect metrics from (clients), run a
-        container with the <command>pmcd</command> daemon:
+        On each client, install PCP as described in
+        <xref linkend="pcp-installing"/>, then allow remote connections and
+        enable <command>pmcd</command>:
       </para>
-<screen>&prompt.root;podman run -d \
-    --name pcp-pmcd \
-    --privileged \
-    --net host \
-    --systemd always \
-    -e PCP_SERVICES=pmcd \
-    -e HOST_MOUNT=/host \
-    -v /:/host:ro,rslave \
-    registry.suse.com/suse/pcp:latest</screen>
+<screen>&prompt.sudo;<command>sed -i 's/^PMCD_LOCAL=1/PMCD_LOCAL=0/' /etc/sysconfig/pmcd</command>
+&prompt.sudo;<command>systemctl enable --now pmcd</command></screen>
+    </step>
+    <step>
+      <para>
+        On each client, open the <command>pmcd</command> port in
+        &firewalld;:
+      </para>
+<screen>&prompt.sudo;<command>firewall-cmd --add-port=44321/tcp --permanent</command>
+&prompt.sudo;<command>firewall-cmd --reload</command></screen>
     </step>
     <step xml:id="pmlogger-config">
       <para>
         On the monitoring system, create a <command>pmlogger</command>
-        configuration file for each client
-        <filename>control.<replaceable>CLIENT</replaceable></filename> with the
-        following content:
+        control file for each client under
+        <filename>/etc/pcp/pmlogger/control.d/</filename>, for example
+        <filename>/etc/pcp/pmlogger/control.d/<replaceable>CLIENT</replaceable></filename>,
+        with the following content:
       </para>
-<screen>
-$version=1.1
+<screen>$version=1.1
 
-<replaceable>CLIENT_HOSTNAME</replaceable> n n PCP_ARCHIVE_DIR/<replaceable>CLIENT</replaceable> -N -r -T24h10m -c config.default -v 100Mb
-          </screen>
+<replaceable>CLIENT_HOSTNAME</replaceable> n n PCP_ARCHIVE_DIR/<replaceable>CLIENT</replaceable> -N -r -T24h10m -c config.default -v 100Mb</screen>
       <para>
-        Keep in mind that the <replaceable>CLIENT_HOSTNAME</replaceable> must
-        be resolvable in DNS. You can use IP addresses or fully qualified
-        domain names (FQDN) instead.
+        <replaceable>CLIENT_HOSTNAME</replaceable> must be resolvable in DNS;
+        you can use an IP address or a fully qualified domain name (FQDN)
+        instead. For details about the control file format, refer to
+        <xref linkend="sec-control-local"/>.
       </para>
-    </step>
-    <step>
-      <para>
-        On the monitoring system, create a directory for each client to store
-        the recorded logs:
-      </para>
-<screen>&prompt.root;mkdir /root/pcp-archives/<replaceable>CLIENT</replaceable></screen>
-      <para>
-        For example, for <literal>slemicro_1</literal>:
-      </para>
-<screen>&prompt.root;mkdir /root/pcp-archives/slemicro_1</screen>
-    </step>
-    <step>
-      <para>
-        On the monitoring system, run a container with
-        <command>pmlogger</command> for each client:
-      </para>
-<screen>&prompt.root;podman run -d \
-    --name pcp-pmlogger-<replaceable>CLIENT</replaceable> \
-    --systemd always \
-    -e PCP_SERVICES=pmlogger \
-    -v /root/pcp-archives/<replaceable>CLIENT</replaceable>:/var/log/pcp/pmlogger:z \
-    -v $(pwd)/control.<replaceable>CLIENT</replaceable>:/etc/pcp/pmlogger/control.d/local:z \
-    registry.suse.com/suse/pcp:latest
-          </screen>
-      <para>
-        For example, for a client called <literal>slemicro_1</literal>:
-      </para>
-<screen>&prompt.root;podman run -d \
-    --name pcp-pmlogger-slemicro_1 \
-    --systemd always \
-    -e PCP_SERVICES=pmlogger \
-    -v /root/pcp-archives:/var/log/pcp/pmlogger:z \
-    -v $(pwd)/control.slemicro_1:/etc/pcp/pmlogger/control.d/local:z \
-    registry.suse.com/suse/pcp:latest
-          </screen>
-      <note>
+      <warning>
+        <title>Silent logging failure from a pre-created archive directory</title>
         <para>
-          The second bind mount points to the configuration file created in
-          <xref linkend="pmlogger-config"/> and replaces the default
-          <command>pmlogger</command> configuration. If you do not create this
-          bind mount, <command>pmlogger</command> uses the default
-          <filename>/etc/pcp/pmlogger/control.d/local</filename> file and
-          logging from clients fails as the default configuration points to a
-          local host. For details about the configuration file, refer to
-          <xref linkend="sec-control-local"/>.
+          Leave
+          <filename>PCP_ARCHIVE_DIR/<replaceable>CLIENT</replaceable></filename>
+          (by default,
+          <filename>/var/log/pcp/pmlogger/<replaceable>CLIENT</replaceable></filename>)
+          for <command>pmlogger</command> to create itself, with the correct
+          ownership. If it already exists and is owned by
+          <systemitem class="username">root</systemitem>,
+          <command>pmlogger</command>&mdash;which runs as the
+          <systemitem class="username">pcp</systemitem> user&mdash;cannot
+          write its lock file there, and logging fails without an obvious
+          error.
         </para>
-      </note>
+      </warning>
     </step>
     <step>
       <para>
-        To check if the log collection is working properly, run:
+        Trigger a check so <command>pmlogger</command> picks up the new
+        control file immediately, instead of waiting for the next scheduled
+        run of <systemitem>pmlogger_check.timer</systemitem>:
       </para>
-<screen>&prompt.root;ls -l pcp-archives/<replaceable>CLIENT</replaceable>/<replaceable>CLIENT</replaceable></screen>
+<screen>&prompt.sudo;<command>systemctl start pmlogger_check.service</command></screen>
+    </step>
+    <step>
       <para>
-        For example:
+        Confirm that metrics are being collected from the client:
       </para>
-<screen>&prompt.root;ls -l pcp-archives/slemicro_1/slemicro_1
+<screen>&prompt.user;<command>ls</command> -l /var/log/pcp/pmlogger/<replaceable>CLIENT</replaceable>/
 
-total 1076
--rw-r--r--. 1 systemd-network systemd-network 876372 Jun  8 11:24 20220608.10.58.0
--rw-r--r--. 1 systemd-network systemd-network    312 Jun  8 11:22 20220608.10.58.index
--rw-r--r--. 1 systemd-network systemd-network 184486 Jun  8 10:58 20220608.10.58.meta
--rw-r--r--. 1 systemd-network systemd-network    246 Jun  8 10:58 Latest
--rw-r--r--. 1 systemd-network systemd-network  24595 Jun  8 10:58 pmlogger.log
-          </screen>
+total 288
+-rw-r--r--. 1 pcp pcp  35032 Sep  3 16:07 20260903.16.07.0
+-rw-r--r--. 1 pcp pcp    904 Sep  3 16:07 20260903.16.07.index
+-rw-r--r--. 1 pcp pcp 219161 Sep  3 16:07 20260903.16.07.meta
+-rw-r--r--. 1 pcp pcp    276 Sep  3 16:07 Latest
+-rw-r--r--. 1 pcp pcp  27174 Sep  3 16:07 pmlogger.log</screen>
     </step>
   </procedure>
 </topic>
