@@ -1,0 +1,1547 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="raid-config-mdadm"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title> Configuring and managing software RAID via <literal>mdadm</literal></title>
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+  </info>
+  <para>
+ MD-RAID is the native Linux software RAID stack handled directly by the kernel's <literal>md</literal> module.
+  </para>
+  <para>Multiple Devices RAID (MD-RAID) is Linux’s native, kernel-level software RAID framework, designed to combine multiple physical drives into a single redundant logical volume without relying on proprietary hardware controllers or BIOS-based FakeRAID.
+    Operating directly within the Linux block layer, it supports RAID levels 0, 1, 4, 5, 6, and 10, with management handled primarily through the <literal>mdadm</literal> utility. It features automatic boot-time array assembly, live status tracking via <filename>/proc/mdstat</filename> , background parity scrubbing, online capacity expansion, and hot-swaps for failed drives.
+    Because it is hardware-agnostic and fully portable across Linux installations, MD-RAID remains the industry standard for flexible, vendor-independent storage redundancy.</para>
+
+    <figure>
+      <title>Workflow for mdadm</title>
+      <mediaobject>
+        <imageobject role="fo">
+          <imagedata fileref="raid.png" width="85%"/>
+        </imageobject>
+        <imageobject role="html">
+          <imagedata fileref="raid.png" />
+        </imageobject>
+        <textobject role="description"><phrase>"Step by step workflow for mdadm</phrase>
+        </textobject>
+      </mediaobject>
+    </figure>
+<para>The following core utilities, daemons, and system interfaces provide the primary tools for configuring, monitoring, and maintaining Linux MD-RAID arrays:</para>
+    <itemizedlist>
+<listitem><para><emphasis role="bold">mdadm:</emphasis> The main command-line utility used to create, assemble, build, manage, monitor, and repair pure Linux software RAID arrays (RAID 0, 1, 4, 5, 6, 10).</para></listitem>
+<listitem><para><emphasis role="bold">mdmon:</emphasis> A background daemon bundled with <literal>mdadm</literal> that monitors arrays using external metadata formats.</para></listitem>
+<listitem><para><emphasis role="bold">raid6check:</emphasis> A diagnostic tool included with <literal>mdadm</literal> packages used to verify and repair parity consistency on RAID 6 sets.</para></listitem>
+<listitem><para><emphasis role="bold">/proc/mdstat:</emphasis> A virtual system file used to instantly check real-time status, synchronization progress, and health of active MD arrays.</para></listitem>
+</itemizedlist>
+<section xml:id="raid-naming">
+  <title>Naming software RAID devices</title>
+<para>Adopting a clear naming convention for software RAID arrays is essential for efficient system administration. Incorporating the array's purpose or RAID level directly into its name allows for quick volume identification and prevents costly mistakes during routine maintenance.</para>
+<section xml:id="task-default-names">
+  <title>Default names</title>
+  <para>
+    By default, software RAID devices have names following the pattern
+    <literal>mdN</literal>, where <literal>N</literal> is a number. For
+    example, they can be accessed as <filename>/dev/md127</filename> and are
+    listed as <literal>md127</literal> in <filename>/proc/mdstat</filename>
+    and <filename>/proc/partitions</filename>.
+  </para>
+</section>
+<section xml:id="task-example-requirements">
+    <title>Providing non-default names</title>
+    <para>
+      As working with the default names might be clumsy, there are two ways how
+      to work around this:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>Providing a named link to the device</term>
+        <listitem>
+          <para>
+            You can optionally specify a name for the RAID device when creating
+            it with &yast; or on the command line with <command>mdadm --create
+            '/dev/md/</command> <replaceable>NAME</replaceable>'. The device
+            name will still be <literal>mdN</literal>, but the link
+            <filename>/dev/md/<replaceable>NAME</replaceable></filename> will
+            be created:
+          </para>
+<screen>&prompt.user;ls -og /dev/md
+total 0
+lrwxrwxrwx 1 8 Dec  9 15:11 myRAID -&gt; ../md127</screen>
+          <para>
+            The device will still be listed as <literal>md127</literal> under
+            <filename>/proc</filename>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Providing a named device</term>
+        <listitem>
+          <para>
+            If a named link to the device is not sufficient for your setup, add
+            the line <literal>CREATE names=yes</literal> to
+            <filename>/etc/mdadm.conf</filename> by running the following
+            command:
+          </para>
+<screen>&prompt.user;echo "CREATE names=yes" | sudo tee -a  /etc/mdadm.conf</screen>
+          <para>
+            This will cause names like <literal>myRAID</literal> to be used as
+            a <quote>real</quote> device name. The device will not only be
+            accessible at <filename>/dev/myRAID</filename>, but also listed as
+            <literal>myRAID</literal> under <filename>/proc</filename>. Note
+            that this will only apply to RAIDs configured after the change to
+            the configuration file. Active RAIDs will continue to use the
+            <literal>mdN</literal> names until they get stopped and
+            reassembled.
+          </para>
+          <warning>
+            <title>Incompatible tools</title>
+            <para>
+              Not all tools may support named RAID devices. If a tool expects a
+              RAID device to be named <literal>mdN</literal>, it will fail to
+              identify the devices.
+            </para>
+          </warning>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+</section>
+<section xml:id="raid-root-partition">
+  <title>Configuring software RAID for the root partition</title>
+<para>Setting up a software RAID 1 array for the <literal>root</literal> partition in &productname; 16 via the command line requires strict adherence to execution order.
+Executing these steps out of order will result in an unbootable system or data loss.</para>
+<para>This procedure configures a software RAID 1 root partition on a &productname; 16 UEFI system and assumes two identical raw disks, <filename>/dev/sda</filename> and <filename>/dev/sdb</filename> , using a GPT partition scheme with a small BIOS Boot Partition (EF02) to allow GRUB2 embedding without requiring UEFI. </para>
+<itemizedlist>
+<title>Prerequisites for using a software RAID device for the root partition</title>
+<listitem>
+  <para>
+   You need two hard disks to create the RAID&nbsp;1 mirror device. The hard
+   disks should be similarly sized. The RAID assumes the size of the smaller
+   drive. The block storage devices can be any combination of local (in or
+   directly attached to the machine), Fibre Channel storage subsystems, or
+   iSCSI storage subsystems.
+  </para>
+ </listitem>
+ <listitem>
+  <para>
+   A separate partition for <filename>/boot</filename> is not required if you
+   install the boot loader in the MBR. If installing the boot loader in the
+   MBR is not an option, <filename>/boot</filename> needs to reside on a
+   separate partition.
+  </para>
+ </listitem>
+ <listitem>
+  <para>
+   For UEFI machines, you need to set up a dedicated
+   <filename>/boot/efi</filename> partition. It needs
+   to be VFAT-formatted,
+     and may reside on the RAID 1 device to prevent booting problems in case
+     the physical disk with <filename>/boot/efi</filename> fails.
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     If you are using hardware RAID devices, do not attempt to run software
+     RAIDs on top of it.
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     If you are using iSCSI target devices, you need to enable the iSCSI
+     initiator support before you create the RAID device.
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     If your storage subsystem provides multiple I/O paths between the server
+     and its directly attached local devices, Fibre Channel devices, or iSCSI
+     devices that you want to use in the software RAID, you need to enable the
+     multipath support before you create the RAID device.
+    </para>
+   </listitem>
+</itemizedlist>
+<procedure>
+<title>Setting up the system with a software RAID device for the root (/) partition</title>
+<step><para>Partition both drives with identical layout:</para>
+<warning><para>Erases all existing data on <filename>/dev/sda</filename> and <filename>/dev/sdb</filename> . </para></warning>
+<para>Create a 512MB EFI System Partition (EF00) and use the remaining space for a Linux RAID partition (FD00) on <filename>/dev/sda</filename>:
+ </para>
+<screen>&prompt.sudo; sgdisk -n 1:2048:+512M -t 1:ef00 -c 1:"EFI System Partition" /dev/sda</screen>
+<screen>&prompt.sudo; sgdisk -n 2:0:0        -t 2:fd00 -c 2:"Linux RAID" /dev/sda</screen>
+</step>
+<step><para>Replicate the structure to <filename>/dev/sdb</filename>:</para>
+  <screen>&prompt.sudo; sgdisk -R /dev/sdb /dev/sda</screen>
+  <screen>&prompt.sudo; sgdisk -G /dev/sdb</screen>
+</step>
+<step><para>Create the <literal>mdadm</literal> software RAID 1 array by assembling <filename>/dev/sda2</filename> and <filename>/dev/sdb2</filename> into a mirrored RAID 1 array named <filename>/dev/md0</filename>:</para>
+<screen>&prompt.sudo; mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/sda2 /dev/sdb2 --metadata=1.2</screen>
+</step>
+<step><para>Format the RAID array <filename>/dev/md0</filename>  with Btrfs (the SLES default) and format both EFI partitions with FAT32:</para>
+<screen>&prompt.sudo; mkfs.btrfs -f -L SLES_ROOT /dev/md0 </screen>
+<screen>&prompt.sudo; mkfs.vfat -F 32 -n EFI_A /dev/sda1</screen>
+<screen>&prompt.sudo; mkfs.vfat -F 32 -n EFI_B /dev/sdb1</screen>
+</step>
+<step><para>Mount root to target installation <filename>/chroot</filename> directory:</para>
+<screen>&prompt.sudo; mount /dev/md0 /mnt</screen>
+<screen>&prompt.sudo; mkdir -p /mnt/boot/efi</screen>
+<screen>&prompt.sudo; mount /dev/sda1 /mnt/boot/efi</screen>
+</step>
+<step><para>Write the RAID configuration:</para>
+<screen>&prompt.sudo; mkdir -p /mnt/etc
+ mdadm --detail --scan &gt;&gt; /mnt/etc/mdadm.conf
+   </screen>
+</step>
+<step><para>Get UUID of RAID device and EFI partition:</para>
+<screen>ROOT_UUID=$(blkid -s UUID -o value /dev/md0)
+  EFI_UUID=$(blkid -s UUID -o value /dev/sda1)
+  </screen>
+</step>
+<step><para>Append entries to <filename>/mnt/etc/fstab</filename>:</para>
+<screen>&prompt.sudo; cat &lt;&gt; /mnt/etc/fstab
+  UUID=$ROOT_UUID  /  btrfs  defaults  0 0
+  UUID=$EFI_UUID  /boot/efi  vfat  utf8  0 2
+  EOF
+   </screen>
+</step>
+<step><para>Bind-mount system virtual file systems to prepare the environment for boot loader and initrd configuration:</para>
+<screen>&prompt.sudo; for dir in /dev /dev/pts /proc /sys /run; do
+  mount --bind $dir /mnt$dir
+done
+chroot /mnt /bin/bash
+</screen>
+</step>
+<step><para>Ensure <literal>mdraid</literal> module is loaded into initrd:</para>
+<screen>&prompt.sudo; echo 'add_dracutmodules+=" mdraid "' &gt; /etc/dracut.conf.d/raid.conf</screen>
+</step>
+<step><para>Regenerate the initrd image:</para>
+<screen>&prompt.sudo; dracut --force</screen>
+</step>
+<step><para>Install GRUB2 onto both primary and secondary drives:</para>
+<screen>&prompt.sudo; grub2-install /dev/sda </screen>
+<screen>&prompt.sudo; grub2-install /dev/sdb </screen>
+</step>
+<step><para>Generate GRUB2 configuration:</para>
+<screen>&prompt.sudo; grub2-mkconfig -o /boot/grub2/grub.cfg
+</screen>
+</step>
+</procedure>
+</section>
+<section xml:id="raid-10-devices">
+  <title>Creating software RAID 10 devices </title>
+<para>A nested RAID device combines RAID 1 (mirroring) and RAID 0 (striping) arrays, configured either as striped mirrors (RAID 1+0) or mirrored stripes (RAID 0+1).</para>
+<section>
+  <title>Creating nested RAID 10 devices with <command>mdadm</command></title>
+
+  <para>
+   A nested RAID device consists of a RAID array that uses another RAID array
+   as its basic element, instead of using physical disks. The goal of this
+   configuration is to improve the performance and fault tolerance of the RAID.
+   Setting up nested RAID levels is not supported by &yast;, but can be done by
+   using the <command>mdadm</command> command line tool.
+  </para>
+
+  <para>
+   Based on the order of nesting, two different nested RAIDs can be set up.
+   This document uses the following terminology:
+  </para>
+
+  <itemizedlist mark="bullet" spacing="normal">
+   <listitem>
+    <formalpara>
+     <title>RAID 1+0:</title>
+     <para>
+      RAID 1 (mirror) arrays are built first, then combined to form a RAID 0
+      (stripe) array.
+     </para>
+    </formalpara>
+   </listitem>
+   <listitem>
+    <formalpara>
+     <title>RAID 0+1:</title>
+     <para>
+      RAID 0 (stripe) arrays are built first, then combined to form a RAID 1
+      (mirror) array.
+     </para>
+</formalpara>
+   </listitem>
+  </itemizedlist>
+
+  <para>
+   The following table describes the advantages and disadvantages of RAID 10
+   nesting as 1+0 versus 0+1. It assumes that the storage objects you use
+   reside on different disks, each with a dedicated I/O capability.
+  </para>
+
+  <table>
+   <title>Nested RAID levels</title>
+   <tgroup cols="3">
+    <colspec colnum="1" colname="1" colwidth="20*"/>
+    <colspec colnum="2" colname="2" colwidth="30*"/>
+    <colspec colnum="3" colname="3" colwidth="60*"/>
+    <thead>
+     <row>
+      <entry>
+       <para>
+        RAID Level
+       </para>
+      </entry>
+      <entry>
+       <para>
+        Description
+       </para>
+      </entry>
+      <entry>
+<para>
+        Performance and Fault Tolerance
+       </para>
+      </entry>
+     </row>
+    </thead>
+    <tbody>
+     <row>
+      <entry>
+       <para>
+        10 (1+0)
+       </para>
+      </entry>
+      <entry>
+       <para>
+        RAID 0 (stripe) built with RAID 1 (mirror) arrays
+       </para>
+      </entry>
+      <entry>
+       <para>
+        RAID 1+0 provides high levels of I/O performance, data redundancy, and
+        disk fault tolerance. Because each member device in the RAID 0 is
+        mirrored individually, multiple disk failures can be tolerated and data
+        remains available as long as the disks that fail are in different
+        mirrors.
+       </para>
+       <para>
+        You can optionally configure a spare for each underlying mirrored
+        array, or configure a spare to serve a spare group that serves all
+ mirrors.
+       </para>
+      </entry>
+     </row>
+     <row>
+      <entry>
+       <para>
+        10 (0+1)
+       </para>
+      </entry>
+      <entry>
+       <para>
+        RAID 1 (mirror) built with RAID 0 (stripe) arrays
+       </para>
+      </entry>
+      <entry>
+       <para>
+        RAID 0+1 provides high levels of I/O performance and data redundancy,
+        but slightly less fault tolerance than a 1+0. If multiple disks fail on
+        one side of the mirror, then the other mirror is available. However, if
+        disks are lost concurrently on both sides of the mirror, all data is
+        lost.
+       </para>
+       <para>
+        This solution offers less disk fault tolerance than a 1+0 solution, but
+        if you need to perform maintenance or maintain the mirror on a
+        different site, you can take an entire side of the mirror offline and
+        still have a fully functional storage device. Also, if you lose the
+        connection between the two sites, either site operates independently of
+        the other. That is not true if you stripe the mirrored segments,
+        because the mirrors are managed at a lower level.
+       </para>
+       <para>
+        If a device fails, the mirror on that side fails because RAID 1 is not
+ fault-tolerant. Create a new RAID 0 to replace the failed side, then
+        resynchronize the mirrors.
+       </para>
+      </entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+</section>
+
+
+
+
+
+<section>
+  <title>Creating nested RAID 10 (1+0) with mdadm</title>
+  <para>
+   A nested RAID 1+0 is built by creating two or more RAID 1 (mirror) devices,
+   then using them as component devices in a RAID 0.
+  </para>
+  <important>
+   <title>Multipathing</title>
+   <para>
+    If you need to manage multiple connections to the devices, you must
+    configure multipath I/O before configuring the RAID devices. </para>
+  </important>
+  <para>
+   The procedure in this section uses the device names shown in the following
+   table. Ensure that you modify the device names with the names of your own
+   devices.
+  </para>
+  <table>
+   <title>Scenario for creating a RAID 10 (1+0) by nesting</title>
+   <tgroup cols="3">
+    <colspec colnum="1" colname="1" colwidth="3334*"/>
+    <colspec colnum="2" colname="2" colwidth="3334*"/>
+    <colspec colnum="3" colname="3" colwidth="3334*"/>
+    <thead>
+     <row>
+      <entry>
+<para>
+        Raw Devices
+       </para>
+      </entry>
+      <entry>
+       <para>
+        RAID 1 (mirror)
+       </para>
+      </entry>
+      <entry>
+       <para>
+        RAID 1+0 (striped mirrors)
+       </para>
+      </entry>
+     </row>
+    </thead>
+    <tbody>
+     <row>
+      <entry>
+       <simplelist>
+        <member><filename>/dev/sdb1</filename>
+        </member>
+        <member><filename>/dev/sdc1</filename>
+        </member>
+       </simplelist>
+      </entry>
+      <entry>
+       <para>
+        <filename>/dev/md0</filename>
+</para>
+      </entry>
+      <entry morerows="1">
+       <para/>
+       <para>
+        <filename>/dev/md2</filename>
+       </para>
+      </entry>
+     </row>
+     <row>
+      <entry>
+       <simplelist>
+        <member><filename>/dev/sdd1</filename>
+        </member>
+        <member><filename>/dev/sde1</filename>
+        </member>
+       </simplelist>
+      </entry>
+      <entry>
+       <para>
+        <filename>/dev/md1</filename>
+       </para>
+      </entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+  <procedure>
+<step>
+    <para>
+     Open a terminal.
+    </para>
+   </step>
+   <step>
+    <para>
+     If necessary, create four 0xFD Linux RAID partitions of equal size using
+     a disk partitioner such as parted.
+    </para>
+   </step>
+   <step>
+    <para>
+     Create two software RAID&nbsp;1 devices, using two different devices for
+     each device. At the command prompt, enter these two commands:
+    </para>
+<screen>&prompt.sudo;mdadm --create /dev/md0 --run --level=1 --raid-devices=2 /dev/sdb1 /dev/sdc1
+sudo mdadm --create /dev/md1 --run --level=1 --raid-devices=2 /dev/sdd1 /dev/sde1</screen>
+   </step>
+   <step>
+    <para>
+     Create the nested RAID 1+0 device. At the command prompt, enter the
+     following command using the software RAID 1 devices you created in the
+     previous step:
+    </para>
+<screen>&prompt.sudo;mdadm --create /dev/md2 --run --level=0 --chunk=64 \
+--raid-devices=2 /dev/md0 /dev/md1</screen>
+    <para>
+     The default chunk size is 64 KB.
+</para>
+   </step>
+   <step>
+    <para>
+     Create a file system on the RAID 1+0 device
+     <filename>/dev/md2</filename>, for example an XFS file system:
+    </para>
+<screen>&prompt.sudo;mkfs.xfs /dev/md2</screen>
+    <para>
+     Modify the command to use a different file system.
+    </para>
+   </step>
+   <step>
+    <para>
+     Edit the <filename>/etc/mdadm.conf</filename> file or create it, if it
+     does not exist (for example by running <command>sudo vi
+     /etc/mdadm.conf</command>). Add the following lines (if the file already
+     exists, the first line probably already exists).
+    </para>
+<screen>DEVICE containers partitions
+ARRAY /dev/md0 UUID=<replaceable>UUID</replaceable>
+ARRAY /dev/md1 UUID=<replaceable>UUID</replaceable>
+ARRAY /dev/md2 UUID=<replaceable>UUID</replaceable></screen>
+<para>
+     The UUID of each device can be retrieved with the following command:
+    </para>
+<screen>&prompt.sudo;mdadm -D /dev/<replaceable>DEVICE</replaceable> | grep UUID</screen>
+   </step>
+   <step>
+    <para>
+     Edit the <filename>/etc/fstab</filename> file to add an entry for the
+     RAID 1+0 device <filename>/dev/md2</filename>. The following example
+     shows an entry for a RAID device with the XFS file system and
+     <filename>/data</filename> as a mount point.
+    </para>
+<screen>/dev/md2 /data xfs defaults 1 2</screen>
+   </step>
+   <step>
+    <para>
+     Mount the RAID device:
+    </para>
+<screen>&prompt.sudo;mount /data</screen>
+   </step>
+  </procedure>
+ </section>
+<section>
+  <title>Creating nested RAID 10 (0+1) with mdadm</title>
+  <para>
+   A nested RAID 0+1 is built by creating two to four RAID 0 (striping)
+   devices, then mirroring them as component devices in a RAID 1.
+  </para>
+  <important>
+   <title>Multipathing</title>
+   <para>
+    If you need to manage multiple connections to the devices, you must
+    configure multipath I/O before configuring the RAID devices.
+   </para>
+  </important>
+  <para>
+   In this configuration, spare devices cannot be specified for the underlying
+   RAID&nbsp;0 devices because RAID&nbsp;0 cannot tolerate a device loss. If a
+   device fails on one side of the mirror, you must create a replacement
+   RAID&nbsp;0 device, than add it into the mirror.
+  </para>
+  <para>
+   The procedure in this section uses the device names shown in the following
+   table. Ensure that you modify the device names with the names of your own
+   devices.
+  </para>
+  <table>
+   <title>Scenario for creating a RAID 10 (0+1) by nesting</title>
+   <tgroup cols="3">
+    <colspec colnum="1" colname="1" colwidth="3334*"/>
+    <colspec colnum="2" colname="2" colwidth="3334*"/>
+    <colspec colnum="3" colname="3" colwidth="3334*"/>
+<thead>
+     <row>
+      <entry>
+       <para>
+        Raw Devices
+       </para>
+      </entry>
+      <entry>
+       <para>
+        RAID 0 (stripe)
+       </para>
+      </entry>
+      <entry>
+       <para>
+        RAID 0+1 (mirrored stripes)
+       </para>
+      </entry>
+     </row>
+    </thead>
+    <tbody>
+     <row>
+      <entry>
+       <simplelist>
+        <member><filename>/dev/sdb1</filename>
+        </member>
+        <member><filename>/dev/sdc1</filename>
+        </member>
+       </simplelist>
+      </entry>
+      <entry>
+       <para>
+        <filename>/dev/md0</filename>
+       </para>
+</entry>
+      <entry morerows="1">
+       <para/>
+       <para>
+        <filename>/dev/md2</filename>
+       </para>
+      </entry>
+     </row>
+     <row>
+      <entry>
+       <simplelist>
+        <member><filename>/dev/sdd1</filename>
+        </member>
+        <member><filename>/dev/sde1</filename>
+        </member>
+       </simplelist>
+      </entry>
+      <entry>
+       <para>
+        <filename>/dev/md1</filename>
+       </para>
+      </entry>
+     </row>
+    </tbody>
+   </tgroup>
+  </table>
+  <procedure>
+   <step>
+    <para>
+
+Open a terminal.
+    </para>
+   </step>
+   <step>
+    <para>
+     If necessary, create four 0xFD Linux RAID partitions of equal size using
+     a disk partitioner such as parted.
+    </para>
+   </step>
+   <step>
+    <para>
+     Create two software RAID&nbsp;0 devices, using two different devices for
+     each RAID 0 device. At the command prompt, enter these two commands:
+    </para>
+<screen>&prompt.sudo;mdadm --create /dev/md0 --run --level=0 --chunk=64 \
+--raid-devices=2 /dev/sdb1 /dev/sdc1
+sudo mdadm --create /dev/md1 --run --level=0 --chunk=64 \
+--raid-devices=2 /dev/sdd1 /dev/sde1</screen>
+    <para>
+     The default chunk size is 64 KB.
+    </para>
+   </step>
+   <step>
+    <para>
+     Create the nested RAID 0+1 device. At the command prompt, enter the
+     following command using the software RAID&nbsp;0 devices you created in
+     the previous step:
+    </para>
+<screen>&prompt.sudo;mdadm --create /dev/md2 --run --level=1 --raid-devices=2 /dev/md0 /dev/md1</screen>
+   </step>
+   <step>
+    <para>
+     Create a file system on the RAID 1+0 device
+     <filename>/dev/md2</filename>, for example an XFS file system:
+    </para>
+<screen>&prompt.sudo;mkfs.xfs /dev/md2</screen>
+    <para>
+     Modify the command to use a different file system.
+    </para>
+   </step>
+   <step>
+    <para>
+     Edit the <filename>/etc/mdadm.conf</filename> file or create it, if it
+     does not exist (for example by running <command>sudo vi
+     /etc/mdadm.conf</command>). Add the following lines (if the file exists,
+     the first line probably already exists, too).
+    </para>
+<screen>DEVICE containers partitions
+ARRAY /dev/md0 UUID=<replaceable>UUID</replaceable>
+ARRAY /dev/md1 UUID=<replaceable>UUID</replaceable>
+ARRAY /dev/md2 UUID=<replaceable>UUID</replaceable></screen>
+    <para>
+     The UUID of each device can be retrieved with the following command:
+    </para>
+<screen>&prompt.sudo;mdadm -D /dev/<replaceable>DEVICE</replaceable> | grep UUID</screen>
+   </step>
+   <step>
+<para>
+     Edit the <filename>/etc/fstab</filename> file to add an entry for the
+     RAID 1+0 device <filename>/dev/md2</filename>. The following example
+     shows an entry for a RAID device with the XFS file system and
+     <filename>/data</filename> as a mount point.
+    </para>
+<screen>/dev/md2 /data xfs defaults 1 2</screen>
+   </step>
+   <step>
+    <para>
+     Mount the RAID device:
+    </para>
+<screen>&prompt.sudo;mount /data</screen>
+   </step>
+  </procedure>
+</section>
+</section>
+<section xml:id="raid-degrade-array">
+  <title> Creating a degraded RAID array</title>
+<para>A degraded array is one in which some devices are missing. Degraded arrays
+  are supported only for RAID 1, RAID 4, RAID 5, and RAID 6. These RAID types
+  are designed to withstand some missing devices as part of their
+  fault-tolerance features. Typically, degraded arrays occur when a device
+  fails. It is possible to create a degraded array on purpose.
+ </para>
+ <informaltable>
+  <tgroup cols="2">
+   <colspec colnum="1" colname="1" colwidth="30*"/>
+   <colspec colnum="2" colname="2" colwidth="70*"/>
+   <thead>
+    <row>
+     <entry>
+      <para>
+       RAID Type
+      </para>
+     </entry>
+     <entry>
+      <para>
+       Allowable Number of Slots Missing
+      </para>
+     </entry>
+    </row>
+   </thead>
+   <tbody>
+    <row>
+     <entry>
+      <para>
+       RAID 1
+      </para>
+     </entry>
+     <entry>
+      <para>
+       All but one device
+      </para>
+     </entry>
+    </row>
+    <row>
+      <entry>
+       <para>
+        RAID 4
+       </para>
+      </entry>
+      <entry>
+       <para>
+        One slot
+       </para>
+      </entry>
+     </row>
+     <row>
+      <entry>
+       <para>
+        RAID 5
+       </para>
+      </entry>
+      <entry>
+       <para>
+        One slot
+       </para>
+      </entry>
+     </row>
+     <row>
+      <entry>
+       <para>
+        RAID 6
+       </para>
+      </entry>
+      <entry>
+       <para>
+        One or two slots
+       </para>
+      </entry>
+    </row>
+   </tbody>
+  </tgroup>
+ </informaltable>
+ <para>
+  To create a degraded array in which some devices are missing, simply give the
+  word <literal>missing</literal> in place of a device name. This causes
+  <command>mdadm</command> to leave the corresponding slot in the array empty.
+ </para>
+ <para>
+  When creating a RAID 5 array, <command>mdadm</command> automatically creates
+  a degraded array with an extra spare drive. This is because building the
+  spare into a degraded array is generally faster than resynchronizing the
+  parity on a non-degraded, but not clean, array. You can override this feature
+  with the <literal>--force</literal> option.
+ </para>
+ <para>
+ Creating a degraded array might be useful if you want create a RAID, but one
+ of the devices you want to use already has data on it. In that case, you
+ create a degraded array with other devices, copy data from the in-use device
+ to the RAID that is running in degraded mode, add the device into the RAID,
+ then wait while the RAID is rebuilt so that the data is now across all
+ devices.
+ </para>
+ <procedure>
+  <step>
+   <para>
+    To create a degraded RAID 1 device <filename>/dev/md0</filename>, using one
+    single drive <filename>/dev/sd1</filename>, enter the following at the
+    command prompt:
+   </para>
+<screen>&prompt.sudo;mdadm --create /dev/md0 -l 1 -n 2 /dev/sda1 missing</screen>
+   <para>
+    The device should be the same size or larger than the device you plan to
+    add to it.
+   </para>
+  </step>
+  <step>
+   <para>
+    If the device you want to add to the mirror contains data that you want to
+    move to the RAID array, copy it now to the RAID array while it is running
+    in degraded mode.
+   </para>
+  </step>
+  <step>
+   <para>
+    Add the device you copied the data from to the mirror. For example, to add
+    <filename>/dev/sdb1</filename> to the RAID, enter the following at the
+    command prompt:
+   </para>
+<screen>&prompt.sudo; mdadm /dev/md0 -a /dev/sdb1</screen>
+   <para>
+    You can add only one device at a time. You must wait for the kernel to
+    build the mirror and bring it fully online before you add another mirror.
+   </para>
+  </step>
+  <step>
+    <para>
+     Monitor the build progress by entering the following at the command prompt:
+    </para>
+ <screen>&prompt.sudo;cat /proc/mdstat</screen>
+    <para>
+     To see the rebuild progress while being refreshed every second, enter
+    </para>
+ <screen>&prompt.sudo;watch -n 1 cat /proc/mdstat </screen>
+   </step>
+  </procedure>
+</section>
+<section xml:id="raid-resize-array">
+  <title>Resizing software RAID arrays with <literal>mdadm</literal></title>
+<para> This section describes how to increase or reduce the size of a software
+  RAID 1, 4, 5, or 6 device with the Multiple Device Administration
+  (<command>mdadm(8)</command>) tool.</para>
+  <para>
+    Resizing an existing software RAID device involves increasing or decreasing
+    the space contributed by each component partition. The file system that
+    resides on the RAID must also be able to be resized to take advantage of the
+    changes in available space on the device. In &productname;, file system
+    resizing utilities are available for file systems Btrfs, Ext2, Ext3, Ext4, and
+    XFS (increase size only).
+   </para>
+   <para>
+    The <command>mdadm</command> tool supports resizing only for software RAID
+    levels 1, 4, 5, and 6. These RAID levels provide disk fault tolerance so that
+    one component partition can be removed at a time for resizing. In principle,
+    it is possible to perform a hot resize for RAID partitions, but you must take
+    extra care for your data when doing so.
+   </para>
+   <warning>
+    <title>Back up your data before resizing</title>
+    <para>
+     Resizing any partition or file system involves some risks that can
+     potentially result in losing data. To avoid data loss, ensure that you back
+     up your data before you begin any resizing task.
+    </para>
+   </warning>
+   <para>
+    Resizing the RAID involves the following tasks. The order in which these
+    tasks are performed depends on whether you are increasing or decreasing its
+    size.
+   </para>
+   <table>
+    <title>Tasks involved in resizing a RAID</title>
+    <tgroup cols="4">
+     <colspec colnum="1" colname="1" colwidth="2500*"/>
+     <colspec colnum="2" colname="2" colwidth="5001*"/>
+     <colspec colnum="3" colname="3" colwidth="1250*"/>
+     <colspec colnum="4" colname="4" colwidth="1250*"/>
+     <thead>
+      <row>
+       <entry>
+        <para>
+         Tasks
+        </para>
+       </entry>
+       <entry>
+        <para>
+         Description
+        </para>
+       </entry>
+       <entry>
+        <para>
+         Order If Increasing Size
+        </para>
+       </entry>
+       <entry>
+        <para>
+         Order If Decreasing Size
+        </para>
+       </entry>
+      </row>
+     </thead>
+     <tbody>
+      <row>
+        <entry>
+         <para>
+          Resize each of the component partitions.
+         </para>
+         <para/>
+        </entry>
+        <entry>
+         <para>
+          Increase or decrease the active size of each component partition. You
+          remove only one component partition at a time, modify its size, then
+          return it to the RAID.
+         </para>
+        </entry>
+        <entry>
+         <para>
+          1
+         </para>
+        </entry>
+        <entry>
+         <para>
+          2
+         </para>
+        </entry>
+       </row>
+       <row>
+        <entry>
+         <para>
+          Resize the software RAID itself.
+        </para>
+       </entry>
+       <entry>
+        <para>
+         The RAID does not automatically know about the increases or decreases
+         you make to the underlying component partitions. You must inform it
+         about the new size.
+        </para>
+       </entry>
+       <entry>
+        <para>
+         2
+        </para>
+       </entry>
+       <entry>
+        <para>
+         3
+        </para>
+       </entry>
+      </row>
+      <row>
+       <entry>
+        <para>
+         Resize the file system.
+        </para>
+       </entry>
+       <entry>
+        <para>
+          You must resize the file system that resides on the RAID. This is
+       possible only for file systems that provide tools for resizing.
+      </para>
+     </entry>
+     <entry>
+      <para>
+       3
+      </para>
+     </entry>
+     <entry>
+      <para>
+       1
+      </para>
+     </entry>
+    </row>
+   </tbody>
+  </tgroup>
+ </table>
+ <para>
+  The procedures in the following sections use the device names shown in the
+  following table. Ensure that you modify the names to use the names of your
+  own devices.
+ </para>
+ <table>
+  <title>Scenario for increasing the size of component partitions</title>
+  <tgroup cols="2">
+   <colspec colnum="1" colname="1" colwidth="5001*"/>
+   <colspec colnum="2" colname="2" colwidth="5001*"/>
+   <thead>
+    <row>
+     <entry>
+      <para>
+       RAID Device
+      </para>
+     </entry>
+     <entry>
+      <para>
+       Component Partitions
+      </para>
+     </entry>
+    </row>
+   </thead>
+   <tbody>
+    <row>
+     <entry>
+      <para>
+       <filename>/dev/md0</filename>
+      </para>
+     </entry>
+     <entry>
+      <para>
+       <filename>/dev/sda1</filename>
+      </para>
+      <para>
+       <filename>/dev/sdb1</filename>
+      </para>
+      <para>
+       <filename>/dev/sdc1</filename>
+      </para>
+     </entry>
+    </row>
+   </tbody>
+  </tgroup>
+ </table>
+<section>
+  <title>Increasing the size of a software RAID</title>
+
+  <para>
+   Increasing the size of a software RAID involves the following tasks in the
+   given order: increase the size of all partitions the RAID consists of,
+   increase the size of the RAID itself and, finally, increase the size of the
+   file system.
+  </para>
+
+  <warning>
+   <title>Potential data loss</title>
+   <para>
+    If a RAID does not have disk fault tolerance, or it is simply not
+    consistent, data loss results if you remove any of its partitions. Be very
+    careful when removing partitions, and ensure that you have a backup of your
+    data available.
+   </para>
+  </warning>
+  <section>
+    <title>Increasing the size of component partitions</title>
+    <para>
+     Apply the procedure in this section to increase the size of a RAID 1, 4, 5,
+     or 6. For each component partition in the RAID, remove the partition from
+     the RAID, modify its size, return it to the RAID, then wait until the RAID
+     stabilizes to continue. While a partition is removed, the RAID operates in
+     degraded mode and has no or reduced disk fault tolerance. Even for RAIDs
+     that can tolerate multiple concurrent disk failures, do not remove more
+     than one component partition at a time. To increase the size of the
+     component partitions for the RAID, proceed as follows:
+    </para>
+    <procedure>
+      <step>
+       <para>
+        Open a terminal.
+       </para>
+      </step>
+      <step>
+       <para>
+        Ensure that the RAID array is consistent and synchronized by entering
+       </para>
+  <screen>&prompt.user;cat /proc/mdstat</screen>
+       <para>
+        If your RAID array is still synchronizing according to the output of this
+        command, you must wait until synchronization is complete before
+        continuing.
+       </para>
+      </step>
+      <step>
+      <para>
+      Attach the device you want use in the RAID, for example <filename>/dev/sda2</filename>, but do not mount it.
+      </para>
+      </step>
+      <step>
+       <para>
+        Replace one of the component partitions from the RAID array. For example,
+        to replace <filename>/dev/sda1</filename> with the bigger device <filename>/dev/sda2</filename>, enter
+       </para>
+  <screen>&prompt.sudo;mdadm /dev/md0 --replace /dev/sda1 --with /dev/sda2</screen>
+      </step>
+      <step>
+       <para>
+        Increase the size of the partition (<filename>/dev/sda2</filename>)
+        by doing one of the following:
+      </para>
+      <itemizedlist mark="bullet" spacing="normal">
+       <listitem>
+        <para>
+         Increase the size of the partition, using a disk partitioner such as
+         the &yast; Partitioner or the command line tool parted. This option is
+         the usual choice.
+        </para>
+       </listitem>
+       <listitem>
+        <para>
+         Replace the disk on which the partition resides with a higher-capacity
+         device. This option is possible only if no other file systems on the
+         original disk are accessed by the system. When the replacement device
+         is added back into the RAID, it takes much longer to synchronize the
+         data because all of the data that was on the original device must be
+         rebuilt.
+        </para>
+       </listitem>
+      </itemizedlist>
+     </step>
+     <step>
+      <para>
+       Repeat these steps for each of the remaining component devices in the
+       array. Ensure that you modify the commands for the correct component
+       partition.
+      </para>
+     </step>
+     <step>
+      <para>
+       If you get a message that tells you that the kernel could not re-read the
+       partition table for the RAID, you must reboot the computer after all
+       partitions have been resized to force an update of the partition table.
+      </para>
+     </step>
+    </procedure>
+    <para>
+     Alternatively, if you are replacing the disks and can install the new disks
+     temporarily alongside the existing array, you can hot-replace the
+     partitions. This will keep them in service until a new partition has been
+     rebuilt as a spare, so the array does not enter a degraded state and
+     remains fault-tolerant during the process. The following steps replace
+     steps 3&ndash;5 in the above procedure.
+    </para>
+    <procedure>
+     <step>
+      <para>
+       Mark a component partition for replacement. For example, to replace
+       <filename>/dev/sda1</filename>, enter
+      </para>
+ <screen>&prompt.sudo;mdadm /dev/md0 --replace /dev/sda1</screen>
+     </step>
+     <step>
+      <para>
+       Add a replacement partition to the RAID array. For example, to add
+       <filename>/dev/sdd1</filename>, enter
+      </para>
+ <screen>&prompt.sudo;mdadm -a /dev/md0 /dev/sdd1</screen>
+     </step>
+     <step>
+      <para>
+       Once the new partition has been added and has finished rebuilding, the
+       partition marked for replacement will be automatically marked as faulty,
+       and can be removed from the array. For example, to remove
+       <filename>/dev/sda1</filename>, enter
+      </para>
+      <screen>&prompt.sudo;mdadm /dev/md0 --remove /dev/sda1</screen>
+          </step>
+         </procedure>
+       </section>
+       <section>
+        <title>Increasing the size of the RAID array</title>
+        <para>
+         After you have resized each of the component partitions in the RAID,
+         the RAID array configuration continues to use the original array size until
+         you force it to be aware of the newly available space. You can specify a
+         size for the RAID or use the maximum available space.
+        </para>
+        <para>
+          The procedure in this section uses the device name
+          <filename>/dev/md0</filename> for the RAID device. Ensure that you modify
+          the name to use the name of your own device.
+         </para>
+         <procedure>
+          <step>
+           <para>
+            Open a terminal.
+           </para>
+          </step>
+          <step>
+           <para>
+            Ensure that the RAID array is consistent and synchronized by entering
+           </para>
+      <screen>&prompt.user;cat /proc/mdstat</screen>
+           <para>
+            If your RAID array is still synchronizing according to the output of this
+            command, you must wait until synchronization is complete before
+            continuing.
+           </para>
+          </step>
+          <step>
+           <para>
+            Check the size of the array and the device size known to the array by
+            entering
+           </para>
+      <screen>&prompt.sudo;mdadm -D /dev/md0 | grep -e "Array Size" -e "Dev Size"</screen>
+          </step>
+          <step>
+            <para>
+             Do one of the following:
+            </para>
+            <itemizedlist mark="bullet" spacing="normal">
+             <listitem>
+              <para>
+               Increase the size of the array to the maximum available size by
+               entering
+              </para>
+       <screen>&prompt.sudo;mdadm --grow /dev/md0 -z max</screen>
+             </listitem>
+             <listitem>
+              <para>
+               Increase the size of the array to the maximum available size by
+               entering
+              </para>
+       <screen>&prompt.sudo;mdadm --grow /dev/md0 -z max --assume-clean</screen>
+              <para>
+               The array uses any space that has been added to the devices, but this
+               space will not be synchronized. This is recommended for RAID&nbsp;1
+               because the synchronization is not needed. It can be useful for other
+               RAID levels if the space that was added to the member devices was
+               pre-zeroed.
+              </para>
+             </listitem>
+             <listitem>
+              <para>
+               Increase the size of the array to a specified value by entering
+              </para>
+              <screen>&prompt.sudo;mdadm --grow /dev/md0 -z <replaceable>SIZE</replaceable></screen>
+                     <para>
+                      Replace <replaceable>SIZE</replaceable> with an integer value in
+                      kilobytes (a kilobyte is 1024 bytes) for the desired size.
+                     </para>
+                    </listitem>
+                   </itemizedlist>
+                  </step>
+                  <step>
+                   <para>
+                    Recheck the size of your array and the device size known to the array by
+                    entering
+                   </para>
+              <screen>&prompt.sudo;mdadm -D /dev/md0 | grep -e "Array Size" -e "Dev Size"</screen>
+                  </step>
+                  <step>
+                   <para>
+                    Do one of the following:
+                   </para>
+                   <itemizedlist mark="bullet" spacing="normal">
+                    <listitem>
+                     <para>
+                      If your array was successfully resized, continue with
+                      with increasing the size of the file system.
+                     </para>
+                    </listitem>
+                    <listitem>
+                      <para>
+                        If your array was not resized as you expected, you must reboot, then
+                        try this procedure again.
+                       </para>
+                      </listitem>
+                     </itemizedlist>
+                    </step>
+                   </procedure>
+ </section>
+ <section><title>Increasing the size of the file system</title>
+  <para>
+   After you increase the size of the array,
+   you are ready to resize the file system.
+  </para>
+  <para>
+    You can increase the size of the file system to the maximum space available
+    or specify an exact size. When specifying an exact size for the file
+    system, ensure that the new size satisfies the following conditions:
+   </para>
+   <itemizedlist mark="bullet" spacing="normal">
+    <listitem>
+     <para>
+      The new size must be greater than the size of the existing data;
+      otherwise, data loss occurs.
+     </para>
+    </listitem>
+    <listitem>
+     <para>
+      The new size must be equal to or less than the current RAID size because
+      the file system size cannot extend beyond the space available.
+     </para>
+    </listitem>
+   </itemizedlist>
+</section>
+</section>
+<section>
+  <title>Decreasing the size of a software RAID</title>
+
+
+ <para>
+  Decreasing the Size of a Software RAID involves the following tasks in the
+  given order: decrease the size of the file system, decrease the size of all
+  partitions the RAID consists of, and finally decrease the size of the RAID
+  itself.
+ </para>
+
+ <warning>
+  <title>Potential data loss</title>
+  <para>
+   If a RAID does not have disk fault tolerance, or it is simply not
+   consistent, data loss results if you remove any of its partitions. Be very
+   careful when removing partitions, and ensure that you have a backup of your
+   data available.
+  </para>
+ </warning>
+
+ <important>
+  <title>XFS</title>
+  <para>
+   Decreasing the size of a file system formatted with XFS is not possible,
+   since such a feature is not supported by XFS. As a consequence, the size of
+   a RAID that uses the XFS file system cannot be decreased.
+ </para>
+</important>
+<section><title>Decreasing the size of the file system</title>
+  <para>
+   When decreasing the size of the file system on a RAID device, ensure that
+   the new size satisfies the following conditions:
+  </para>
+  <itemizedlist mark="bullet" spacing="normal">
+   <listitem>
+    <para>
+     The new size must be greater than the size of the existing data;
+     otherwise, data loss occurs.
+    </para>
+   </listitem>
+   <listitem>
+    <para>
+     The new size must be equal to or less than the current RAID size because
+     the file system size cannot extend beyond the space available.
+    </para>
+   </listitem>
+  </itemizedlist>
+</section>
+<section>
+  <title>Decreasing the size of the RAID array</title>
+  <para>
+   After you have resized the file system, the
+   RAID array configuration continues to use the original array size until you
+   force it to reduce the available space. Use the <command>mdadm
+   --grow</command> mode to force the RAID to use a smaller segment size. To
+   do this, you must use the -z option to specify the amount of space in
+   kilobytes to use from each device in the RAID. This size must be a multiple
+   of the chunk size, and it must leave about 128 KB of space for the RAID
+   superblock to be written to the device.
+  </para>
+  <para>
+   The procedure in this section uses the device name
+   <filename>/dev/md0</filename> for the RAID device. Ensure that you modify
+   commands to use the name of your own device.
+  </para>
+  <procedure>
+   <step>
+    <para>
+     Open a terminal.
+    </para>
+   </step>
+   <step>
+    <para>
+     Check the size of the array and the device size known to the array by
+     entering
+    </para>
+<screen>&prompt.sudo;mdadm -D /dev/md0 | grep -e "Array Size" -e "Dev Size"</screen>
+   </step>
+   <step>
+    <para>
+     Decrease the array’s device size to a specified value by entering
+    </para>
+    <screen>&prompt.sudo;mdadm --grow /dev/md0 -z <replaceable>SIZE</replaceable></screen>
+    <para>
+     Replace <replaceable>SIZE</replaceable> with an integer value in
+     kilobytes for the desired size. (A kilobyte is 1024 bytes.)
+    </para>
+    <para>
+     For example, the following command sets the segment size for each RAID
+     device to about 40 GB where the chunk size is 64 KB. It includes 128 KB
+     for the RAID superblock.
+    </para>
+<screen>&prompt.sudo;mdadm --grow /dev/md2 -z 41943168</screen>
+   </step>
+   <step>
+    <para>
+     Recheck the size of your array and the device size known to the array by
+     entering
+    </para>
+<screen>&prompt.sudo;mdadm -D /dev/md0 | grep -e "Array Size" -e "Device Size"</screen>
+   </step>
+   <step>
+    <para>
+     Do one of the following:
+    </para>
+    <itemizedlist mark="bullet" spacing="normal">
+      <listitem>
+      <para>
+       If your array was successfully resized, continue with
+       decreasing the size of component partitions.
+      </para>
+     </listitem>
+     <listitem>
+      <para>
+       If your array was not resized as you expected, you must reboot, then
+       try this procedure again.
+     </para>
+    </listitem>
+   </itemizedlist>
+  </step>
+ </procedure>
+</section>
+<section>
+  <title>Decreasing the size of component partitions</title>
+  <para>
+   After you decrease the segment size that is used on each device in the RAID
+   , the remaining space in each component partition is not used by the RAID.
+   You can leave partitions at their current size to allow for the RAID to
+   grow at a future time, or you can reclaim this now unused space.
+  </para>
+  <para>
+   To reclaim the space, you decrease the component partitions one at a time.
+   For each component partition, you remove it from the RAID, reduce its
+   partition size, return the partition to the RAID, then wait until the RAID
+   stabilizes. To allow for metadata, you should specify a slightly larger
+   size than the size you specified for the RAID.
+  </para>
+  <para>
+   While a partition is removed, the RAID operates in degraded mode and has no
+   or reduced disk fault tolerance. Even for RAIDs that can tolerate multiple
+   concurrent disk failures, you should never remove more than one component
+   partition at a time. To decrease the size of the component partitions for
+   the RAID, proceed as follows:
+  </para>
+  <procedure>
+    <step>
+      <para>
+       Open a terminal.
+      </para>
+     </step>
+     <step>
+      <para>
+       Ensure that the RAID array is consistent and synchronized by entering
+      </para>
+ <screen>&prompt.user;cat /proc/mdstat</screen>
+      <para>
+       If your RAID array is still synchronizing according to the output of this
+       command, you must wait until synchronization is complete before
+       continuing.
+      </para>
+     </step>
+     <step>
+      <para>
+       Remove one of the component partitions from the RAID array. For example,
+       to remove <filename>/dev/sda1</filename>, enter
+      </para>
+ <screen>&prompt.sudo;mdadm /dev/md0 --fail /dev/sda1 --remove /dev/sda1</screen>
+      <para>
+       To succeed, both the fail and remove actions must be specified.
+      </para>
+     </step>
+     <step>
+      <para>
+       Decrease the size of the partition that you removed in the previous step
+       to a size that is slightly larger than the size you set for the segment
+      size. The size should be a multiple of the chunk size and allow 128 KB
+      for the RAID superblock. Use a disk partitioner such as the &yast;
+      partitioner or the command line tool parted to decrease the size of the
+      partition.
+     </para>
+    </step>
+    <step>
+     <para>
+      Re-add the partition to the RAID array. For example, to add
+      <filename>/dev/sda1</filename>, enter
+     </para>
+<screen>&prompt.sudo;mdadm -a /dev/md0 /dev/sda1</screen>
+     <para>
+      Wait until the RAID is synchronized and consistent before continuing with
+      the next partition.
+     </para>
+    </step>
+    <step>
+     <para>
+      Repeat these steps for each of the remaining component devices in the
+      array. Ensure that you modify the commands for the correct component
+      partition.
+     </para>
+    </step>
+    <step>
+     <para>
+      If you get a message that tells you that the kernel could not re-read the
+      partition table for the RAID, you must reboot the computer after resizing
+      all of its component partitions.
+    </para>
+   </step>
+   <step>
+    <para>
+     (Optional) Expand the size of the RAID and file system to use the maximum
+     amount of space in the now smaller component partitions and increase the
+     size of the file system afterward.
+    </para>
+   </step>
+  </procedure>
+</section>
+</section>
+</section>
+<section xml:id="raid-monitor">
+  <title>Monitoring software RAID devices</title>
+  <para>
+    You can run <command>mdadm</command> as a daemon in the
+    <literal>monitor</literal> mode to monitor your software RAID. In the
+    <literal>monitor</literal> mode, <command>mdadm</command> performs regular
+    checks on the array for disk failures. If there is a failure,
+    <command>mdadm</command> sends an email to the administrator. To define the
+    time interval of the checks, run the following command:
+   </para>
+
+ <screen>mdadm --monitor --mail=root@localhost --delay=1800 /dev/md2</screen>
+
+   <para>
+    The command above turns on monitoring of the <literal>/dev/md2</literal>
+    array in intervals of 1800&nbsp;seconds. In the event of a failure, an email
+    will be sent to <literal>root@localhost</literal>.
+   </para>
+
+   <note>
+    <title>RAID checks are enabled by default</title>
+    <para>
+     The RAID checks are enabled by default. It may happen that the interval
+     between each check is not long enough and you may encounter warnings. Thus,
+     you can increase the interval by setting a higher value with the
+     <literal>delay</literal> option.
+    </para>
+   </note>
+</section>
+  </topic>
