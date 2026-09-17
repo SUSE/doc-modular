@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="rt-shielding-resources-creating-shield"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Setting up a CPU shield using &systemd;</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+       The general idea is to have one cpuset for the main sensitive workload and a complementary cpuset for the supporting tasks. Resources are distributed in the top-down fashion, so to ensure proper allocation for the main workload we must take into consideration all the top-level cgroups on the system. &systemd; by default creates the following units: <filename>init.scope</filename>, <filename>system.slice</filename>, <filename>user.slice</filename>, and <filename>machine.slice</filename>.
+      </para>
+    </abstract>
+  </info>
+  <procedure xml:id="pro-setup-cpu-shield">
+    <title>Setting up systemd CPU shield drop-in files</title>
+    <step>
+      <para>
+        Create drop-in configuration files for <filename>init.scope</filename>, <filename>system.slice</filename>,
+        <filename>user.slice</filename>, and <filename>machine.slice</filename> to restrict them to non-shielded CPUs.
+      </para>
+      <itemizedlist>
+      <listitem>
+      <para>For the <filename>init.scope</filename>, run:</para>
+      <screen>&prompt.sudo;<command>cat /etc/systemd/system/init.scope.d/40-shielding.conf</command>
+[Scope]
+AllowedCPUs=0-1
+</screen>
+      </listitem>
+      <listitem>
+      <para>For the <filename>system.slice</filename>, run:</para>
+      <screen>&prompt.sudo;<command>cat /etc/systemd/system/system.slice.d/40-shielding.conf</command>
+[Slice]
+AllowedCPUs=0-1
+</screen>
+      </listitem>
+      <listitem>
+      <para>For the <filename>user.slice</filename>, run:</para>
+      <screen>&prompt.sudo;<command>cat /etc/systemd/system/user.slice.d/40-shielding.conf</command>
+[Slice]
+AllowedCPUs=0-1
+</screen>
+      </listitem>
+      <listitem>
+      <para>For the <filename>machine.slice</filename>, run:</para>
+      <screen>&prompt.sudo;<command>cat /etc/systemd/system/machine.slice.d/40-shielding.conf</command>
+[Slice]
+AllowedCPUs=0-1
+</screen>
+      </listitem>
+      </itemizedlist> 
+    </step>
+    <step>
+      <para>
+        Create a custom workload slice file at <filename>/etc/systemd/system/workload.slice</filename> assigned to the shielded CPUs.
+      </para>
+      <screen>&prompt.sudo;<command>cat /etc/systemd/system/workload.slice</command>
+[Slice]
+AllowedCPUs=2-15</screen>
+    </step>
+    <step>
+      <para>
+        Reload the systemd manager configuration to apply the new unit files.
+      </para>
+      <screen>&prompt.sudo;<command>systemctl daemon-reload</command></screen>
+    </step>
+    <step>
+      <para>
+        Verify the CPU assignment by checking the <filename>cpuset.cpus</filename> file in the cgroup filesystem.
+      </para>
+      <screen>&prompt.sudo;<command>cat /sys/fs/cgroup/workload.slice/cpuset.cpus</command>
+2-15</screen>
+    </step>
+  </procedure>
+</topic>
