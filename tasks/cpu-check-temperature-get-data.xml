@@ -17,78 +17,180 @@
  xmlns:xlink="http://www.w3.org/1999/xlink">
   <title>Getting temperature data</title>
   <para>
-    To obtain a snapshot of the current temperature, run the following command:
+    This section describes two ways to read the temperature. If neither shows
+    a temperature, the operating system has no access to a temperature sensor,
+    as is the case in a virtual machine that does not emulate one.
   </para>
-<screen>&prompt.user;<command>sensors</command>
- [...]
- nvme-pci-0700 <co xml:id="co-nvme-chip"/>
- Adapter: PCI adapter <co xml:id="co-adapter-label"/>
- Composite:    +36.9°C  (low  = -273.1°C, high = +83.8°C)<co xml:id="co-composite"/>
-                        (crit = +83.8°C)
- Sensor 1:     +36.9°C  (low  = -273.1°C, high = +65261.8°C)<co xml:id="co-sensor-1"/>
- Sensor 2:     +43.9°C  (low  = -273.1°C, high = +65261.8°C)<co xml:id="co-sensor-2"/><co xml:id="co-anomalous"/>
- 
- Adapter: ACPI device
- temp1:        +16.8°C  (crit = +18.8°C)
- temp2:        +27.8°C  (crit = +119.0°C)
- temp3:        +29.8°C  (crit = +119.0°C)
- 
- coretemp-isa-0000
- Adapter: ISA adapter
- Package id 0:  +43.0°C  (high = +82.0°C, crit = +100.0°C)
- Core 0:        +41.0°C  (high = +82.0°C, crit = +100.0°C)
- Core 1:        +41.0°C  (high = +82.0°C, crit = +100.0°C)
- Core 2:        +43.0°C  (high = +82.0°C, crit = +100.0°C)
- Core 3:        +41.0°C  (high = +82.0°C, crit = +100.0°C)
- Core 4:        +41.0°C  (high = +82.0°C, crit = +100.0°C)
- Core 5:        +40.0°C  (high = +82.0°C, crit = +100.0°C)</screen>
-  <calloutlist>
-    <callout arearefs="co-nvme-chip">
-      <para>
-        Specific hardware component or sensor chip being monitored.
-      </para>
-    </callout>
-    <callout arearefs="co-adapter-label">
-      <para>
-        The descriptive name for the specific sensor on the chip.
-      </para>
-    </callout>
-    <callout arearefs="co-composite">
-      <para>
-        Aggregate temperature measurement from several sensors. The
-        <literal>low = -273.1°C, high = +83.8°C</literal> means the sensor
-        reading should ideally be within this range. If the temperature goes
-        above 83.8 degrees Celsius (crit = +83.8°C), it is deemed critical and
-        may cause hardware issues.
-      </para>
-    </callout>
-    <callout arearefs="co-sensor-1">
-      <para>
-        This is a stand-alone sensor on the motherboard that is currently
-        reading at 36.9 degrees Celsius.
-      </para>
-    </callout>
-    <callout arearefs="co-sensor-2">
-      <para>
-        This is another stand-alone sensor on the motherboard reading at 43.9
-        degrees Celsius.
-      </para>
-    </callout>
-    <callout arearefs="co-anomalous">
-      <para>
-        The value of +65261.8°C is a placeholder or a default maximum value,
-        indicating that the sensor is not programmed to measure temperatures
-        above that level. Since the actual reading (+36.9°C) is far below this
-        value, we can ignore the anomalously high maximum.
-      </para>
-    </callout>
-  </calloutlist>
-  <note>
-    <title>Output depends on the type of hardware</title>
+  <section xml:id="cpu-check-temperature-get-data-acpi">
+    <title>Reading the ACPI thermal zones</title>
     <para>
-      The output of the <command>sensors</command> command depends on the type
-      of hardware installed on your machine, as different hardware components
-      have different sensors.
+      The kernel exposes each ACPI thermal zone as a directory named
+      <filename>/sys/class/thermal/thermal_zone<replaceable>N</replaceable></filename>.
+      Reading these files requires neither the <package>sensors</package>
+      package nor special privileges.
     </para>
-  </note>
+    <example xml:id="ex-cpu-check-temperature-acpi-zones">
+      <title>Listing the type and temperature of all ACPI thermal zones</title>
+<screen>&prompt.user;<command>grep . /sys/class/thermal/thermal_zone*/{type,temp}</command></screen>
+      <para>
+        Sample output:
+      </para>
+<screen>/sys/class/thermal/thermal_zone0/type:acpitz
+/sys/class/thermal/thermal_zone1/type:acpitz
+/sys/class/thermal/thermal_zone0/temp:40900
+/sys/class/thermal/thermal_zone1/temp:52900</screen>
+    </example>
+    <para>
+      The <command>grep .</command> command prints the name of each file in
+      front of its content, so that every value stays assigned to its zone. The
+      temperature is given in millidegrees Celsius: <literal>40900</literal>
+      means 40.9°C. The type <literal>acpitz</literal> identifies an ACPI
+      thermal zone.
+    </para>
+    <para>
+      If <filename>/sys/class/thermal</filename> contains no
+      <filename>thermal_zone<replaceable>N</replaceable></filename> directory,
+      the system has no ACPI thermal zone. Use the
+      <command>sensors</command> command instead.
+    </para>
+    <para>
+      Each zone can define trip points. To list the first trip point of the
+      first zone, run:
+    </para>
+    <example xml:id="ex-cpu-check-temperature-acpi-trip">
+      <title>Listing the first trip point of an ACPI thermal zone</title>
+<screen>&prompt.user;<command>grep . /sys/class/thermal/thermal_zone0/trip_point_0_{type,temp}</command></screen>
+      <para>
+        Sample output:
+      </para>
+<screen>/sys/class/thermal/thermal_zone0/trip_point_0_type:critical
+/sys/class/thermal/thermal_zone0/trip_point_0_temp:100000</screen>
+    </example>
+    <para>
+      A trip point of type <literal>critical</literal> gives the temperature at
+      which the kernel shuts down the system to protect the hardware. Its value
+      is also in millidegrees Celsius: <literal>100000</literal> means 100°C.
+      When a zone reaches this temperature, the kernel logs the messages
+      <literal>critical temperature reached</literal> and
+      <literal>HARDWARE PROTECTION shutdown (Temperature too high)</literal>.
+    </para>
+    <remark>ssarkar: removed the "install acpi" step that used to precede this
+    method. That package is gone from &sle; 16 (checked
+    SLE-Product-SLES-16.0/16.1, Backports-16.1, PackageHub-16.1, not there).
+    Also removed the cha-power-mgmt.html ACPI link, 404s now. No SLE 16 Power
+    Management/ACPI article exists yet to link instead.</remark>
+  </section>
+  <section xml:id="cpu-check-temperature-get-data-acpi-only">
+    <title>Finding out which readings come through ACPI</title>
+    <para>
+      You can recognize a reading that comes through ACPI in two ways:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Its zone in <filename>/sys/class/thermal</filename> has the type
+          <literal>acpitz</literal>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          In the output of the <command>sensors</command> command, its chip
+          name is <literal>acpitz-acpi-0</literal> and its adapter is
+          <literal>ACPI interface</literal>.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      To see the name that the system firmware gave to each zone, read the
+      <filename>path</filename> file of the zone:
+    </para>
+    <example xml:id="ex-cpu-check-temperature-acpi-path">
+      <title>Listing the firmware names of all ACPI thermal zones</title>
+<screen>&prompt.user;<command>grep . /sys/class/thermal/thermal_zone*/device/path</command></screen>
+      <para>
+        Sample output:
+      </para>
+<screen>/sys/class/thermal/thermal_zone0/device/path:\_TZ_.TZ00
+/sys/class/thermal/thermal_zone1/device/path:\_TZ_.TZ01</screen>
+    </example>
+    <para>
+      The kernel reports that a reading comes through ACPI, but not which
+      component the zone measures. The firmware chooses the names.
+    </para>
+    <para>
+      Sensors that <command>sensors</command> lists under another chip name,
+      such as the NVMe drive <literal>nvme-pci-0090</literal> in the following
+      section, are provided by their own kernel drivers and do not come
+      through ACPI.
+    </para>
+  </section>
+  <section xml:id="cpu-check-temperature-get-data-sensors">
+    <title>Reading all sensors with the sensors command</title>
+    <para>
+      The <command>sensors</command> command lists every temperature sensor
+      that the kernel has registered, not only the ACPI thermal zones. It needs
+      the <package>sensors</package> package, as described in
+      <xref linkend="cpu-check-temperature-configure"/>, but no special
+      privileges. To obtain a snapshot of the current temperatures, run:
+    </para>
+<screen>&prompt.user;<command>sensors</command></screen>
+    <para>
+      Sample output:
+    </para>
+<screen>nvme-pci-0090 <co xml:id="co-nvme-chip"/>
+Adapter: PCI adapter <co xml:id="co-adapter-label"/>
+Composite:    +49.9°C  (low  = -273.1°C, high = +69.8°C)<co xml:id="co-composite"/>
+                       (crit = +99.8°C)
+
+acpitz-acpi-0 <co xml:id="co-acpitz"/>
+Adapter: ACPI interface
+temp1:        +40.9°C
+temp2:        +52.9°C</screen>
+    <calloutlist>
+      <callout arearefs="co-nvme-chip">
+        <para>
+          The device that reports the values. The name consists of the driver
+          (<literal>nvme</literal>), the bus (<literal>pci</literal>) and the
+          address of the device on that bus.
+        </para>
+      </callout>
+      <callout arearefs="co-adapter-label">
+        <para>
+          The interface through which the device is accessed, for example,
+          <literal>PCI adapter</literal> or <literal>ACPI interface</literal>.
+        </para>
+      </callout>
+      <callout arearefs="co-composite">
+        <para>
+          The temperature of the device, followed by the low, high and
+          critical limits that the device reports.
+        </para>
+      </callout>
+      <callout arearefs="co-acpitz">
+        <para>
+          The ACPI thermal zones. Each zone is one temperature. In this
+          example, <literal>temp1</literal> is <literal>thermal_zone0</literal>
+          (40.9°C) and <literal>temp2</literal> is
+          <literal>thermal_zone1</literal> (52.9°C).
+        </para>
+      </callout>
+    </calloutlist>
+    <para>
+      The <command>sensors</command> command lists the sensors that the kernel
+      has already registered. It does not depend on
+      <command>sensors-detect</command>, which only searches for additional
+      chips (see <xref linkend="cpu-check-temperature-configure"/>). The kernel
+      drivers <literal>coretemp</literal> for Intel processors and
+      <literal>k10temp</literal> for AMD processors provide the CPU
+      temperature.
+    </para>
+    <note>
+      <title>Output depends on the type of hardware</title>
+      <para>
+        The output of the <command>sensors</command> command depends on the
+        type of hardware installed on your machine, as different hardware
+        components have different sensors.
+      </para>
+    </note>
+  </section>
 </topic>
