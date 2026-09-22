@@ -45,6 +45,79 @@
     <merge>
       <title>Setting Up a PXE Boot Server</title>
       <revhistory xml:id="rh-sles-pxe-server-setup">
+       <revision>
+        <date>2026-08-13</date>
+        <revdescription>
+         <para>
+          Clarified Secure Boot requirements across architectures: the unsigned
+          <filename>core.efi</filename> boot file works for &x86-64;/&aarch64; clients that do not
+          have &uefisecboot; enabled (only the signed <filename>bootx64.efi</filename>/<filename>bootaa64.efi</filename>
+          files require it), and &ppc64le; uses its own OpenFirmware/OPAL-based Secure Boot
+          mechanism, separate from &uefisecboot;.
+         </para>
+         <para>
+          Corrected the dnsmasq active-lease file path, which incorrectly pointed to the ISC DHCP
+          server's lease file.
+         </para>
+         <para>
+          Corrected the ISC DHCP package availability statement: the <package>dhcp-server</package>
+          package is unsupported on &productname; &productnumber;, but available through the
+          PackageHub/Backports-16.0 repository, not unavailable outright.
+         </para>
+         <para>
+          Clarified when NTP configuration on the PXE server is actually needed, and added an
+          optional step to let PXE clients sync time from it when it also acts as the network's
+          gateway.
+         </para>
+         <para>
+          Corrected the expected result when checking installation repository access over HTTP:
+          nginx intentionally returns <literal>403 Forbidden</literal> rather than a directory
+          listing.
+         </para>
+         <para>
+          Fixed a nonexistent path segment in the installer file check used to verify nginx HTTP
+          access, and added examples for all supported architectures.
+         </para>
+        </revdescription>
+       </revision>
+       <revision>
+        <date>2026-04-15</date>
+        <revdescription>
+         <para>
+          Fixed missing <literal>config</literal> variable in <filename>grub.cfg</filename>.
+         </para>
+         <para>
+          Standardized menu entry names for consistency across the documentation.
+         </para>
+         <para>
+          Simplified <command>grub2-mknetdir</command> to a single command that creates the
+          NetBoot directories for all installed target architectures automatically.
+         </para>
+         <para>
+          Clarified that the <literal>shim</literal> package option applies only to &x86-64; and &aarch64; architectures.
+         </para>
+         <para>
+          Added a note clarifying when to explicitly override the boot protocol for loading
+          kernel and initrd files in boot menu entries.
+         </para>
+         <para>
+          Moved installation repositories to <filename>/srv/www/htdocs/install</filename> and
+          removed the custom &selnx; policy for the nginx installation directory.
+         </para>
+         <para>
+          Corrected the &grub; platform package names for &aarch64; and &ppc64le;
+          (<package>grub2-arm64-efi</package> and <package>grub2-powerpc-ieee1275</package>).
+         </para>
+         <para>
+          Removed a broken nginx <literal>location /install</literal> block that had no effect
+          on request handling.
+         </para>
+         <para>
+          Clarified how to determine the <literal>${BUILD}</literal> value when downloading
+          installation media.
+         </para>
+        </revdescription>
+       </revision>
         <revision><date>2026-03-30</date>
           <revdescription>
             <para>
@@ -84,12 +157,12 @@
         </revision>
       </revhistory>
       <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
-      <meta name="architecture"><phrase>&x86-64;</phrase><phrase>&aarch64;</phrase>
+      <meta name="architecture"><phrase>&x86-64;</phrase><phrase>&aarch64;</phrase><phrase>&ppc64le;</phrase>
       </meta>
       <meta name="productname" its:translate="no"><productname version="&productnumber;" os="sles;sles4sap">&productname;</productname>
       </meta>
       <meta name="title" its:translate="yes">Setting Up a PXE Boot Server</meta>
-      <meta name="description" its:translate="yes">How to configure a PXE boot server using &grub;, nginx and &agama; installer images</meta>
+      <meta name="description" its:translate="yes">How to configure a PXE boot server with &grub;, TFTP and DHCP to automate &productname; installations using the &agama; installer</meta>
       <meta name="social-descr" its:translate="yes">Set up a PXE boot server with &grub; and &agama;</meta>
       <meta name="task" its:translate="no"><phrase>Configuration</phrase><phrase>Installation</phrase>
       </meta>
@@ -104,65 +177,33 @@
         <dm:translation>yes</dm:translation>
       </dm:docmanager>
       <abstract>
-        <variablelist>
-          <varlistentry>
-            <term>WHAT?</term>
-            <listitem>
-              <para>
-                Set up a PXE boot server with support for &uefisecboot; and the &agama; installer.
-              </para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term>WHY?</term>
-            <listitem>
-              <para>
-                Automate and streamline the installation of multiple &productname;
-                &productnumber; systems over the network.
-              </para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term>EFFORT</term>
-            <listitem>
-              <para>
-                For a system or network administrator, it typically takes 30 to 45 minutes to read and
-                understand this article.
-              </para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term>GOAL</term>
-            <listitem>
-              <para>
-                A functioning PXE server that can boot multiple architectures into the &agama;
-                installer.
-              </para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term>REQUIREMENTS</term>
-            <listitem>
-              <itemizedlist>
-                <listitem>
-                  <para>
-                    A &productname; &productnumber; system with administrative privileges
-                  </para>
-                </listitem>
-                <listitem>
-                  <para>
-                    Internet connection to fetch ISO images
-                  </para>
-                </listitem>
-                <listitem>
-                  <para>
-                    Static IP configuration for the PXE server
-                  </para>
-                </listitem>
-              </itemizedlist>
-            </listitem>
-          </varlistentry>
-        </variablelist>
+        <para>
+          Preboot Execution Environment (PXE) is a network boot standard that enables systems 
+          to boot and install an operating system over the network instead of using local 
+          installation media. A PXE boot server simplifies and automates operating system 
+          deployment across multiple machines, reducing manual effort and improving consistency. 
+          On &productname; &productnumber;, you can configure a PXE boot server with support 
+          for &uefisecboot; and the &agama; installer to create a scalable, network-based 
+          installation environment.
+        </para>
+        <para><emphasis>Prerequisites:</emphasis></para>
+        <itemizedlist>
+          <listitem>
+            <para>
+              A &productname; &productnumber; system with administrative privileges
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Internet connection to fetch ISO images
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Static IP configuration for the PXE server
+            </para>
+          </listitem>
+        </itemizedlist>
       </abstract>
     </merge>
     <module resourceref="_sles-pxe-server-introduction" renderas="section"/>

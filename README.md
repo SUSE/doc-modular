@@ -1,7 +1,7 @@
 Modular Documentation
 =====================
 
-This is the source of the official SUSE modular documentation. The repository currently covers the documentation for the SLE 16 product family, SUSE Linux Micro and SUSE AI.
+This is the source of the official SUSE modular documentation. The repository currently covers the documentation for the SLE 16 product family and SUSE Linux Micro.
 
 # What is this about?
 

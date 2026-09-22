@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/edit/main/xml/ha_config_cli.xml -->
+
+<topic xml:id="ha-crmsh-managing-sensitive-parameters"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Managing sensitive parameters</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        By default, the &crmshell; obscures passwords in the output of commands like
+        <command>crm configure show</command>. To further obscure sensitive values in the raw CIB
+        data, you can use the <command>crm resource secret</command> command. This command replaces
+        a resource parameter's value with a special string that points to a separate file containing
+        the actual value. The file is not encrypted, but only the &rootuser; user has permission to
+        read or modify it. This helps to prevent accidental data exposure.
+      </para>
+    </abstract>
+  </info>
+
+  <procedure>
+    <step>
+      <para>
+        Log in either as the &rootuser; user or as a user with <command>sudo</command> privileges.
+      </para>
+    </step>
+    <step>
+      <para>
+        Check the resource's current parameters:
+      </para>
+<screen>&prompt.user;<command>sudo crm configure show <replaceable>RESOURCE</replaceable></command></screen>
+    </step>
+    <step>
+      <para>
+        Hide the value of a sensitive parameter:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>
+            To hide the value of an existing parameter, use the <command>stash</command> command:
+          </para>
+<screen>&prompt.user;<command>sudo crm resource secret <replaceable>RESOURCE</replaceable> stash <replaceable>PARAMETER</replaceable></command></screen>
+          <para>
+            For example:
+          </para>
+<screen>&prompt.user;<command>sudo crm resource secret mydb stash passwd</command></screen>
+        </listitem>
+        <listitem>
+          <para>
+            To add a new parameter, use the <command>set</command> command:
+          </para>
+<screen>&prompt.user;<command>sudo crm resource secret <replaceable>RESOURCE</replaceable> set <replaceable>PARAMETER VALUE</replaceable></command></screen>
+          <para>
+            For example:
+          </para>
+<screen>&prompt.user;<command>sudo crm resource secret mydb set passwd linux</command></screen>
+        </listitem>
+      </itemizedlist>
+      <para>
+        Both of these commands move the value of the sensitive parameter to a separate file under
+        the <filename>/var/lib/</filename> directory. The file is not encrypted, but only the
+        &rootuser; user has permission to read or modify it.
+      </para>
+    </step>
+    <step>
+      <para>
+        The cluster automatically synchronizes the change across the other nodes. However, if any
+        nodes are unavailable, you might see the following output:
+      </para>
+<screen>Node bob is down - you'll need to update it with `cibsecret sync` later</screen>
+      <para>
+        When the node is available again, or if you add a new node to the cluster, you must
+        manually synchronize the change:
+      </para>
+<screen>&prompt.user;<command>sudo cibsecret sync</command></screen>
+    </step>
+    <step>
+      <para>
+        You can view the hidden value with the following command:
+      </para>
+<screen>&prompt.user;<command>sudo crm resource secret <replaceable>RESOURCE</replaceable> show <replaceable>PARAMETER</replaceable></command></screen>
+      <para>
+        For example:
+      </para>
+<screen>&prompt.user;<command>sudo crm resource secret mydb show passwd</command></screen>
+    </step>
+  </procedure>
+
+  <itemizedlist>
+    <title>For more information</title>
+    <listitem>
+      <para>
+        <command>crm resource help secret</command>
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        <command>cibsecret --help</command>
+      </para>
+    </listitem>
+  </itemizedlist>
+  <tip role="compact">
+    <para>
+      <command>crm resource secret</command> is the <command>crm</command> front end for &pace;'s
+      <command>cibsecret</command> command.
+    </para>
+  </tip>
+</topic>

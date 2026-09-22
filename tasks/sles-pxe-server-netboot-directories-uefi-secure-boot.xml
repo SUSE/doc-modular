@@ -28,14 +28,14 @@
       <para>
         This section explains creating &grub; NetBoot directories for PXE servers using
         <command>grub2-mknetdir</command>, which generates architecture-specific directories for
-        &x86-64; (UEFI and BIOS), &aarch64;, and &ppc64le; systems. For Secure Boot support,
+        &x86-64; (UEFI and BIOS), &aarch64; and &ppc64le; systems. For Secure Boot support,
         administrators must copy signed EFI files from installation media or use the
-        <package>shim</package> package to replace the default unsigned bootloader files.
+        <package>shim</package> package to replace the default unsigned boot loader files.
       </para>
     </abstract>
   </info>
   <section xml:id="sles-pxe-server-netboot-directories-uefi-secure-boot-introduction">
-    <title>Introduction</title>
+    <title>&grub;NetBoot directory structure for PXE boot</title>
     <para>
       This section describes how to set up &grub; NetBoot directories for PXE server deployment
       across multiple architectures. The <command>grub2-mknetdir</command> command creates
@@ -43,7 +43,10 @@
       different platforms. For example, &x86-64; systems generate both UEFI
       (<filename>x86_64-efi</filename>) and legacy BIOS (<filename>i386-pc</filename>) directories,
       and &aarch64; systems create their UEFI directory in
-      <filename>arm64-efi</filename>. &ppc64le; systems (<filename>powerpc-ieee1275</filename>) supports secure boot too; the &grub; bootloader is in <filename>/boot/grub2/grub.elf</filename> on the ISOs.
+      <filename>arm64-efi</filename>. &ppc64le; systems (<filename>powerpc-ieee1275</filename>) use
+      OpenFirmware/OPAL rather than UEFI, and have their own Secure Boot mechanism separate from
+      &uefisecboot;; the &grub; boot loader is in <filename>/boot/grub2/grub.elf</filename> on the
+      ISOs.
     </para>
     <important>
      <para>
@@ -59,7 +62,7 @@
      <listitem>
       <para>
        The <package>shim</package> package installed on the PXE server (<command>zypper install
-       shim</command>), which provides <filename>shim.efi</filename>, <filename>grub.efi</filename>,
+       shim</command>), which provides <filename>shim.efi</filename>, <filename>grub.efi</filename>
        and <filename>MokManager.efi</filename> under
        <filename>/usr/share/efi/<replaceable>ARCH</replaceable>/</filename>. Note that the
        <package>shim</package> package provides files only for the architecture of the PXE server
@@ -80,13 +83,14 @@
     </para>
   </section>
   <section xml:id="sles-pxe-server-netboot-directories-uefi-secure-boot-requirements">
-    <title>Requirements</title>
+    <title>Requirements for creating &grub; NetBoot directories</title>
     <itemizedlist>
       <listitem>
         <para>
           Ensure that you have installed the following packages: <package>grub2</package>,
-          <package>tftp</package>, and any other architecture-specific &grub; package such as
-          <package>grub2-x86_64-efi</package> and <package>grub2-i386-pc</package>.
+          <package>tftp</package> and the &grub; platform package for every architecture you want
+          to serve: <package>grub2-x86_64-efi</package>, <package>grub2-i386-pc</package>,
+          <package>grub2-arm64-efi</package> and <package>grub2-powerpc-ieee1275</package>.
         </para>
       </listitem>
       <listitem>
@@ -99,60 +103,44 @@
     </itemizedlist>
   </section>
   <section xml:id="sles-pxe-server-netboot-directories-uefi-secure-boot-executing">
-    <title>Preparing NetBoot directories and &uefisecboot;</title>
+    <title>Preparing NetBoot directories and configuring &uefisecboot;</title>
     <para>
       This procedure creates the required &grub; directory structure for PXE network booting and
       optionally configures &uefisecboot; support across multiple architectures.
     </para>
     <procedure>
-      <step>
-        <para>
-          Create a &grub; NetBoot directory structure.
-        </para>
-<screen>&prompt.sudo;<command>grub2-mknetdir --net-directory=/srv/tftpboot
---subdir=/boot/grub2</command></screen>
-        <para>
-          This creates architecture-specific directories:
-        </para>
-        <itemizedlist>
-          <listitem>
-            <para>
-              &x86-64;: <filename>/srv/tftpboot/boot/grub2/x86_64-efi</filename> and
-              <filename>/srv/tftpboot/boot/grub2/i386-pc </filename>
-            </para>
-          </listitem>
-          <listitem>
-            <para>
-              &aarch64;: <filename>/srv/tftpboot/boot/grub2/arm64-efi</filename>
-            </para>
-          </listitem>
-          <listitem>
-            <para>
-              &ppc64le;: <filename>/srv/tftpboot/boot/grub2/powerpc-ieee1275</filename>
-            </para>
-          </listitem>
-        </itemizedlist>
-        <warning>
-          <para>
-            Do not manually overwrite the <filename>grub.cfg</filename> file created by
-            <command>grub2-mknetdir</command>.
-          </para>
-        </warning>
-      </step>
-      <step>
-        <para>
-          Copy other architecture-independent directories, such as <filename>fonts/</filename> and
-          <filename>locale/</filename> that are available under the
-          <filename>/srv/tftpboot/boot/grub2/</filename> directory to the TFTP server.
-        </para>
-      </step>
-      <step>
+     <step>
+      <para>
+       Create a &grub; NetBoot directory structure:
+      </para>
+<screen>&prompt.sudo;<command>grub2-mknetdir --net-directory=/srv/tftpboot --subdir=/boot/grub2</command></screen>
+      <para>
+       Without an explicit <option>--directory</option> option, <command>grub2-mknetdir</command>
+       generates a directory for every &grub; platform package installed on the PXE server, along
+       with the shared <filename>fonts/</filename> and <filename>locale/</filename> directories.
+       With the packages listed under <xref linkend="sles-pxe-server-netboot-directories-uefi-secure-boot-requirements"/>
+       installed, this creates
+       <filename>/srv/tftpboot/boot/grub2/x86_64-efi</filename>,
+       <filename>/srv/tftpboot/boot/grub2/i386-pc</filename>,
+       <filename>/srv/tftpboot/boot/grub2/arm64-efi</filename>, and
+       <filename>/srv/tftpboot/boot/grub2/powerpc-ieee1275</filename>.
+      </para>
+      <warning>
+       <para>
+        Do not manually overwrite the <filename>grub.cfg</filename> file created by <command>grub2-mknetdir</command>.
+       </para>
+      </warning>
+     </step>
+      <step xml:id="sles-pxe-server-netboot-directories-uefi-secure-boot-core-efi-fallback">
         <para>
           You can use the
           <filename>/srv/tftpboot/boot/grub2/<replaceable>ARCH</replaceable>-efi/core.efi</filename>
           file installed by the <command>grub2-mknetdir</command> command for &x86-64; or &aarch64;
-          architectures for UEFI PXE as well. However, they are <emphasis>not signed</emphasis> and
-          do not support &uefisecboot;.
+          architectures for UEFI PXE as well, without performing any of the steps below. However,
+          it is <emphasis>not signed</emphasis>: a client with &uefisecboot; enabled in firmware
+          rejects it and fails to boot. This is not a concern if &uefisecboot; is disabled in the
+          client's firmware, which is the default on most hardware. Only perform the following
+          steps if your PXE clients must keep &uefisecboot; enabled during boot.
         </para>
         <note>
          <title><filename>core.efi</filename> and subdirectory setups</title>
@@ -191,8 +179,8 @@
                   <callout arearefs="copy-efi-files">
                     <para>
                       Replace <filename><replaceable>ARCH</replaceable>-efi</filename> with
-                      <filename>x86_64-efi</filename> or <filename>arm64-efi</filename>&mdash;the
-                      supported architectures for Secure Boot.
+                      <filename>x86_64-efi</filename> or <filename>arm64-efi</filename>, the
+                      architectures that support Secure Boot.
                     </para>
                   </callout>
                 </calloutlist>
@@ -207,8 +195,7 @@
           </step>
           <step>
             <para>
-              Use the <package>shim</package> package if you do not want to use the files from the
-              installation media ISO:
+             For &x86-64; and &aarch64; architectures, use the <package>shim</package> package if you do not want to use the files from the installation media ISO:
             </para>
             <substeps>
               <step>
@@ -219,7 +206,7 @@
               </step>
               <step>
                 <para>
-                  Copy the signed bootloader files for the necessary architecture:
+                  Copy the signed boot loader files for the necessary architecture:
                 </para>
                 <substeps>
                   <step>
@@ -283,7 +270,7 @@
                 <note>
                   <para>
                     The <literal>-L</literal> flag resolves symbolic links to ensure files stay
-                    within TFTP root.
+                    within the TFTP root.
                   </para>
                 </note>
               </step>

@@ -20,42 +20,42 @@
     <abstract>
       <para>
         This section explains how to configure nginx to serve PXE boot content over HTTP, allowing
-        clients to load installer files like kernel, initrd, and squashfs images from a central
+        clients to load installer files like kernel, initrd and squashfs images from a central
         location. HTTP delivery provides better performance than TFTP for large files and is
         required for &productname; &productnumber; &agama; installations.
       </para>
     </abstract>
   </info>
   <section xml:id="sles-pxe-server-configure-nginx-intro">
-    <title>Introduction</title>
+    <title>The role of nginx in PXE boot HTTP delivery</title>
     <para>
       nginx serves as the HTTP server for PXE boot environments, providing access to installer
       files through Web-based delivery. The HTTP server exposes the TFTP boot directory and
-      installation repositories, enabling PXE clients to download kernel images, initrd files, and
+      installation repositories, enabling PXE clients to download kernel images, initrd files and
       the &agama; installer components over HTTP rather than the slower TFTP protocol.
     </para>
   </section>
   <section xml:id="sles-pxe-server-configure-nginx-reqs">
-    <title>Requirements</title>
+    <title>Requirements for configuring nginx for PXE boot</title>
     <itemizedlist>
       <listitem>
         <para>
-          The <package>nginx</package> package installed
+          The <package>nginx</package> package installed.
         </para>
       </listitem>
       <listitem>
         <para>
-          PXE boot files organized under <filename>/srv/tftpboot/boot</filename>
+          PXE boot files organized under <filename>/srv/tftpboot/boot</filename>.
         </para>
       </listitem>
       <listitem>
         <para>
-          Installation repositories available under <filename>/srv/install</filename>
+          Installation repositories available under <filename>/srv/www/htdocs/install</filename>.
         </para>
       </listitem>
       <listitem>
         <para>
-          Administrative privileges to modify nginx configuration
+          Administrative privileges to modify nginx configuration.
         </para>
       </listitem>
     </itemizedlist>
@@ -63,8 +63,8 @@
   <section xml:id="sles-pxe-server-configure-nginx-setup">
     <title>Configuring nginx for PXE boot</title>
     <para>
-      The nginx configuration defines location aliases that expose the TFTP boot directory and
-      installation repositories through HTTP URLs.
+      The nginx configuration exposes the TFTP boot directory through a dedicated location alias
+      and serves installation repositories directly from the document root.
     </para>
     <procedure xml:id="proc-configure-nginx">
       <title>Setting up nginx HTTP server</title>
@@ -107,12 +107,6 @@ http {
             alias      /srv/tftpboot/boot;
             autoindex  on;
         }
-
-        # Expose installation repositories and profiles
-        location /install {
-            alias      /srv/install;
-            autoindex  on;
-        }
     }
 }
 
@@ -143,7 +137,7 @@ EOF
     </procedure>
   </section>
   <section xml:id="sles-pxe-server-configure-nginx-verify">
-    <title>Verifying nginx configuration</title>
+    <title>Verifying nginx HTTP access</title>
     <para>
       Test the HTTP server functionality to ensure it can serve PXE boot files and installation
       content to clients.
@@ -166,14 +160,33 @@ EOF
         <para>
           Verify a specific installer file is accessible:
         </para>
-<screen>&prompt.user;<command>curl -I http://localhost/boot/images/SLES-16.0/x86_64/liveiso/LiveOS/squashfs.img</command></screen>
+        <stepalternatives>
+          <step>
+            <para>
+              For &x86-64;:
+            </para>
+<screen>&prompt.user;<command>curl -I http://localhost/boot/images/SLES-16.0/x86_64/squashfs.img</command></screen>
+          </step>
+          <step>
+            <para>
+              For &aarch64;:
+            </para>
+<screen>&prompt.user;<command>curl -I http://localhost/boot/images/SLES-16.0/aarch64/squashfs.img</command></screen>
+          </step>
+          <step>
+            <para>
+              For &ppc64le;:
+            </para>
+<screen>&prompt.user;<command>curl -I http://localhost/boot/images/SLES-16.0/ppc64le/squashfs.img</command></screen>
+          </step>
+        </stepalternatives>
       </step>
     </procedure>
   </section>
   <section xml:id="sles-pxe-server-configure-nginx-troubleshooting">
-    <title>Troubleshooting nginx configuration</title>
+    <title>Troubleshooting nginx HTTP delivery issues for PXE boot</title>
     <para>
-      Common issues when configuring nginx for PXE boot HTTP delivery.
+      This section describes common issues when configuring nginx for PXE boot HTTP delivery.
     </para>
     <section xml:id="sles-pxe-server-nginx-troubleshoot-config">
       <title>Configuration syntax errors</title>
@@ -226,7 +239,7 @@ EOF
           <para>
             Check if the install directory exists:
           </para>
-<screen>&prompt.user;<command>ls -la /srv/install/</command></screen>
+<screen>&prompt.user;<command>ls -la /srv/www/htdocs/install/</command></screen>
         </step>
         <step>
           <para>
@@ -238,14 +251,34 @@ EOF
           <para>
             Create missing directories if needed:
           </para>
-<screen>&prompt.sudo;<command>mkdir -p /srv/install</command></screen>
+<screen>&prompt.sudo;<command>mkdir -p /srv/www/htdocs/install</command></screen>
         </step>
         <step>
           <para>
             Set appropriate permissions:
           </para>
-<screen>&prompt.sudo;<command>chmod -R 755 /srv/tftpboot/boot /srv/install</command></screen>
+<screen>&prompt.sudo;<command>chmod -R 755 /srv/tftpboot/boot /srv/www/htdocs/install</command></screen>
         </step>
+        <step>
+         <para>
+          If nginx still cannot serve files from <filename>/srv/tftpboot/boot</filename>, restore
+          the &selnx; file context after placing or moving files into these directories:
+         </para>
+<screen>&prompt.sudo;<command>restorecon -Rv /srv/www/htdocs/install</command></screen>
+<screen>&prompt.sudo;<command>restorecon -Rv /srv/tftpboot/boot</command></screen>
+         <note>
+          <title>Verifying &selnx; access</title>
+          <para>
+           This step is needed in addition to
+           <command>setsebool -P httpd_serve_cobbler_files=1</command>. Run
+           <command>ausearch -m avc -ts recent</command> to check for &selnx; denials; the
+           command should produce no output once access is set up correctly. Do not work around
+           remaining denials with <command>audit2allow</command>. Instead, check the file
+           context with <command>ls -lZ</command> or <command>matchpathcon</command> and confirm
+           the required booleans are enabled.
+          </para>
+         </note>
+       </step>
       </procedure>
     </section>
     <section xml:id="sles-pxe-server-nginx-troubleshoot-port">
@@ -285,8 +318,8 @@ EOF
   <section xml:id="sles-pxe-server-configure-nginx-next-steps">
     <title>Next steps</title>
     <para>
-      With nginx configured for HTTP delivery, you can proceed to configure DHCP services for
-      directing PXE clients to the appropriate bootloaders and HTTP resources.
+      nginx is now ready to deliver boot files and installer content over HTTP. Next, configure
+      DHCP services to direct PXE clients to the appropriate boot loaders and HTTP resources.
     </para>
   </section>
 </topic>

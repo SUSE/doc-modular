@@ -85,8 +85,8 @@
             <option>-drive</option> options, for example:
           </para>
 <screen>
--drive file=/usr/share/edk2/aarch64/&qemu;_EFI-pflash.raw,if=pflash,format=raw
--drive file=/var/lib/libvirt/qemu/nvram/opensuse_VARS.fd,if=pflash,format=raw
+-drive file=/usr/share/qemu/ovmf-aarch64-code.bin,if=pflash,format=raw,readonly=on
+-drive file=/usr/share/qemu/ovmf-aarch64-vars.bin,if=pflash,format=raw
 </screen>
         </listitem>
         <listitem>
@@ -114,7 +114,7 @@
       </para>
 <screen>
 &prompt.sudo;qemu-system-aarch64 [...] \
- -bios /usr/share/qemu/qemu-uefi-aarch64.bin \
+ -bios /usr/share/qemu/ovmf-aarch64-code.bin \
  -cpu host \
  -device virtio-gpu-pci \
  -machine virt,accel=kvm,gic-version=host
@@ -278,7 +278,7 @@
 <screen>
 &prompt.sudo;qemu-system-x86_64 \
  -name "&productnameshort; &productnumber;" \
- -M pc-i440fx-2.7 -m 512 \
+ -M pc-q35-8.2 -m 512 \
  -machine accel=kvm -cpu kvm64 -smp 2 \
  -drive format=raw,file=/images/sles.raw
 </screen>
@@ -504,8 +504,8 @@
               <literal>qcow2</literal> image format, select
               <literal>writeback</literal>. <literal>none</literal> disables
               the host page cache and, therefore, is the safest option. The default
-	      for image files is <literal>writeback</literal>. <!-- TOFIX For more
-	      information, see <xref linkend="cachemodes"/>. -->
+              for image files is <literal>writeback</literal>. For more
+              information, see <link xlink:href="https://documentation.suse.com/sles/16.0/html/SLES-virtualization-disk-cache/index.html#virtual-disk-cache">Virtual disk cache</link>.
             </para>
           </listitem>
         </varlistentry>
@@ -612,7 +612,7 @@ iothread=iothread0 -drive if=none,id=drive1,cache=none,aio=native,\
 format=raw,file=filename -device virtio-blk-pci,drive=drive1,scsi=off,\
 iothread=iothread0 [...]</screen>
         <para>
-          The following qemu command line example illustrates a 1:1 virtio
+          The following qemu command-line example illustrates a 1:1 virtio
           device to IOThread mapping:
         </para>
 <screen>&prompt.sudo;qemu-system-x86_64 [...] -object iothread,id=iothread0\
@@ -1278,8 +1278,8 @@ socket,id=tcp_socket1,host=localhost,port=7777,server,nowait</screen>
       </para>
 <screen>&prompt.sudo;qemu-system-x86_64 [...] \
 -netdev tap<co xml:id="co-qemu-running-networking-nic-tap"/>,id=hostnet0 \
--device virtio-net-pci<co xml:id="co-qemu-running-networking-nic-drv"/>,netdev=hostnet0,vlan=1<co xml:id="co-qemu-running-networking-nic-vlan"/>,\
-macaddr=&wsIVmac;<co xml:id="co-qemu-running-networking-nic-mac"/>,name=ncard1</screen>
+-device virtio-net-pci<co xml:id="co-qemu-running-networking-nic-drv"/>,netdev=hostnet0,\
+mac=&wsIVmac;<co xml:id="co-qemu-running-networking-nic-mac"/></screen>
       <calloutlist>
         <callout arearefs="co-qemu-running-networking-nic-tap">
           <para>
@@ -1303,31 +1303,35 @@ macaddr=&wsIVmac;<co xml:id="co-qemu-running-networking-nic-mac"/>,name=ncard1</
             specific driver, add <option>help</option> as a driver option:
           </para>
 <screen>&prompt.sudo;qemu-system-x86_64 -device e1000,help
-e1000.mac=macaddr
-e1000.vlan=vlan
-e1000.netdev=netdev
-e1000.bootindex=int32
-e1000.autonegotiation=on/off
-e1000.mitigation=on/off
-e1000.addr=pci-devfn
-e1000.romfile=str
-e1000.rombar=uint32
-e1000.multifunction=on/off
-e1000.command_serr_enable=on/off</screen>
-        </callout>
-        <callout arearefs="co-qemu-running-networking-nic-vlan">
-          <para>
-            Connects the network interface to VLAN number 1. You can specify
-            your own number&mdash;it is mainly useful for identification
-            purposes. If you omit this suboption, &qemu; uses the default 0.
-          </para>
+e1000 options:
+  acpi-index=&lt;uint32&gt;    -  (default: 0)
+  addr=&lt;str&gt;             - Slot and optional function number, example: 06.0 or 06 (default: -1)
+  bootindex=&lt;int32&gt;
+  busnr=&lt;busnr&gt;
+  extra_mac_registers=&lt;bool&gt; - on/off (default: on)
+  failover_pair_id=&lt;str&gt;
+  init-vet=&lt;bool&gt;        - on/off (default: on)
+  mac=&lt;str&gt;              - Ethernet 6-byte MAC Address, example: 52:54:00:12:34:56
+  migrate_tso_props=&lt;bool&gt; - on/off (default: on)
+  multifunction=&lt;bool&gt;   - on/off (default: off)
+  netdev=&lt;str&gt;           - ID of a netdev to use as a backend
+  rombar=&lt;int32&gt;         -  (default: -1)
+  romfile=&lt;str&gt;
+  romsize=&lt;uint32&gt;       -  (default: 4294967295)
+  x-max-bounce-buffer-size=&lt;size&gt; - Maximum buffer size allocated for bounce buffers used for mapped access to indirect DMA memory (default: 4096)
+  x-pcie-ari-nextfn-1=&lt;bool&gt; - on/off (default: off)
+  x-pcie-err-unc-mask=&lt;bool&gt; - on/off (default: on)
+  x-pcie-ext-tag=&lt;bool&gt;  - on/off (default: on)
+  x-pcie-extcap-init=&lt;bool&gt; - on/off (default: on)
+  x-pcie-lnksta-dllla=&lt;bool&gt; - on/off (default: on)</screen>
         </callout>
         <callout arearefs="co-qemu-running-networking-nic-mac">
           <para>
             Specifies the Media Access Control (MAC) address for the network
             card. It is a unique identifier, and you are advised to always
-            specify it. If not, &qemu; supplies its own default MAC address and
-            creates a possible MAC address conflict within the related VLAN.
+            specify it. If not, &qemu; supplies its own default MAC address,
+            which can create a MAC address conflict with another VM on the
+            same network.
           </para>
         </callout>
       </calloutlist>
@@ -1366,23 +1370,18 @@ e1000.command_serr_enable=on/off</screen>
         <example xml:id="ex-qemu-net-usermode-resctrict">
           <title>Restricted user-mode networking</title>
 <screen>&prompt.sudo;qemu-system-x86_64 [...] \
--netdev user<co xml:id="co-usermode-user"/>,id=hostnet0 \
--device virtio-net-pci,netdev=hostnet0,vlan=1<co xml:id="co-usermode-vlan"/>,name=user_net1<co xml:id="co-usermode-name"/>,restrict=yes<co xml:id="co-usermode-restrict"/></screen>
+-netdev user<co xml:id="co-usermode-user"/>,id=hostnet0<co xml:id="co-usermode-name"/>,restrict=yes<co xml:id="co-usermode-restrict"/> \
+-device virtio-net-pci,netdev=hostnet0</screen>
           <calloutlist>
             <callout arearefs="co-usermode-user">
               <para>
                 Specifies user-mode networking.
               </para>
             </callout>
-            <callout arearefs="co-usermode-vlan">
-              <para>
-                Connects to VLAN number 1. If omitted, defaults to 0.
-              </para>
-            </callout>
             <callout arearefs="co-usermode-name">
               <para>
-                Specifies a human-readable name of the network stack. Useful
-                when identifying it in the &qemu; monitor.
+                Assigns a symbolic name to the network backend. Use this name
+                to identify it in the &qemu; monitor.
               </para>
             </callout>
             <callout arearefs="co-usermode-restrict">
@@ -1396,9 +1395,9 @@ e1000.command_serr_enable=on/off</screen>
         <example xml:id="ex-qemu-net-usermode-iprange">
           <title>User-mode networking with a custom IP range</title>
 <screen>&prompt.sudo;qemu-system-x86_64 [...] \
--netdev user,id=hostnet0 \
--device virtio-net-pci,netdev=hostnet0,net=10.2.0.0/8<co xml:id="co-usermode-net"/>,host=10.2.0.6<co xml:id="co-usermode-host"/>,\
-dhcpstart=10.2.0.20<co xml:id="co-usermode-dhcpstart"/>,hostname=tux_kvm_guest<co xml:id="co-usermode-hostname"/></screen>
+-netdev user,id=hostnet0,net=10.2.0.0/8<co xml:id="co-usermode-net"/>,host=10.2.0.6<co xml:id="co-usermode-host"/>,\
+dhcpstart=10.2.0.20<co xml:id="co-usermode-dhcpstart"/>,hostname=tux_kvm_guest<co xml:id="co-usermode-hostname"/> \
+-device virtio-net-pci,netdev=hostnet0</screen>
           <calloutlist>
             <callout arearefs="co-usermode-net">
               <para>
@@ -1429,9 +1428,9 @@ dhcpstart=10.2.0.20<co xml:id="co-usermode-dhcpstart"/>,hostname=tux_kvm_guest<c
         <example xml:id="ex-qemu-net-usermode-netboot-tftp">
           <title>User-mode networking with network-boot and TFTP</title>
 <screen>&prompt.sudo;qemu-system-x86_64 [...] \
--netdev user,id=hostnet0 \
--device virtio-net-pci,netdev=hostnet0,tftp=/images/tftp_dir<co xml:id="co-usermode-tftp"/>,\
-bootfile=/images/boot/pxelinux.0<co xml:id="co-usermode-bootfile"/></screen>
+-netdev user,id=hostnet0,tftp=/images/tftp_dir<co xml:id="co-usermode-tftp"/>,\
+bootfile=/images/boot/pxelinux.0<co xml:id="co-usermode-bootfile"/> \
+-device virtio-net-pci,netdev=hostnet0</screen>
           <calloutlist>
             <callout arearefs="co-usermode-tftp">
               <para>
@@ -1455,8 +1454,8 @@ bootfile=/images/boot/pxelinux.0<co xml:id="co-usermode-bootfile"/></screen>
         <example xml:id="ex-qemu-net-usermode-hostfwd">
           <title>User-mode networking with host port forwarding</title>
 <screen>&prompt.sudo;qemu-system-x86_64 [...] \
--netdev user,id=hostnet0 \
--device virtio-net-pci,netdev=hostnet0,hostfwd=tcp::2222-:22</screen>
+-netdev user,id=hostnet0,hostfwd=tcp::2222-:22 \
+-device virtio-net-pci,netdev=hostnet0</screen>
           <para>
             Forwards incoming TCP connections to the port 2222 on the host to
             the port 22 (<systemitem class="service">SSH</systemitem>) on the
@@ -1554,9 +1553,8 @@ sudo ip link add name $bridge type bridge
 sudo ip link set $bridge up
 sudo ip link set $tap master $bridge<co xml:id="co-qemu-net-bridge-br3"/>
 qemu-system-x86_64 -machine accel=kvm -m 512 -hda /images/sles_base.raw \
- -netdev tap,id=hostnet0 \
- -device virtio-net-pci,netdev=hostnet0,vlan=0,macaddr=&wsIVmac;,\
- ifname=$tap<co xml:id="co-qemu-net-bridge-ifname"/>,script=no<co xml:id="co-qemu-net-bridge-script"/>,downscript=no
+ -netdev tap,id=hostnet0,ifname=$tap<co xml:id="co-qemu-net-bridge-ifname"/>,script=no<co xml:id="co-qemu-net-bridge-script"/>,downscript=no \
+ -device virtio-net-pci,netdev=hostnet0,mac=&wsIVmac;
 sudo ip link set $tap nomaster<co xml:id="co-qemu-net-bridge-delif"/>
 sudo ip link set $tap down<co xml:id="co-qemu-net-bridge-linkdown"/>
 sudo tunctl -d $tap<co xml:id="co-qemu-net-bridge-deltap"/></screen>
@@ -1648,7 +1646,7 @@ sudo tunctl -d $tap<co xml:id="co-qemu-net-bridge-deltap"/></screen>
           The helper is automatically called when you specify a network bridge:
         </para>
 <screen>qemu-system-x86_64 [...] \
- -netdev bridge,id=hostnet0,vlan=0,br=br0 \
+ -netdev bridge,id=hostnet0,br=br0 \
  -device virtio-net-pci,netdev=hostnet0</screen>
         <para>
           You can specify your own custom helper script that takes care of the
@@ -1656,7 +1654,7 @@ sudo tunctl -d $tap<co xml:id="co-qemu-net-bridge-deltap"/></screen>
           <option>helper=/path/to/your/helper</option> option:
         </para>
 <screen>qemu-system-x86_64 [...] \
- -netdev bridge,id=hostnet0,vlan=0,br=br0,helper=/path/to/bridge-helper \
+ -netdev bridge,id=hostnet0,br=br0,helper=/path/to/bridge-helper \
  -device virtio-net-pci,netdev=hostnet0</screen>
         <tip>
           <para>
@@ -1859,7 +1857,6 @@ sudo tunctl -d $tap<co xml:id="co-qemu-net-bridge-deltap"/></screen>
     <para>
       An example of VNC usage:
     </para>
-    <!-- TOFIX user1.sudo -->
 <screen>&prompt.sudo;qemu-system-x86_64 [...] -vnc :5
 # (on the client:)
 &prompt.user;vncviewer &wsII;:5 &amp;</screen>
@@ -1890,12 +1887,11 @@ sudo tunctl -d $tap<co xml:id="co-qemu-net-bridge-deltap"/></screen>
         combine several authentication methods in one &qemu; command.
       </para>
       <para>
-        <!-- See <xref linkend="app-kvm-certificates"/> for more information
-          about the x509 certificates generation. -->
-        For more information about configuring x509 certificates on a &vmhost;
-	and the client. <!-- TOFIX , see <xref linkend="sec-libvirt-connect-remote-tls"/>
-	and <xref linkend="sec-libvirt-connect-remote-tls-client"/>.-->
+        For more information about configuring x509 certificates on a &vmhost;,
+        see <link xlink:href="https://documentation.suse.com/sles/16.0/html/SLES-virtualization-libvirt/index.html#sec-libvirt-connect-remote-tls">Remote TLS/SSL connection with x509 certificate</link>. For
+        the client side, see <link xlink:href="https://documentation.suse.com/sles/16.0/html/SLES-virtualization-libvirt/index.html#sec-libvirt-connect-remote-tls-client">Configuring the client and testing the setup</link>.
       </para>
+      <remark>ssarkar: both anchors above match the real xml:id/title of their target sections in references/libvirt_connect.xml, but I could not confirm either resolves on the currently-live documentation.suse.com/sles/16.0 SLES-virtualization-libvirt page yet. Please double check once this content is published.</remark>
       <para>
         The Remmina VNC viewer supports advanced authentication mechanisms. For
         this example, let us assume that the server x509 certificates
