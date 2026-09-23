@@ -15,134 +15,204 @@
     <title>Setting up e-mail notification for &systemd;</title>
     <meta name="maintainer" content="fs@suse.com" its:translate="no"/>
   </info>
-  <procedure>
-    <para>
-      In the following example, we are using the <command>mailx</command> command from package
-      <package>mailx</package>. It requires the Postfix e-mail server to be installed and correctly
-      configured.
-    </para>
-    <step>
+  <para>
+    To set up e-mail notification for failing systemd services several
+    components are required:
+  </para>
+  <orderedlist>
+    <listitem>
       <para>
-        Create the script <filename class="directory">/usr/local/bin/send_systemd_email</filename>.
+        A correctly configured e-mail server (Postfix, for example) on the
+        system running the service (not covered in this article). 
       </para>
-      <substeps>
-        <step>
-          <para>
-            The script requires two parameters: <literal>$1</literal>, the e-mail
-            address, and <literal>$2</literal>, the name of the service file for which the failure
-            notification is received. Both parameters are supplied by the unit file running
-            the mail script.
-          </para>
-<screen>#!/bin/sh
-systemctl status --full "$2" | mailx -S sendwait\
- -s "Service failure for $2" -r root@$HOSTNAME $1
-</screen>
-        </step>
-        <step>
-          <para>
-            Make sure the script is executable:
-          </para>
-<screen>&prompt.sudo;chmod 755 /usr/local/bin/send_systemd_email</screen>
-        </step>
-      </substeps>
-    </step>
-    <step>
+    </listitem>
+    <listitem>
       <para>
-        Create the file
-        <filename>/etc/systemd/system/send_email_to_<replaceable>USER</replaceable>@.service</filename>.
+        A script that sends an e-mail.
+      </para>
+    </listitem>  
+    <listitem>
+      <para>
+        A systemd service running the e-mail script.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        An <literal>OnFailure</literal> entry and setting an environment
+        variable containing the e-mail addresses in the service file for which
+        the failure notification should be sent.
+      </para>
+    </listitem>
+  </orderedlist>
+  <section>
+    <title>The e-mail script</title>
+    <para>
+      The script requires the service name as an input parameter. It acquires
+      one or more e-mail addresses from the service environment. This lets you
+      use a single script and failure service for the whole system. Each service
+      file specifies its own recipients for the failure notice.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Create the script <filename>/usr/local/bin/send_service_failure_email.sh</filename>.
+        </para>
+<screen>#!/bin/sh
+#!/bin/sh
+
+# Send an alert email when a systemd service fails (via failure_email@.service)
+# Parameter: Service name (via %i from the service file)
+#
+# Email address(es) (comma separated, no spaces) must be configured in
+# the service file as environment ALERT_EMAILS:
+# Environment="ALERT_EMAILS=mail1@DOMAIN,mail2@DOMAIN"
+#
+
+UNIT="$1"
+
+# Fetch the environment variables from the failing unit
+ENV_VARS=$(systemctl show -p Environment --value "$UNIT")
+# Extract the value of ALERT_EMAILS
+EMAILS=$(printf '%s\n' "$ENV_VARS" | tr ' ' '\n' | grep '^ALERT_EMAILS=' | cut -d= -f2)
+
+
+# Set fallback email address
+if [ -z "$EMAILS" ]; then
+    EMAILS="root@DOMAIN"
+fi
+
+/usr/sbin/sendmail -t &lt;&lt;EOF
+From: $(hostname)@DOMAIN
+To: $EMAILS
+Subject: [ALERT] Systemd service failure for: $UNIT
+
+The systemd service for $UNIT failed to execute on $(hostname) at $(date).
+
+Check journalctl -u $UNIT for details.
+EOF
+</screen>
+      </step>
+      <step>
+        <para>
+          Replace <replaceable>DOMAIN</replaceable> with the correct domain
+          name. Also check, whether <command>hostname</command>
+          delivers the desired result. If not, change to a hardcoded string, for
+          example. Last, you may want to change the fallback e-mail address.
+        </para>
+      </step>  
+      <step>
+        <para>
+          Make the script executable:
+        </para>
+<screen>&prompt.sudo;chmod 755 /usr/local/bin/send_service_failure_email.sh</screen>
+      </step>
+    </procedure>
+  </section>
+  <section>
+    <title>The systemd service running the e-mail script</title>
+    <para>
+      In order to trigger an event on failure, systemd requires a service file
+      to call in such an event.
+    </para>
+    <procedure>
+      <step>
+      <para>
+        Create the service file
+        <filename>/etc/systemd/system/failure_email@.service</filename>.
       </para>
 <screen>[Unit]
-Description=Send systemd status information by email for %i to <replaceable>USER</replaceable>
+Description=Send email notification on service failure for %i
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/send_systemd_email <replaceable>EMAIL_ADDRESS</replaceable> %i
-User=root
-Group=systemd-journal
+ExecStart=/usr/local/bin/send_service_failure_email.sh %i
 </screen>
-      <para>
-        Replace <replaceable>USER</replaceable> and <replaceable>EMAIL_ADDRESS</replaceable> in the
-        file with the login and e-mail address of the user that should receive the e-mail.
-        <literal>%i</literal> is the name of the service that has failed (it is passed on to
-        the e-mail service by the <literal>%n</literal> parameter).
-      </para>
-    </step>
+      </step>
+      <step>
+        <para>
+          Verify the service file and fix the reported issues:
+        </para>
+<screen>&prompt.user;systemd-analyze verify /etc/systemd/system/failure_email@.service</screen>
+        <para>
+        If the command returns no output, the file has passed the verification
+        successfully.
+        </para>
+      </step>
+      <step>
+        <para>
+          Test the procedure, start the service using the
+          <literal>dbus</literal>
+          instance for testing. (You can use any other service that is currently
+          running. dbus is used in this example because the service is
+          guaranteed to run on any &suse; installation.)
+        </para>
+<screen>&prompt.sudo;systemctl start failure_email@dbus.service</screen>
+        <para>
+          If successful, the fallback e-mail address from the
+          <literal>send_service_failure_email.sh</literal> receives an e-mail
+          with the subject <literal>[ALERT] Systemd service failure for:
+          dbus</literal>. (This is just a test, there is no problem with the dbus service. You can safely
+          delete the e-mail, no action is required).
+        </para>
+        <para>
+          Additionally inspect the journal:
+        </para>
+<screen>&prompt.user;journalctl -u failure_email@dbus.service</screen>
+        <para>
+          If the test has passed successfully, proceed with the last step
+          that makes the required changes to your service files.
+        </para>
+      </step>
+    </procedure>
+  </section>
+  <section>
+    <title>Edit your service file(s)</title>
+  <procedure>
     <step>
       <para>
-        Verify the service file and fix the reported issues:
-      </para>
-<screen>&prompt.user;systemd-analyze verify /etc/systemd/system/send_email_to_<replaceable>USER</replaceable>@.service</screen>
-      <para>
-        If the command returns no output, the file has passed the verification successfully.
-      </para>
-    </step>
-    <step>
-      <para>
-        To verify the complete procedure, start the service using the <literal>dbus</literal>
-        instance for testing. (You can use any other service that is currently running. dbus is
-        used in this example because the service is guaranteed to run on any installation.)
-      </para>
-<screen>&prompt.sudo;systemctl start send_email_to_<replaceable>USER</replaceable>@dbus.service</screen>
-      <para>
-        If successful, <replaceable>EMAIL_ADDRESS</replaceable> receives an e-mail with the
-        subject <literal>Service failure for dbus</literal> containing dbus status messages in the
-        body. (This is just a test, there is no problem with the dbus service. You can
-        safely delete the e-mail, no action is required).
-      </para>
-      <para>
-        If the test e-mail has been successfully sent, proceed by integrating it into your service
-        file.
-      </para>
-    </step>
-    <step>
-      <para>
-        To add an e-mail notification to the service, add an <literal>OnFailure</literal> option to
-        the <literal>Unit</literal> section of the service file for which you would like to get
-        notified in the event of failure:
+        To receive an e-mail failure notification from a service, add an
+        <literal>OnFailure</literal> option to the service file and specify the
+        e-mail recipients.
       </para>
 <screen>[Unit]
-Description="Hello World script"
-OnFailure<co xml:id="systemd-mailto-onfailure"/>=send_email_to_<replaceable>USER</replaceable><co xml:id="systemd-mailto-user"/>@%n<co xml:id="systemd-mailto-name"/>.service
+Description="Hello World script"OnFailure<co xml:id="systemd-mailto-onfailure"/>=failure-email@<co xml:id="systemd-mailto-unit"/>%N.service
 
 [Service]
+Environment<co xml:id="systemd-mailto-user"/>="ALERT_EMAILS=mail1@DOMAIN,mail2@DOMAIN"
 ExecStart=/usr/local/bin/helloworld.sh
 </screen>
       <calloutlist>
+        <callout arearefs="systemd-mailto-user">
+          <para>
+            The Environment option lets you define or set environment variables
+            for the respective service. Here we are defining the variable
+            <varname>ALERT_EMAILS</varname> and set its value to the desired
+            e-mail address(es). In case you specify more than one e-mail
+            address, use a comma as separator (no whitespace).       
+          </para>
+        </callout>
         <callout arearefs="systemd-mailto-onfailure">
           <para>
             The <literal>OnFailure</literal> option takes a service as an argument.
           </para>
         </callout>
-        <callout arearefs="systemd-mailto-user">
+        <callout arearefs="systemd-mailto-unit">
           <para>
-            Replace the part of the service unit file name with the login name.
-          </para>
-        </callout>
-        <callout arearefs="systemd-mailto-name">
-          <para>
-            Specifies the name of the service (<literal>helloworld</literal> in this example). This
-            name is available in the e-mail service file as %i.
+            %N specifies the basename of the service file (without the file name
+            suffix) (<literal>helloworld</literal> in this example). This is
+            equal to the service name and is passed to the script as
+            <literal>%i</literal> in the
+            <literal>failure_email@.service</literal> file.
           </para>
         </callout>
       </calloutlist>
     </step>
     <result>
       <para>
-        You have successfully set up the failure notification for &systemd; services.
+        You have successfully set up the failure notification for &systemd;
+        services.
       </para>
     </result>
   </procedure>
-  <tip>
-    <title>Sending e-mail notifications to multiple users</title>
-    <para>
-      The e-mail service file has the recipient's e-mail address hard-coded. To send notification
-      e-mails to a different user, copy the e-mail service file, and replace the user login in the
-      file name and the e-mail address within the copy.
-    </para>
-    <para>
-      To send a failure notification to several recipients simultaneously, add the respective
-      service files to the service file (use spaces as a separator):
-    </para>
-<screen>OnFailure=send_email_to_&exampleuser_plain;@%n.service send_email_to_&exampleuserII_plain;@%n.service</screen>
-  </tip>
+  </section>
 </topic>
