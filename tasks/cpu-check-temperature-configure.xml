@@ -17,66 +17,111 @@
  xmlns:xlink="http://www.w3.org/1999/xlink">
   <title>Installing and configuring hardware sensors</title>
   <para>
-    To measure the CPU temperature, install and configure the
-    <package>sensors</package> tool that can access and read the hardware
-    sensors.
+    The <command>sensors</command> command is part of the
+    <package>sensors</package> package. To read the temperature from the ACPI
+    thermal zones, you do not need the package. For details, see
+    <xref linkend="cpu-check-temperature-get-data-acpi"/>.
   </para>
   <procedure>
     <step>
       <para>
-        Install the required package:
+        Install the required package.
       </para>
+      <stepalternatives>
+        <step>
+          <para>On the mutable system:</para>
 <screen>&prompt.sudo;<command>zypper install sensors</command></screen>
+        </step>
+        <step>
+          <para>On the immutable system:</para>
+<screen>&prompt.sudo;<command>transactional-update pkg install sensors</command></screen>
+          <para>Reboot the system to activate the change.</para>
+        </step>
+      </stepalternatives>
     </step>
     <step>
       <para>
-        To detect all the sensors in the system, run the following command as
-        &rootuser;:
+        Check which sensors the kernel already provides:
+      </para>
+<screen>&prompt.user;<command>sensors</command></screen>
+      <para>
+        The output lists the sensors that the kernel has registered, for
+        example, ACPI thermal zones and NVMe drives. For a sample and an
+        explanation, see <xref linkend="cpu-check-temperature-get-data-sensors"/>.
+        If the kernel has registered no sensor, the command reports
+        <literal>No sensors found!</literal>
+      </para>
+    </step>
+    <step>
+      <para>
+        Optionally, search for additional hardware monitoring chips that the
+        kernel does not register on its own, for example, on an I2C or SMBus
+        adapter. Do this only if a sensor that you need is missing from the
+        output of <command>sensors</command>.
+      </para>
+      <warning>
+        <title>Hardware probing can hang or damage a system</title>
+        <para>
+          The <command>sensors-detect</command> command accesses hardware to
+          identify chips. According to its man page, this can lock up the SMBus
+          and, in rare cases, damage hardware. The man page advises against
+          running the command on production servers.
+        </para>
+      </warning>
+      <para>
+        If you accept this risk, run the following command:
       </para>
 <screen>&prompt.sudo;<command>sensors-detect --auto</command></screen>
       <para>
-        The <option>--auto</option> option allows checking for all hardware
-        monitoring chips at once without probing them one by one. When
-        finished, the script shows a summary of what chips were detected:
+        The <option>--auto</option> option runs the command without
+        interaction and assumes the default answer to every question. Without
+        it, the command asks each question and waits for your answer.
+      </para>
+      <para>
+        If the command finds a chip, it prints a summary of the chips that it
+        found. Because of the <option>--auto</option> option, it accepts the
+        default answer to the last question:
       </para>
 <screen>Now follows a summary of the probes I have just done.
 
 Driver `coretemp':
- * Chip `Intel digital thermal sensor' (confidence: 9)
+  * Chip `Intel digital thermal sensor' (confidence: 9)
 
 Driver `to-be-written':
- * ISA bus, address 0xa40
-   Chip `ITE IT8686E Super IO Sensors' (confidence: 9)
+  * ISA bus, address 0xa40
+    Chip `ITE IT8686E Super IO Sensors' (confidence: 9)
 
-Do you want to generate /etc/sysconfig/lm_sensors? (YES/no):</screen>
-    </step>
-    <step>
+Do you want to generate /etc/sysconfig/lm_sensors? (YES/no):
+Created symlink '/etc/systemd/system/multi-user.target.wants/lm_sensors.service' → '/usr/lib/systemd/system/lm_sensors.service'.</screen>
       <para>
-        Confirm to generate the file
-        <filename>/etc/sysconfig/lm_sensors</filename>. After confirmation, the
-        script creates a &systemd; service
-        (<filename>/usr/lib/systemd/system/lm_sensors.service.</filename>) that
-        is enabled by default.
+        The command generates the file
+        <filename>/etc/sysconfig/lm_sensors</filename> and enables and starts
+        the <literal>lm_sensors</literal> service. The unit file of the service
+        is part of the <package>sensors</package> package. To check the status
+        of the service, run:
+      </para>
+<screen>&prompt.user;<command>systemctl status lm_sensors</command></screen>
+      <para>
+        Sample output:
+      </para>
+<screen>● lm_sensors.service - Initialize hardware monitoring sensors
+     Loaded: loaded (/usr/lib/systemd/system/lm_sensors.service; enabled; preset: disabled)
+     Active: active (exited) since Mon 2026-09-21 07:40:32 CEST; 16ms ago
+ Invocation: e3f984a1d2cf43528b9b753f1d698a65
+    Process: 1433 ExecStart=/sbin/modprobe -qab $BUS_MODULES $HWMON_MODULES (code=exited, status=0/SUCCESS)
+    Process: 1436 ExecStart=/usr/bin/sensors -s (code=exited, status=0/SUCCESS)
+   Main PID: 1436 (code=exited, status=0/SUCCESS)
+        CPU: 34ms</screen>
+      <para>
+        If the command finds no chip, it reports
+        <literal>Sorry, no sensors were detected</literal>. It generates no
+        configuration file, and the service stays disabled. The sensors that
+        the <command>sensors</command> command already lists are not affected.
       </para>
     </step>
   </procedure>
   <para>
-    Check the status of the &systemd; service:
-  </para>
-<screen>&prompt.sudo;<command>systemctl status lm_sensors</command>
-● lm_sensors.service - Initialize hardware monitoring sensors
-  Loaded: loaded (/usr/lib/systemd/system/lm_sensors.service; enabled; vendor preset: disabled)
-  Active: active (exited) since Fri 2021-09-10 16:57:55 CEST; 2min 23s ago
- Process: 32552 ExecStart=/usr/bin/sensors -s (code=exited, status=0/SUCCESS)
- Process: 32551 ExecStart=/sbin/modprobe -qab $BUS_MODULES $HWMON_MODULES (code=exited, status=0/SUCCESS)
-Main PID: 32552 (code=exited, status=0/SUCCESS)
-   Tasks: 0
-  CGroup: /system.slice/lm_sensors.service
-
-Sep 10 16:57:55 edison systemd[1]: Starting Initialize hardware monitoring sensors...
-Sep 10 16:57:55 edison systemd[1]: Started Initialize hardware monitoring sensors.</screen>
-  <para>
-    After you have completed these steps, your computer has detected all
-    sensors and has started to monitor them.
+    To read the temperature, continue with
+    <xref linkend="cpu-check-temperature-get-data"/>.
   </para>
 </topic>
