@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/rmt_install.xml -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="rmt-upgrading-sle15-to-sle16"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Upgrading an &rmt; server from &sle;&nbsp;15 to
+     &productnameshort;&nbsp;&productnumber;</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Carry an existing &rmt; server across the distribution upgrade from
+        &sle;&nbsp;15 SP7 to &productname;&nbsp;&productnumber;, and repair the
+        two platform changes that leave &rmt; unavailable afterwards.
+      </para>
+    </abstract>
+  </info>
+
+  <para>
+    Upgrade the host itself with the distribution migration system, as described
+    in <link
+    xlink:href="https://documentation.suse.com/sles/html/SLES-upgrading/">Upgrading
+    to &productname;&nbsp;&productnumber;</link>. This section covers only the
+    steps that are specific to a host running &rmt;.
+  </para>
+
+  <important>
+    <title>A successful upgrade can still leave &rmt; unavailable</title>
+    <para>
+      The distribution migration system reports success for the distribution
+      upgrade, not for the services running on the host. Even when every
+      <literal>suse-migration-*</literal> unit finishes with
+      <literal>Result=success</literal> and
+      <filename>/var/log/distro_migration.exitcode</filename> contains
+      <literal>0</literal>, &rmt; does not start until you complete the steps
+      below.
+    </para>
+  </important>
+
+  <section xml:id="rmt-upgrading-sle15-to-sle16-before">
+    <title>Before the upgrade</title>
+
+    <procedure>
+      <step>
+        <para>
+          Back up the &rmt; configuration file and the &rmt; database to a
+          location outside the host:
+        </para>
+<screen>&prompt.root;<command>cp /etc/rmt.conf /root/rmt.conf.backup</command>
+&prompt.root;<command>mysqldump --single-transaction rmt &gt; /root/rmt.sql</command></screen>
+      </step>
+      <step>
+        <para>
+          Record the ownership of the &mariadb; data directory. On
+          &sle;&nbsp;15 it belongs to the group <literal>root</literal>, which
+          is what breaks &mariadb; after the upgrade:
+        </para>
+<screen>&prompt.root;<command>ls -ld /var/lib/mysql</command>
+drwx------ 1 mysql root 442 /var/lib/mysql</screen>
+      </step>
+    </procedure>
+
+    <note>
+      <title>Registered clients follow the &rmt; server address</title>
+      <para>
+        The upgrade replaces <systemitem class="daemon">wicked</systemitem>
+        with &nm;, which changes the DHCP client identifier. A host using DHCP
+        is therefore likely to receive a different address. Clients registered
+        against this &rmt; server reach it through the URL stored in their
+        &zypper; service definitions, so assign the server a stable address or
+        host name before you upgrade.
+      </para>
+    </note>
+  </section>
+
+  <section xml:id="rmt-upgrading-sle15-to-sle16-after">
+    <title>After the upgrade</title>
+
+    <procedure>
+      <step>
+        <para>
+          Check which services are running. &rmt; depends on &mariadb; through
+          <literal>Requires=mariadb.service</literal>, so a failed database
+          keeps &rmt; inactive:
+        </para>
+<screen>&prompt.root;<command>systemctl --failed</command>
+&prompt.root;<command>systemctl is-active mariadb nginx rmt-server</command></screen>
+      </step>
+      <step>
+        <para>
+          Correct the group ownership of the &mariadb; data directory:
+        </para>
+<screen>&prompt.root;<command>chgrp -R mysql /var/lib/mysql</command></screen>
+        <para>
+          On &productname;&nbsp;&productnumber;,
+          <filename>mariadb.service</filename> combines
+          <literal>StateDirectory=mysql</literal> with
+          <literal>User=mysql</literal> and <literal>Group=mysql</literal>.
+          systemd therefore adjusts the ownership of
+          <filename>/var/lib/mysql</filename> on every start, and the
+          <literal>mysql:root</literal> ownership inherited from
+          &sle;&nbsp;15 makes that fail:
+        </para>
+<screen>mariadb.service: Failed to set up special execution directory in /var/lib: Permission denied
+mariadb.service: Control process exited, code=exited, status=238/STATE_DIRECTORY</screen>
+        <para>
+          The error is reported as a permission problem rather than an
+          ownership one, which makes it easy to mistake for a file system or
+          &selnx; fault.
+        </para>
+      </step>
+      <step>
+        <para>
+          Start &mariadb;:
+        </para>
+<screen>&prompt.root;<command>systemctl start mariadb</command></screen>
+      </step>
+      <step>
+        <para>
+          Allow nginx to connect to the &rmt; back-end:
+        </para>
+<screen>&prompt.root;<command>setsebool -P httpd_can_network_connect on</command></screen>
+        <para>
+          &productname;&nbsp;&productnumber; uses &selnx; in enforcing mode
+          instead of AppArmor. The
+          <literal>httpd_can_network_connect</literal> boolean is off by
+          default, which prevents nginx from opening a connection to the &rmt;
+          back-end on <literal>127.0.0.1:4224</literal>. Without this setting,
+          nginx answers every request that it proxies to &rmt; with
+          <literal>502</literal>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Verify that &rmt; answers correctly:
+        </para>
+<screen>&prompt.root;<command>curl -o /dev/null -w '%{http_code}\n' http://localhost/connect/subscriptions/products</command>
+401
+&prompt.root;<command>curl -o /dev/null -w '%{http_code}\n' http://localhost/repo/</command>
+200</screen>
+        <para>
+          <literal>401</literal> is the expected answer on the registration
+          endpoint: it shows that the &rmt; application is reachable and
+          requires authentication. A <literal>502</literal> means that the
+          previous step is incomplete.
+        </para>
+      </step>
+      <step>
+        <para>
+          Restart the host and repeat the checks. Confirming the result across
+          a reboot matters here, because the &selnx; boolean only persists when
+          it is set with <option>-P</option>, and because &mariadb; is often not
+          enabled in its own right: <filename>rmt-server.service</filename>
+          pulls it in through <literal>Requires=</literal>.
+        </para>
+      </step>
+    </procedure>
+
+    <note>
+      <title>&rmt;&nbsp;2 is upgraded to &rmt;&nbsp;3</title>
+      <para>
+        &sle;&nbsp;15 SP7 offers both &rmt;&nbsp;2 and &rmt;&nbsp;3, while
+        &productname;&nbsp;&productnumber; ships only &rmt;&nbsp;3. A host
+        still running &rmt;&nbsp;2 therefore moves to &rmt;&nbsp;3 as part of
+        the distribution upgrade.
+      </para>
+      <para>
+        No action is required. <filename>/etc/rmt.conf</filename> and the
+        contents of the database are preserved, and
+        <filename>rmt-server-migration.service</filename> updates the database
+        schema before <filename>rmt-server.service</filename> starts. &rmt;&nbsp;3
+        differs from &rmt;&nbsp;2 in the Ruby and Rails versions it runs on,
+        not in its configuration file or its
+        <command>rmt-cli</command> commands.
+      </para>
+      <para>
+        Confirm the version after the upgrade:
+      </para>
+<screen>&prompt.root;<command>rmt-cli version</command></screen>
+    </note>
+
+    <warning>
+      <title>Mirrored repositories keep working while registration is broken</title>
+      <para>
+        nginx serves <literal>/repo/</literal> directly from disk, so clients
+        continue to download packages even when the &rmt; application is
+        unreachable and no client can register. Check the registration
+        endpoint, not just the repository paths.
+      </para>
+    </warning>
+  </section>
+</topic>

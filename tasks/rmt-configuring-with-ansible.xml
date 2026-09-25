@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/rmt_install.xml -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="rmt-configuring-with-ansible"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring &rmt; with &ansible;</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+         <para>
+          Configure &rmt; with &ansible; as described in the following procedure.
+          The <package>ansible-rmt-server</package> package provides pre-built
+          playbooks and roles for automated &rmt; configuration.
+        </para>
+        </abstract>
+  </info>
+
+ <procedure>
+    <step>
+      <para>
+        Navigate to the &ansible; configuration directory:
+      </para>
+<screen>&prompt.root;<command>cd /usr/share/ansible/rmt</command></screen>
+    </step>
+
+    <step>
+      <para>
+        Create the configuration file <filename>group_vars/all.yml</filename>
+        based on the provided example:
+      </para>
+<screen>&prompt.root;<command>cp group_vars/all.yml.example group_vars/all.yml</command></screen>
+    </step>
+
+    <step>
+      <para>
+        Edit <filename>group_vars/all.yml</filename> and configure the
+        following variables:
+      </para>
+      <variablelist>
+        <varlistentry>
+          <term><literal>rmt_db_username</literal></term>
+          <listitem>
+            <para>
+              Database user name for &rmt; (default: <literal>rmt</literal>)
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>rmt_db_password</literal></term>
+          <listitem>
+            <para>
+              Secure password for the &rmt; database user
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>RMT_ORGANIZATION_USERNAME</literal></term>
+          <listitem>
+            <para>
+              Your &scc; organization credentials. To retrieve your
+              credentials, refer to
+              <link xlink:href="https://documentation.suse.com/sles/15-SP7/single-html/SLES-rmt/#sec-rmt-mirroring-credentials">Mirroring credentials</link>.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>RMT_ORGANIZATION_PASSWORD</literal></term>
+          <listitem>
+            <para>
+              Your &scc; organization password
+            </para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>
+        Example configuration:
+      </para>
+<screen>---
+rmt_db_username: rmt
+rmt_db_password: "your_secure_password"
+
+rmt:
+  RMT_ORGANIZATION_USERNAME: "your_scc_username"
+  RMT_ORGANIZATION_PASSWORD: "your_scc_password"</screen>
+    </step>
+
+    <step>
+      <para>
+        Run the &ansible; playbook to configure &rmt;:
+      </para>
+<screen>&prompt.root;<command>ansible-playbook site.yml</command></screen>
+
+      <para>
+        The playbook will automatically perform the following tasks:
+      </para>
+      <itemizedlist>
+        <listitem>
+          <para>Install required dependencies (MariaDB, nginx, Python modules)</para>
+        </listitem>
+        <listitem>
+          <para>Configure and start the MariaDB database service</para>
+        </listitem>
+        <listitem>
+          <para>Create the &rmt; database and database user</para>
+        </listitem>
+        <listitem>
+          <para>Generate SSL certificates for HTTPS</para>
+        </listitem>
+        <listitem>
+          <para>Configure nginx virtual hosts</para>
+        </listitem>
+        <listitem>
+          <para>Create <filename>/etc/rmt.conf</filename> configuration file</para>
+        </listitem>
+        <listitem>
+          <para>Run database migrations</para>
+        </listitem>
+        <listitem>
+          <para>Start and enable the &rmt; server service</para>
+        </listitem>
+      </itemizedlist>
+    </step>
+
+    <step>
+      <para>
+        On systems with &selnx; in enforcing mode, allow nginx to connect to
+        the &rmt; back end service:
+      </para>
+<screen>&prompt.root;<command>setsebool -P httpd_can_network_connect 1</command></screen>
+    </step>
+
+    <step>
+      <para>
+        Verify the installation by checking the API health status:
+      </para>
+<screen>&prompt.root;<command>curl -s http://localhost/api/health/status</command>
+{"state":"online"}</screen>
+    </step>
+  </procedure>
+
+  <tip>
+    <title>SSL certificate locations</title>
+    <para>
+      The &ansible; playbook generates SSL certificates at the following
+      locations:
+    </para>
+<variablelist>
+<varlistentry>
+<term>CA certificate</term>
+<listitem><para> <filename>/etc/rmt/ssl/rmt-ca.crt</filename></para></listitem>
+</varlistentry>
+<varlistentry>
+  <term>CA private key</term>
+  <listitem><para> <filename>/etc/rmt/ssl/rmt-ca.key</filename></para></listitem>
+  </varlistentry>
+  <varlistentry>
+    <term>Server certificate</term>
+    <listitem><para> <filename>/etc/rmt/ssl/rmt-server.crt</filename></para></listitem>
+    </varlistentry>
+    <varlistentry>
+      <term>Server private key</term>
+      <listitem><para> <filename>/etc/rmt/ssl/rmt-server.key</filename></para></listitem>
+      </varlistentry>
+</variablelist>
+</tip>
+</topic>
