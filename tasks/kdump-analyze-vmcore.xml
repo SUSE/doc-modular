@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/tuning_kexec.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="kdump-analyze-vmcore"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Analyzing a captured vmcore file</title>
+    <meta name="maintainer" content="ssarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Once &kdump; has captured a vmcore, use the <command>crash</command> utility to inspect
+        it and find out what the kernel was doing at the moment it panicked.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="kdump-analyze-vmcore-prepare">
+    <title>Installing the analysis tools</title>
+    <procedure>
+      <step>
+        <para>
+          Enable the product's <literal>Debug</literal> repository. It is disabled by default.
+          List your repositories to find its exact alias, then enable it:
+        </para>
+        <screen>&prompt.sudo; zypper lr | grep -i debug
+&prompt.sudo; zypper modifyrepo --enable <replaceable>DEBUG_REPO_ALIAS</replaceable></screen>
+      </step>
+      <step>
+        <para>
+          Install <command>crash</command> and the debuginfo package matching your running
+          kernel exactly:
+        </para>
+        <screen>&prompt.sudo; zypper install crash kernel-default-debuginfo</screen>
+        <note>
+          <title>The debuginfo package version must match the running kernel exactly</title>
+          <para>
+            If <literal>kernel-default-debuginfo</literal> installs a version newer than the
+            kernel you crashed (for example, because an update arrived after the crash but
+            before you reboot), <command>crash</command> refuses to load it with a version
+            mismatch error. Reboot onto the newest installed kernel first, and confirm
+            <command>uname -r</command> matches the <literal>Kernel version</literal> line in
+            the crash directory's <filename>README.txt</filename> before proceeding.
+          </para>
+        </note>
+      </step>
+      <step>
+        <para>
+          The debuginfo package alone is not enough: on &productnameshort;, its
+          <filename>vmlinux.debug</filename> file contains only debug symbols, not the actual
+          kernel code and data <command>crash</command> needs alongside them. Decompress the
+          real kernel image from the matching kernel package and place it next to
+          <filename>vmlinux.debug</filename>:
+        </para>
+        <screen>&prompt.sudo; xz -dk -c /usr/lib/modules/$(uname -r)/vmlinux.xz \
+    &gt; /usr/lib/debug/usr/lib/modules/$(uname -r)/vmlinux</screen>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="kdump-analyze-vmcore-run">
+    <title>Opening the vmcore in <command>crash</command></title>
+    <para>
+      Start <command>crash</command>, giving it the kernel image you just placed and the
+      captured vmcore:
+    </para>
+    <screen>&prompt.sudo; crash /usr/lib/debug/usr/lib/modules/$(uname -r)/vmlinux \
+    "/var/crash/<replaceable>DUMP_DIRECTORY</replaceable>/vmcore"</screen>
+    <para>Sample output, from a crash deliberately triggered as described in <xref linkend="kdump-verify-capture"/>:</para>
+    <screen>KERNEL: /usr/lib/debug/usr/lib/modules/6.12.0-160000.37-default/vmlinux
+   DEBUGINFO: /usr/lib/debug/usr/lib/modules/6.12.0-160000.37-default/vmlinux.debug
+    DUMPFILE: /var/crash/2026-09-10-11-33/vmcore  [PARTIAL DUMP]
+        CPUS: 2
+        DATE: Thu Sep 10 11:33:30 CEST 2026
+      UPTIME: 00:00:57
+LOAD AVERAGE: 0.25, 0.08, 0.03
+       TASKS: 173
+    NODENAME: sles16
+     RELEASE: 6.12.0-160000.37-default
+     VERSION: #1 SMP PREEMPT_DYNAMIC Thu Aug  6 15:43:26 UTC 2026 (cf8ec7a)
+     MACHINE: x86_64  (2304 Mhz)
+      MEMORY: 4 GB
+       PANIC: "Kernel panic - not syncing: sysrq triggered crash"
+         PID: 4400
+     COMMAND: "tee" <co xml:id="co-kdump-analyze-command"/>
+        TASK: ffff8e020581c080  [THREAD_INFO: ffff8e020581c080]
+         CPU: 0
+       STATE: TASK_RUNNING (PANIC)
+
+crash&gt; bt
+PID: 4400     TASK: ffff8e020581c080  CPU: 0    COMMAND: "tee"
+ #0 [ffffd3de00e17928] machine_kexec at ffffffff94a95552
+ #1 [ffffd3de00e17988] __crash_kexec at ffffffff94bd61eb
+ #2 [ffffd3de00e17a48] panic at ffffffff9572c8fd
+ #3 [ffffd3de00e17ac8] sysrq_handle_crash at ffffffff9529e89a
+ #4 [ffffd3de00e17ad0] __handle_sysrq.cold at ffffffff9576a328
+ #5 [ffffd3de00e17b00] write_sysrq_trigger at ffffffff9529f439
+ #6 [ffffd3de00e17b28] proc_reg_write at ffffffff94f0db9a
+ #7 [ffffd3de00e17b40] vfs_write at ffffffff94e5c99b
+ #8 [ffffd3de00e17bd8] ksys_write at ffffffff94e5d017
+ #9 [ffffd3de00e17c10] do_syscall_64 at ffffffff9578a94d
+#10 [ffffd3de00e17f40] entry_SYSCALL_64_after_hwframe at ffffffff9580012f
+crash&gt; quit</screen>
+    <calloutlist>
+      <callout arearefs="co-kdump-analyze-command">
+        <para>
+          The process that happened to be running when the crash was triggered, not
+          necessarily a sign of a problem with that process. Here it is <literal>tee</literal>,
+          because the crash in this example was deliberately triggered with
+          <literal>echo c | sudo tee /proc/sysrq-trigger</literal>. On a real, unplanned crash
+          this would show whatever command was running at the time.
+        </para>
+      </callout>
+    </calloutlist>
+    <para>
+      The banner identifies the panic reason, the process that was running, and basic system
+      information. <command>bt</command> without arguments shows the call stack of the process
+      active at the moment of the crash, here showing the path from the
+      <literal>sysrq-trigger</literal> write down to <literal>machine_kexec</literal>, which is
+      &kexec; handing control to the capture kernel.
+    </para>
+  </section>
+  <section xml:id="kdump-analyze-vmcore-more-commands">
+    <title>Useful follow-up commands</title>
+    <variablelist>
+      <varlistentry>
+        <term><command>ps</command></term>
+        <listitem><para>Lists the processes that were running at the moment of the crash.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>sym</command> <replaceable>SYMBOL_OR_ADDRESS</replaceable></term>
+        <listitem><para>Resolves a kernel symbol to its address, or an address back to a symbol.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>files</command></term>
+        <listitem><para>Lists the open file descriptors of the current process.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>kmem</command></term>
+        <listitem><para>Displays kernel memory usage details.</para></listitem>
+      </varlistentry>
+    </variablelist>
+    <para>
+      <command>crash</command> has extensive built-in help: run <command>help</command>
+      <replaceable>COMMAND</replaceable> inside a session for details on any of these.
+    </para>
+  </section>
+</topic>
