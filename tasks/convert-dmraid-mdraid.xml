@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/adm_sudo.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="convert-dmraid-mdraid"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <title>Converting DM-RAID to MD-RAID</title>
+    <abstract>
+<para>
+To migrate from dmraid (fakeRAID/ATA RAID) to mdadm (Linux Software RAID), you must first destroy the existing <literal>dmraid</literal> array and then create a new <literal>mdadm</literal> array.
+</para>
+    </abstract>
+  </info>
+  <procedure>
+<title>Converting DM-RAID to MD-RAID</title>
+<step><para>Unmount active file systems and deactivate the old mapper array (DM-RAID):</para>
+<screen>&prompt.sudo; umount /dev/mapper/isw_*
+  dmraid -an</screen>
+</step>
+<step><para>Switch Array to MD-RAID:</para>
+  <substeps>
+  <step><para>Option A (Intel IMSM / DDF FakeRAID — Keep Data):</para>
+<screen>&prompt.sudo; mdadm --assemble --scan</screen>
+  </step>
+  <step><para>Option B (Fresh Native Linux RAID — Re-create):</para>
+<screen>&prompt.sudo; dmraid -E -p /dev/sda /dev/sdb
+mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/sda /dev/sdb
+</screen>
+      </step>
+  </substeps>
+  </step>
+  <step><para>Save the new array configuration and grab its UUID to update <filename>/etc/fstab</filename> :</para>
+<screen>&prompt.sudo; mdadm --detail --scan --verbose &gt;&gt; /etc/mdadm.conf
+blkid /dev/md0</screen>
+      <para>Edit <filename>/etc/fstab</filename> to replace old <filename>/dev/mapper/...</filename> entries with <filename>/dev/md0</filename> or the new <literal>UUID=..</literal>.</para>
+    </step>
+    <step><para>Regenerate dracut initramfs to load <literal>mdadm</literal> at boot and then update GRUB2:</para>
+<screen>&prompt.sudo; dracut --force --regenerate-all
+grub2-mkconfig -o /boot/grub2/grub.cfg</screen>
+      </step>
+      <step><para>Check that the array is active and syncing, then reboot:</para>
+ <screen>&prompt.sudo; cat /proc/mdstat
+  reboot</screen>
+        </step>
+  </procedure>
+    </topic>
