@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="rt-applications-docker-shielding"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Shielding containers</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+       Currently, &docker; does not provide a built-in mechanism to launch a container directly into a highly isolated CPU set (cpuset). To achieve true deterministic performance for real-time workloads , you must perform this isolation manually.
+      </para>
+    </abstract>
+  </info>
+  <para>
+  The process involves two primary phases:
+  </para>
+  <itemizedlist>
+  <listitem>
+  <para>
+  <emphasis role="bold">Establishing the shield:</emphasis> Creating an isolated cgroup partition and moving all host system processes (vusing &systemd;) away from your dedicated real-time CPUs.
+  </para>
+  </listitem>
+  <listitem>
+  <para>
+  <emphasis role="bold">Migrating the container:</emphasis> Launching the &docker; container, and then manually migrating its processes into the newly isolated cgroup.
+  </para>
+  </listitem>
+  </itemizedlist>
+<section xml:id="rt-applications-docker-shielding-creating">
+<title>Establishing the shield</title>
+<para>
+The following shell script brings an isolated shield up or down. It restricts default system services to CPUs 0-3, routes interrupts away from the real-time cores, and creates an isolated partition (<filename>/sys/fs/cgroup/rtcpus</filename>) for CPUs 4-63.
+</para>
+<screen><![CDATA[
+#!/bin/sh
+# ------------------------------------------------------------------
+# Toggle script for establishing a cgroups v2 real-time shield
+# ------------------------------------------------------------------
+
+let START_CPU=4
+let END_CPU=63
+let ONLINE=1
+let SHIELD_UP=0
+GOVERNOR="performance"
+
+# Masks for routing interrupts
+DEFAULT_MASK=ffffffff,ffffffff
+SHIELD_MASK=00000000,0000000f # CPUs 0-3
+
+CGROUP2_ROOT="/sys/fs/cgroup"
+SHIELD_CG="${CGROUP2_ROOT}/rtcpus"
+
+# Capture kernel settings
+if [ -f /proc/sys/kernel/sched_rt_runtime_us ]; then
+  RT_RUNTIME=$(cat /proc/sys/kernel/sched_rt_runtime_us)
+fi
+if [ -f /proc/sys/kernel/nmi_watchdog ]; then
+  NMI_WATCHDOG=$(cat /proc/sys/kernel/nmi_watchdog)
+fi
+
+# Detect if the shield is already active
+if [ -d "$SHIELD_CG" ]; then
+  let SHIELD_UP=1
+fi
+
+if [ $SHIELD_UP -eq 1 ]; then
+  echo "Tearing down cgroup v2 shield..."
+  
+  # 1. Dismantle the isolated partition
+  if [ -f "${SHIELD_CG}/cpuset.cpus.partition" ]; then
+    echo "member" > "${SHIELD_CG}/cpuset.cpus.partition" 2>/dev/null
+  fi
+
+  # 2. Move any leftover tasks back to the root cgroup
+  if [ -f "${SHIELD_CG}/cgroup.procs" ]; then
+    for pid in $(cat "${SHIELD_CG}/cgroup.procs" 2>/dev/null); do
+      echo $pid > "${CGROUP2_ROOT}/cgroup.procs" 2>/dev/null
+    done
+  fi
+
+  # 3. Remove the custom cgroup
+  rmdir "$SHIELD_CG" 2>/dev/null
+
+  # 4. Restore systemd slices to use all CPUs
+  systemctl set-property --runtime system.slice AllowedCPUs=0-63
+  systemctl set-property --runtime user.slice AllowedCPUs=0-63
+  systemctl set-property --runtime init.scope AllowedCPUs=0-63
+
+  # Restore default IRQ affinity
+  echo ${DEFAULT_MASK} > /proc/irq/default_smp_affinity
+  for irqlist in $(ls /proc/irq/*/smp_affinity 2>/dev/null); do
+    echo ${DEFAULT_MASK} >$irqlist 2>/dev/null
+  done
+
+  # Restore kernel tuning (Timers, Hugepages, Watchdogs, etc.)
+  [ -f /proc/sys/kernel/timer_migration ] && echo 1 > /proc/sys/kernel/timer_migration
+  [ -f /proc/sys/kernel/sched_rt_runtime_us ] && echo ${RT_RUNTIME} > /proc/sys/kernel/sched_rt_runtime_us
+  [ -f /sys/kernel/debug/tracing/tracing_on ] && echo 1 > /sys/kernel/debug/tracing/tracing_on
+  [ -f /sys/kernel/mm/transparent_hugepage/enabled ] && echo always > /sys/kernel/mm/transparent_hugepage/enabled
+  [ -f /proc/sys/kernel/nmi_watchdog ] && echo ${NMI_WATCHDOG} > /proc/sys/kernel/nmi_watchdog
+  [ -f /sys/devices/system/machinecheck/machinecheck0/check_interval ] && echo 300 > /sys/devices/system/machinecheck/machinecheck0/check_interval
+  [ -f /sys/devices/virtual/workqueue/writeback/cpumask ] && echo ${DEFAULT_MASK} > /sys/devices/virtual/workqueue/writeback/cpumask
+  [ -f /sys/devices/virtual/workqueue/cpumask ] && echo ${DEFAULT_MASK} > /sys/devices/virtual/workqueue/cpumask
+  [ -f /proc/sys/vm/stat_interval ] && echo 1 > /proc/sys/vm/stat_interval
+  [ -f /sys/module/processor/parameters/latency_factor ] && echo 2 > /sys/module/processor/parameters/latency_factor
+  [ -f /sys/module/processor/parameters/ignore_ppc ] && echo 0 > /sys/module/processor/parameters/ignore_ppc
+  [ -f /sys/module/processor/parameters/ignore_tpc ] && echo 0 > /sys/module/processor/parameters/ignore_tpc
+  
+  if [ -f /etc/init.d/sgi_irqbalance ]; then
+   /etc/init.d/sgi_irqbalance start
+  elif systemctl is-active --quiet irqbalance; then
+    systemctl start irqbalance
+  fi
+
+else
+  echo "Bringing up cgroup v2 shield..."
+
+  # Route IRQs away from shielded CPUs
+  if [ -f /etc/init.d/sgi_irqbalance ]; then
+    /etc/init.d/sgi_irqbalance stop
+  else
+    systemctl stop irqbalance 2>/dev/null
+  fi
+
+  echo $SHIELD_MASK > /proc/irq/default_smp_affinity
+  for irqlist in $(ls /proc/irq/*/smp_affinity 2>/dev/null); do
+    echo $SHIELD_MASK >$irqlist 2>/dev/null
+  done
+
+  # Apply Real-Time kernel tuning (Disable tracing, THP, watchdogs, etc.)
+  [ -f /proc/sys/kernel/sched_rt_runtime_us ] && echo -1 > /proc/sys/kernel/sched_rt_runtime_us
+  [ -f /sys/kernel/debug/tracing/tracing_on ] && echo 0 > /sys/kernel/debug/tracing/tracing_on
+  [ -f /sys/kernel/mm/transparent_hugepage/enabled ] && echo never > /sys/kernel/mm/transparent_hugepage/enabled
+  [ -f /proc/sys/kernel/nmi_watchdog ] && echo 0 > /proc/sys/kernel/nmi_watchdog
+  [ -f /sys/devices/system/machinecheck/machinecheck0/check_interval ] && echo 0 > /sys/devices/system/machinecheck/machinecheck0/check_interval
+  [ -f /sys/devices/virtual/workqueue/writeback/cpumask ] && echo ${SHIELD_MASK} > /sys/devices/virtual/workqueue/writeback/cpumask
+  [ -f /sys/devices/virtual/workqueue/cpumask ] && echo ${SHIELD_MASK} > /sys/devices/virtual/workqueue/cpumask
+  [ -f /proc/sys/vm/stat_interval ] && echo 999999 > /proc/sys/vm/stat_interval
+  [ -f /sys/module/processor/parameters/latency_factor ] && echo 1 > /sys/module/processor/parameters/latency_factor
+  [ -f /sys/module/processor/parameters/ignore_ppc ] && echo 1 > /sys/module/processor/parameters/ignore_ppc
+  [ -f /sys/module/processor/parameters/ignore_tpc ] && echo 1 > /sys/module/processor/parameters/ignore_tpc
+
+  # 1. Restrict default system tasks to non-shielded CPUs using systemd
+  systemctl set-property --runtime system.slice AllowedCPUs=0-3
+  systemctl set-property --runtime user.slice AllowedCPUs=0-3
+  systemctl set-property --runtime init.scope AllowedCPUs=0-3
+
+  # 2. Fire up the shield using native cgroups v2
+  mkdir -p "$SHIELD_CG"
+  
+  # Ensure the cpuset controller is enabled in the subtree
+  echo "+cpuset" > "${CGROUP2_ROOT}/cgroup.subtree_control" 2>/dev/null || true
+
+  # Assign the real-time CPUs to our shield
+  echo "${START_CPU}-${END_CPU}" > "${SHIELD_CG}/cpuset.cpus"
+  
+  # Set the partition to 'isolated' (disables load balancing across these CPUs)
+  if [ -f "${SHIELD_CG}/cpuset.cpus.partition" ]; then
+    echo "isolated" > "${SHIELD_CG}/cpuset.cpus.partition"
+  fi
+
+  # Allow time for the kernel sched_domain to rebuild
+  sleep 1
+
+  # Offline/online cycle to migrate timers and kthreads off shielded cores
+  if [ $ONLINE -eq 1 ]; then
+    for i in `seq ${START_CPU} ${END_CPU}`; do
+      echo 0 > /sys/devices/system/cpu/cpu$i/online
+      echo 1 > /sys/devices/system/cpu/cpu$i/online
+    done
+
+    # Prioritize re-initialized kthreads
+    systemctl restart set_kthread_prio 2>/dev/null || true
+  fi
+
+  if [ -f /proc/sys/kernel/timer_migration ]; then
+    echo 0 > /proc/sys/kernel/timer_migration
+  fi
+
+  GOVERNOR="performance"
+fi
+
+# Set CPUFreq scaling governor
+if [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor ]; then
+  CURRENT_GOVERNOR=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor)
+  if ! [ "$GOVERNOR" = "$CURRENT_GOVERNOR" ]; then
+    for i in $(ls /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor 2>/dev/null); do
+      echo $GOVERNOR >$i
+    done
+  fi
+fi]]>
+</screen>
+</section>
+<section xml:id="rt-applications-docker-shielding-migrating">
+<title>Migrating the container into the shield</title>
+<para>
+Once your <literal>rtcpus</literal> isolated cgroup is actively running, you can launch your Docker workload. The workflow below demonstrates how to initialize the container and seamlessly transfer its PID into the shielded partition.
+</para>
+<para>
+The script below uses the script created in the previous section called <literal>shield.sh</literal>. If you named it differently, please add just the code below accordingly.
+</para>
+<screen><![CDATA[
+# 1. Execute the shield script to isolate CPUs 4-63
+./shield.sh
+
+# 2. Launch your real-time container in the background
+docker_id=$(docker run -d --privileged=true my_rt_image /usr/bin/chrt -f 1 /path/to/my_app)
+
+# 3. Extract the root Process ID (PID) of the running container
+container_pid=$(docker inspect -f '{{.State.Pid}}' ${docker_id})
+
+# 4. Migrate the container into the isolated cgroup
+# Moving the root PID automatically migrates its child threads in v2
+echo ${container_pid} > /sys/fs/cgroup/rtcpus/cgroup.procs
+
+# --- Workload is now running on isolated RT CPUs ---
+
+# 5. Clean up when finished: Stop and remove the container
+docker stop ${docker_id}
+docker rm ${docker_id}
+
+# 6. Tear down the shield and restore normal system scheduling
+./shield.sh]]>
+</screen>
+<note>
+<title>Child processes are shielded by default</title>
+<para>
+By writing the container's root Pid into the <filename>cgroup.procs</filename> file of the shielded cgroup, the unified hierarchy automatically tracks and confines all spawned child threads to your designated real-time CPUs.
+</para>
+</note>
+</section>
+</topic>
