@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="rt-shielding-resources-creating-shield"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Setting up a CPU shield</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+       The general idea is to have one cpuset for the main sensitive workload and a complementary cpuset for the supporting tasks. Resources are distributed top-down, so we must consider all top-level cgroups on the system to ensure proper allocation for the main workload. By default, &systemd; creates the following units: <filename>init.scope</filename>, <filename>system.slice</filename>, <filename>user.slice</filename> and <filename>machine.slice</filename>. You can establish system-wide CPU shields using standard slice drop-in files or dynamic systemctl commands.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="rt-shielding-resources-creating-shield-dropin">
+  <title>Setting up systemd CPU shield using drop-in files</title>
+   <para>
+    This approach isolates standard system processes into non-shielded CPUs while creating a dedicated slice for real-time applications.
+    </para>
+  <procedure xml:id="pro-setup-cpu-shield">
+        <step>
+      <para>
+        Create drop-in configuration files for <filename>init.scope</filename>, <filename>system.slice</filename>,
+        <filename>user.slice</filename>, and <filename>machine.slice</filename> (for example, <filename>40-shielding.conf</filename>) specifying the unshielded CPU cores.
+      </para>
+      <itemizedlist>
+      <listitem>
+      <para>For the <filename>init.scope</filename>, run:</para>
+      <screen>&prompt.sudo;<command>cat /etc/systemd/system/init.scope.d/40-shielding.conf</command>
+[Scope]
+AllowedCPUs=0-1
+</screen>
+      </listitem>
+      <listitem>
+      <para>For the <filename>system.slice</filename>, run:</para>
+      <screen>&prompt.sudo;<command>cat /etc/systemd/system/system.slice.d/40-shielding.conf</command>
+[Slice]
+AllowedCPUs=0-1
+</screen>
+      </listitem>
+      <listitem>
+      <para>For the <filename>user.slice</filename>, run:</para>
+      <screen>&prompt.sudo;<command>cat /etc/systemd/system/user.slice.d/40-shielding.conf</command>
+[Slice]
+AllowedCPUs=0-1
+</screen>
+      </listitem>
+      <listitem>
+      <para>For the <filename>machine.slice</filename>, run:</para>
+      <screen>&prompt.sudo;<command>cat /etc/systemd/system/machine.slice.d/40-shielding.conf</command>
+[Slice]
+AllowedCPUs=0-1
+</screen>
+      </listitem>
+      </itemizedlist> 
+    </step>
+    <step>
+      <para>
+        Create a custom workload slice file at <filename>/etc/systemd/system/workload.slice</filename> to assign isolated cores exclusively to real-time tasks.
+      </para>
+      <screen>&prompt.sudo;<command>cat /etc/systemd/system/workload.slice</command>
+[Slice]
+AllowedCPUs=2-15</screen>
+    </step>
+    <step>
+      <para>
+        Reload the systemd manager configuration to apply the new unit files.
+      </para>
+      <screen>&prompt.sudo;<command>systemctl daemon-reload</command></screen>
+      <para>
+      The command output confirms the shielded range assigned to the slice aka 2-15.
+      </para>
+    </step>
+    <step>
+      <para>
+        Verify the CPU assignment by checking the <filename>cpuset.cpus</filename> file in the cgroup filesystem.
+      </para>
+      <screen>&prompt.sudo;<command>cat /sys/fs/cgroup/workload.slice/cpuset.cpus</command>
+2-15</screen>
+    </step>
+  </procedure>
+  </section>
+  <section xml:id="rt-shielding-resources-creating-shield-systemctl">
+  <title>Setting up systemd CPU shield using <command>systemctl</command></title>
+  <para>
+  Standard slices can also be restricted on the fly using <command>systemctl set-property</command>. For example, to restrict the operating system to core 0&dash;2:
+  </para>
+  <itemizedlist>
+  <listitem>  
+  <para>For the <filename>init.scope</filename>, run:</para>
+  <screen>&prompt.sudo;<command>systemctl set-property init.scope AllowedCPUs=0-2</command></screen>
+  </listitem>
+  <listitem>
+  <para>For the <filename>system.slice</filename>, run:</para>
+  <screen>&prompt.sudo;<command>systemctl set-property system.slice AllowedCPUs=0-2</command></screen>
+  </listitem>
+  <listitem>
+  <para>For the <filename>user.slice</filename>, run:</para>
+  <screen>&prompt.sudo;<command>systemctl set-property user.slice AllowedCPUs=0-2</command></screen>
+  </listitem>
+  </itemizedlist>
+  </section>
+</topic>
