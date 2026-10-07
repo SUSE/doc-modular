@@ -38,9 +38,9 @@
     </listitem>
     <listitem>
       <para>
-        An <literal>OnFailure</literal> entry and setting an environment
-        variable containing the e-mail addresses in the service file for which
-        the failure notification should be sent.
+        A modification of the service file for which the failure notification
+        should be sent (adding an <literal>OnFailure</literal> option and the
+        e-mail recipients).
       </para>
     </listitem>
   </orderedlist>
@@ -58,7 +58,6 @@
           Create the script <filename>/usr/local/bin/send_service_failure_email.sh</filename>.
         </para>
 <screen>#!/bin/sh
-#!/bin/sh
 
 # Send an alert email when a systemd service fails (via failure_email@.service)
 # Parameter: Service name (via %i from the service file)
@@ -73,7 +72,8 @@ UNIT="$1"
 # Fetch the environment variables from the failing unit
 ENV_VARS=$(systemctl show -p Environment --value "$UNIT")
 # Extract the value of ALERT_EMAILS
-EMAILS=$(printf '%s\n' "$ENV_VARS" | tr ' ' '\n' | grep '^ALERT_EMAILS=' | cut -d= -f2)
+EMAILS=\
+$(printf '%s\n' "$ENV_VARS" | tr ' ' '\n' | grep '^ALERT_EMAILS=' | cut -d= -f2)
 
 
 # Set fallback email address
@@ -96,7 +96,7 @@ EOF
         <para>
           Replace <replaceable>DOMAIN</replaceable> with the correct domain
           name. Also verify that <command>hostname</command>
-          delivers the desired result. If not, replace it with a hardcoded
+          delivers the desired result. If not, replace it with a hard coded
           string. Finally, consider changing the fallback e-mail address.
         </para>
       </step>  
@@ -141,7 +141,7 @@ ExecStart=/usr/local/bin/send_service_failure_email.sh %i
       <step>
         <para>
           Test the procedure. Start the service using the
-          <literal>dbus</literal>
+          <systemitem>dbus</systemitem>
           instance for testing. (You can use any other service that is currently
           running. dbus is used in this example because the service is
           guaranteed to run on any &suse; installation.)
@@ -149,11 +149,11 @@ ExecStart=/usr/local/bin/send_service_failure_email.sh %i
 <screen>&prompt.sudo;systemctl start failure_email@dbus.service</screen>
         <para>
           If successful, the fallback e-mail address from the
-          <literal>send_service_failure_email.sh</literal> receives an e-mail
+          <filename>send_service_failure_email.sh</filename> receives an e-mail
           with the subject <literal>[ALERT] Systemd service failure for:
           dbus</literal>. (This is just a test; there is no problem with the
-          dbus service. You can safely delete the e-mail, and no action is
-          required).
+          <systemitem>dbus</systemitem> service. You can safely delete the
+          e-mail, and no action is required).
         </para>
         <para>
           Additionally, inspect the journal:
@@ -176,13 +176,29 @@ ExecStart=/usr/local/bin/send_service_failure_email.sh %i
         e-mail recipients.
       </para>
 <screen>[Unit]
-Description="Hello World script"OnFailure<co xml:id="systemd-mailto-onfailure"/>=failure-email@<co xml:id="systemd-mailto-unit"/>%N.service
+Description="Hello World script"
+OnFailure<co xml:id="systemd-mailto-onfailure"/>=failure-email@<co xml:id="systemd-mailto-unit"/>%N.service
 
 [Service]
 Environment<co xml:id="systemd-mailto-user"/>="ALERT_EMAILS=mail1@DOMAIN,mail2@DOMAIN"
 ExecStart=/usr/local/bin/helloworld.sh
 </screen>
       <calloutlist>
+        <callout arearefs="systemd-mailto-onfailure">
+          <para>
+            The <literal>OnFailure</literal> option takes a service as an argument.
+          </para>
+        </callout>
+        <callout arearefs="systemd-mailto-unit">
+          <para>
+            <literal>%N</literal> specifies the base name of the service file
+            (without the file name suffix) (<literal>helloworld</literal> in
+            this example). This is equal to the service name and is passed to
+            the script as
+            <literal>%i</literal> in the
+            <literal>failure_email@.service</literal> file.
+          </para>
+        </callout>
         <callout arearefs="systemd-mailto-user">
           <para>
             The <literal>Environment</literal> option lets you define or set
@@ -192,22 +208,13 @@ ExecStart=/usr/local/bin/helloworld.sh
             e-mail address, use a comma as a separator (no whitespace).       
           </para>
         </callout>
-        <callout arearefs="systemd-mailto-onfailure">
-          <para>
-            The <literal>OnFailure</literal> option takes a service as an argument.
-          </para>
-        </callout>
-        <callout arearefs="systemd-mailto-unit">
-          <para>
-            <literal>%N</literal> specifies the basename of the service file
-            (without the file name suffix) (<literal>helloworld</literal> in
-            this example). This is equal to the service name and is passed to
-            the script as
-            <literal>%i</literal> in the
-            <literal>failure_email@.service</literal> file.
-          </para>
-        </callout>
       </calloutlist>
+    </step>
+    <step>
+      <para>
+        Verify the service file and fix the reported issues:
+      </para>
+      <screen>&prompt.user;systemd-analyze verify /etc/systemd/system/helloworld.service</screen>
     </step>
     <result>
       <para>
