@@ -24,7 +24,7 @@ in the assembly -->
     <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
     <abstract><!-- can be changed via merge in the assembly -->
       <para>
-       Currently, &docker; does not provide a built-in mechanism to launch a container directly into a highly isolated CPU set (cpuset). To achieve true deterministic performance for real-time workloads , you must perform this isolation manually.
+       Currently, &docker; or &podman; do not provide a built-in mechanism to launch a container directly into a highly isolated CPU set (cpuset). To achieve true deterministic performance for real-time workloads, you must perform this isolation manually.
       </para>
     </abstract>
   </info>
@@ -39,7 +39,7 @@ in the assembly -->
   </listitem>
   <listitem>
   <para>
-  <emphasis role="bold">Migrating the container:</emphasis> Launching the &docker; container, and then manually migrating its processes into the newly isolated cgroup.
+  <emphasis role="bold">Migrating the container:</emphasis> Launching the container, and then manually migrating its processes into the newly isolated cgroup.
   </para>
   </listitem>
   </itemizedlist>
@@ -211,10 +211,13 @@ fi]]>
 <section xml:id="rt-applications-docker-shielding-migrating">
 <title>Migrating the container into the shield</title>
 <para>
-Once your <literal>rtcpus</literal> isolated cgroup is actively running, you can launch your Docker workload. The workflow below demonstrates how to initialize the container and seamlessly transfer its PID into the shielded partition.
+Once your <literal>rtcpus</literal> isolated cgroup is actively running, you can launch your container workload. The workflow below demonstrates how to initialize the container and seamlessly transfer its PID into the shielded partition.
 </para>
 <para>
-The script below uses the script created in the previous section called <literal>shield.sh</literal>. If you named it differently, please add just the code below accordingly.
+The scripts below use the script created in the previous section called <literal>shield.sh</literal>. If you named it differently, please adjust the code below accordingly.
+</para>
+<para>
+In case of &docker;, run the following script.
 </para>
 <screen><![CDATA[
 # 1. Execute the shield script to isolate CPUs 4-63
@@ -235,6 +238,36 @@ echo ${container_pid} > /sys/fs/cgroup/rtcpus/cgroup.procs
 # 5. Clean up when finished: Stop and remove the container
 docker stop ${docker_id}
 docker rm ${docker_id}
+
+# 6. Tear down the shield and restore normal system scheduling
+./shield.sh]]>
+</screen>
+<para>
+In case of &podman;, run the following script:
+</para>
+<screen><![CDATA[
+# 1. Execute the shield script to isolate CPUs 4-63
+./shield.sh
+
+# 2. Launch your real-time container in the background (Must use sudo for Rootful mode)
+# NOTE: The --annotation argument is required in cgroups v2 to allocate RT runtime budget.
+podman_id=$(sudo podman run -d \
+  --privileged \
+  --annotation run.oci.cgroup.cpu.rt_runtime=950000 \
+  my_rt_image /usr/bin/chrt -f 1 /path/to/my_app)
+
+# 3. Extract the root Process ID (PID) of the running Podman container
+container_pid=$(sudo podman inspect -f '{{.State.Pid}}' ${podman_id})
+
+# 4. Migrate the container into the isolated cgroup
+# Moving the root PID automatically migrates its child threads in v2
+echo ${container_pid} | sudo tee /sys/fs/cgroup/rtcpus/cgroup.procs
+
+# --- Workload is now running on isolated RT CPUs (4-63) ---
+
+# 5. Clean up when finished: Stop and remove the container
+sudo podman stop ${podman_id}
+sudo podman rm ${podman_id}
 
 # 6. Tear down the shield and restore normal system scheduling
 ./shield.sh]]>
