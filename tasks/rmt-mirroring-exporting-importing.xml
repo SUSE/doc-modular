@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/rmt_mirroring.xml -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="rmt-mirroring-exporting-importing"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Exporting and importing repositories</title>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Transfer repository data and mirrored packages between two &rmt;
+        servers, for example, to feed a disconnected server in an air-gapped
+        network.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    &rmt; has built-in functions to import and export data about available
+    repositories and the mirrored packages. For example, this can be used to
+    speed up the setup of a new &rmt; server by locally copying already
+    mirrored RPM packages.
+  </para>
+
+  <para>
+    Another use case is the <emphasis>offline mode</emphasis>. It allows the
+    transfer of data to a disconnected &rmt; server, for example, to provide
+    updates to computers in an air-gapped network.
+  </para>
+
+  <para>
+    The following procedure describes the transfer of data and mirrored RPMs
+    between two &rmt; servers with a USB drive. The server
+    <literal>sun</literal> is connected to &scc;, while
+    <literal>sirius</literal> is a server in an air-gapped network.
+  </para>
+
+  <procedure>
+    <step>
+      <para>
+        Log in on the server <literal>sun</literal>.
+      </para>
+<screen>&prompt.root;<command>rmt-cli sync</command>
+&prompt.root;<command>rmt-cli mirror</command></screen>
+    </step>
+    <step>
+      <para>
+        Connect a USB drive, assumed to be <filename>/dev/sdb</filename> and
+        mount it, for example, in <filename>/mnt/external</filename>.
+      </para>
+<screen>&prompt.root;<command>mount /dev/sdb1 /mnt/external</command></screen>
+    </step>
+    <step>
+      <substeps>
+        <step>
+          <para>
+            Export the data about available repositories and products.
+          </para>
+<screen>&prompt.root;<command>rmt-cli export data /mnt/external/</command></screen>
+        </step>
+        <step>
+          <para>
+            Export the list of enabled repositories. The exported file is
+            required for exporting the repositories in the next step.
+          </para>
+<screen>&prompt.root;<command>rmt-cli export settings /mnt/external/</command></screen>
+        </step>
+        <step>
+          <para>
+            Export mirrored RPM packages. Depending on the size of mirrored
+            repositories, this can take a long time.
+          </para>
+<screen>&prompt.root;<command>rmt-cli export repos /mnt/external/</command></screen>
+        </step>
+      </substeps>
+    </step>
+    <step>
+      <para>
+        Unmount and unplug the disk from <literal>sun</literal> and go to
+        <literal>sirius</literal>.
+      </para>
+<screen>&prompt.root;<command>umount /mnt/external</command></screen>
+    </step>
+    <step>
+      <para>
+        If not yet done, set up &rmt; on <literal>sirius</literal> by configuring
+        the &ansible; variables. In case of an offline &rmt; setup, leave the
+        organization credentials empty in
+        <filename>/usr/share/ansible/rmt/group_vars/all.yml</filename> and run
+        the playbook.
+      </para>
+    </step>
+    <step>
+      <para>
+        Connect the USB drive to <literal>sirius</literal> and mount it in
+        <filename>/mnt/external</filename>.
+      </para>
+<screen>&prompt.root;<command>mount /dev/sdb1 /mnt/external</command></screen>
+    </step>
+    <step>
+      <substeps>
+        <step>
+          <para>
+            Import the metadata about available repositories and products.
+          </para>
+<screen>&prompt.root;<command>rmt-cli import data /mnt/external/</command></screen>
+        </step>
+        <step>
+          <para>
+            Import mirrored RPM packages. Depending on the size of mirrored
+            repositories, this can take a long time.
+          </para>
+<screen>&prompt.root;<command>rmt-cli import repos /mnt/external/</command></screen>
+        </step>
+      </substeps>
+    </step>
+    <step>
+      <para>
+        Enable repositories as required on the <literal>sirius</literal>. For
+        details, see
+        <xref linkend="rmt-mirroring-enabling-disabling-repositories"/>.
+      </para>
+    </step>
+  </procedure>
+
+  <note>
+    <title>Exporting enabled settings from air-gapped server</title>
+    <para>
+      If your air-gapped server (<literal>sirius</literal>) has many enabled
+      repositories, or if the enabled repositories change frequently, we
+      recommend exporting the repository settings from this server.
+    </para>
+    <para>
+      The server connected to &scc; (<literal>sun</literal>) can then
+      import the exported settings. This ensures that <literal>sun</literal>
+      downloads all data required by <literal>sirius</literal>.
+    </para>
+  </note>
+</topic>
