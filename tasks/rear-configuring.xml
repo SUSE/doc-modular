@@ -14,13 +14,11 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>Configuring &rear; and your backup solution</title>
+    <title>Configuring &rear;</title>
     <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        This includes tasks like editing the &rear; configuration file,
-       adjusting the Bash scripts, and configuring the backup solution that
-       you want to use.
+        This includes tasks like editing the &rear; configuration file, adjusting the Bash scripts, and configuring the backup solution that you want to use.
       </para>
       <para>
         Each minor version of &sles; might be different, so these docs are generic. Create and test a new recovery system whenever you upgrade &sles;.
@@ -29,10 +27,7 @@
   </info>
 
   <para>
-   To configure &rear;, add your settings to the &rear; configuration file
-   <filename>/etc/rear/local.conf</filename> and, if needed, edit the Bash
-   scripts that are part of the &rear; framework. In particular, you need to
-   define the following tasks that &rear; should do:
+   To configure &rear;, add your settings to the &rear; configuration file <filename>/etc/rear/local.conf</filename> and, if needed, edit the Bash scripts that are part of the &rear; framework. In particular, you need to define the following tasks that &rear; should do:
   </para>
 
   <itemizedlist>
@@ -40,8 +35,7 @@
     <formalpara>
      <title>How to back up files and how to create and store the disaster recovery system</title>
      <para>
-      This needs to be configured in
-      <filename>/etc/rear/local.conf</filename>.
+      This needs to be configured in <filename>/etc/rear/local.conf</filename>.
      </para>
     </formalpara>
    </listitem>
@@ -49,9 +43,7 @@
     <formalpara>
      <title>What to re-create (partitioning, file systems, mount points, etc.)</title>
      <para>
-      This can be defined in <filename>/etc/rear/local.conf</filename>.
-      To re-create non-standard systems, you may
-      need to enhance the Bash scripts.
+      This can be defined in <filename>/etc/rear/local.conf</filename>. To re-create non-standard systems, you may need to enhance the Bash scripts.
      </para>
     </formalpara>
    </listitem>
@@ -59,178 +51,160 @@
     <formalpara>
      <title>How the recovery process works</title>
      <para>
-      To change how &rear; generates the recovery installer, or to adapt
-      what the &rear; recovery installer does, you need to edit the Bash
-      scripts.
+      To change how &rear; generates the recovery installer, or to adapt what the &rear; recovery installer does, you need to edit the Bash scripts.
      </para>
     </formalpara>
    </listitem>
   </itemizedlist>
+  <warning>
+    <title>Limitations with Btrfs</title>
+    <para>
+      Btrfs snapshot subvolumes <emphasis>cannot</emphasis> be backed up and restored as usual with file-based backup software.
+    </para>
+    <para>
+      While recent snapshot subvolumes on Btrfs file systems need almost no disk space (because of Btrfs's copy-on-write functionality), those files would be backed up as complete files when using file-based backup software. They would end up twice in the backup with their original file size. Therefore, it is impossible to restore the snapshots as they were before on the original system.
+    </para>
+  </warning>
 
+  <itemizedlist>
+    <title>Prerequisites</title>
+    <listitem>
+      <para>
+        &rear; is installed on the system you want to back up.
+      </para>
+    </listitem>
+    <listitem>
+      <para>
+        If your system boots with a UEFI boot loader, make sure the <package>xorriso</package> package is installed.
+      </para>
+    </listitem>
+  </itemizedlist>
   <para>
-   All &rear; configuration variables and their default values are explained in
-   <filename>/usr/share/rear/conf/default.conf</filename>.
+    Perform this procedure on the system you want to back up:
   </para>
-  <para>
-   Below are some examples of useful configuration options. You can also find example files
-   for different scenarios in the <filename>/usr/share/rear/conf/examples/</filename> subdirectory.
-   Use these to help you create your <filename>/etc/rear/local.conf</filename> file.
-  </para>
-
-  <para>
-    When you're done, run <command>rear dump</command> to check the configuration. <command>rear validate</command>??
-  </para>
-
-  <example xml:id="ex-rear-nfs-server-backup">
-   <title>Using an NFS server to store the file backup</title>
-  <orderedlist>
-   <listitem>
-    <para>
-     Set up an NFS server as described in **a link that doesn't exist yet**.
-    </para>
-   </listitem>
-   <listitem>
-    <para>
-     Define the configuration for your NFS server in the
-     <filename>/etc/exports</filename> file. Make sure the directory on the
-     NFS server has the right mount options. For example, you might
-     need <literal>no_root_squash</literal> as the
-     <command>rear mkbackup</command> command runs as &rootuser;.
-     For more information, see <command>man exports</command>.
-    </para>
-   </listitem>
-   <listitem>
-    <para>
-     Adjust the various <varname>BACKUP</varname> parameters in the
-     configuration file <filename>/etc/rear/local.conf</filename> to make
-     &rear; store the file backup on the respective NFS server. Find
-     examples in your installed system under
-     <filename>/usr/share/rear/conf/examples/SLE*-example.conf</filename>.
-    </para>
-   </listitem>
-  </orderedlist>
-  </example>
-
-  <example xml:id="ex-rear-config-sles-btrfs">
-    <title>Backing up Btrfs subvolumes with <command>tar</command></title>
-    <para>
-     Btrfs is set up with subvolumes, but <command>tar</command> creates backups with the
-     <option>--one-file-system</option> option, which excludes subvolumes. Therefore, the
-     mount points for the subvolumes must be explicitly included in the &rear; configuration.
-    </para>
+  <procedure>
+    <step>
+      <para>
+        Log in either as the &rootuser; user or as a user with <command>sudo</command> privileges.
+      </para>
+    </step>
+    <step>
+      <para>
+        Create or open the <filename>/etc/rear/local.conf</filename> file.
+      </para>
+    </step>
+    <step>
+      <para>
+        Copy the closest matching &sle; example from the <filename>/usr/share/rear/conf/examples/</filename> directory. Currently, the latest example file is <filename>SLE12-SP2-btrfs-example.conf</filename>. Paste the content into <filename>/etc/rear/local.conf</filename> as the starting point for your &rear; configuration and adjust it for your specific system.
+      </para>
+      <para>
+        All &rear; variables and their default values are explained in <filename>/usr/share/rear/conf/default.conf</filename>. You can also find more examples for different scenarios in the <filename>/usr/share/rear/conf/examples/</filename> directory. Examples of the main variables are shown in the next steps.
+      </para>
+    </step>
+    <step>
+      <para>
+        COPY_AS_IS
+      </para>
+    </step>
+    <step>
+      <para>
+        BACKUP and BACKUP_URL
+      </para>
+      <example xml:id="ex-rear-nfs-server-backup">
+        <title>Using an NFS server to store the file backup</title>
+        <orderedlist>
+          <listitem>
+            <para>
+              Define the configuration for your NFS server in the <filename>/etc/exports</filename> file. Make sure the directory on the NFS server has the right mount options. For example, you might need <literal>no_root_squash</literal> as the <command>rear mkbackup</command> command runs as &rootuser;. For more information, see <command>man exports</command>.
+            </para>
+          </listitem>
+          <listitem>
+            <para>
+              Adjust the various <varname>BACKUP</varname> parameters in the configuration file <filename>/etc/rear/local.conf</filename> to make &rear; store the file backup on the respective NFS server. Find examples in your installed system under <filename>/usr/share/rear/conf/examples/SLE*-example.conf</filename>.
+            </para>
+          </listitem>
+        </orderedlist>
+      </example>
+      <example xml:id="ex-rear-config-sles-btrfs">
+        <title>Backing up Btrfs subvolumes with <command>tar</command></title>
+        <para>
+        Btrfs is set up with subvolumes, but <command>tar</command> creates backups with the <option>--one-file-system</option> option, which excludes subvolumes. Therefore, the mount points for the subvolumes must be explicitly included in the &rear; configuration.
+        </para>
 <screen>OUTPUT=ISO
 BACKUP=NETFS
 BACKUP_URL=nfs://<replaceable>host.&exampledomain;/path/to/rear/backup</replaceable>
 BACKUP_PROG_INCLUDE=( /root /boot/grub2/i386-pc /tmp /opt /var /boot/grub2/x86_64-efi /srv /usr/local )</screen>
-    <tip>
-      <title>Mount points for <literal>BACKUP_PROG_INCLUDE</literal></title>
-      <para>
-        You can find the mount points for the subvolumes on your specific system by running
-        the following command:
-      </para>
-<screen>&prompt.root;<command>findmnt -n -r -o TARGET -t btrfs | grep -v '^/$' | egrep -v 'snapshots|crash'</command></screen>
-    </tip>
-  </example>
-
-  <example xml:id="ex-rear-config-EMC">
-   <title>Using third-party backup tools like EMC NetWorker</title>
-   <para>
-    Using third-party backup tools instead of <command>tar</command>
-    requires appropriate settings in the &rear; configuration file.
-   </para>
-   <para>
-    The following is an example configuration for EMC NetWorker. Add this
-    configuration snippet to <filename>/etc/rear/local.conf</filename> and
-    adjust it according to your setup:
-   </para>
+        <tip>
+          <title>Mount points for <literal>BACKUP_PROG_INCLUDE</literal></title>
+          <para>
+            You can find the mount points for the subvolumes on your specific system by running the following command:
+          </para>
+    <screen>&prompt.root;<command>findmnt -n -r -o TARGET -t btrfs | grep -v '^/$' | egrep -v 'snapshots|crash'</command></screen>
+        </tip>
+      </example>
+      <example xml:id="ex-rear-config-EMC">
+        <title>Using third-party backup tools like EMC NetWorker</title>
+        <para>
+          Using third-party backup tools instead of <command>tar</command> requires appropriate settings in the &rear; configuration file.
+        </para>
+        <para>
+          The following is an example configuration for EMC NetWorker. Add this configuration snippet to <filename>/etc/rear/local.conf</filename> and adjust it according to your setup:
+        </para>
 <screen>BACKUP=NSR
 OUTPUT=ISO
 BACKUP_URL=nfs://<replaceable>host.&exampledomain;/path/to/rear/backup</replaceable>
 OUTPUT_URL=nfs://<replaceable>host.&exampledomain;/path/to/rear/backup</replaceable>
 NSRSERVER=<replaceable>backupserver.&exampledomain;</replaceable>
 RETENTION_TIME="Month"</screen>
-   <para>
-    For more information about supported third-party backup tools, see
-    <command>man rear</command>, section <citetitle>BACKUP SOFTWARE INTEGRATION</citetitle>.
-   </para>
-  </example>
-
-  <example xml:id="ex-rear-config-multipath">
-    <title>Backing up multipath devices</title>
-    <para>
-     By default, &rear; ignores file systems on multipath devices because it assumes they are
-     on remote storage, not part of the local system. You can make &rear; include these
-     file systems by adding the following line to <filename>/etc/rear/local.conf</filename>:
-    </para>
-    <screen>AUTOEXCLUDE_MULTIPATH=n</screen>
-  </example>
-
-  <example xml:id="ex-rear-config-UEFI">
-    <title>Booting your system with UEFI</title>
-    <para>
-      If your system boots with a UEFI boot loader, additional configuration is required:
-    </para>
-    <orderedlist>
-      <listitem>
         <para>
-          Install the package <package>xorriso</package>:
+          For more information about supported third-party backup tools, see <command>man rear</command>, section <citetitle>BACKUP SOFTWARE INTEGRATION</citetitle>.
         </para>
-<screen>&prompt.root;<command>zypper install xorriso</command></screen>
-      </listitem>
-      <listitem>
+      </example>
+    </step>
+    <step>
+      <para>
+        OUTPUT and OUTPUT URL
+      </para>
+      <example>
+        <title>Saving the recovery system to a USB device</title>
         <para>
-          Add the following line to <filename>/etc/rear/local.conf</filename>:
+          If you plan to use a USB device as the output, format the device first:
         </para>
+  <screen>&prompt.user;<command>sudo rear format <replaceable>/PATH/TO/DEVICE</replaceable></command></screen>
+        <para>
+          This command formats the device and labels it <filename>REAR-000</filename>.
+        </para>
+      </example>
+    </step>
+    <step>
+      <para>
+        MULTIPATH
+      </para>
+      <example xml:id="ex-rear-config-multipath">
+        <title>Backing up multipath devices</title>
+        <para>
+        By default, &rear; ignores file systems on multipath devices because it assumes they are on remote storage, not part of the local system. You can make &rear; include these file systems by adding the following line to <filename>/etc/rear/local.conf</filename>:
+        </para>
+        <screen>AUTOEXCLUDE_MULTIPATH=n</screen>
+      </example>
+    </step>
+    <step>
+      <para>
+        If your system boots with a UEFI boot loader, add the following line to the configuration:
+      </para>
 <screen>ISO_MKISOFS_BIN="/usr/bin/xorrisofs"</screen>
-      </listitem>
-      <listitem>
-        <para>
-          If your system boots with &uefisecboot;, you must also add the following line:
-        </para>
+      <para>
+        If your system boots with &uefisecboot;, you must also add the following line:
+      </para>
 <screen>SECURE_BOOT_BOOTLOADER="/boot/efi/EFI/sles/shim.efi"</screen>
-      </listitem>
-    </orderedlist>
-    <para>
-     For more information about &rear; configuration variables for UEFI, see the
-     <filename>/usr/share/rear/conf/default.conf</filename> file.
-    </para>
-  </example>
-
-  <warning>
-   <title>Limitations with Btrfs</title>
-   <para>
-    The following limitations apply if you use Btrfs:
-   </para>
-   <variablelist>
-    <varlistentry>
-     <term>Your system includes snapshot subvolumes</term>
-     <listitem>
       <para>
-        Btrfs snapshot subvolumes <emphasis>cannot</emphasis> be backed up
-        and restored as usual with file-based backup software.
+        For more information about &rear; configuration variables for UEFI, see the <filename>/usr/share/rear/conf/default.conf</filename> file.
       </para>
+    </step>
+    <step>
       <para>
-       While recent snapshot subvolumes on Btrfs file systems need
-       almost no disk space (because of Btrfs's copy-on-write functionality),
-       those files would be backed up as complete files when using
-       file-based backup software. They would end up twice in the backup
-       with their original file size. Therefore, it is impossible to
-       restore the snapshots as they have been before on the original
-       system.
+        When you're done, run <command>rear dump</command> to check the configuration. <command>rear validate</command>??
       </para>
-     </listitem>
-    </varlistentry>
-    <varlistentry>
-     <term>Your SLE system needs matching &rear; configuration</term>
-     <listitem>
-      <para>
-       For example, the setups in SLE12 GA, SLE12 SP1, and SLE12 SP2 have several
-       incompatible Btrfs default structures. As such, it is
-       crucial to use a matching &rear; configuration file. See the example
-       files <filename>/usr/share/rear/conf/examples/SLE12*-btrfs-example.conf</filename>.
-      </para>
-     </listitem>
-    </varlistentry>
-   </variablelist>
-  </warning>
+    </step>
+  </procedure>
 </topic>
