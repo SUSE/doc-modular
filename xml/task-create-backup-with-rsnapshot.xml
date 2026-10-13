@@ -1,0 +1,1042 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?xml-stylesheet href="urn:x-suse:xslt:profiling:docbook51-profile.xsl"
+ type="text/xml"
+ title="Profiling step"?>
+<!DOCTYPE article
+[
+  <!ENTITY % entities SYSTEM "generic-entities.ent">
+    %entities;
+    <!ENTITY rname "RSnapshot">
+    <!ENTITY rcmd  '<command xmlns="http://docbook.org/ns/docbook">rsnapshot</command>'>
+]>
+
+<!--metadata
+ * product SLES, SLED, SLE-HA (?), SLES-SAP (?), SLE-HPC (?), SLE-RT (?)
+ * product version 15 SP3, 15 SP4 (?)
+ * topic category/ies architecture, system administration
+ * target group(s) system administrators, system operators
+ * initially published 
+ * last modified 2023-->
+
+<article xml:id="task-create-backup-with-rsnapshot" xml:lang="en" version="5.2"
+ role="task"
+ xmlns="http://docbook.org/ns/docbook"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+
+ <info>
+   <title>Creating backups with &rname;</title>
+   <dm:docmanager xmlns:dm="urn:x-suse:ns:docmanager">
+    <dm:bugtracker>
+     <dm:url>https://bugzilla.suse.com/enter_bug.cgi</dm:url>
+     <dm:component>Smart Docs</dm:component>
+     <dm:product>Documentation</dm:product>
+     <dm:assignee>thomas.schraitle@suse.com</dm:assignee>
+    </dm:bugtracker>
+    <dm:translation>no</dm:translation>
+   </dm:docmanager>
+  <keywordset>
+   <keyword>rsnapshot</keyword>
+   <keyword>backup</keyword>
+   <keyword>mount</keyword>
+   <keyword>systemd</keyword>
+  </keywordset>
+  <meta name="description">Use &rname; to run regular backups on your system
+   taking incremental snapshots. Prepare your external storage device for
+   backup, run the backup, and restore snapshots.</meta>
+  <abstract>
+   <para>
+    Backups should be a regular routine for every system administrator and user.
+    The following document describes how to use &rname; to perform regular backups
+    based on incremental snapshots. A snapshot captures the state of the files at
+    the moment the backup is performed.
+    The article explains how to prepare an external storage device for backup,
+    configure the data to back up, perform a backup, and how to restore data from
+    snapshots.
+   </para>
+  </abstract>
+ </info>
+
+<!--
+  <section xml:id="task-working-sudo-environment">
+ <title>Environment</title>
+  <para>This document applies to the following products and product versions:</para>
+  <itemizedlist>
+  <listitem>
+   <para>&sles;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA</para>
+  </listitem>
+  <listitem>
+   <para>&sles4sap;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA</para>
+  </listitem>
+  <listitem>
+   <para>&sleha;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA</para>
+  </listitem>
+  <listitem>
+   <para>&slehpc;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA</para>
+  </listitem>
+  <listitem>
+   <para>&sled;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA</para>
+  </listitem>
+  <listitem>
+   <para>&slert;&nbsp;15&nbsp;SP3, 15&nbsp;SP2, 15&nbsp;SP1, 15&nbsp;GA</para>
+  </listitem>
+ </itemizedlist>
+</section>
+-->
+
+ <section xml:id="task-backup-rsnapshot-intro">
+  <title>Introduction</title>
+  <para>The following description shows how to backup system data to an
+   external storage device using the &rcmd; command. It's suitable for anyone
+   interested in creating backups of the home, <filename>/etc</filename> and
+   other directories.</para>
+  <para>
+   &rname;'s core feature applies the following concepts:
+  </para>
+  <itemizedlist>
+   <listitem>
+    <para> Backups have <emphasis>named backup levels</emphasis> and
+      <emphasis>intervals</emphasis>.
+    </para>
+   </listitem>
+   <listitem>
+    <para>By default, &rname; uses generic backup level names:
+      <emphasis>alpha</emphasis>, <emphasis>beta</emphasis>,
+      <emphasis>gamma</emphasis>, and <emphasis>delta</emphasis>. To make
+     &rname; easier to use, change the defaults to more descriptive names, for
+     example <emphasis>daily</emphasis> instead of <emphasis>alpha</emphasis>,
+      <emphasis>weekly</emphasis> instead of <emphasis>beta</emphasis>, and so
+     on. Use only the levels you need. </para>
+   </listitem>
+   <listitem>
+    <para>
+     The interval of a named backup level defines how many backups you want
+     to retain.
+    </para>
+   </listitem>
+   <listitem>
+    <para> Each backup contains the named backup level and an ascending
+     number. For example, the first backup is named
+     <filename>daily.0</filename>, the second <filename>daily.1</filename> and
+     so on, until the maximum number of backups is reached.
+     Same for the other levels like <emphasis>weekly</emphasis>, 
+     <emphasis>monthly</emphasis> or <emphasis>yearly</emphasis>. </para>
+   </listitem>
+   <listitem>
+    <para>
+     Backups are <emphasis>rotated</emphasis> after some time.
+     This means that older backups are deleted to create space for newer backups.
+     This is explained in more detail in <xref linkend="task-backup-rsnapshot-rotation"/>.
+    </para>
+   </listitem>
+  </itemizedlist>
+ </section>
+
+ <section xml:id="task-backup-rsnapshot-requirements">
+  <title>Requirements</title>
+  <para>
+   To use &rname;, you need:
+  </para>
+  <itemizedlist>
+   <listitem>
+     <para>
+      The <productname>rsnapshot</productname> package installed on your system.</para>
+   </listitem>
+   <listitem>
+    <para>An external USB storage device (for example a hard disk or SSD) reserved
+     exclusively for backups. The device must have storage capacity for holding
+     multiple backup snapshots.</para>
+   </listitem>
+   <listitem>
+     <para>
+      The required space depends on the amount of data to back up and the number of
+      snapshots you want to keep. Rule of thumb is to multiply the size of the
+      data you want to back up by the number of snapshots.</para>
+   </listitem>
+   <listitem>
+    <para>A backup plan. This is a mapping of the backup levels and their
+     repetition in time. In this guide, the backup level
+      <emphasis>alpha</emphasis> is defined as a daily backup.
+     See <xref linkend="task-back-rsnapshot-backup-plan"/> for more details.
+    </para>
+   </listitem>
+  </itemizedlist>
+ </section>
+
+ <section xml:id="task-back-rsnapshot-backup-plan">
+  <title>Understanding backup plan</title>
+  <remark>tom 2023-01-27: I'm aware this is probably a bit more
+   conceptual than procedural.
+   Maybe we could extract his section and section "Knowing backup
+   rotations" to create a RSnapshot concept topic. But I wanted
+   to keep it in one file. Something for the future...
+  </remark>
+  <para>
+   This guide defines the backup level <emphasis>daily</emphasis>
+   for a daily backup.
+   Every backup level in your plan needs an interval. Based on the intervals
+   defined in <xref linkend="ex-rsnapshot-backup-level-and-intervals"/>,
+   the <emphasis>daily</emphasis> level was defined to create five backups,
+   starting from Monday.
+  </para>
+  <example xml:id="ex-rsnapshot-backup-level-and-intervals">
+   <title>Backup levels and intervals</title>
+   <screen>retain  daily   5
+retain  weekly    4
+retain  monthly   14
+retain  yearly   3</screen>
+  </example>
+  <para>You would perform the backups like this:</para>
+  <screen>Monday    = daily
+Tuesday   = daily
+Wednesday = daily
+Thursday  = daily
+Friday    = daily + weekly
+Saturday  = -
+Sunday    = -</screen>
+  <para>
+   In the example above, <emphasis>daily</emphasis> is performed every day
+   except for Saturday and Sunday. At the end of the week, on a Friday, we
+   perform a weekly backup with <emphasis>weekly</emphasis>.
+  </para>
+  <para>
+   This configuration could be useful for anyone who wants to have a daily
+   backups except for the weekend. To keep the backups from previous weeks,
+   a <emphasis>weekly</emphasis> backup is performed every Friday.
+  </para>
+  <para>This procedure is repeated every week. Once a month, you perform an
+   additional <emphasis>gamma</emphasis> backup. </para>
+ </section>
+
+ <section xml:id="task-backup-rsnapshot-rotation">
+  <title>Understanding backup rotations</title>
+  <para>
+   <emphasis>Rotation</emphasis> means that old backups are deleted so
+   that the number of backups is constant to the defined interval. The rotation
+   happens automatically when you run a new backup. </para>
+  <para>
+   In this guide, backup is performed manually. It is up to you what backup
+   level to choose.
+  </para>
+  <para>
+   &rname; allows you to retain a given number of previous backups.
+   This helps to restore your backup from yesterday, last week, or even three months ago.
+  </para>
+  <para>
+  The following examples demonstrate the backup levels and intervals
+  mentioned in <xref linkend="ex-rsnapshot-backup-level-and-intervals"/>.
+  </para>
+  <para>
+   When an <emphasis>daily</emphasis> backup is performed for the first
+   time, &rname; creates:
+  </para>
+  <screen>daily.0</screen>
+  <para>
+   When the backup is performed again, <filename>daily.0</filename> is renamed
+   to <filename>daily.1</filename> and the current backup becomes
+   <filename>daily.0</filename>:
+  </para>
+  <screen>daily.0        -> daily.1
+current backup -> daily.0</screen>
+  <para>
+   For the next <emphasis>daily</emphasis> backup, the snapshots will look like this:
+  </para>
+  <screen>daily.1        -> daily.2
+daily.0        -> daily.1
+current backup -> daily.0</screen>
+  <para>
+   This is repeated until the maximum number of intervals are reached. When
+   all numbers are taken (five in this example), the oldest backup is deleted:
+  </para>
+  <screen>daily.4        -> deleted!
+daily.3        -> daily.4
+daily.2        -> daily.3
+daily.1        -> daily.2
+daily.0        -> daily.1
+current backup -> daily.0</screen>
+  
+  <para> At some point, it is necessary to switch to the next level. Normally,
+   it's done when the maximum number of intervals for the defined level is
+   reached. When the <emphasis>weekly</emphasis> backup is performed for the
+   first time, &rname; creates the following: </para>
+  <screen>daily.4        -> weekly.0</screen>
+  <para>
+   If you repeat it next week, the situation now looks like this:
+  </para>
+  <screen>weekly.0         -> weekly.1
+daily.4        -> weekly.0</screen>
+  <para>
+   The same principle applies to the other backup levels, too.
+  </para>
+</section>
+ 
+ <section xml:id="task-back-rsnapshot-preparation">
+  <title>Preparing the external storage device</title>
+  <para>If you already have a prepared disk for your backups, skip this section.</para>
+  <para>
+   On <productname>Linux</productname>, we recommend formatting the disk with a Linux file system.
+  </para>
+  <warning>
+   <title>Beware of data loss</title>
+   <para>
+    The following procedure describes how to partition and format the external storage device.
+    The partitioning operation erases all data on the selected device. Make sure you use on the correct device.
+   </para>
+  </warning>
+  <para>
+   To prepare the external storage device, proceed as follows:
+  </para>
+  <procedure xml:id="proc-rsnapshot-prepare-disc">
+   <title>Preparing the external storage device</title>
+   <step>
+    <para>Identify the external storage disk by capacity or name.
+     As this disk is used exclusively for backup, it is enough
+     to create one partition.
+     Format it with a Linux partition, like XFS.
+    </para>
+    <para>
+     You can perform this step with &yast; or with commands:
+    </para>
+    <stepalternatives>
+     <step>
+      <formalpara>
+       <title>With &yast;</title>
+       <para>Open &yast;</para>
+      </formalpara>
+      <substeps>
+       <step>
+        <para>
+          Open the <guimenu>Partitioner</guimenu> module.
+        </para>
+       </step>
+       <step>
+        <para>
+         Identify the external storage disk.
+        </para>
+       </step>
+       <step>
+        <para>Create a single partition on your external disk. Format it
+         with a Linux partition, like XFS. </para>
+       </step>
+      </substeps>
+     </step>
+     <step>
+      <formalpara>
+       <title>With CLI</title>
+       <para>Open a terminal</para>
+      </formalpara>
+      <substeps>
+       <step>
+        <para>
+         Enter:
+        </para>
+        <screen><command>lsblk -p >/tmp/before.txt</command></screen>
+       </step>
+       <step>
+        <para>
+         Connect the external device and run:
+        </para>
+        <screen><command>lsblk -p >/tmp/after.txt</command></screen>
+       </step>
+       <step>
+        <para>Find the respective disk with:</para>
+        <screen><command>diff -u /tmp/before.txt /tmp/after.txt</command></screen>
+        <para>The result will be something like this:</para>
+        <screen>/dev/sdx      8:16   1   1TB  0 disk</screen>
+        <para>The exact device name on the left (<systemitem>/dev/sdx</systemitem>)
+         and the capacity (<literal>1&nbsp;TB</literal>) may vary for you.
+        </para>
+       </step>
+       <step>
+        <para>
+         Partition the disk with the command <command>fdisk</command>.
+         Create one partition.
+         <remark>tom 2023-01-25: Should that be a bit more verbose?</remark>
+        </para>
+       </step>
+       <step>
+        <para>Format the disk with <command>mkfs.xfs</command> using the
+         device name <systemitem>/dev/sdx</systemitem>:</para>
+        <screen><command>sudo mkfs.xfs -L backup /dev/sdx</command></screen>
+       </step>
+      </substeps>
+     </step>
+    </stepalternatives>
+   </step>
+   <step xml:id="st-task-back-rsnapshot-preparation-uuid">
+    <para>Memorize the UUID value of your external storage device by providing the device name
+    to the following command. You need this value at a later step:</para>
+    <screen><command>sudo blkid /dev/sdx</command>
+/dev/sdx: ... <emphasis role="strong">UUID="2022-05-28-00-28-20-47"</emphasis> ...</screen>
+   </step>
+  </procedure>
+  <para>
+   After the partition operation is completed, the external storage device has one partition and
+   is formatted, preferably with a Linux file system like XFS. Furthermore, you
+   know the UUID value of your disk.
+  </para>
+ </section>
+
+ <section xml:id="task-backup-rsnapshot-automound">
+  <title>Adding automount capabilities</title>
+  <para> To give the external storage device a constant and easy-to-remember
+  mount point, use <productname>systemd</productname> automount.
+  </para>
+  <para>
+   Open a terminal, and follow these steps:
+  </para>
+  <procedure xml:id="pro-backup-rsnapshot-addtofstab">
+   <title>Adding the external device to <filename>/etc/fstab</filename></title>
+   <step>
+    <para>
+     Open the <filename>/etc/fstab</filename> file:
+    </para>
+    <screen><command>sudo vi /etc/fstab</command></screen>
+   </step>
+   <step>
+    <para>Add the following lines:</para>
+    <screen>UUID=2022-05-28-00-28-20-47<co xml:id="co-uuid"
+    />  /data/backup<co xml:id="co-mountpoint"
+    />   xfs<co xml:id="co-xfs"
+    />   x-systemd.automount,x-systemd.device-timeout=5s,x-systemd.idle-timeout=300s,noauto<co xml:id="co-mount-options"
+    />    0 0</screen>
+    
+    <calloutlist>
+     <callout arearefs="co-uuid">
+      <para>An identifier of the disk. This is the UUID value of the external
+       device from <xref linkend="st-task-back-rsnapshot-preparation-uuid" /> of
+        <xref linkend="proc-rsnapshot-prepare-disc" />. </para>
+     </callout>
+     <callout arearefs="co-mountpoint">
+      <para>
+       The mount point. In this example, the external device is mounted on
+       <filename>/data/backup</filename>.
+      </para>
+     </callout>
+     <callout arearefs="co-xfs">
+      <para>
+       The file system. As in this example XFS was chosen, you need to add
+       <systemitem class="filesystem">xfs</systemitem>. If you decided to
+       use a different file system, specify the correct value.
+       Possible values can be <systemitem class="filesystem">ext2</systemitem>,
+       <systemitem class="filesystem">ext3</systemitem>,
+       <systemitem class="filesystem">ext4</systemitem>, or
+       <systemitem class="filesystem">btrfs</systemitem>.
+      </para>
+     </callout>
+     <callout arearefs="co-mount-options">
+      <para>The mount options. To manage the external disk by
+       <productname>systemd</productname>, add the
+       <option>x-systemd.automount</option> option. The option
+       <option>x-systemd.device-timeout</option> defines, in seconds,
+       how long <productname>systemd</productname> should wait for
+       a device before giving up. The option
+       <option>x-systemd.idle-timeout</option> defines the idle timeout.
+       For other available options, see
+       <command>man 5 systemd.mount</command>.
+       <!-- xlink:href="https://www.freedesktop.org/software/systemd/man/systemd.mount.html" -->
+      </para>
+     </callout>
+    </calloutlist>
+   </step>
+   <step>
+    <para>Create the path for the mount point:</para>
+    <screen><command>sudo mkdir -p /data/backup</command></screen>
+   </step>
+   <step>
+    <para>Let <productname>systemd</productname> 
+    pick up your changes:</para>
+    <screen><command>sudo systemctl daemon-reload</command></screen>
+   </step>
+  </procedure>
+  <para> Keep in mind that <productname>systemd</productname> automatically
+   unmounts the device if the directory is not accessed for a certain period
+   time. This period is defined using the
+    <option>x-systemd.idle-timeout</option> option that you specified in
+    <filename>/etc/fstab</filename>. </para>
+ </section>
+
+<!--
+ <section xml:id="task-backup-rsnapshot-mount">
+  <title>Mounting your external storage device</title>
+  <para>
+   When you have finished <xref linkend="task-backup-rsnapshot-automound"/>, try to
+   mount your external storage device. If you get the status, this is what you get:
+  </para>
+ 
+  <procedure>
+   <step>
+    <para>
+     Make sure you have completed <xref linkend="task-backup-rsnapshot-automound"/>.
+    </para>
+   </step>
+   <step>
+    <para>
+     Check if the automount is already active for your device. It is probably not:
+    </para>
+    <screen><command>sudo systemctl status data-backup.automount</command>
+○ data-backup.automount
+     Loaded: loaded (/etc/fstab; generated)
+     Active: inactive (dead) since ...; 3s ago
+   Triggers: ● data-backup.mount
+      Where: /data/backup
+       Docs: man:fstab(5)
+             man:systemd-fstab-generator(8)</screen>
+   </step>
+   <step>
+    <para>Start the automount:</para>
+    <screen><command>sudo systemctl start data-backup.automount</command>
+● data-backup.automount
+     Loaded: loaded (/etc/fstab; generated)
+     Active: active (waiting) since ...; 11ms ago
+   Triggers: ● data-backup.mount
+      Where: /data/backup
+       Docs: man:fstab(5)
+             man:systemd-fstab-generator(8)</screen>
+    <para>The status has changed from <literal>inactive</literal> to
+      <literal>active (waiting)</literal>. Keep in mind, the disc is not yet
+     mounted. It starts the systemd service that listens to any activity for the
+     directory <filename>/data/backup</filename>. </para>
+   </step>
+   <step>
+    <para>Access the file content on <filename>/data/backup</filename>:</para>
+    <screen><command>sudo ls /data/backup</command>
+[...]</screen>
+    <para>
+     Now you can see that the device is listed:
+    </para>
+    <screen><command>df</command>
+Filesystem     Type      Size  Used Avail Use% Mounted on
+[...]
+/dev/sdx1      xfs       1,0T  0G   1,0T  0%   /data/backup</screen>
+    <para>
+     If there is no access to the directory for a certain time, it will be
+     automatically unmounted. This is defined with the <option>x-systemd.idle-timeout</option>
+     as described in <xref linkend="pro-backup-rsnapshot-addtofstab"/>.
+    </para>
+   </step>
+  </procedure>
+
+ </section>
+-->
+
+ <section xml:id="task-backup-rsnapshot-configuration">
+  <title>Adapting the &rname; configuration</title>
+  <para>
+   Before you can use &rname;, you need to change the configuration file
+   <filename>/etc/rsnapshot.conf</filename> to your needs.
+  </para>
+  <note>
+   <title>Pay attention to tabs</title>
+   <para> The &rname; configuration file uses tabs (code
+    <literal>0x07</literal>) to separate the configuration keys from their
+    values. To avoid errors in the configuration file, make sure that the editor you are using
+    does not replace tabs with spaces.
+   </para>
+   <para>
+    After you changed the configuration file, it is recommended to run
+    <command>sudo rsnapshot configtest</command>.
+   </para>
+  </note>
+
+  <procedure>
+   <step performance="optional">
+    <para>Create a backup of the &rname; configuration file.
+    This is just a precaution in case you need to reconfigure the file or want
+    to see the differences to your changes:
+    </para>
+    <screen><command>sudo cp /etc/rsnapshot.conf /etc/rsnapshot.conf.default</command></screen>
+   </step>
+   <step>
+    <para>
+     Create a subdirectory <filename>/etc/rsnapshot.d</filename>. Then add the following files and scripts:
+    </para>
+    <screen><command>sudo install --directory --mode=0500 /etc/rsnapshot.d</command></screen>
+    <para>
+     As you may also store sensitive information, the directory is created with very
+     restrictive permissions. Only &rootuser; can read and change into this
+     directory.
+    </para>
+   </step>
+   <step>
+    <para>Open the file <filename>/etc/rsnapshot.conf</filename>:</para>
+    <screen><command>sudo vi /etc/rsnapshot.conf</command></screen>
+   </step>
+   <step>
+    <para>Change the configuration file:</para>
+    <substeps>
+     <step>
+      <para>Set the home of your backup:</para>
+      <screen>snapshot_root  /data/backup</screen>
+     </step>
+     <step>
+      <para>
+       Set the backup names and levels, see also <xref
+        linkend="task-backup-rsnapshot-intro"/> for more information.
+       One example could be:
+      </para>
+      <screen>retain  daily     5
+retain  weekly    4
+retain  monthly   12
+retain  yearly    3</screen>
+      <para>
+       This configuration keeps seven <emphasis>daily</emphasis> backups from
+       Monday to Sunday, four <emphasis>weekly</emphasis> backups,
+       12 <emphasis>monthly</emphasis> backups, and three
+       <emphasis>yearly</emphasis> backups.
+      </para>
+     </step>
+     <step performance="optional">
+      <para> Set the verbosity level. It may be useful to raise the verbosity
+       level to <literal>3</literal> when you use the program for the first
+       time: </para>
+      <screen>verbose         2</screen>
+      <para>By default, the value is set to <literal>2</literal>, which means it
+       prints only errors and warnings. Raising it to <literal>3</literal>, gives you
+       all the shell commands that are being executed.</para>
+      <para>Alternatively, you can also temporarily raise the verbosity
+       level by adding the option <option>-v</option> to the &rcmd;
+       command.</para>
+     </step>
+     <step>
+      <para>Change the default options for <command>rsync</command>, the sync
+       tool for &rname;:</para>
+      <screen>rsync_long_args         -aAX --numeric-ids</screen>
+      <para>
+       The options turn on the archive mode (<option>-a</option>),
+        which preserves everything, except ACLs and extended
+        attributes. You can enable the storage of both with the options
+        <option>-A</option> (ACLs) and <option>-X</option> (extended attributes).
+       The option <option>--numeric-ids</option> transfers numeric group and user IDs instead
+       of user and group names. For more details, see the man page.
+      </para>
+     </step>
+     <step performance="optional">
+      <para>
+       Set exclude parameters. By default, &rname; backs up everything. To exclude files that end with a
+       tilde or with <filename class="extension">.bak</filename>, use the following rule:
+      </para>
+      <screen>exclude         *~
+exclude         *.bak      </screen>
+     </step>
+     <step performance="optional" xml:id="st-exclude-file">
+      <para> Set an exclude file. To exclude files matching multiple patterns, add them to the exclude file instead of listing them with the <option>exclude</option>
+       option. Then you can add the exclude file as follows:</para>
+      <screen>exclude_file    /etc/rsnapshot.d/excludes.txt</screen>
+     </step>
+     <step>
+      <para>Define what you want to back up. In most cases,
+       <filename>/home</filename> and <filename>/etc</filename> should be
+       included in your backup. You can add more paths, depending on your needs.
+       In this example, a few other subdirectories from
+        <filename>/var</filename> were added: </para>
+      <screen>backup_exec<co xml:id="co-backup-exec"/>     /bin/date "+ backup of /home started at %c"
+backup<co xml:id="co-backup"/>  /home<co 
+ xml:id="co-backup-path"/>                           localhost/<co xml:id="co-localhost"/>
+
+backup_exec     /bin/date "+ backup of /etc started at %c"
+backup  /etc                            localhost/
+
+backup_exec     /bin/date "+ backup of /var/lib started at %c"
+backup  /var/lib/ca-certificates/       localhost/
+backup  /var/lib/smartmontools/         localhost/
+backup  /var/adm/backup/rpmdb/          localhost/
+backup  /var/lib/rpm/                   localhost/</screen>
+      <calloutlist>
+       <callout arearefs="co-backup-exec">
+        <para>Optional lines starting with <option>backup_exec</option> can be used for debugging and printing the
+         time and date when the respective backup part was started.
+         You can also use them to execute scripts before the real backup happens.
+        </para>
+       </callout>
+       <callout arearefs="co-backup">
+        <para>Defines the backup and contains the backup path and
+        the host name.</para>
+       </callout>
+       <callout arearefs="co-backup-path">
+        <para>Defines the backup path that needs to be stored in the backup.</para>
+       </callout>
+       <callout arearefs="co-localhost">
+        <para>Defines the host name. You can replace <systemitem class="domainname"
+         >localhost</systemitem> with your real host name.
+        </para>
+        <para>
+         This value is important when you want to back up
+         different systems. A descriptive value makes the systems easier to identify.
+        </para>
+       </callout>
+      </calloutlist>
+     </step>
+     <step>
+      <para>Save the file.</para>
+     </step>
+    </substeps>
+   </step>
+   <step>
+    <para>If you have set the option <option>exclude_files</option> in
+     <xref linkend="st-exclude-file"/>, create the file <filename
+      >/etc/rsnapshot.d/excludes.txt</filename>:
+    </para>
+    <screen><command>sudo vi /etc/rsnapshot.d/home-excludes.txt</command></screen>
+    <para>
+     Each line in this file contains a pattern that excludes a file or
+     directory. Lines that start with <literal>#</literal>,
+     <literal>;</literal> and blank lines are ignored.
+    </para>
+    <para> This file is used to specify paths that belong to the
+     operating system or are virtual paths like <filename>/run</filename>,
+      <filename>/proc</filename>, or <filename>/sys</filename>.
+     For example: </para>
+    <screen># General excludes that is usually not worth to backup:
+/bin
+/dev/
+/mnt/
+/proc/
+/run/
+/tmp/
+/sys
+/usr</screen>
+   </step>
+   <step>
+    <para> Amend or create the file
+     <filename>/etc/rsnapshot.d/excludes.txt</filename>. Add lines to exclude
+     from the home directory. You can use wildcards like <literal>*</literal>
+     and <literal>?</literal> to match a group of files or directories. The
+     following lines exclude paths from any home directories that are usually not
+     worth storing. Keep in mind, as we use <literal>*</literal> in the
+     path, it matches every user: </para>
+    <screen># Personal excludes for every user
+/home/*/.cache/
+/home/*/.local/tmp/
+/home/*/Downloads/</screen>
+    <para>You can also add user-specific paths. The
+     following example excludes a directory under <filename>Documents</filename> for
+    the user &exampleuser;:</para>
+    <screen># Specific user excludes:
+/home/&exampleuser_plain;/Documents/tests</screen>
+   </step>
+   <step>
+    <para>Check the configuration file:</para>
+    <screen><command>sudo rsnapshot configtest</command></screen>
+    <para>You should get:</para>
+    <screen>Syntax OK</screen>
+    <para>
+     If you receive an error, &rname; usually lists the line number where
+     the error occurred. Fix this error and repeat this step.
+    </para>
+   </step>
+   <step>
+    <para>Do a test run:</para>
+    <screen><command>sudo rsnapshot -t daily</command></screen>
+    <para>If you run it for the first time, you should get something like this:</para>
+    <screen>echo 7439 > /var/run/rsnapshot.pid 
+mkdir -m 0700 -p /data/backup/ 
+mkdir -m 0755 -p /data/backup/daily.0/ 
+/usr/bin/rsync -a --delete --numeric-ids --relative --delete-excluded \
+    --exclude=*~ --exclude=*.bak \
+    --exclude-from=/etc/rsnapshot.d/excludes.txt /home/ \
+    /data/backup/daily.0/localhost/ 
+mkdir -m 0755 -p /data/backup/daily.0/ 
+/usr/bin/rsync -a --delete --numeric-ids --relative --delete-excluded \
+    --exclude=*~ --exclude=*.bak \
+    --exclude-from=/etc/rsnapshot.d/excludes.txt /etc/ \
+    /data/backup/daily.0/localhost/ 
+mkdir -m 0755 -p /data/backup/daily.0/ 
+/usr/bin/rsync -a --delete --numeric-ids --relative --delete-excluded \
+    --exclude=*~ --exclude=*.bak \
+    --exclude-from=/etc/rsnapshot.d/excludes.txt /usr/ \
+    /data/backup/daily.0/localhost/ 
+touch /data/backup/daily.0/</screen>
+   </step>
+  </procedure>
+ </section>
+
+ <section xml:id="task-backup-rsnapshot-runfirstbackup">
+  <title>Running the first backup</title>
+  <para>After you have configured the external device and
+  changed the &rname; configuration file, it is time to run the backup. </para>
+  <procedure>
+   <step>
+    <para>Connect the external storage device.</para>
+   </step>
+   <step>
+    <para>Mount the device manually:</para>
+    <screen><command>sudo systemctl start data-backup.automount</command>
+● data-backup.automount
+     Loaded: loaded (/etc/fstab; generated)
+     Active: active (running) since Tue 2023-01-24 07:31:53 CET; 9h ago
+   Triggers: ● data-backup.mount
+      Where: /data/backup
+       Docs: man:fstab(5)
+             man:systemd-fstab-generator(8)</screen>
+    <!--<para>
+    You can check its status with the command <command>sudo systemctl status data-backup.automount</command>.
+   </para>-->
+   </step>
+   <step>
+    <para> Run the first backup and use the backup level
+    <emphasis>daily</emphasis>: </para>
+    <screen><command>sudo rsnapshot -v daily</command></screen>
+    <para> The backup will start. If it runs for the first time, it takes a
+     considerable amount of time. All subsequent backups are completed
+     faster.
+    </para>
+   </step>
+   <step>
+    <para>After the backup is finished, you can find it at
+      <filename>/data/backup/daily.0/localhost/</filename>.
+    </para>
+   </step>
+   <step>
+    <para>To unmount the external storage device, use the following command:</para>
+    <screen><command>sudo systemctl stop data-backup.automount</command></screen>
+   </step>
+   <step>
+    <para>Before unplugging the storage device, wait for confirmation that it has been successfully unmounted.</para>
+   </step>
+  </procedure>
+ </section>
+
+ <section xml:id="task-backup-rsnapshot-runbackups">
+  <title>Running consecutive backups</title>
+  <para>
+   For any consecutive backups, follow these steps:
+  </para>
+  <procedure>
+   <step>
+    <para>Connect the external device.</para>
+   </step>
+   <step>
+    <para>Mount the device:</para>
+    <screen><command>sudo systemctl start data-backup.automount</command><!--
+● data-backup.automount
+     Loaded: loaded (/etc/fstab; generated)
+     Active: active (running) since Tue 2023-01-24 07:31:53 CET; 9h ago
+   Triggers: ● data-backup.mount
+      Where: /data/backup
+       Docs: man:fstab(5)
+             man:systemd-fstab-generator(8)--></screen>
+   </step>
+   <step>
+    <para>
+     Perform backup. Because you perform the backup manually, you need to
+     decide which is <quote>next.</quote>
+     In most cases, it would be <emphasis>daily</emphasis>:
+    </para>
+    <screen><command>sudo rsnapshot daily</command></screen>
+    <para>When you want to switch to <emphasis>weekly</emphasis>,
+    run:</para>
+    <screen><command>sudo rsnapshot weekly</command></screen>
+    <para>
+     The same applies to the other backup levels.
+    </para>
+   </step>
+   <step>
+    <para>To unmount the external storage device, use the following command:</para>
+    <screen><command>sudo systemctl stop data-backup.automount</command></screen>
+   </step>
+   <step>
+    <para>Before unplugging the storage device, wait for confirmation that it has been successfully unmounted.</para>
+   </step>
+  </procedure>
+ </section>
+
+ <section xml:id="task-backup-rsnapshot-restore">
+  <title>Restoring a backup</title>
+  <para> When the external storage device is mounted, all the existing snapshots are
+   visible under the snapshot's root, the backup root directory. In our case it
+   is <filename>/data/backup/</filename>. The latest backup of the host can be
+   found under <filename>/data/backup/daily.0/localhost</filename>. The entire
+   directory tree looks like this: </para>
+  <example xml:id="ex-backup-rsnapshot-backuproot">
+   <title>File structure of the backup root directory</title>
+   <screen>/data/backup/
+├── daily.0
+│   └── localhost
+│       ├── etc
+│       └── home
+├── [... daily ...]
+├── weekly.0
+│   └── localhost
+│       ├── etc
+│       └── home
+├── [... weekly ...]
+├── monthly.0
+│   └── localhost
+│       ├── etc
+│       └── home
+├── [... monthly ...]
+└── [... yearly ...]</screen>
+  </example>
+
+  <para>
+   In the following subsections, we use the command
+    <command>rsync</command> to restore the backups. This command is also used internally by &rname;.
+   By default, <command>rsync</command> does not take into account ACLs and
+   extended attributes of a file system. To preserve these as well, you need to
+   pass the options <option>--acls</option> and <option>--xattrs</option> to the
+   command. </para>
+
+  <section xml:id="task-backup-rsnapshot-restore-files">
+   <title>Restoring files</title>
+   <para>
+    To restore a single file from the most recent backup,
+    use the <command>rsync</command> command as follows:
+   </para>
+   <screen><command>sudo rsync -av --acls --xattrs \
+   /data/backup/daily.0/localhost/home/&exampleuser_plain;/test-a.txt \
+   /home/&exampleuser_plain;/</command>
+sending incremental file list
+test-a.txt
+[...]</screen>
+   <para>
+    This restores the file <filename>test-a.txt</filename> to the home of
+    user &exampleuser;.
+   </para>
+   <para>
+    Restoring multiple file files of the same base directory is done in a similar manner.
+    Specify all the desired files as follows:
+   </para>
+   <screen><command>sudo rsync -av --acls --xattrs \
+   /data/backup/daily.0/localhost/home/&exampleuser_plain;/test-a.txt \
+   /data/backup/daily.0/localhost/home/&exampleuser_plain;/test-b.txt \
+   /home/&exampleuser_plain;/</command></screen>
+   <para> This restores the file <filename>test-a.txt</filename> and
+     <filename>test-b.txt</filename> to the home of user &exampleuser;.</para>
+   <para> If you have files with different directories, you need to run
+     <command>rsync</command> for each file or directory.. </para>
+  </section>
+
+  <section xml:id="task-backup-rsnapshot-restore-directories">
+   <title>Restoring directories</title>
+   <para> Restoring directories is similar to restoring
+    files. However, pay special attention to a slash (<literal>/</literal>) at
+    the end of the source path or
+    not:
+   </para>
+   <itemizedlist>
+    <listitem>
+     <formalpara>
+      <title>Omitting the slash from the source path</title>
+      <para>
+       Instructs <command>rsync</command> to restore the
+       <emphasis>complete directory</emphasis>:
+      </para>
+     </formalpara>
+     <screen><command>sudo rsync -av --acls --xattrs \
+    /data/backup/daily.0/localhost/home/&exampleuser_plain;/Documents \
+    /home/&exampleuser_plain;/</command>
+sending incremental file list
+Documents/
+Documents/foo/
+Documents/foo/bar/
+[...]</screen>
+    </listitem>
+    <listitem>
+     <formalpara>
+      <title>Adding a slash to the source path</title>
+      <para>Instructs <command>rsync</command> to restore the <emphasis>content</emphasis> of the directory, skipping
+      the directory itself:</para>
+     </formalpara>
+     <screen><command>sudo rsync -av --acls --xattrs \
+    /data/backup/daily.0/localhost/home/&exampleuser_plain;/Documents<emphasis role="strong">/</emphasis> \
+    /home/&exampleuser_plain;/</command>
+sending incremental file list
+./
+foo/
+foo/bar/
+[...]</screen>
+    </listitem>
+   </itemizedlist>
+  </section>
+
+  <section xml:id="task-backup-rsnapshot-restore-home">
+   <title>Restoring a complete home directory</title>
+   <para> This is the same as restoring a directory.</para>
+   <screen><command>sudo rsync -av --acls --xattrs \
+    /data/backup/daily.0/localhost/home/&exampleuser_plain; \
+    /home/</command>
+sending incremental file list
+&exampleuser_plain;/
+&exampleuser_plain;/.bash_history
+&exampleuser_plain;/.bashrc
+[...]</screen>
+   <para>
+    This restores the complete home directory of user &exampleuser;. If you want
+    to know what data is restored, use  the option <option>--log-file</option>as follows:
+   </para>
+   <screen><command>sudo rsync --log-file=/var/log/home-&exampleuser_plain;.log [... rest ...]</command></screen>
+   <para>The file <filename>/var/log/home-&exampleuser_plain;.log</filename>
+    contains an exhaustive list of all files that have been restored.</para>
+  </section>
+ </section>
+
+ <section xml:id="task-backup-rsnapshot-troubleshooting">
+  <title>Troubleshooting</title>
+  <qandaset>
+   <qandaentry>
+    <question>
+     <para>When I run <command>rsnapshot daily</command>, I get:</para>
+     <screen>ERROR: /data/backup/ does not exist.
+ERROR: rsnapshot refuses to create snapshot_root when no_create_root is enabled</screen>
+    </question>
+    <answer>
+     <para> The external storage device is probably not mounted. Mount
+      the device, and check if the disk is mounted successfully with the command
+       <command>df</command>:</para>
+     <screen>/dev/sdc1      xfs       1,0T    845G  156G   85% /data/backup</screen>
+    </answer>
+   </qandaentry>
+   <qandaentry>
+    <question>
+     <para>I get the following error:</para>
+     <screen>ERROR: /etc/rsnapshot.conf on line 23:
+ERROR: snapshot_root /data/backup/ - missing tabs to separate words - \
+         change spaces to tabs.</screen>
+    </question>
+    <answer>
+     <para> There is probably a space between a keyword and its value. Open
+      your editor and position the cursor on line 23. Remove the space between
+      keyword and value and press <keycap function="tab" />.</para>
+    </answer>
+   </qandaentry>
+   <qandaentry>
+    <question>
+     <para>I checked the config with <command>rsnapshot configtest</command> and
+      it is correct. However, I still get an error:</para>
+     <screen>/usr/bin/rsync syntax or usage error. Does this version of rsync support --link-dest?</screen>
+    </question>
+    <answer>
+     <para>There may be a typo in one of the options for
+       <command>rsync</command>. Check <option>rsync_short_args</option> and
+       <option>rsync_long_args</option> carefully and compare the options with
+      the man page.</para>
+    </answer>
+   </qandaentry>
+  </qandaset>
+ </section>
+
+ <!--<section xml:id="task-backup-rsnapshot-next-steps">
+  <title>Next steps</title>
+  <itemizedlist>
+   <listitem>
+    <para>
+     TBD
+    </para>
+   </listitem>
+  </itemizedlist>
+ </section>-->
+
+  <section xml:id="task-backup-rsnapshot-related-topics">
+  <title>Related topics</title>
+  <itemizedlist>
+   <listitem>
+    <para>
+     <link xlink:href="https://rsnapshot.org"/>
+    </para>
+   </listitem>
+  </itemizedlist>
+ </section>
+</article>
