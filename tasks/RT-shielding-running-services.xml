@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="rt-shielding-resources-running-services"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Managing jobs and services within a shield</title><!-- can be changed via merge
+in the assembly -->
+    <!-- add author's e-mail -->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+    <para>
+    This section explains how to manage jobs and services within the shielded environment, showing you how to assign both persistent &systemd; services and ad-hoc tasks to the dedicated <filename>workload.slice</filename>. Additionally, it covers how to safely unshield processes and return them to standard system CPUs when dedicated resources are no longer required.
+  </para>
+    </abstract>
+  </info>  
+  <section xml:id="rt-shielding-resources-running-services-assignement">
+  <title>Assigning services and tasks to the shielded slice</title>
+  <para>
+    To execute workloads within the CPU shield, assign &systemd; service units or transient scopes to <filename>workload.slice</filename>.
+  </para>
+  <procedure xml:id="pro-run-jobs-in-shield">
+        <step>
+      <para>
+        Create a drop-in configuration file for your service to assign it to <filename>workload.slice</filename>.
+      </para>
+      <screen>&prompt.sudo;<command>cat /etc/systemd/system/<replaceable>SENSITIVE</replaceable>.service.d/40-shielding.conf</command>
+[Service]
+Slice=workload.slice</screen>
+    </step>
+    <step>
+      <para>
+        Restart the service unit to apply the new slice configuration.
+      </para>
+      <screen>&prompt.sudo;<command>systemctl restart <replaceable>SENSITIVE</replaceable>.service</command></screen>
+    </step>
+    <step>
+      <para>
+        To run an ad-hoc command inside the shield, execute it within a transient scope using <command>systemd-run</command>.
+      </para>
+      <screen>&prompt.sudo;<command>systemd-run --scope --uid=tux -p Slice=workload.slice command arg1</command></screen>
+    </step>
+  </procedure>
+  </section>
+  <section xml:id="rt-shielding-resources-running-services-unshield">
+  <title>Unshielding processes</title>
+  <para>
+  To remove a process from a CPU shield, reassign its <literal>AllowedCPUs</literal> setting back to standard system CPUs. For transient applications created with <command>systemd-run</command>, stopping the transient unit unshields the process:
+  </para>
+  <screen>&prompt.sudo;<command>systemctl stop <replaceable>RT-APPLICATION</replaceable></command></screen>
+  </section>
+</topic>
