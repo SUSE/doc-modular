@@ -20,11 +20,8 @@
     <meta name="maintainer" content="ssarkar@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        &kexec; lets a running Linux kernel hand control directly to another kernel, without
-        going through firmware or boot loader initialization. &productnameshort; builds on
-        &kexec; for two distinct purposes: fast reboots, and &kdump;, which uses &kexec; to
-        start a small secondary kernel that captures the contents of memory after the main
-        kernel panics.
+        &kdump; is built on &kexec;. This section explains how the two relate, how a kernel is
+        loaded with &kexec;, and what a captured crash dump contains.
       </para>
     </abstract>
   </info>
@@ -45,7 +42,7 @@
       </listitem>
       <listitem>
         <para>
-          <emphasis role="bold">Avoiding unreliable firmware or hardware.</emphasis> Since
+          <emphasis role="bold">Avoiding firmware and boot loader problems.</emphasis> Since
           &kexec; does not depend on a working boot loader configuration, it can boot a system
           even if the boot loader configuration is broken.
         </para>
@@ -55,7 +52,44 @@
           <emphasis role="bold">Capturing the state of a crashed kernel.</emphasis> &kdump; uses
           &kexec; to boot a secondary kernel into a small, pre-reserved area of memory whenever
           the main kernel panics, so the contents of the main kernel's memory can be saved for
-          analysis before the system reboots normally.
+          analysis before the system reboots normally. Without such a dump, a kernel crash often
+          leaves no record of what went wrong: logging services fail along with the kernel, and
+          the console is frozen or blank.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="kexec-kdump-fundamentals-load-modes">
+    <title>Loading a kernel with &kexec;</title>
+    <para>
+      The <command>kexec</command> command, which uses the <literal>kexec</literal> system
+      call, loads a kernel into memory in one of two ways:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Load a kernel into the running system's memory for a regular reboot:
+        </para>
+        <screen>&prompt.sudo; kexec -l <replaceable>KERNEL_IMAGE</replaceable> --initrd=<replaceable>INITRD_IMAGE</replaceable> --append="<replaceable>KERNEL_OPTIONS</replaceable>"</screen>
+        <para>
+          Boot into the loaded kernel later with <command>kexec -e</command>. This reboots
+          immediately without calling <command>shutdown</command>(8), so services are not
+          stopped cleanly. To load the default kernel, initrd, and kernel options from the boot
+          loader configuration instead of naming them yourself, run
+          <command>kexec-bootloader</command>, which is part of the
+          <package>update-bootloader</package> package, and then <command>kexec -e</command>.
+          For routine reboots, <command>systemctl kexec</command> is the simpler choice. See
+          <xref linkend="kexec-fast-reboot"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Load a kernel into the reserved memory area for use when the system panics:
+        </para>
+        <screen>&prompt.sudo; kexec -p <replaceable>KERNEL_IMAGE</replaceable> --initrd=<replaceable>INITRD_IMAGE</replaceable> --append="<replaceable>KERNEL_OPTIONS</replaceable>"</screen>
+        <para>
+          This kernel starts automatically when the running kernel panics. This is how &kdump;
+          loads the capture kernel; you do not normally run this command yourself.
         </para>
       </listitem>
     </itemizedlist>
@@ -77,7 +111,9 @@
           <emphasis role="bold">The capture kernel</emphasis> (also called the crash kernel or
           &kdump; kernel) is a second, minimal kernel image, together with its own
           <filename>initramfs</filename>, loaded ahead of time into a region of memory reserved
-          specifically for it. It stays idle until the production kernel panics.
+          specifically for it. It stays idle until the production kernel panics. &kdump; builds
+          the <filename>initramfs</filename> so that it contains the drivers and tools, such as
+          <command>makedumpfile</command>, needed to save the dump.
         </para>
       </listitem>
     </itemizedlist>
@@ -118,6 +154,13 @@
         <para>
           <emphasis role="bold">Memory pages:</emphasis> depending on the configured dump level,
           the actual data held in RAM by the kernel and by user-space applications.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <emphasis role="bold">VMCOREINFO:</emphasis> a section that records how the kernel's
+          memory was laid out, such as the kernel release, the page size, and the addresses of
+          kernel symbols, so that analysis tools can interpret the raw memory.
         </para>
       </listitem>
     </itemizedlist>
