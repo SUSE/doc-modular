@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="rt-cpu-scheduling-policies"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Real-time CPU scheduling policies</title><!-- can be changed via merge in the assembly -->
+    <!--add author's email address-->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+       The Linux kernel's scheduler allocates processor execution time to running threads according to process-level CPU scheduling policies.
+      </para>
+    </abstract>
+  </info>
+      <para>
+      The Linux kernel scheduler can use the following policies:
+    </para>
+    <variablelist>
+    <varlistentry>
+    <term><literal>SCHED_FIFO</literal></term>
+    <listitem>
+    <para><emphasis role="bold">First In, First Out</emphasis>: A running thread continues executing until it blocks on an I/O request, explicitly yields execution, or is preempted by a higher-priority real-time thread. Priority levels range from 1 (lowest) to 99 (highest).</para>
+    </listitem>
+    </varlistentry>
+    <varlistentry>
+    <term><literal>SCHED_RR</literal></term>
+    <listitem>
+    <para><emphasis role="bold">Round Robin</emphasis>: Similar to <literal>SCHED_FIFO</literal>, but threads of identical priority receive fixed time slices to prevent a single thread from monopolizing execution on a core.</para>
+    </listitem>
+    </varlistentry>
+    </variablelist>
+  <para>
+  In production real-time environments, there are three primary ways to set these policies depending on whether control belongs to the system administrator, a startup script, or the developer:
+  </para>
+<itemizedlist>
+<listitem>
+<para><emphasis role="bold">Persistently using &systemd; unit files</emphasis>: The policy is set in a <literal>.service</literal> unit file. For details, refer to <xref linkend="rt-cpu-scheduling-policies-units"/>.</para>
+</listitem>
+<listitem>
+<para><emphasis role="bold">Temporary using <command>chrt</command></emphasis>: For details, refer to <xref linkend="rt-cpu-scheduling-policies-chrt"/>.</para>
+</listitem>
+<listitem>
+<para><emphasis role="bold">Programmatically within the application code</emphasis>: Real-time applications can configure their own policies internally using POSIX API calls.</para>
+</listitem>
+</itemizedlist>
+<section xml:id="rt-cpu-scheduling-policies-units">
+<title>Configuring policies using &systemd;</title>
+<para>
+To configure a scheduling policy or set a cheduling priority for a service, edit the particular <filename>.service</filename> unit file:
+</para>
+<screen>
+[Service]
+CPUSchedulingPolicy=fifo
+CPUSchedulingPriority=42
+ExecStart=<replaceable>PATH_TO_APP_BINARY</replaceable>
+</screen>
+<para>
+Alternatively, configure the policy and priority dynamically using <command>systemd-run</command>:
+</para>
+<screen>&prompt.sudo;<command>systemd-run --property=CPUSchedulingPolicy=fifo --property=CPUSchedulingPriority=42 <replaceable>PATH_TO_APP_BINARY</replaceable></command>
+</screen>
+
+</section>
+<section xml:id="rt-cpu-scheduling-policies-chrt">
+<title>Managing policies using <command>chrt</command></title>
+<para>
+You can change policy and priority of processes on the fly using the <command>chrt</command> command. The command interacts directly with the <literal>sched_setscheduler()</literal> system call and operates independently of cgroup configurations. You can use the command to perform the following tasks:
+</para>
+<itemizedlist>
+    <listitem>
+      <para>
+        Display valid system priority ranges for supported scheduling policies:
+      </para>
+      <screen>&prompt.sudo;<command>chrt -m</command></screen>
+    </listitem>
+
+    <listitem>
+      <para>
+        Query the active policy and real-time priority of a running process (for example, PID 1437):
+      </para>
+      <screen>&prompt.sudo;<command>chrt -p 1437</command></screen>
+    </listitem>
+
+    <listitem>
+      <para>
+        Set a running process to <literal>SCHED_FIFO</literal> with priority 42:
+      </para>
+      <screen>&prompt.sudo;<command>chrt --fifo -p 42 1437</command></screen>
+    </listitem>
+
+    <listitem>
+      <para>
+        Launch a new application under <literal>SCHED_RR</literal> with priority 20:
+      </para>
+      <screen>&prompt.sudo;<command>chrt --rr 20 <replaceable>PATH_TO_APP_BINARY</replaceable></command></screen>
+    </listitem>
+  </itemizedlist>
+  <para>
+  For more details about <command>chrt</command>, refer to <link xlink:href="https://man7.org/linux/man-pages/man1/chrt.1.html">chrt(1) man page</link>.
+  </para>
+</section>
+</topic>

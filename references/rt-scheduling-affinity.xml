@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="rt-cpu-scheduling-affinity"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+   <title>Managing CPU affinity</title><!-- can be changed via merge in the assembly -->
+    <!--add author's email address-->
+    <meta name="maintainer" content="jsindelarova@suse.com" its:translate="no"/>
+    <abstract><!-- can be changed via merge in the assembly -->
+      <para>
+    CPU affinity binds a process or thread to a specified subset of logical CPU cores. 
+    You can manage affinity ad-hoc at the individual process level using the 
+    <command>taskset</command> command from the <package>util-linux</package> package, 
+    or configure it declaratively for services using 
+    &systemd;.
+    </para>
+    </abstract>
+  </info>
+  <note>
+  <para>
+      A process cannot execute on CPU cores outside the boundaries 
+      defined by its parent cgroup's <filename>cpuset.cpus</filename> attribute. This 
+      restriction applies equally whether affinity is managed imperatively using 
+      <command>taskset</command> or declaratively using &systemd;.
+    </para>
+  </note>
+  <section xml:id="rt-cpu-scheduling-affinity-taskset">
+    <title>Managing CPU affinity with <command>taskset</command></title>
+    <para>
+      To set a specific logical CPU core to a process use <command>taskset</command> with the <option>-c</option> option. See the examples below:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Display the current CPU affinity list of a running process (for example, PID 1437):
+        </para>
+        <screen>&prompt.sudo;<command>taskset -c -p 1437</command></screen>
+      </listitem>
+
+      <listitem>
+        <para>
+          Bind a running process to logical CPU cores #1 and #3:
+        </para>
+        <screen>&prompt.sudo;<command>taskset -c -p 1,3 1437</command></screen>
+      </listitem>
+
+      <listitem>
+        <para>
+          Launch a new command bound exclusively to CPU cores #0 through #2:
+        </para>
+        <screen>&prompt.sudo;<command>taskset -c 0-2 <replaceable>PATH_TO_APP_BINARY</replaceable></command></screen>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="rt-cpu-scheduling-affinity-systemd">
+    <title>Configuring CPU affinity using &systemd;</title>
+      <para>
+      When configuring services in &systemd;, two 
+      distinct directives interact with CPU assignment:
+    </para>
+
+    <variablelist>
+      <varlistentry>
+        <term><literal>CPUAffinity=</literal></term>
+        <listitem>
+          <para>
+            Sets CPU affinity at the individual process level. The effective set of 
+            CPU cores is the <emphasis>intersection</emphasis> of the requested cores 
+            and the parent cgroup's allowed cores. If there is no overlap (for example, 
+            requesting CPU 3 inside a cgroup limited to CPUs 0–2), the kernel rejects the 
+            request with an <literal>Invalid argument</literal> error, and 
+            &systemd; fails to start the unit.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><literal>AllowedCPUs=</literal></term>
+        <listitem>
+          <para>
+            Configures cgroup-level resource limits directly in the 
+            <filename>cpuset.cpus</filename> control file. Because cgroups v2 strictly 
+            enforces a top-down hierarchy, a service or child slice cannot be assigned 
+            CPUs that its parent slice does not possess.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist> 
+       <tip>
+  <para>
+    For details on isolating dedicated CPU cores and creating custom slices 
+    for real-time tasks, refer to the <link xlink:href="https://documentation.suse.com/sles/&productnumber;/html/SLES-RT-cpu-scheduling/">Shielding Linux Resources on &productname;</link> article.
+  </para>
+</tip>
+  </section>
+</topic>
