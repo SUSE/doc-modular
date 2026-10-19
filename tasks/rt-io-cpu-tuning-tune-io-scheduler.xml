@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<?xml-stylesheet href="urn:x-suse:xslt:profiling:docbook51-profile.xsl"
+    type="text/xml"
+    title="Profiling step"?>
+<!DOCTYPE article
+[
+<!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+%entities;
+]>
+<topic xml:id="rt-io-cpu-tuning-tune-io-scheduler" xml:lang="en"
+       role="task"
+       xmlns="http://docbook.org/ns/docbook" version="5.1"
+       xmlns:its="http://www.w3.org/2005/11/its"
+       xmlns:xi="http://www.w3.org/2001/XInclude"
+       xmlns:xlink="http://www.w3.org/1999/xlink">
+    <info>
+        <meta name="maintainer" content="daria.vladykina@suse.com" its:translate="no"/>
+        <title>Tuning block device I/O scheduler parameters</title>
+        <abstract>
+            <para>Fine-tune operational parameters of active block device schedulers in 
+                <literal>sysfs</literal> to optimize read and write latency for real-time applications.</para>
+        </abstract>
+    </info>
+    <para>
+        All schedulers, except for the <literal>none</literal> scheduler, have
+        several common parameters that may be tuned for each block device. You can
+        access these parameters with <systemitem class="resource">sysfs</systemitem>
+        in the <filename>/sys/block/<replaceable>DEVICE</replaceable>/queue/iosched/</filename>
+        directory. The following parameters are tunable for the respective
+        scheduler:
+    </para>
+    <variablelist>
+        <title>The <literal>mq-deadline</literal> scheduler</title>
+        <varlistentry>
+            <term><literal>read_expire</literal></term>
+            <listitem>
+                <para>
+                    The main focus of this scheduler is to limit the start latency for a
+                    request to a given time. Therefore, for each request, a deadline is
+                    calculated from the current time plus the value of
+                    <literal>read_expire</literal> in milliseconds.
+                </para>
+            </listitem>
+        </varlistentry>
+        <varlistentry>
+            <term><literal>write_expire</literal></term>
+            <listitem>
+                <para>
+                    Similar to <literal>read_expire</literal> for write requests.
+                </para>
+            </listitem>
+        </varlistentry>
+        <varlistentry>
+            <term><literal>fifo_batch</literal></term>
+            <listitem>
+                <para>
+                    If a request hits its deadline, it is necessary to move the request
+                    from the sorted I/O scheduler list to the dispatch queue. The variable
+                    <literal>fifo_batch</literal> controls how many requests are moved,
+                    depending on the cost of each request.
+                </para>
+            </listitem>
+        </varlistentry>
+        <varlistentry>
+            <term><literal>front_merges</literal></term>
+            <listitem>
+                <para>
+                    The scheduler normally tries to find contiguous I/O requests and
+                    merges them. There are two kinds of merges: The new I/O request may be
+                    in front of the existing I/O request (front merge), or it may follow
+                    behind the existing request (back merge). Most merges are back merges.
+                    Therefore, you can disable the front merge functionality by setting
+                    <literal>front_merges</literal> to <literal>0</literal>.
+                </para>
+            </listitem>
+        </varlistentry>
+        <varlistentry>
+            <term><literal>writes_starved</literal></term>
+            <listitem>
+                <para>
+                    If some read or write requests hit their deadline, the scheduler
+                    prefers the read requests by default. To prevent write requests from
+                    being postponed forever, the variable
+                    <literal>writes_starved</literal> controls how often read requests are
+                    preferred until write requests are preferred over read requests.
+                </para>
+            </listitem>
+        </varlistentry>
+    </variablelist>
+    <variablelist>
+        <title>The <literal>bfq</literal> scheduler</title>
+        <!-- TODO: engineering to verify the parameter list and wording for BFQ -->
+        <varlistentry>
+            <term><literal>back_seek_max</literal> and <literal>back_seek_penalty</literal></term>
+            <listitem>
+                <para>
+                    The scheduler normally dispatches requests in a strict ascending order. When needed,
+                    it also allows small backward seeks, but it applies a penalty on them.
+                    The maximum backward sector seek is defined with
+                    <literal>back_seek_max</literal>, and the multiplier for the penalty
+                    is set by <literal>back_seek_penalty</literal>.
+                </para>
+            </listitem>
+        </varlistentry>
+        <varlistentry>
+            <term><literal>fifo_expire_async</literal> and <literal>fifo_expire_sync</literal></term>
+            <listitem>
+                <para>
+                    The <literal>fifo_expire_*</literal> variables define the timeout in
+                    milliseconds for asynchronous and synchronous I/O requests. 
+                    Set <literal>fifo_expire_sync</literal> lower than <literal>fifo_expire_async</literal>
+                    to prioritize synchronous requests over asynchronous operations.
+                </para>
+            </listitem>
+        </varlistentry>
+        <varlistentry>
+            <term><literal>slice_idle</literal> and <literal>slice_idle_us</literal></term>
+            <listitem>
+                <para>
+                    Defines how long the I/O scheduler idles before servicing the next
+                    thread to maintain sequential I/O locality. <literal>slice_idle</literal> 
+                specifies this time in milliseconds, while <literal>slice_idle_us</literal> 
+                specifies it in microseconds.
+                </para>
+            </listitem>
+        </varlistentry>
+    </variablelist>
+</topic>
