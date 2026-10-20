@@ -20,7 +20,16 @@
     <title>Troubleshooting software RAID devices</title>
     <abstract>
 <para>
-  Troubleshooting RAID is critical because RAID provides redundancy, not a true backup—meaning an undetected drive failure leaves your system just one disk away from total data loss. Timely diagnosis ensures you can replace failing drives and rebuild degraded arrays before a secondary failure leads to catastrophic downtime.
+  Troubleshooting RAID is critical because RAID provides redundancy, not a true backup—meaning an undetected drive failure leaves your system just one disk away from total data loss.
+Modern Linux systems monitor RAID health using <literal>mdmonitor.service</literal>, which sends automated alerts to ensure drive degradation is detected early.
+These systems use the <literal>mdcheck_start.service</literal> and <literal>mdcheck_continue.service</literal> systemd services to run automated weekly surface checks across all active RAID arrays. When these periodic checks execute, the kernel logs will record messages indicating array verification activity, allowing administrators to confirm that routine maintenance is actively running and catching silent data corruption early.
+For example, users will see:</para>
+<screen>Sep 06 01:00:01 zeus kernel: md: data-check of RAID array md126
+  Sep 06 02:26:35 zeus kernel: md: md126: data-check done.
+  Sep 06 02:28:01 zeus mdcheck[31069]: finished checking /dev/md126</screen>
+  <para>The result of the check (number of mismatches) is then available from <filename>/sys/block/$MD_DEV/md/mismatch_cnt</filename>.</para>
+<para>
+Timely diagnosis ensures you can replace failing drives and rebuild degraded arrays before a secondary failure leads to catastrophic downtime.
 </para>
     </abstract>
   </info>
@@ -49,30 +58,7 @@
 </listitem>
 </itemizedlist>
   </section>
-   <section xml:id="array-assemble">
-        <title> Array refuses to assemble after a reboot or power outage</title>
-        <itemizedlist>
-          <listitem><para><emphasis role="bold">Symptom:</emphasis>  System drops to emergency shell, or <filename>/dev/md0</filename> does not exist because drive ordering shifted (e.g., /dev/sdb became /dev/sdc).
-          </para></listitem>
-          <listitem><para><emphasis role="bold">Solution:</emphasis> Auto-scan and force assembly using drive metadata superblocks.</para>
-          <orderedlist>
-          <listitem><para>Discover and assemble inactive arrays:</para>
-<screen>&prompt.sudo; mdadm --assemble --scan</screen>
-          </listitem>
-          <listitem><para>If an array dropped out-of-sync drives, force start it: </para>
-<screen>&prompt.sudo; mdadm --assemble --force /dev/md0 /dev/sda1 /dev/sdb1</screen>
-            </listitem>
-            <listitem><para>Update <filename>/etc/mdadm/mdadm.conf</filename> with persistent UUIDs:</para>
-<screen>&prompt.sudo; mdadm --detail --scan &gt;&gt; /etc/mdadm/mdadm.conf</screen>
-              </listitem>
-              <listitem><para>Update initramfs to fix boot failure:</para>
-<screen>&prompt.sudo; dracut -f</screen>
-                </listitem>
-          </orderedlist>
-          </listitem>
-          </itemizedlist>
-          </section>
-          <section xml:id="data-corrupion">
+    <section xml:id="data-corrupion">
             <title> Silent data corruption or parity inconsistency</title>
             <itemizedlist>
               <listitem><para><emphasis role="bold">Symptom:</emphasis> File system errors occur despite the array reporting all member drives as healthy ([UU]).
