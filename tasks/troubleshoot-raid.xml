@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/adm_sudo.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="troubleshoot-raid"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
+    <title>Troubleshooting software RAID devices</title>
+    <abstract>
+<para>
+  Troubleshooting RAID is critical because RAID provides redundancy, not a true backup—meaning an undetected drive failure leaves your system just one disk away from total data loss.
+Modern Linux systems monitor RAID health using <literal>mdmonitor.service</literal>, which sends automated alerts to ensure drive degradation is detected early.
+These systems use the <literal>mdcheck_start.service</literal> and <literal>mdcheck_continue.service</literal> systemd services to run automated weekly surface checks across all active RAID arrays. When these periodic checks execute, the kernel logs will record messages indicating array verification activity, allowing administrators to confirm that routine maintenance is actively running and catching silent data corruption early.
+For example, users will see:</para>
+<screen>Sep 06 01:00:01 zeus kernel: md: data-check of RAID array md126
+  Sep 06 02:26:35 zeus kernel: md: md126: data-check done.
+  Sep 06 02:28:01 zeus mdcheck[31069]: finished checking /dev/md126</screen>
+  <para>The result of the check (number of mismatches) is then available from <filename>/sys/block/$MD_DEV/md/mismatch_cnt</filename>.</para>
+<para>
+Timely diagnosis ensures you can replace failing drives and rebuild degraded arrays before a secondary failure leads to catastrophic downtime.
+</para>
+    </abstract>
+  </info>
+  <section xml:id="failed-disk">
+<title>Array is degraded or running with a failed disk</title>
+<itemizedlist>
+<listitem><para><emphasis role="bold">Symptom:</emphasis> The command <command>cat /proc/mdstat</command> shows missing disk flags like [U_] instead of [UU], or system alerts report an active disk failure.</para></listitem>
+<listitem><para><emphasis role="bold">Solution:</emphasis> Fail, remove, replace, and trigger array rebuild.</para>
+<orderedlist>
+<listitem><para>Mark drive failed (if kernel hasn't already):</para>
+<screen>&prompt.sudo; mdadm /dev/md0 --fail /dev/sdb1</screen>
+</listitem>
+<listitem><para>Remove failed partition:</para>
+<screen>&prompt.sudo;  mdadm /dev/md0 --remove /dev/sdb1 </screen>
+  </listitem>
+  <listitem><para>Clone partition layout to new disk:</para>
+<screen>&prompt.sudo; sfdisk -d /dev/sda | sfdisk /dev/sdb</screen>
+    </listitem>
+    <listitem><para>Add new disk partition:</para>
+<screen>&prompt.sudo;  mdadm /dev/md0 --add /dev/sdb1</screen>
+      </listitem>
+      <listitem><para>Monitor resync progress:</para>
+ <screen>&prompt.sudo; watch -n 1 cat /proc/mdstat</screen>
+        </listitem>
+</orderedlist>
+</listitem>
+</itemizedlist>
+  </section>
+    <section xml:id="data-corrupion">
+            <title> Silent data corruption or parity inconsistency</title>
+            <itemizedlist>
+              <listitem><para><emphasis role="bold">Symptom:</emphasis> File system errors occur despite the array reporting all member drives as healthy ([UU]).
+              </para></listitem>
+              <listitem><para><emphasis role="bold">Solution:</emphasis> Run array scrubbing and check status logs.</para>
+              <orderedlist>
+              <listitem><para>Trigger background data check:</para>
+<screen>&prompt.sudo; echo check &gt; /sys/block/md0/md/sync_action
+    </screen>
+              </listitem>
+              <listitem><para>Check mismatch count (0 means healthy): </para>
+<screen>&prompt.sudo; cat /sys/block/md0/md/mismatch_cnt </screen>
+                </listitem>
+                <listitem><para>Inspect kernel logs for bad sectors:</para>
+<screen>&prompt.sudo; dmesg | grep -E "md|sd|nvme|I/O error"</screen>
+                  </listitem>
+                  <listitem><para>Repair inconsistencies if non-zero:</para>
+    <screen>&prompt.sudo; echo repair &gt; /sys/block/md0/md/sync_action
+    </screen>
+                    </listitem>
+              </orderedlist>
+              </listitem>
+              </itemizedlist>
+              </section>
+    </topic>
