@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<?xml-stylesheet href="urn:x-suse:xslt:profiling:docbook51-profile.xsl"
+    type="text/xml"
+    title="Profiling step"?>
+<!DOCTYPE article
+[
+<!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+%entities;
+]>
+<topic xml:id="rt-io-cpu-tuning-change-io-scheduler" xml:lang="en"
+       role="task"
+       xmlns="http://docbook.org/ns/docbook" version="5.1"
+       xmlns:its="http://www.w3.org/2005/11/its"
+       xmlns:xi="http://www.w3.org/2001/XInclude"
+       xmlns:xlink="http://www.w3.org/1999/xlink">
+    <info>
+        <meta name="maintainer" content="daria.vladykina@suse.com" its:translate="no"/>
+        <title>Changing the block device I/O scheduler</title>
+        <abstract>
+            <para>Display and change the I/O scheduler of a block device.</para>
+        </abstract>
+    </info>
+    <variablelist>
+        <title>The Linux I/O schedulers</title>
+        <varlistentry>
+            <term><literal>none</literal></term>
+            <listitem>
+                <para>
+                    The <literal>none</literal> scheduler is a simple scheduler that
+                    performs no reordering of I/O requests. This scheduler is mainly used
+                    for specialized environments that run their own schedulers optimized
+                    for the used hardware, such as fast NVMe storage, storage systems or
+                    hardware RAID controllers.
+                </para>
+            </listitem>
+        </varlistentry>
+        <varlistentry>
+            <term><literal>mq-deadline</literal></term>
+            <listitem>
+                <para>
+                    The main point of deadline scheduling is to try hard to answer a
+                    request before a given deadline. This results in good I/O for a
+                    random single I/O in real-time environments.
+                </para>
+                <para>
+                    In principle, the <literal>mq-deadline</literal> scheduler uses two
+                    lists with all requests. One is sorted by block sequences to reduce
+                    seeking latencies, the other is sorted by expire times for each
+                    request. Normally, requests are served according to the block
+                    sequence, but if a request reaches its deadline, the scheduler starts
+                    to work on this request.
+                </para>
+            </listitem>
+        </varlistentry>
+        <varlistentry>
+            <term><literal>bfq</literal></term>
+            <listitem>
+                <para>
+                    The Budget Fair Queueing (BFQ) scheduler uses a separate I/O queue for
+                    each process and tries to divide the bandwidth fairly between all
+                    requesting processes. <!-- TODO: verify wording and default status with engineering -->
+                </para>
+            </listitem>
+        </varlistentry>
+    </variablelist>
+    <procedure xml:id="pro-change-io-scheduler">
+        <title>Displaying and changing the I/O scheduler</title>
+        <step>
+            <para>
+                To print the current scheduler of a block device such as
+                <filename>/dev/sda</filename>, use the following command:
+            </para>
+<screen>&prompt.user;<command>cat /sys/block/sda/queue/scheduler</command>
+none [mq-deadline] bfq</screen>
+            <para>
+                The scheduler in square brackets is the active one. In this case, the
+                scheduler for <filename>/dev/sda</filename> is set to
+                <literal>mq-deadline</literal>.
+            </para>
+        </step>
+        <step>
+            <para>
+                To change the scheduler, write one of the listed names to
+                <filename>/sys/block/<replaceable>DEVICE</replaceable>/queue/scheduler</filename>.
+                For example, to set the I/O scheduler of the device
+                <filename>/dev/sda</filename> to <literal>none</literal>, use the
+                following command as &rootuser;:
+            </para>
+<screen>&prompt.root;<command>echo "none" > /sys/block/sda/queue/scheduler</command></screen>
+        </step>
+    </procedure>
+    <para>
+        To set other variables in the <filename>/sys/</filename> file system, use a
+        similar approach.
+    </para>
+</topic>
