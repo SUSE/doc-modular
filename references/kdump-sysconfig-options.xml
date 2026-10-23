@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/tuning_kexec.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="kdump-sysconfig-options"
+ role="reference" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Key options in <filename>/etc/sysconfig/kdump</filename></title>
+    <meta name="maintainer" content="ssarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        <filename>/etc/sysconfig/kdump</filename> is the main &kdump; configuration file. Every
+        option is documented with comments directly in the file. This table summarizes the ones
+        you need most often.
+      </para>
+    </abstract>
+  </info>
+  <table>
+    <title>Frequently used <filename>/etc/sysconfig/kdump</filename> options</title>
+    <tgroup cols="2">
+      <thead>
+        <row>
+          <entry>Option</entry>
+          <entry>Purpose</entry>
+        </row>
+      </thead>
+      <tbody>
+        <row>
+          <entry><literal>KDUMP_CRASHKERNEL</literal></entry>
+          <entry>Crash kernel memory reservation. <literal>auto</literal> (default) uses the
+            value from <command>kdumptool calibrate</command>. See
+            <xref linkend="kdump-crashkernel-memory-sizing"/>.</entry>
+        </row>
+        <row>
+          <entry><literal>KDUMP_UPDATE_BOOTLOADER</literal></entry>
+          <entry>When <literal>true</literal> (default), <literal>kdump-commandline.service</literal>
+            updates the boot loader configuration whenever the running kernel command line does
+            not match the expected <literal>crashkernel=</literal> options. Set to
+            <literal>false</literal> to only check and warn, without modifying the boot loader.</entry>
+        </row>
+        <row>
+          <entry><literal>KDUMP_KERNELVER</literal></entry>
+          <entry>Kernel version string to use for the capture kernel. Leave empty to
+            auto-detect a suitable kernel.</entry>
+        </row>
+        <row>
+          <entry><literal>KDUMP_CPUS</literal></entry>
+          <entry>Number of CPUs available to the capture kernel environment (default: 32, or
+            all available CPUs if set to 0). Lowering this reduces the capture kernel's memory
+            footprint.</entry>
+        </row>
+        <row>
+          <entry><literal>KDUMP_SAVEDIR</literal></entry>
+          <entry>Where captured dumps are stored. Defaults to <filename>/var/crash</filename>.
+            See <xref linkend="kdump-remote-dump-storage"/> for remote targets.</entry>
+        </row>
+        <row>
+          <entry><literal>KDUMP_KEEP_OLD_DUMPS</literal></entry>
+          <entry>Number of old dumps to keep. Honored only for local save directories. The default,
+            <literal>0</literal>, never deletes old dumps. <literal>-1</literal> deletes all old
+            dumps, so that only the newly saved dump remains.</entry>
+        </row>
+        <row>
+          <entry><literal>KDUMP_FREE_DISK_SIZE</literal></entry>
+          <entry>Minimum free space, in megabytes, that must remain at the save location after
+            writing a dump. &kdump; refuses to save a dump that would drop below this
+            threshold. Default: <literal>64</literal>.</entry>
+        </row>
+        <row>
+          <entry><literal>KDUMP_DUMPLEVEL</literal></entry>
+          <entry>How much of memory to include in the dump, from <literal>0</literal> (largest,
+            most complete dump) to <literal>31</literal> (smallest, the default). See
+            <literal>man 5 kdump</literal> for the table of levels.</entry>
+        </row>
+        <row>
+          <entry><literal>KDUMP_DUMPFORMAT</literal></entry>
+          <entry>Format of the saved dump. The default, <literal>compressed</literal>, produces small
+            dumps that only <command>crash</command> can analyze. <literal>ELF</literal> produces
+            larger dumps that GDB can also read. <literal>none</literal> saves only the kernel
+            log. See <literal>man 5 kdump</literal> for the other formats.</entry>
+        </row>
+        <row>
+          <entry><literal>KDUMP_IMMEDIATE_REBOOT</literal></entry>
+          <entry>When <literal>true</literal> (default), the system reboots automatically once the
+            dump is saved.</entry>
+        </row>
+        <row>
+          <entry><literal>KDUMP_CONTINUE_ON_ERROR</literal></entry>
+          <entry>When <literal>true</literal> (default), the capture kernel continues with the next
+            action after an error while saving or deleting dumps. Set to <literal>false</literal>
+            to open a shell at that point instead. See <xref linkend="kdump-troubleshoot"/>.</entry>
+        </row>
+        <row>
+          <entry><literal>KDUMP_VERBOSE</literal></entry>
+          <entry>Bit mask that sets the verbosity of the dump process (default: <literal>0</literal>). See
+            <xref linkend="kdump-troubleshoot"/>.</entry>
+        </row>
+        <row>
+          <entry><literal>KDUMP_COMMANDLINE</literal></entry>
+          <entry>The complete command line for the capture kernel. By default, &kdump; builds it
+            from the running system's command line. If you set it yourself, it must include the
+            <literal>root</literal> parameter, any console parameters, <literal>irqpoll</literal>,
+            and <literal>reset_devices</literal>. To only add options, use
+            <literal>KDUMP_COMMANDLINE_APPEND</literal> instead.</entry>
+        </row>
+        <row>
+          <entry><literal>KDUMP_COMMANDLINE_APPEND</literal></entry>
+          <entry>Extra kernel command-line options to append for the capture kernel, for
+            example networking-related parameters needed for a remote dump target. For network
+            dumps, you may need <literal>net_delay=<replaceable>SECONDS</replaceable></literal>
+            to give the network device time to become operational. For example,
+            <literal>net_delay=20</literal> waits 20 seconds.</entry>
+        </row>
+        <row>
+          <entry><literal>KDUMP_SSH_IDENTITY</literal></entry>
+          <entry>Path to the SSH private key used when <literal>KDUMP_SAVEDIR</literal> points
+            at an <literal>ssh://</literal> or <literal>sftp://</literal> target. See
+            <xref linkend="kdump-remote-dump-storage"/>.</entry>
+        </row>
+      </tbody>
+    </tgroup>
+  </table>
+  <important>
+    <title>Restart &kdump; after editing its configuration</title>
+    <para>
+      After changing <filename>/etc/sysconfig/kdump</filename>, run
+      <command>systemctl restart kdump</command> for the change to take effect. An exception is
+      <literal>KDUMP_CRASHKERNEL</literal>: since it changes the boot-time memory reservation, it
+      requires a full system reboot, not just a service restart<phrase os="sles">, and on the immutable variant an
+      additional explicit step</phrase>. See <xref linkend="kdump-enable-and-configure"/>.
+    </para>
+  </important>
+</topic>

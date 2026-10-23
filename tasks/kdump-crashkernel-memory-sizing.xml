@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/tuning_kexec.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="kdump-crashkernel-memory-sizing"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Sizing and reserving crash kernel memory</title>
+    <meta name="maintainer" content="ssarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Before &kdump; can capture a crash dump, a dedicated area of memory must be reserved
+        for the capture kernel. Use <command>kdumptool calibrate</command> to determine a
+        suitable size, or set it manually if the automatic value is not sufficient.
+        <command>kdumptool</command> is part of the <package>kdump</package> package. See
+        <xref linkend="kdump-enable-and-configure"/> if it is not installed yet.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="kdump-crashkernel-memory-sizing-auto">
+    <title>Using the automatically calculated size</title>
+    <para>
+      By default, <literal>KDUMP_CRASHKERNEL</literal> in
+      <filename>/etc/sysconfig/kdump</filename> is set to <literal>auto</literal>. With this
+      setting, <literal>kdumptool commandline</literal> derives the crash kernel memory size
+      from <command>kdumptool calibrate</command> automatically. You do not need to calculate or
+      set anything manually to get started. Run the calibration tool directly to see the values
+      it would use:
+    </para>
+    <example>
+      <title>Determining the recommended crash kernel memory size</title>
+      <screen>&prompt.sudo; kdumptool calibrate</screen>
+      <para>Sample output:</para>
+      <screen>Total: 4095
+Low: 72
+High: 394
+MinLow: 72
+MaxLow: 666
+MinHigh: 0
+MaxHigh: 2048</screen>
+    </example>
+    <para>
+      All values are given in megabytes. <literal>Low</literal> is the recommended reservation
+      in the DMA32 zone (memory up to the 4&nbsp;GiB mark). <literal>High</literal> is the
+      recommended reservation from the remaining available memory. <literal>MinLow</literal>/
+      <literal>MaxLow</literal> and <literal>MinHigh</literal>/<literal>MaxHigh</literal> give
+      the valid range around those recommendations.
+    </para>
+    <note>
+      <title>Calibrated values depend on the system</title>
+      <para>
+        The exact numbers returned by <command>kdumptool calibrate</command> depend on the
+        amount of RAM and the hardware configuration of the machine it runs on. Always run it
+        on the target system itself rather than reusing values from another machine.
+      </para>
+    </note>
+  </section>
+  <section xml:id="kdump-crashkernel-memory-sizing-formats">
+    <title>Crash kernel memory formats</title>
+    <para>
+      When you set <literal>KDUMP_CRASHKERNEL</literal> manually, the value is either
+      <literal>auto</literal> or one or more <literal>crashkernel=</literal> options in one of
+      these formats:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term>Fixed size</term>
+        <listitem>
+          <para>
+            <literal>crashkernel=<replaceable>SIZE</replaceable>[@<replaceable>OFFSET</replaceable>]</literal>
+            reserves a fixed amount of memory, for example <literal>crashkernel=256M</literal>.
+            The optional offset is the physical address where the reserved area starts. A
+            suitable size is the sum of the <literal>Low</literal> and <literal>High</literal>
+            values from <command>kdumptool calibrate</command>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Low and high split</term>
+        <listitem>
+          <para>
+            <literal>crashkernel=<replaceable>SIZE_LOW</replaceable>M,low
+            crashkernel=<replaceable>SIZE_HIGH</replaceable>M,high</literal> reserves one area
+            below the 4&nbsp;GiB mark and one from the remaining memory, for example
+            <literal>crashkernel=72M,low crashkernel=394M,high</literal>. This is the form
+            that <literal>auto</literal> produces on &x86-64;.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>Size depending on installed RAM</term>
+        <listitem>
+          <para>
+            <literal>crashkernel=<replaceable>RANGE1</replaceable>:<replaceable>SIZE1</replaceable>[,<replaceable>RANGE2</replaceable>:<replaceable>SIZE2</replaceable>,...][@<replaceable>OFFSET</replaceable>]</literal>
+            reserves a size that depends on the amount of installed RAM. Each range has the form
+            <replaceable>START</replaceable>-[<replaceable>END</replaceable>], where the start
+            is inclusive and the end is exclusive. For example,
+            <literal>crashkernel=512M-2G:64M,2G-:128M</literal> reserves nothing on systems
+            with less than 512&nbsp;MiB of RAM, 64&nbsp;MiB on systems with 512&nbsp;MiB up to
+            but not including 2&nbsp;GiB, and 128&nbsp;MiB on systems with 2&nbsp;GiB or more.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="kdump-crashkernel-memory-sizing-manual" arch="x86_64">
+    <title>Setting a manual value on &x86-64;</title>
+    <para>
+      Override the automatically calculated reservation manually if it is not sufficient, for
+      example, if &kdump; still runs out of memory while capturing a dump. Take the
+      <literal>High</literal> value reported by <command>kdumptool calibrate</command> and, if
+      the system has multiple LUN kernel paths (paths to storage devices) attached, add roughly
+      half the number of LUNs to it:
+    </para>
+    <screen>SIZE_HIGH = <replaceable>RECOMMENDATION</replaceable> + (<replaceable>LUNS</replaceable> / 2)</screen>
+    <para>
+      Where <replaceable>RECOMMENDATION</replaceable> is the <literal>High</literal> value from
+      <command>kdumptool calibrate</command>, and <replaceable>LUNS</replaceable> is the maximum
+      number of LUN kernel paths you expect the system to ever have (excluding multipath
+      devices, which are ignored). To count the LUNs currently visible:
+    </para>
+    <screen>&prompt.user; cat /proc/scsi/scsi | grep Lun | wc -l</screen>
+    <para>
+      Set the result, together with the unmodified <literal>Low</literal> value, in
+      <filename>/etc/sysconfig/kdump</filename>:
+    </para>
+    <screen>KDUMP_CRASHKERNEL="crashkernel=<replaceable>SIZE_HIGH</replaceable>M,high crashkernel=<replaceable>SIZE_LOW</replaceable>M,low"</screen>
+    <remark>ssarkar: the LUN-based sizing formula above is carried forward from the SLE 15 tuning
+    guide (xml/tuning_kexec.xml in doc-sle) and was not independently re-verified against
+    current kernel/kdump documentation this session — the sizing mechanics are kernel-internal
+    (DMA32 zone reservation) and unlikely to have changed with SLE 16, but this should get a
+    second look, ideally against `man 7 kdump` on a system with multiple real LUNs attached,
+    before treating it as fully confirmed.</remark>
+    <para>
+      The <literal>Low</literal> value covers the memory that 32-bit-only devices require,
+      including 64&nbsp;MiB for DMA32 bounce buffers. If the system has no 32-bit-only devices,
+      the default of 72&nbsp;MiB is normally sufficient. If the drivers for your devices make
+      many reservations in the DMA32 zone, raise <literal>Low</literal> as well. There is no
+      formula for this, so finding the right size is a process of trial and error. On NUMA
+      machines, more <literal>Low</literal> memory can appear to be needed. Adding
+      <literal>numa=off</literal> to <literal>KDUMP_COMMANDLINE_APPEND</literal> boots the
+      capture kernel without NUMA, so that normal kernel allocations do not use
+      <literal>Low</literal> memory.
+    </para>
+    <remark>ssarkar: the Low value guidance above (bounce buffers, 72 MiB default, trial and
+    error, numa=off) is carried forward from the SLE 15 tuning guide. The 72 MiB default was
+    confirmed with kdumptool calibrate on the SLES 16 test systems; the 64 MiB bounce buffer
+    figure and the numa=off behavior were not independently verified.</remark>
+  </section>
+  <section xml:id="kdump-crashkernel-memory-sizing-power-zseries" arch="power;zseries">
+    <title>Setting a manual value on &power; and &zseries;</title>
+    <para>
+      On &power; and &zseries;, only the <literal>Low</literal> value applies. Adjust it for the
+      number of LUN kernel paths the same way as on &x86-64;:
+    </para>
+    <screen>SIZE_LOW = <replaceable>RECOMMENDATION</replaceable> + (<replaceable>LUNS</replaceable> / 2)</screen>
+    <para>
+      Where <replaceable>RECOMMENDATION</replaceable> is the <literal>Low</literal> value from
+      <command>kdumptool calibrate</command>. Set the result in
+      <filename>/etc/sysconfig/kdump</filename>:
+    </para>
+    <screen>KDUMP_CRASHKERNEL="crashkernel=<replaceable>SIZE_LOW</replaceable>M"</screen>
+    <remark>ssarkar: this whole &power;/&zseries; subsection is carried forward from the SLE 15
+    tuning guide and could not be independently verified this session — no &power; or &zseries;
+    VM was available. Needs hands-on verification (or SME sign-off) on real or emulated
+    &power;/&zseries; hardware before this is treated as confirmed for SLE 16.</remark>
+  </section>
+  <section xml:id="kdump-crashkernel-memory-sizing-cio-ignore" arch="zseries">
+    <title>Reducing the required memory by excluding unused devices on &zseries;</title>
+    <para>
+      Depending on the number of available devices, the calculated crash kernel memory may not
+      be sufficient. Instead of increasing the value, you can limit the number of devices that
+      the capture kernel sees. This lowers the memory the reservation needs.
+    </para>
+    <procedure>
+      <step>
+        <para>
+          Generate a <literal>cio_ignore</literal> stanza that ignores all devices except the
+          ones that are currently active or in use:
+        </para>
+        <screen>&prompt.sudo; cio_ignore -u -k</screen>
+        <para>Sample output:</para>
+        <screen>cio_ignore=all,!da5d,!f500-f502</screen>
+        <para>
+          This command activates the blocklist immediately and replaces any existing blocklist.
+          Unused devices are not purged, so they still appear in the channel subsystem, but
+          channel devices that you add afterward (with CP ATTACH under z/VM, or by a dynamic I/O
+          configuration change in an LPAR) are treated as blocked. To keep the original
+          setting, run <command>cio_ignore -l</command> first and revert to that state after
+          running <command>cio_ignore -u -k</command>.
+        </para>
+      </step>
+      <step>
+        <para>
+          Add the stanza to <literal>KDUMP_COMMANDLINE_APPEND</literal> in
+          <filename>/etc/sysconfig/kdump</filename>:
+        </para>
+        <screen>KDUMP_COMMANDLINE_APPEND="cio_ignore=all,!da5d,!f500-f502"</screen>
+      </step>
+      <step>
+        <para>
+          Restart &kdump; to apply the setting:
+        </para>
+        <screen>&prompt.sudo; systemctl restart kdump</screen>
+      </step>
+    </procedure>
+    <remark>ssarkar: this section is carried forward from the SLE 15 tuning guide and could not
+    be verified this session, because no &zseries; system was available. The sample stanza is
+    illustrative, not captured output. Needs hands-on verification or SME sign-off on
+    &zseries; before it is treated as confirmed for SLE 16.</remark>
+  </section>
+  <section xml:id="kdump-crashkernel-memory-sizing-apply">
+    <title>Applying a changed reservation</title>
+    <para>
+      After changing <literal>KDUMP_CRASHKERNEL</literal>, a full system reboot is required,
+      since the crash kernel memory reservation is applied at boot time. See
+      <xref linkend="kdump-enable-and-configure"/> for how the new value is picked up.
+    </para>
+  </section>
+</topic>
