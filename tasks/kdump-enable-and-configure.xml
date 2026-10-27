@@ -30,7 +30,7 @@
     <procedure>
       <step>
         <para>
-          Install the &kdump; package. This pulls in <package>kexec-tools</package> and
+          Install the &kdump; package. The package pulls in <package>kexec-tools</package> and
           <package>makedumpfile</package> as dependencies:
         </para>
         <screen>&prompt.sudo; zypper install kdump</screen>
@@ -47,6 +47,13 @@
           Enable and start the &kdump; service:
         </para>
         <screen>&prompt.sudo; systemctl enable --now kdump</screen>
+        <para>
+          If no crash kernel memory is reserved yet, <literal>kdump.service</literal> fails to
+          start. The journal then shows <literal>No crashkernel memory reserved, Kdump cannot
+          start.</literal> <literal>kdump-commandline.service</literal> still adds the
+          <literal>crashkernel=</literal> values to the boot loader configuration. &kdump;
+          starts after the reboot in the next step.
+        </para>
       </step>
       <step>
         <para>
@@ -71,9 +78,9 @@
     <screen>&prompt.sudo; transactional-update setup-kdump</screen>
     <para>
       To install only the package, without the configuration steps, run
-      <command>transactional-update pkg install kdump</command> and reboot. This does not set
-      <literal>KDUMP_UPDATE_BOOTLOADER</literal> to <literal>false</literal> or update the boot
-      loader configuration.
+      <command>transactional-update pkg install kdump</command> and reboot. Installing only the
+      package does not set <literal>KDUMP_UPDATE_BOOTLOADER</literal> to <literal>false</literal>
+      or update the boot loader configuration.
     </para>
     <para>
       To provide a custom crash kernel memory size instead of the automatically calculated one,
@@ -120,26 +127,29 @@
       When <literal>kdump.service</literal> starts, it rebuilds the capture
       <filename>initramfs</filename> if necessary and loads the capture kernel and the
       <filename>initramfs</filename> into the reserved memory area. Afterward,
-      <literal>kdump-commandline.service</literal> runs and checks whether the running kernel's
-      command line (<filename>/proc/cmdline</filename>) already contains the
-      <literal>crashkernel=</literal> options that
-      the values <command>kdumptool calibrate</command> or <literal>KDUMP_CRASHKERNEL</literal> expect. If
-      they are missing or different, and <literal>KDUMP_UPDATE_BOOTLOADER</literal> is set to
-      its default of <literal>true</literal>, <literal>kdump-commandline.service</literal>
-      updates the boot loader configuration through <command>pbl</command>(8) so the expected
-      options are applied on the next boot.
+      <literal>kdump-commandline.service</literal> checks whether the running kernel's command
+      line (<filename>/proc/cmdline</filename>) contains the <literal>crashkernel=</literal>
+      values that <literal>KDUMP_CRASHKERNEL</literal> specifies. With the default
+      <literal>KDUMP_CRASHKERNEL="auto"</literal>, these are the values that
+      <command>kdumptool calibrate</command> calculates, and small differences in size are
+      ignored. If the values are missing or different and
+      <literal>KDUMP_UPDATE_BOOTLOADER</literal> is <literal>true</literal> (the default),
+      <literal>kdump-commandline.service</literal> updates the boot loader configuration
+      through <command>pbl</command>(8).
     </para>
     <para>
       To check whether the service found and applied any change:
     </para>
     <screen>&prompt.sudo; journalctl -u kdump-commandline.service</screen>
     <para>Sample output, from a system that had no crash kernel memory reserved yet:</para>
-    <screen>Kdump expects these crashkernel= values on the kernel command line:
-    crashkernel=72M,low crashkernel=394M,high
-(based on the output of 'kdumptool calibrate')
-No crashkernel= found in /proc/cmdline. Kdump can't be started.
-Updated the command line options in the bootloader.
-Changes will take effect on next boot.</screen>
+    <screen>Oct 27 10:12:31 sles16 systemd[1]: Started Check and update kdump options on the kernel command line.
+Oct 27 10:12:31 sles16 kdumptool[4136]: Kdump expects these crashkernel= values on the kernel command line:
+Oct 27 10:12:31 sles16 kdumptool[4136]:     crashkernel=72M,low crashkernel=384M,high
+Oct 27 10:12:31 sles16 kdumptool[4136]: (based on the output of 'kdumptool calibrate')
+Oct 27 10:12:31 sles16 kdumptool[4136]: No crashkernel= found in /proc/cmdline. Kdump can't be started.
+Oct 27 10:12:31 sles16 kdumptool[4136]: Updated the command line options in the bootloader.
+Oct 27 10:12:31 sles16 kdumptool[4136]: Changes will take effect on next boot.
+Oct 27 10:12:31 sles16 systemd[1]: kdump-commandline.service: Deactivated successfully.</screen>
     <para>
       If <literal>kdump-commandline.service</literal> updated the boot loader configuration, a
       reboot is required before the new <literal>crashkernel=</literal> values take effect and
