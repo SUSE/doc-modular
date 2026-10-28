@@ -190,52 +190,68 @@ Executing these steps out of order will result in an unbootable system or data l
 <step><para>Create the <literal>mdadm</literal> software RAID 1 array by assembling <filename>/dev/sda2</filename> and <filename>/dev/sdb2</filename> into a mirrored RAID 1 array named <filename>/dev/md0</filename>:</para>
 <screen>&prompt.sudo; mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/sda2 /dev/sdb2 --metadata=1.2</screen>
 </step>
-<step><para>Format the RAID array <filename>/dev/md0</filename>  with Btrfs (the SLES default) and format both EFI partitions with FAT32:</para>
+<step><para>Format the RAID array <filename>/dev/md0</filename> with Btrfs (the SLES default) and the volume label:</para>
 <screen>&prompt.sudo; mkfs.btrfs -f -L SLES_ROOT /dev/md0 </screen>
-<screen>&prompt.sudo; mkfs.vfat -F 32 -n EFI_A /dev/sda1</screen>
-<screen>&prompt.sudo; mkfs.vfat -F 32 -n EFI_B /dev/sdb1</screen>
 </step>
-<step><para>Mount root to target installation <filename>/chroot</filename> directory:</para>
-<screen>&prompt.sudo; mount /dev/md0 /mnt</screen>
+<step><para>Mount the root file system temporarily to set up subvolumes:</para>
+<screen>&prompt.sudo; mount /dev/md0 /mnt </screen>
+<screen>&prompt.sudo; btrfs subvolume create /mnt/@ </screen>
+<screen>&prompt.sudo; umount /mnt </screen>
+  </step>
+  <step><para>Mount the <literal>@</literal> subvolume and create default &sles; system subvolumes:</para>
+<screen>&prompt.sudo; mount -o subvol=@ /dev/md0 /mnt </screen>
+<screen>&prompt.sudo; btrfs subvolume create /mnt/home </screen>
+<screen>&prompt.sudo; btrfs subvolume create /mnt/var </screen>
+<screen>&prompt.sudo; btrfs subvolume create /mnt/usr/local </screen>
+    </step>
+    <step><para>Initialize Snapper for root snap shotting:</para>
+      <screen>&prompt.sudo; snapper -c root create-config /mnt</screen>
+
+        </step>
+<step><para>Mount file systems to <filename>/mnt</filename>:</para>
+<screen>&prompt.sudo; mount -o subvol=@ /dev/md0 /mnt</screen>
 <screen>&prompt.sudo; mkdir -p /mnt/boot/efi</screen>
 <screen>&prompt.sudo; mount /dev/sda1 /mnt/boot/efi</screen>
 </step>
 <step><para>Write the RAID configuration:</para>
 <screen>&prompt.sudo; mkdir -p /mnt/etc </screen>
- <screen>&prompt.sudo; mdadm --detail --scan &gt;&gt; /mnt/etc/mdadm.conf
+ <screen>&prompt.sudo; mdadm --detail --scan | &prompt.sudo; tee -a /mnt/etc/mdadm.conf
    </screen>
 </step>
 <step><para>Get UUID of RAID device and EFI partition:</para>
 <screen>ROOT_UUID=$(blkid -s UUID -o value /dev/md0)
-  EFI_UUID=$(blkid -s UUID -o value /dev/sda1)
+EFI_UUID=$(blkid -s UUID -o value /dev/sda1)
   </screen>
 </step>
 <step><para>Append entries to <filename>/mnt/etc/fstab</filename>:</para>
-  <screen>&prompt.sudo; cat &lt;&lt;EOF &gt;&gt; /mnt/etc/fstab
+  <screen>&prompt.sudo; tee -a /mnt/etc/fstab &lt;&lt;EOF
   UUID=$ROOT_UUID  /  btrfs  defaults  0 0
   UUID=$EFI_UUID  /boot/efi  vfat  utf8  0 2
   EOF</screen>
   </step>
 <step><para>Bind-mount system virtual file systems to prepare the environment for boot loader and initrd configuration:</para>
-<screen>&prompt.sudo; for dir in /dev /dev/pts /proc /sys /run; do
-  mount --bind $dir /mnt$dir
-done </screen>
+<screen>&prompt.sudo; for dir in /dev /dev/pts /proc /sys /run; do mount --bind $dir /mnt$dir done </screen>
 <screen>&prompt.sudo; chroot /mnt /bin/bash
 </screen>
 </step>
-<step><para>Ensure <literal>mdraid</literal> module is loaded into initrd:</para>
-<screen>&prompt.sudo; echo 'add_dracutmodules+=" mdraid "' &gt; /etc/dracut.conf.d/raid.conf</screen>
+<step>
+<para>The following steps should be executed directly inside the active chroot session (without &sudo;):</para>
+<substeps><step><para>Ensure <literal>mdraid</literal> module is loaded into initrd and exclude conflicting dmraid:</para>
+<screen>&prompt.root; echo 'add_dracutmodules+=" mdraid "' &gt; /etc/dracut.conf.d/raid.conf</screen>
+<screen>&prompt.root; echo 'omit_dracutmodules+=" mdraid "' &gt; /etc/dracut.conf.d/raid.conf</screen>
 </step>
 <step><para>Regenerate the initrd image:</para>
-<screen>&prompt.sudo; dracut --force</screen>
+<screen>&prompt.root; dracut -f /boot/initrd-$(uname -r)</screen>
 </step>
 <step><para>Install GRUB2 onto both primary and secondary drives:</para>
-<screen>&prompt.sudo; grub2-install /dev/sda </screen>
-<screen>&prompt.sudo; grub2-install /dev/sdb </screen>
+<screen>&prompt.root; grub2-install /dev/sda </screen>
+<screen>&prompt.user; grub2-install /dev/sdb </screen>
 </step>
 <step><para>Generate GRUB2 configuration:</para>
-<screen>&prompt.sudo; grub2-mkconfig -o /boot/grub2/grub.cfg
+<screen>&prompt.root; grub2-mkconfig -o /boot/grub2/grub.cfg
 </screen>
+</step>
+</substeps>
 </step>
 </procedure>
 </section>
