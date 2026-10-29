@@ -26,16 +26,7 @@
     </abstract>
   </info>
 
-  <important>
-    <title>Cluster restart might be required</title>
-    <para>
-      The setup script checks if a cluster restart is required and whether it is safe to do so
-      automatically. If any non-<literal>fence</literal> resources are running, the script warns
-      you to restart the cluster services manually. This allows you to put the cluster into
-      maintenance mode first to avoid resource downtime. However, be aware that the resources won't
-      have cluster protection while in maintenance mode.
-    </para>
-  </important>
+  <xi:include href="../snippets/ha-cluster-restart-warning.xml"/>
   <xi:include href="../snippets/ha-dlm-warning.xml"/>
 
   <itemizedlist>
@@ -79,19 +70,19 @@
     </step>
     <step>
       <para>
-        Run the &qdevice; stage of the cluster setup script:
+        Check whether any resources are running:
       </para>
-<screen>&prompt.user;<command>sudo crm cluster init qdevice</command></screen>
+<screen>&prompt.user;<command>sudo crm status</command></screen>
     </step>
+    <xi:include href="../snippets/ha-dlm-stop.xml"/>
+    <xi:include href="../snippets/ha-maintenance-mode-on.xml"/>
     <step>
       <para>
-        Confirm with <literal>y</literal> that you want to configure &qdevice; and &qnet;.
+        Run the &qdevice; stage of the cluster setup script, using the option
+        <option>--qnetd-hostname</option> to specify the IP address or host name
+        of the &qnet; server:
       </para>
-    </step>
-    <step>
-      <para>
-        Enter the IP address or host name of the &qnet; server, with or without a user name:
-      </para>
+<screen>&prompt.user;<command>sudo crm cluster init qdevice --qnetd-hostname <replaceable>[USER@]QNETD_SERVER</replaceable></command></screen>
       <itemizedlist>
         <listitem>
           <para>
@@ -107,115 +98,135 @@
           </para>
         </listitem>
       </itemizedlist>
-      <para>
-        For the remaining fields, you can accept the default values or change them as required:
-      </para>
-    </step>
-    <step>
-      <para>
-        Accept the proposed port (<literal>5403</literal>) or enter a different one.
-      </para>
-    </step>
-    <step>
-      <para>
-        Choose the algorithm that determines how votes are assigned. The default is
-        <literal>ffsplit</literal>.
-      </para>
-      <itemizedlist>
-        <listitem>
-          <para>
-            <literal>ffsplit</literal> (<quote>fifty-fifty split</quote>): If the cluster splits
-            into two even partitions, one of the partitions gets the vote based on the results of
-            heuristics checks and other factors. This algorithm is helpful for clusters with an
-            even number of nodes.
-          </para>
-        </listitem>
-        <listitem>
-          <para>
-            <literal>lms</literal> (<quote>last man standing</quote>): If only one remaining node
-            can still communicate with the &qnet; server, that node gets the vote. This algorithm
-            is helpful for clusters where only one <emphasis>active</emphasis> node needs to remain
-            quorate.
-          </para>
-        </listitem>
-      </itemizedlist>
-    </step>
-    <step>
-      <para>
-        Choose the method to use when a tie-breaker is required. The default is
-        <literal>lowest</literal>.
-      </para>
-      <itemizedlist>
-        <listitem>
-          <para>
-            <literal>lowest</literal>: The node with the lowest node ID gets the vote.
-          </para>
-        </listitem>
-        <listitem>
-          <para>
-            <literal>highest</literal>: The node with the highest node ID gets the vote.
-          </para>
-        </listitem>
-        <listitem>
-          <para>
-            Alternatively, you can enter a specific node ID. The designated node always gets the vote.
-          </para>
-        </listitem>
-      </itemizedlist>
-    </step>
-    <step>
-      <para>
-        Choose whether to enable TLS for client certificate checking. The default is
-        <literal>on</literal>.
-      </para>
-      <itemizedlist>
-        <listitem>
-          <para>
-            <literal>off</literal>: TLS is not required and should not be tried.
-          </para>
-        </listitem>
-        <listitem>
-          <para>
-            <literal>on</literal>: Attempt to connect with TLS, but connect without TLS if it is
-            not available.
-          </para>
-        </listitem>
-        <listitem>
-          <para>
-            <literal>required</literal>: TLS is mandatory, so &qdevice; exits with an error if TLS
-            is not available.
-          </para>
-        </listitem>
-      </itemizedlist>
-    </step>
-    <step>
-      <para>
-        Enter heuristics commands to assist in quorum calculation, or leave the field blank to skip
-        this step.
-      </para>
-      <para>
-        You can enter one command, multiple commands separated by semicolons, or the path to a
-        script file. The commands can be written in any programming language.
-      </para>
-      <para>
-        If you enter heuristics commands, you must also select the mode of operation. The default is
-        <literal>sync</literal>.
-      </para>
-      <itemizedlist>
-        <listitem>
-          <para>
-            <literal>sync</literal>: &qdevice; runs heuristics when the cluster services start
-            (or restart), when the cluster membership changes, and when nodes connect to the
-            &qnet; server.
-          </para>
-        </listitem>
-        <listitem>
-          <para>
-            <literal>on</literal>: &qdevice; runs heuristics in the same scenarios as
-            <literal>sync</literal> and also at regular intervals.
-          </para>
-        </listitem>
-      </itemizedlist>
+      <variablelist>
+        <title>Additional options</title>
+        <para>
+          The setup script automatically uses the default values for the &qdevice; configuration.
+          If you need to change any of these settings, you can use the following options:
+        </para>
+        <varlistentry>
+          <term>&qnet; communication port</term>
+          <listitem>
+            <para>
+              The default is <literal>5403</literal>. You can use the <option>--qnetd-port</option>
+              option to specify a different port.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Voting decision algorithm</term>
+          <listitem>
+            <para>
+              The default is <literal>ffsplit</literal>. You can use the
+              <option>--qdevice-algo</option> option to specify a different algorithm.
+            </para>
+            <itemizedlist>
+              <listitem>
+                <para>
+                  <literal>ffsplit</literal> (fifty-fifty split): If the cluster splits into two
+                  even partitions, one of the partitions gets the vote based on the results of
+                  heuristics checks and other factors. This algorithm is helpful for clusters with
+                  an even number of nodes.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  <literal>lms</literal> (last man standing): If only one remaining node can still
+                  communicate with the &qnet; server, that node gets the vote. This algorithm is
+                  helpful for clusters where only one <emphasis>active</emphasis> node needs to
+                  remain quorate.
+                </para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Tie-breaker method</term>
+          <listitem>
+            <para>
+              The default is <literal>lowest</literal>. You can use the
+              <option>--qdevice-tie-breaker</option> option to specify a different method.
+            </para>
+            <itemizedlist>
+              <listitem>
+                <para>
+                  <literal>lowest</literal>: The node with the lowest node ID gets the vote.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  <literal>highest</literal>: The node with the highest node ID gets the vote.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  Alternatively, you can set a specific node ID. The designated node always gets
+                  the vote.
+                </para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>TLS for client certificate checking</term>
+          <listitem>
+            <para>
+              The default is <literal>on</literal>. You can use the <option>--qdevice-tls</option>
+              option to specify a different setting.
+            </para>
+            <itemizedlist>
+              <listitem>
+                <para>
+                  <literal>off</literal>: TLS isn't required and shouldn't be tried.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  <literal>on</literal>: Attempt to connect with TLS, but connect without TLS if it
+                  isn't available.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  <literal>required</literal>: TLS is mandatory, so &qdevice; exits with an error
+                  if TLS isn't available.
+                </para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>Heuristics commands</term>
+          <listitem>
+            <para>
+              You can use the <option>--qdevice-heuristics</option> option to specify heuristics
+              commands to assist in quorum calculation. You can enter one command, multiple commands
+              separated by semicolons, or the path to a script file. The commands can be written in
+              any programming language.
+            </para>
+            <para>
+              If you use heuristics commands, you must also use the
+              <option>--qdevice-heuristics-mode</option> option to specify the mode of operation.
+              The default is <literal>sync</literal>.
+            </para>
+            <itemizedlist>
+              <listitem>
+                <para>
+                  <literal>sync</literal>: &qdevice; runs heuristics when the cluster services start
+                  (or restart), when the cluster membership changes, and when nodes connect to the
+                  &qnet; server.
+                </para>
+              </listitem>
+              <listitem>
+                <para>
+                  <literal>on</literal>: &qdevice; runs heuristics in the same scenarios as
+                  <literal>sync</literal> and also at regular intervals.
+                </para>
+              </listitem>
+            </itemizedlist>
+          </listitem>
+        </varlistentry>
+      </variablelist>
     </step>
     <step>
       <para>
@@ -223,14 +234,11 @@
         passwordless SSH authentication between the cluster nodes and the &qnet; server.
       </para>
       <para>
-        The script configures &qdevice; on the nodes and completes the &qnet; server's
-        configuration, including generating CA and server certificates and starting the
-        <systemitem>corosync-qnetd</systemitem> service. The script also checks whether a
-        cluster restart is required and whether it is safe to do so automatically. If any
-        non-<literal>fence</literal> resources are running, the script warns you to restart
-        the cluster services manually.
+        The script configures &qdevice; on the nodes, completes the &qnet; server's configuration,
+        and restarts the cluster services.
       </para>
     </step>
-    <xi:include href="../snippets/ha-cluster-restart-steps.xml"/>
+    <xi:include href="../snippets/ha-maintenance-mode-off.xml"/>
+    <xi:include href="../snippets/ha-dlm-start.xml"/>
   </procedure>
 </topic>
