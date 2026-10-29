@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/tuning_kexec.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="kexec-kdump-fundamentals"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>What are &kexec; and &kdump;, and how do they relate?</title>
+    <meta name="maintainer" content="ssarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        &kdump; is built on &kexec;. This section explains how the two relate, how a kernel is
+        loaded with &kexec; and what a captured crash dump contains.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="kexec-kdump-fundamentals-why-kexec">
+    <title>Why use &kexec;?</title>
+    <para>
+      Booting with &kexec; skips the firmware (BIOS/UEFI) initialization stage and the boot
+      loader stage entirely: the currently running kernel loads the new kernel's image directly
+      into memory and jumps to it. Skipping these stages has several practical uses:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <emphasis role="bold">Faster reboots.</emphasis> Skipping hardware and firmware
+          re-initialization saves time, which matters if you reboot a system frequently, for
+          example after applying a kernel update.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <emphasis role="bold">Avoiding firmware and boot loader problems.</emphasis> Since
+          &kexec; does not depend on a working boot loader configuration, it can boot a system
+          even if the boot loader configuration is broken.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <emphasis role="bold">Capturing the state of a crashed kernel.</emphasis> &kdump; uses
+          &kexec; to boot a secondary kernel into a small, pre-reserved area of memory whenever
+          the main kernel panics, so the contents of the main kernel's memory can be saved for
+          analysis before the system reboots normally. Without such a dump, a kernel crash often
+          leaves no record of what went wrong: logging services fail along with the kernel, and
+          the console is frozen or blank.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="kexec-kdump-fundamentals-load-modes">
+    <title>Loading a kernel with &kexec;</title>
+    <para>
+      The <command>kexec</command> command, which uses the <literal>kexec</literal> system
+      call, loads a kernel into memory in one of two ways:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Load a kernel into the running system's memory for a regular reboot:
+        </para>
+        <screen>&prompt.sudo; kexec -l <replaceable>KERNEL_IMAGE</replaceable> --initrd=<replaceable>INITRD_IMAGE</replaceable> --append="<replaceable>KERNEL_OPTIONS</replaceable>"</screen>
+        <para>
+          Boot into the loaded kernel later with <command>kexec -e</command>. The command
+          reboots immediately without calling <command>shutdown</command>(8), so services are not
+          stopped cleanly. To load the default kernel, initrd and kernel options from the boot
+          loader configuration instead of naming them yourself, run
+          <command>kexec-bootloader</command>, which is part of the
+          <package>update-bootloader</package> package, and then <command>kexec -e</command>.
+          For routine reboots, <command>systemctl kexec</command> is the simpler choice. See
+          <xref linkend="kexec-fast-reboot"/>.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          Load a kernel into the reserved memory area for use when the system panics:
+        </para>
+        <screen>&prompt.sudo; kexec -p <replaceable>KERNEL_IMAGE</replaceable> --initrd=<replaceable>INITRD_IMAGE</replaceable> --append="<replaceable>KERNEL_OPTIONS</replaceable>"</screen>
+        <para>
+          This kernel starts automatically when the running kernel panics. &kdump; uses this
+          command to load the capture kernel, so you do not normally run it yourself.
+        </para>
+      </listitem>
+    </itemizedlist>
+  </section>
+  <section xml:id="kexec-kdump-fundamentals-dual-kernel">
+    <title>The dual-kernel model</title>
+    <para>
+      &kdump; relies on two kernels being involved in a crash:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <emphasis role="bold">The production kernel</emphasis> is the kernel that normally
+          runs your system and its workloads.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <emphasis role="bold">The capture kernel</emphasis> (also called the crash kernel or
+          &kdump; kernel) is a second, minimal kernel image, together with its own
+          <filename>initramfs</filename>, loaded ahead of time into a region of memory reserved
+          specifically for it. It stays idle until the production kernel panics. &kdump; builds
+          the <filename>initramfs</filename> so that it contains the drivers and tools, such as
+          <command>makedumpfile</command>, needed to save the dump.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      When the production kernel panics, it can no longer be trusted to write its own crash
+      information to disk: its data structures may be corrupted, and a normal reboot would
+      overwrite the memory you are trying to inspect. &kexec; solves this by jumping straight
+      from the crashed production kernel into the already-loaded capture kernel, without going
+      through firmware or the boot loader. Because the capture kernel runs from its own reserved
+      memory region, the production kernel's memory contents remain intact and readable while
+      the capture kernel is running.
+    </para>
+  </section>
+  <section xml:id="kexec-kdump-fundamentals-vmcore">
+    <title>What does a captured vmcore file contain?</title>
+    <para>
+      Once the capture kernel is running, it writes the production kernel's memory contents to
+      a file called <filename>vmcore</filename>, together with a copy of the kernel's ring
+      buffer log (<filename>dmesg</filename>) from the moment of the crash. Depending on how
+      much of memory you choose to include (see
+      <xref linkend="kdump-crashkernel-memory-sizing"/> and
+      <xref linkend="kdump-sysconfig-options"/>), a vmcore file can contain:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <emphasis role="bold">Kernel state:</emphasis> active kernel data structures, global
+          variables and the call stack that was executing at the moment of the crash.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <emphasis role="bold">Process information:</emphasis> the list of processes that were
+          running, along with their individual stacks and registers.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <emphasis role="bold">Memory pages:</emphasis> depending on the configured dump level,
+          the actual data held in RAM by the kernel and by user-space applications.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <emphasis role="bold">VMCOREINFO:</emphasis> a section that records how the kernel's
+          memory was laid out, such as the kernel release, the page size and the addresses of
+          kernel symbols, so that analysis tools can interpret the raw memory.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      You analyze this file after the system has rebooted, using tools such as
+      <command>crash</command> or GDB. See <xref linkend="kdump-analyze-vmcore"/> for details.
+    </para>
+  </section>
+</topic>
