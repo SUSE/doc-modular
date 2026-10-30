@@ -27,6 +27,30 @@
   </info>
 
  <procedure>
+  <step>
+<para>
+Install the <package>ansible-rmt-server</package> package:
+</para>
+<stepalternatives>
+<step>
+<para>
+On a mutable system:
+</para>
+<screen>&prompt.root;<command>zypper in ansible-rmt-server</command></screen>
+</step>
+<step os="sles">
+<para>
+On an immutable system, also install the packages that the
+playbook requires, then reboot the system to switch to the new
+snapshot. If you skip these packages, the playbook installs
+them into a new snapshot that is not active until the next
+reboot, and the services that the playbook starts are missing.
+</para>
+<screen>&prompt.root;<command>transactional-update pkg install ansible-rmt-server mariadb nginx python3-PyMySQL</command>
+&prompt.root;<command>reboot</command></screen>
+</step>
+</stepalternatives>
+</step>
     <step>
       <para>
         Navigate to the &ansible; configuration directory:
@@ -36,16 +60,30 @@
 
     <step>
       <para>
-        Create the configuration file <filename>group_vars/all.yml</filename>
-        based on the provided example:
+       Create the configuration file based on the provided example:
       </para>
+<stepalternatives>
+<step>
+<para>
+On a mutable system, create <filename>group_vars/all.yml</filename>:
+</para>
 <screen>&prompt.root;<command>cp group_vars/all.yml.example group_vars/all.yml</command></screen>
-    </step>
+</step>
+<step os="sles">
+<para>
+On an immutable system, <filename>/usr</filename> is read-only.
+Create the configuration file in a writable location, for example
+<filename>/root/rmt-vars.yml</filename>, and make it readable only
+by &rootuser;, because it contains credentials:
+</para>
+<screen>&prompt.root;<command>install -m 600 group_vars/all.yml.example /root/rmt-vars.yml</command></screen>
+</step>
+</stepalternatives>
+</step>
 
     <step>
       <para>
-        Edit <filename>group_vars/all.yml</filename> and configure the
-        following variables:
+Edit the configuration file and configure the following variables:
       </para>
       <variablelist>
         <varlistentry>
@@ -100,8 +138,10 @@ rmt:
       <para>
         Run the &ansible; playbook to configure &rmt;:
       </para>
-<screen>&prompt.root;<command>ansible-playbook site.yml</command></screen>
-
+<para os="sles">
+On an immutable system, pass the configuration file that you created
+in <filename>/root</filename> as extra variables:</para>
+<screen os="sles">&prompt.root;<command>ansible-playbook site.yml -e @/root/rmt-vars.yml</command></screen>
       <para>
         The playbook performs the following tasks:
       </para>
