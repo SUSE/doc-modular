@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<topic xml:id="ssg-profiles-tailoring"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Tailoring a profile</title>
+    <meta name="maintainer" content="souvik.sarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        A tailoring file adapts a profile to local requirements without changing the content of the
+        &ssg;. The <command>autotailor</command> command creates tailoring files, and
+        <command>oscap</command> uses them for scans and remediation.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="ssg-profiles-tailoring-intro">
+    <title>Tailoring files</title>
+    <para>
+      A tailoring file defines a custom profile that extends a base profile. The custom profile can
+      add or remove rules and override the values of variables.
+    </para>
+    <para>
+      To create tailoring files, use the <command>autotailor</command> command from the
+      <package>openscap-utils</package> package. For more information about installing the
+      package, see <xref linkend="ssg-profiles-scanning-installing"/>.
+    </para>
+  </section>
+  <section xml:id="ssg-profiles-tailoring-creating">
+    <title>Creating and using a tailoring file</title>
+    <para>
+      The following procedure creates a custom profile from the Health Insurance Portability and
+      Accountability Act (HIPAA) profile. The custom profile adds the rule
+      <literal>sshd_limit_user_access</literal>, which limits SSH access for users.
+    </para>
+    <procedure xml:id="pro-ssg-profiles-tailoring-creating">
+      <title>Creating and using a custom profile</title>
+      <step>
+        <para>
+          To create the tailoring file, run the following command:
+        </para>
+<screen>&prompt.user;<command>autotailor</command> \
+  <command>--select sshd_limit_user_access</command><co xml:id="co-ssg-profiles-tailoring-select"/> \
+  <command>--title "HIPAA (customized)"</command><co xml:id="co-ssg-profiles-tailoring-title"/> \
+  <command>--output /tmp/ssg-sle16-ds-tailoring.xml</command><co xml:id="co-ssg-profiles-tailoring-output"/> \
+  <command>--new-profile-id hipaa_customized</command><co xml:id="co-ssg-profiles-tailoring-id"/> \
+  <command>/usr/share/xml/scap/ssg/content/ssg-sle16-ds.xml</command><co xml:id="co-ssg-profiles-tailoring-ds"/> \
+  <command>hipaa</command><co xml:id="co-ssg-profiles-tailoring-base"/></screen>
+        <calloutlist>
+          <callout arearefs="co-ssg-profiles-tailoring-select">
+            <para>
+              Adds the rule <literal>sshd_limit_user_access</literal>. To add more rules, repeat
+              the option. To remove a rule, use <option>--unselect</option>.
+            </para>
+          </callout>
+          <callout arearefs="co-ssg-profiles-tailoring-title">
+            <para>
+              Sets the title of the custom profile.
+            </para>
+          </callout>
+          <callout arearefs="co-ssg-profiles-tailoring-output">
+            <para>
+              Specifies the path of the tailoring file.
+            </para>
+          </callout>
+          <callout arearefs="co-ssg-profiles-tailoring-id">
+            <para>
+              Specifies the ID of the custom profile. <command>autotailor</command> adds the prefix
+              <literal>xccdf_org.ssgproject.content_profile_</literal>.
+            </para>
+          </callout>
+          <callout arearefs="co-ssg-profiles-tailoring-ds">
+            <para>
+              Specifies the data stream that contains the base profile.
+            </para>
+          </callout>
+          <callout arearefs="co-ssg-profiles-tailoring-base">
+            <para>
+              Specifies the base profile. You can use the short form of the profile ID.
+            </para>
+          </callout>
+        </calloutlist>
+        <para>
+          The command creates the following tailoring file:
+        </para>
+<screen language="xml"><?dbsuse-fo font-size="0.7em"?>&lt;?xml version="1.0" ?&gt;
+&lt;ns0:Tailoring xmlns:ns0="http://checklists.nist.gov/xccdf/1.2" id="xccdf_auto_tailoring_default"&gt;
+        &lt;ns0:benchmark href="file:///usr/share/xml/scap/ssg/content/ssg-sle16-ds.xml"/&gt;
+        &lt;ns0:version time="2026-10-16T12:39:16.679652"&gt;1&lt;/ns0:version&gt;
+        &lt;ns0:Profile id="xccdf_org.ssgproject.content_profile_hipaa_customized" extends="xccdf_org.ssgproject.content_profile_hipaa"&gt;
+                &lt;ns0:title override="true"&gt;HIPAA (customized)&lt;/ns0:title&gt;
+                &lt;ns0:select idref="xccdf_org.ssgproject.content_rule_sshd_limit_user_access" selected="true"/&gt;
+        &lt;/ns0:Profile&gt;
+&lt;/ns0:Tailoring&gt;</screen>
+      </step>
+      <step>
+        <para>
+          To check that the tailoring file contains the custom profile, run the following command:
+        </para>
+<screen>&prompt.user;<command>oscap info /tmp/ssg-sle16-ds-tailoring.xml</command>
+Document type: XCCDF Tailoring
+Imported: 2026-10-16T12:39:16
+Benchmark Hint: file:///usr/share/xml/scap/ssg/content/ssg-sle16-ds.xml
+Profiles:
+        Title: HIPAA (customized)
+                Id: xccdf_org.ssgproject.content_profile_hipaa_customized</screen>
+      </step>
+      <step>
+        <para>
+          To scan the system with the custom profile, run the following command:
+        </para>
+<screen>&prompt.sudo;<command>oscap xccdf eval</command> \
+  <command>--profile xccdf_org.ssgproject.content_profile_hipaa_customized</command> \
+  <command>--tailoring-file /tmp/ssg-sle16-ds-tailoring.xml</command><co xml:id="co-ssg-profiles-tailoring-file"/> \
+  <command>--results /tmp/results-tailored.xml</command> \
+  <command>/usr/share/xml/scap/ssg/content/ssg-sle16-ds.xml</command></screen>
+        <calloutlist>
+          <callout arearefs="co-ssg-profiles-tailoring-file">
+            <para>
+              Specifies the tailoring file. Without this option, <command>oscap</command> cannot
+              find the custom profile.
+            </para>
+          </callout>
+        </calloutlist>
+        <para>
+          Compared to a scan with the HIPAA profile, the output contains one additional rule:
+        </para>
+<screen>Title   Limit Users' SSH Access
+Rule    xccdf_org.ssgproject.content_rule_sshd_limit_user_access
+Ident   CCE-96002-1
+Result  fail</screen>
+      </step>
+    </procedure>
+    <para>
+      To override the value of a variable, use the <option>--var-value</option> option of
+      <command>autotailor</command>. For example,
+      <option>--var-value var_password_pam_minlen=12</option> changes the required minimum
+      password length to 12 characters. The rule <literal>accounts_password_pam_minlen</literal>
+      then checks for this value.
+    </para>
+  </section>
+  <section xml:id="ssg-profiles-tailoring-remediating">
+    <title>Remediating with a tailoring file</title>
+    <para>
+      With the <option>--remediate</option> option, <command>oscap</command> remediates each rule
+      that fails during the scan.
+    </para>
+    <warning>
+      <title>Changes to the running system</title>
+      <para>
+        Remediation changes the configuration of the running system immediately. For example,
+        remediating the complete HIPAA profile installs the <package>cronie</package> and
+        <package>postfix</package> packages, disables root login over SSH and blocks the
+        <literal>usb-storage</literal> kernel module.
+      </para>
+      <para>
+        Test the remediation on a non-production system before you apply it to a production
+        system.
+      </para>
+    </warning>
+    <para>
+      To remediate only one rule of the custom profile, add the <option>--rule</option> option, as
+      in <xref linkend="ex-ssg-profiles-tailoring-remediating"/>.
+    </para>
+    <example xml:id="ex-ssg-profiles-tailoring-remediating">
+      <title>Remediating a single rule</title>
+<screen>&prompt.sudo;<command>oscap xccdf eval --remediate</command> \
+  <command>--profile xccdf_org.ssgproject.content_profile_hipaa_customized</command> \
+  <command>--tailoring-file /tmp/ssg-sle16-ds-tailoring.xml</command> \
+  <command>--rule xccdf_org.ssgproject.content_rule_sysctl_kernel_randomize_va_space</command> \
+  <command>--results /tmp/results-remediated.xml</command> \
+  <command>/usr/share/xml/scap/ssg/content/ssg-sle16-ds.xml</command>
+--- Starting Evaluation ---
+
+Title   Enable Randomized Layout of Virtual Address Space
+Rule    xccdf_org.ssgproject.content_rule_sysctl_kernel_randomize_va_space
+Ident   CCE-96568-1
+Result  fail
+
+
+--- Starting Remediation ---
+
+Title   Enable Randomized Layout of Virtual Address Space
+Rule    xccdf_org.ssgproject.content_rule_sysctl_kernel_randomize_va_space
+Ident   CCE-96568-1
+Result  fixed</screen>
+    </example>
+    <para>
+      The result <literal>fixed</literal> shows that the remediation was successful. In this
+      example, <command>oscap</command> creates the file
+      <filename>/etc/sysctl.d/kernel_randomize_va_space.conf</filename> with the setting
+      <literal>kernel.randomize_va_space = 2</literal>.
+    </para>
+  </section>
+</topic>
