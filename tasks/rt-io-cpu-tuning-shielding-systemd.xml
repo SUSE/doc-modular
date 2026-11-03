@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<?xml-stylesheet href="urn:x-suse:xslt:profiling:docbook51-profile.xsl"
+    type="text/xml"
+    title="Profiling step"?>
+<!DOCTYPE article
+[
+<!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+%entities;
+]>
+<topic xml:id="rt-io-cpu-tuning-shielding-systemd" xml:lang="en"
+       role="task"
+       xmlns="http://docbook.org/ns/docbook" version="5.1"
+       xmlns:its="http://www.w3.org/2005/11/its"
+       xmlns:xi="http://www.w3.org/2001/XInclude"
+       xmlns:xlink="http://www.w3.org/1999/xlink">
+    <info>
+        <meta name="maintainer" content="daria.vladykina@suse.com" its:translate="no"/>
+        <title>Managing CPU shielding with &systemd;, <command>taskset</command> and <command>chrt</command></title>
+        <abstract>
+            <para>
+                Isolate real-time workloads on dedicated logical CPUs using &systemd; resource control, 
+                <command>taskset</command> and <command>chrt</command>.
+            </para>
+        </abstract>
+    </info>
+    <procedure xml:id="pro-shield-cpus-systemd">
+        <title>Configuring CPU isolation for real-time workloads</title>
+        <para>
+            To restrict general processes to CPUs <literal>0</literal> to
+            <literal>2</literal> and dedicate CPU <literal>3</literal> to a
+            critical task, perform the following steps:
+        </para>
+        <step>
+            <para>
+                Restrict the system slices to CPUs <literal>0-2</literal>. The
+                setting is persistent. To apply it only until the next reboot, add
+                the <option>--runtime</option> option.
+            </para>
+<screen>&prompt.sudo;<command>systemctl set-property system.slice AllowedCPUs=0-2</command>
+&prompt.sudo;<command>systemctl set-property user.slice AllowedCPUs=0-2</command>
+&prompt.sudo;<command>systemctl set-property init.scope AllowedCPUs=0-2</command></screen>
+        </step>
+        <step>
+            <para>
+                To run an application in its own slice and restrict it to CPU <literal>3</literal>, use a
+                transient scope:
+            </para>
+<screen>&prompt.sudo;<command>systemd-run --scope --slice=realtime.slice --property=AllowedCPUs=3 <replaceable>APPLICATION</replaceable></command></screen>
+        </step>
+        <step>
+            <para>
+                To print the CPU affinity of the application started in the previous
+                step, use <command>taskset</command> with its process ID
+                <replaceable>PID</replaceable>:
+            </para>
+<screen>&prompt.user;<command>taskset -c -p <replaceable>PID</replaceable></command></screen>
+            <para>
+                To change the affinity, run the command as &rootuser;. The CPU list
+                must be within the CPUs that the slice of the process allows. In this
+                example, that is CPU <literal>3</literal>:
+            </para>
+<screen>&prompt.sudo;<command>taskset -c -p 3 <replaceable>PID</replaceable></command></screen>
+        </step>
+        <step>
+            <para>
+                To assign the <literal>SCHED_FIFO</literal> real-time scheduling
+                policy with the priority <literal>40</literal> to the process, run:
+            </para>
+<screen>&prompt.sudo;<command>chrt --fifo -p 40 <replaceable>PID</replaceable></command></screen>
+        </step>
+    </procedure>
+</topic>
