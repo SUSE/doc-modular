@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/tuning_kexec.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="kexec-fast-reboot"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Rebooting a system with &kexec;</title>
+    <meta name="maintainer" content="ssarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        Load the default boot entry with <command>kexec-bootloader</command>, then reboot with
+        <command>systemctl kexec</command>.
+      </para>
+    </abstract>
+  </info>
+  <para>
+    The <package>kexec-tools</package> package provides the <command>kexec</command> command.
+    <command>kexec-bootloader</command>, which loads the default boot entry, is part of the
+    <package>update-bootloader</package> package. Both packages are installed by default. To
+    confirm that they are present:
+  </para>
+  <screen>&prompt.user; rpm -q kexec-tools update-bootloader</screen>
+  <important>
+    <title>A &kexec; reboot skips the firmware and the boot menu</title>
+    <para>
+      A &kexec; reboot does not run the firmware and does not show the GRUB boot menu, so you
+      cannot select another boot entry. <command>kexec-bootloader</command> loads the default
+      boot entry with the kernel options that are currently set in the boot loader
+      configuration. Changes in <filename>/etc/default/grub</filename> that you have not
+      applied yet are included.
+    </para>
+  </important>
+  <procedure>
+    <step>
+      <para>
+        Make sure no important services are running and no users other than yourself are
+        logged in, since a &kexec; reboot restarts the system immediately once triggered.
+      </para>
+    </step>
+    <step>
+      <para>
+        Optional: Check which kernel, initrd and kernel options will be loaded, without loading
+        anything:
+      </para>
+      <screen>&prompt.sudo; kexec-bootloader --dry-run -D</screen>
+      <para>Sample output:</para>
+      <screen>Image  : /usr/lib/modules/6.12.0-160099.49-default/vmlinuz
+Initrd : /boot/initrd-6.12.0-160099.49-default
+Append : splash=silent mitigations=auto quiet security=selinux crashkernel=72M,low crashkernel=394M,high
+Root   : root=UUID=b06935f0-ff2e-49e7-9aec-e72b252abc7d
+Kexec call: kexec --kexec-syscall-auto --load '/usr/lib/modules/6.12.0-160099.49-default/vmlinuz' --initrd='/boot/initrd-6.12.0-160099.49-default' --append='root=UUID=b06935f0-ff2e-49e7-9aec-e72b252abc7d splash=silent mitigations=auto quiet security=selinux crashkernel=72M,low crashkernel=394M,high'</screen>
+    </step>
+    <step>
+      <para>
+        Load the default boot entry into memory:
+      </para>
+      <screen>&prompt.sudo; kexec-bootloader</screen>
+      <para>
+        Once a kernel is loaded, a normal reboot, for example with <command>systemctl
+        reboot</command>, also uses &kexec;.
+      </para>
+      <substeps>
+        <step>
+          <para>
+            To unload the kernel and return to normal reboots, run:
+          </para>
+          <screen>&prompt.sudo; kexec -u</screen>
+        </step>
+      </substeps>
+    </step>
+    <step>
+      <para>
+        Reboot with &kexec;:
+      </para>
+      <screen>&prompt.sudo; systemctl kexec</screen>
+      <para>
+        <command>systemctl kexec</command> shuts down the system cleanly and then starts the
+        loaded kernel. If no kernel is loaded, the command tries to find one itself. Automatic
+        loading only works on systems that boot with UEFI and use boot entries that follow the
+        Boot Loader Specification. Otherwise, the command fails with <literal>No kexec kernel loaded and
+        autodetection failed.</literal> In that case, load the kernel as described in the
+        previous step.
+      </para>
+    </step>
+    <step>
+      <para>
+        Once the system is back, check the kernel messages of the current boot for warnings:
+      </para>
+      <screen>&prompt.sudo; journalctl -k -p warning -b</screen>
+      <para>
+        Then confirm that the system is running the expected kernel:
+      </para>
+      <screen>&prompt.user; uname -r</screen>
+    </step>
+  </procedure>
+  <remark>ssarkar: tested on SLES 16.1 x86-64 with BIOS boot (2026-10-30): systemctl kexec
+  without a loaded kernel fails with the autodetection message; kexec-bootloader followed by
+  systemctl kexec reboots with kexec and uses the current /etc/default/grub options; with a
+  kernel loaded, systemctl reboot also reboots with kexec; kexec -u unloads it. 16.0 ships the
+  same kexec-load.service and systemd 257. Not run on UEFI, AArch64, POWER or IBM Z.</remark>
+  <section xml:id="kexec-fast-reboot-manual">
+    <title>Loading a kernel manually</title>
+    <para>
+      To start a kernel other than the default boot entry, or a kernel with different options,
+      load it with <command>kexec -l</command> and name the kernel, initrd and kernel options
+      yourself:
+    </para>
+    <screen>&prompt.sudo; kexec -l <replaceable>KERNEL_IMAGE</replaceable> --initrd=<replaceable>INITRD_IMAGE</replaceable> --append="<replaceable>KERNEL_OPTIONS</replaceable>"</screen>
+    <para>
+      On &productnameshort;, kernel images are in
+      <filename>/usr/lib/modules/<replaceable>KERNEL_VERSION</replaceable>/vmlinuz</filename>,
+      and initrds are in
+      <filename>/boot/initrd-<replaceable>KERNEL_VERSION</replaceable></filename>. To reuse
+      the kernel options of the running system, use <option>--reuse-cmdline</option> instead
+      of <option>--append</option>.
+    </para>
+    <example>
+      <title>Loading the running kernel again with its current options</title>
+      <screen>&prompt.sudo; kexec -l /usr/lib/modules/$(uname -r)/vmlinuz     --initrd=/boot/initrd-$(uname -r) --reuse-cmdline</screen>
+    </example>
+    <para>
+      Then reboot with <command>systemctl kexec</command>, which shuts down the system cleanly
+      before it starts the loaded kernel. <command>kexec -e</command> also starts the loaded
+      kernel, but immediately and without calling <command>shutdown</command>(8), so services
+      are not stopped cleanly.
+    </para>
+  </section>
+</topic>
