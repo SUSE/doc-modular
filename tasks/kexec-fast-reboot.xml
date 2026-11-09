@@ -20,8 +20,9 @@
     <meta name="maintainer" content="ssarkar@suse.com" its:translate="no"/>
     <abstract>
       <para>
-        Load the default boot entry with <command>kexec-bootloader</command>, then reboot with
-        <command>systemctl kexec</command>.
+        Rebooting with &kexec; is a two-step process: loading a target kernel and its initrd
+        into memory, either automatically from the default boot loader entry or manually with
+        custom parameters, and triggering the reboot with <command>systemctl kexec</command>.
       </para>
     </abstract>
   </info>
@@ -33,13 +34,11 @@
   </para>
   <screen>&prompt.user; rpm -q kexec-tools update-bootloader</screen>
   <important>
-    <title>A &kexec; reboot skips the firmware and the boot menu</title>
+    <title>Unapplied boot loader changes take effect</title>
     <para>
-      A &kexec; reboot does not run the firmware and does not show the GRUB boot menu, so you
-      cannot select another boot entry. <command>kexec-bootloader</command> loads the default
-      boot entry with the kernel options that are currently set in the boot loader
-      configuration. Changes in <filename>/etc/default/grub</filename> that you have not
-      applied yet are included.
+      <command>kexec-bootloader</command> loads the default boot entry with the kernel options
+      that are currently set in the boot loader configuration. These options include changes in
+      <filename>/etc/default/grub</filename> that you have not applied yet.
     </para>
   </important>
   <procedure>
@@ -67,18 +66,18 @@ Kexec call: kexec --kexec-syscall-auto --load '/usr/lib/modules/6.12.0-160099.49
         Load the default boot entry into memory:
       </para>
       <screen>&prompt.sudo; kexec-bootloader</screen>
+    </step>
+    <step>
       <para>
-        Once a kernel is loaded, a normal reboot, for example with <command>systemctl
-        reboot</command>, also uses &kexec;.
+        Optional: To do a full reboot after all, for example for a pending firmware update,
+        unload the kernel:
       </para>
-      <substeps>
-        <step>
-          <para>
-            To unload the kernel and return to normal reboots, run:
-          </para>
-          <screen>&prompt.sudo; kexec -u</screen>
-        </step>
-      </substeps>
+      <screen>&prompt.sudo; kexec -u</screen>
+      <para>
+        As long as a kernel is loaded, every reboot uses &kexec;, including a reboot with
+        <command>systemctl reboot</command>. After unloading, reboot with <command>systemctl
+        reboot</command> instead of continuing with the next step.
+      </para>
     </step>
     <step>
       <para>
@@ -90,8 +89,8 @@ Kexec call: kexec --kexec-syscall-auto --load '/usr/lib/modules/6.12.0-160099.49
         loaded kernel. If no kernel is loaded, the command tries to find one itself. Automatic
         loading only works on systems that boot with UEFI and use boot entries that follow the
         Boot Loader Specification. Otherwise, the command fails with <literal>No kexec kernel loaded and
-        autodetection failed.</literal> In that case, load the kernel as described in the
-        previous step.
+        autodetection failed.</literal> In that case, load the kernel first with
+        <command>kexec-bootloader</command>.
       </para>
     </step>
     <step>
