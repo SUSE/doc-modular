@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+<!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+%entities;
+<!ENTITY snapper "Snapper">
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="snapper-snapshot-types"
+       role="concept" xml:lang="en"
+       xmlns="http://docbook.org/ns/docbook" version="5.2"
+       xmlns:its="http://www.w3.org/2005/11/its"
+       xmlns:xi="http://www.w3.org/2001/XInclude"
+       xmlns:xlink="http://www.w3.org/1999/xlink"
+       xmlns:trans="http://docbook.org/ns/transclusion">
+    <info>
+        <title>Snapshot types in &snapper;</title>
+        <meta name="maintainer" content="daria.vladykina@suse.com" its:translate="no"/>
+        <abstract><para>Snapshots do not differ in a technical sense. &snapper; distinguishes 
+            snapshots in two ways: by the event that triggers them and by how &snapper; handles them. 
+            The two classifications overlap. For example, installation snapshots are pre and post snapshots, 
+        and timeline snapshots are single snapshots.</para></abstract>
+    </info>
+      <section xml:id="snapshot-types-by-event">
+        <title>Snapshot types by triggering event</title>
+        <para>&snapper; distinguishes the following types of snapshots, 
+            based on the events that trigger them. You can enable or disable two types independently.</para>
+        <variablelist>
+            <varlistentry>
+                <term>Installation snapshots</term>
+                <listitem>
+                    <para>
+                        Whenever you install, update or remove packages with <command>zypper</command> or
+                        with another tool based on <systemitem class="library">libzypp</systemitem>, such as
+                        PackageKit (used, for example, by GNOME Software), a pair of snapshots is created: one before the system change
+                        (<quote>pre</quote>) and the other one after the system change
+                        (<quote>post</quote>). Old snapshots are automatically deleted. By default, up to
+                        ten important snapshots and up to ten <quote>regular</quote> ones are kept.
+                        Installation snapshots are enabled by default. To disable them, uninstall
+                        the package <package>snapper-zypp-plugin</package>.
+                    </para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term>Timeline snapshots</term>
+                <listitem>
+                    <para>Timeline snapshots are
+                        disabled for the root partition by default. When you enable them, &snapper; creates one snapshot
+                        every hour. The snapshots are created by the
+                        <systemitem class="resource">snapper-timeline.timer</systemitem> systemd timer. To
+                        change how often snapshots are created, modify this timer, as this cannot be configured
+                        within &snapper; itself.</para>
+                    <para>The cleanup of timeline snapshots is based on hourly, daily, weekly, monthly, quarterly and yearly
+                        intervals. By default, &snapper; keeps the last ten hourly snapshots and the first snapshot of each of the 
+                        last ten days, months and years. It deletes older snapshots automatically.</para>
+                </listitem>
+            </varlistentry>
+        </variablelist>
+       <important>
+            <title>Exception for transactional systems</title>
+            <para>Installation snapshots do not apply to transactional systems. On these systems,
+                each <command>transactional-update</command> run creates a new snapshot instead.</para>
+        </important>
+
+        <section xml:id="snapshot-types-by-time">
+            <title>Snapshot types by time of creation</title>
+            <para>&snapper; recognizes three snapshot types by time of creation: pre, post and single. 
+                They do not differ physically, but &snapper; handles them differently.</para>
+            <variablelist>
+                <varlistentry>
+                    <term><literal>pre</literal>
+                    </term>
+                    <listitem>
+                        <para>
+                            A snapshot of a file system <emphasis>before</emphasis> a modification.
+                            Each <literal>pre</literal> snapshot corresponds to a
+                            <literal>post</literal> snapshot.
+                            For example, this is used for installation snapshots.
+                        </para>
+                    </listitem>
+                </varlistentry>
+                <varlistentry>
+                    <term><literal>post</literal>
+                    </term>
+                    <listitem>
+                        <para>
+                            A snapshot of a file system <emphasis>after</emphasis> a modification.
+                            Each <literal>post</literal> snapshot corresponds to a
+                            <literal>pre</literal> snapshot.
+                            For example, this is used for installation snapshots.
+                        </para>
+                    </listitem>
+                </varlistentry>
+                <varlistentry>
+                    <term><literal>single</literal>
+                    </term>
+                    <listitem>
+                        <para>
+                            A stand-alone snapshot. This is the default type when creating snapshots.
+                            For example, this is used for timeline snapshots.</para>
+                    </listitem>
+                </varlistentry>
+            </variablelist>
+            <para>This is an example list of snapshots after a fresh installation of a system
+                and two subsequent software changes made through PackageKit:</para>
+<screen>&prompt.sudo;<command>snapper list</command>
+#  | Type   | Pre # | Date                             | User | Used Space | Cleanup | Description           | Userdata
+---+--------+-------+----------------------------------+------+------------+---------+-----------------------+--------------
+0  | single |       |                                  | root |            |         | current               |
+1* | single |       | Fri 02 Oct 2026 03:26:40 PM CEST | root | 180.88 MiB |         | first root filesystem |
+2  | pre    |       | Mon 05 Oct 2026 02:25:42 PM CEST | root | 689.28 MiB | number  | zypp(packagekitd)     | important=yes
+3  | post   |     2 | Mon 05 Oct 2026 02:28:19 PM CEST | root | 105.41 MiB | number  |                       | important=yes
+4  | pre    |       | Tue 10 Nov 2026 03:18:44 PM CET  | root |   7.41 MiB | number  | zypp(packagekitd)     | important=yes
+5  | post   |     4 | Tue 10 Nov 2026 03:19:33 PM CET  | root |  31.88 MiB | number  |                       | important=yes</screen>
+
+        <para>The asterisk (<literal>*</literal>) next to a snapshot number marks the snapshot
+                that is currently mounted as the root file system. It is also the default snapshot
+                to boot from.</para>
+            <para>Snapshot <literal>0</literal> with the description <literal>current</literal> is not a real snapshot. 
+                It always refers to the current state of the running system. The installer creates snapshot <literal>1</literal> 
+                with the description <literal>first root filesystem</literal>. It contains the initial installation of the system. 
+                In a post snapshot, the <literal>Pre #</literal> column shows the number of the matching pre snapshot</para>
+        </section>
+    </section>
+</topic>
