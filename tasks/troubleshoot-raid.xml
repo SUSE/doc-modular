@@ -36,26 +36,38 @@ Timely diagnosis ensures you can replace failing drives and rebuild degraded arr
   <section xml:id="failed-disk">
 <title>Array is degraded or running with a failed disk</title>
 <itemizedlist>
-<listitem><para><emphasis role="bold">Symptom:</emphasis> The command <command>cat /proc/mdstat</command> shows missing disk flags like [U_] instead of [UU], or system alerts report an active disk failure.</para></listitem>
-<listitem><para><emphasis role="bold">Solution:</emphasis> Fail, remove, replace, and trigger array rebuild.</para>
-<orderedlist>
-<listitem><para>Mark drive failed (if kernel hasn't already):</para>
-<screen>&prompt.sudo; mdadm /dev/md0 --fail /dev/sdb1</screen>
-</listitem>
-<listitem><para>Remove failed partition:</para>
-<screen>&prompt.sudo;  mdadm /dev/md0 --remove /dev/sdb1 </screen>
-  </listitem>
-  <listitem><para>When replacing a drive in a multi-disk RAID setup containing boot or EFI partitions, clone the full partition table from the healthy drive to the new drive and force the kernel to re-read the partition layout by running:</para>
-<screen>&prompt.sudo; sfdisk -d /dev/sda | &prompt.sudo; sfdisk /dev/sdb &amp;&amp; &prompt.sudo; partprobe /dev/sdb</screen>
-    </listitem>
-    <listitem><para>Add new disk partition:</para>
-<screen>&prompt.sudo;  mdadm /dev/md0 --add /dev/sdb1</screen>
+  <listitem>
+    <para>
+      <emphasis role="bold">Solution:</emphasis> Fail, remove, replace the member device, and trigger an array rebuild. The example below uses a partitioned drive (<filename>/dev/sdb1</filename>); for whole-disk arrays, use the raw device name (such as <filename>/dev/sdb</filename>) and skip the partitioning step.
+    </para>
+    <orderedlist>
+      <listitem>
+        <para>Mark the failed member device as faulty (if the kernel has not already done so):</para>
+        <screen>&prompt.sudo;mdadm /dev/md0 --fail /dev/sdb1</screen>
       </listitem>
-      <listitem><para>Monitor resync progress:</para>
- <screen>&prompt.sudo; watch -n 1 cat /proc/mdstat</screen>
-        </listitem>
-</orderedlist>
-</listitem>
+      <listitem>
+        <para>Remove the failed device from the array:</para>
+        <screen>&prompt.sudo;mdadm /dev/md0 --remove /dev/sdb1</screen>
+      </listitem>
+      <listitem>
+        <para>
+          Physically replace the failed drive. If the array is built on partitions (for example, on drives that also contain boot or EFI partitions), clone the partition table from a healthy drive to the new drive and force the kernel to re-read the layout:
+        </para>
+        <screen>&prompt.sudo;sfdisk -d /dev/sda | &prompt.sudo;sfdisk /dev/sdb &amp;&amp; &prompt.sudo;partprobe /dev/sdb</screen>
+        <para>
+          If your array uses whole, unpartitioned disks, skip this step.
+        </para>
+      </listitem>
+      <listitem>
+        <para>Add the replacement device (such as <filename>/dev/sdb1</filename>, or <filename>/dev/sdb</filename> for whole-disk arrays) to the array:</para>
+        <screen>&prompt.sudo;mdadm /dev/md0 --add /dev/sdb1</screen>
+      </listitem>
+      <listitem>
+        <para>Monitor the resync progress:</para>
+        <screen>&prompt.sudo;watch -n 1 cat /proc/mdstat</screen>
+      </listitem>
+    </orderedlist>
+  </listitem>
 </itemizedlist>
   </section>
     <section xml:id="data-corrupion">
