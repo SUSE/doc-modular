@@ -52,10 +52,65 @@
   </variablelist>
   <section xml:id="standard-raid-levels">
     <title>Standard RAID levels</title>
-    <para>
+      <para>
       Originally, there were only five standard levels of RAID, but other
-      levels have evolved as described in the following sections.
+      levels have evolved.
     </para>
+    <para>To calculate the usable storage capacity of a software RAID array, let
+      <varname>N</varname> represent the total number of active disks in the
+      array (excluding hot spares), and <varname>C</varname> represent the
+      capacity of a single disk, assuming all disks are of equal size. If disk
+      sizes vary, <varname>C</varname> is limited to the capacity of the smallest
+      disk in the array. For RAID 10 configurations, <varname>r</varname>
+      represents the redundancy factor (number of data copies), which defaults to
+      <literal>2</literal> in standard mirrored pairs.</para>
+      <table xml:id="tab-raid-capacity-formulas">
+        <title>RAID Levels and Usable Storage Capacity Formulas</title>
+        <tgroup cols="3">
+          <colspec colname="c1" colnum="1" colwidth="1*"/>
+          <colspec colname="c2" colnum="2" colwidth="1.5*"/>
+          <colspec colname="c3" colnum="3" colwidth="3*"/>
+          <thead>
+            <row>
+              <entry>RAID Level</entry>
+              <entry>Usable Capacity Formula</entry>
+              <entry>Redundancy and Overhead Notes</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry>RAID 0</entry>
+              <entry><varname>N</varname> * <varname>C</varname></entry>
+              <entry>100% usable capacity; no parity or mirroring overhead.</entry>
+            </row>
+            <row>
+              <entry>RAID 1</entry>
+              <entry><varname>C</varname></entry>
+              <entry>Usable capacity equals a single disk, regardless of how many mirrors (<varname>N</varname>) are added.</entry>
+            </row>
+            <row>
+              <entry>RAID 10</entry>
+              <entry>(<varname>N</varname> / <varname>r</varname>) * <varname>C</varname></entry>
+              <entry>With standard 2-way mirroring (<varname>r</varname> = 2), usable capacity is 50% of total raw storage.</entry>
+            </row>
+            <row>
+              <entry>RAID 4</entry>
+              <entry>(<varname>N</varname> - 1) * <varname>C</varname></entry>
+              <entry>Equivalent of one disk is dedicated to a single parity drive.</entry>
+            </row>
+            <row>
+              <entry>RAID 5</entry>
+              <entry>(<varname>N</varname> - 1) * <varname>C</varname></entry>
+              <entry>Equivalent of one disk is allocated to distributed single parity.</entry>
+            </row>
+            <row>
+              <entry>RAID 6</entry>
+              <entry>(<varname>N</varname> - 2) * <varname>C</varname></entry>
+              <entry>Equivalent of two disks is allocated to distributed dual parity.</entry>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
     <section xml:id="raid-0-level">
       <title>RAID 0</title>
       <para>
@@ -103,7 +158,7 @@
         Data and parity information are distributed evenly across all drives. Parity is calculated using XOR math across the data blocks, allowing the system
         to reconstruct data if a single drive fails. </para>
         <para>
-        Usable storage capacity equals the total number of drives minus one (N+1). RAID 5 can sustain a
+        Usable storage capacity equals the total number of drives minus one (N-1), assuming all drives are of equal size. RAID 5 can sustain a
         maximum of one drive failure without data loss; a failed drive should be replaced promptly to restore fault tolerance.
         RAID 5 requires a minimum of three disks (two data disks and one parity disk).
       </para>
@@ -115,8 +170,18 @@
         This dual-parity scheme enables the array to sustain up to two simultaneous drive failures without data loss.
       </para>
       <para>
-        Usable storage capacity equals the total number of drives minus two ($N+2$). Performance is comparable to RAID 5 under normal operations, though write operations require additional CPU overhead to calculate the second parity block. RAID 6 requires a minimum of four disks (two data disks and two parity disks).
+        Usable storage capacity equals the total number of drives minus two (N-2), assuming all drives are of equal size. Performance is comparable to RAID 5 under normal operations, though write operations require additional CPU overhead to calculate the second parity block. RAID 6 requires a minimum of four disks (two data disks and two parity disks).
       </para>
         </section>
+        <section xml:id="raid-10-level">
+          <title>RAID 10</title>
+          <para>
+            RAID 10 (also known as RAID 1+0 or a stripe of mirrors) is a hybrid RAID configuration that combines the high-speed performance of RAID 0 striping with the fault-tolerant redundancy of RAID 1 mirroring. Requiring a minimum of four drives (and always an even total number of drives, $N$), it first pairs drives into mirrored sets to protect data and
+            then stripes data across those pairs to accelerate read and write operations.
+          </para>
+          <para>
+            While this architecture sacrifices half of the raw storage capacity—yielding a usable capacity of $(N / 2) \times C—it delivers exceptional I/O performance, rapid rebuild times, and high resilience, surviving multiple drive failures as long as no single mirrored pair loses both of its drives.
+          </para>
+            </section>
   </section>
    </topic>
