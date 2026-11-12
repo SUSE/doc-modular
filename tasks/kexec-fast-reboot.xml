@@ -54,8 +54,8 @@
         anything:
       </para>
       <screen>&prompt.sudo; kexec-bootloader --dry-run -D</screen>
-      <para>Sample output:</para>
-      <screen>Image  : /usr/lib/modules/6.12.0-160099.49-default/vmlinuz
+      <para os="sles;sles4sap">Sample output from an &x86-64; system:</para>
+      <screen os="sles;sles4sap">Image  : /usr/lib/modules/6.12.0-160099.49-default/vmlinuz
 Initrd : /boot/initrd-6.12.0-160099.49-default
 Append : splash=silent mitigations=auto quiet security=selinux crashkernel=72M,low crashkernel=394M,high
 Root   : root=UUID=b06935f0-ff2e-49e7-9aec-e72b252abc7d
@@ -108,7 +108,9 @@ Kexec call: kexec --kexec-syscall-auto --load '/usr/lib/modules/6.12.0-160099.49
   without a loaded kernel fails with the autodetection message; kexec-bootloader followed by
   systemctl kexec reboots with kexec and uses the current /etc/default/grub options; with a
   kernel loaded, systemctl reboot also reboots with kexec; kexec -u unloads it. 16.0 ships the
-  same kexec-load.service and systemd 257. Not run on UEFI, AArch64, POWER or IBM Z.</remark>
+  same kexec-load.service and systemd 257. Not run on UEFI, AArch64, POWER or IBM Z. The
+  kernel image names per architecture are from the kernel-default package file lists
+  (6.12.0-160000.26.1) and the SL-16.1 kernel spec.</remark>
   <section xml:id="kexec-fast-reboot-manual">
     <title>Loading a kernel manually</title>
     <para>
@@ -119,15 +121,44 @@ Kexec call: kexec --kexec-syscall-auto --load '/usr/lib/modules/6.12.0-160099.49
     <screen>&prompt.sudo; kexec -l <replaceable>KERNEL_IMAGE</replaceable> --initrd=<replaceable>INITRD_IMAGE</replaceable> --append="<replaceable>KERNEL_OPTIONS</replaceable>"</screen>
     <para>
       On &productnameshort;, kernel images are in
-      <filename>/usr/lib/modules/<replaceable>KERNEL_VERSION</replaceable>/vmlinuz</filename>,
-      and initrds are in
-      <filename>/boot/initrd-<replaceable>KERNEL_VERSION</replaceable></filename>. To reuse
-      the kernel options of the running system, use <option>--reuse-cmdline</option> instead
-      of <option>--append</option>.
+      <filename>/usr/lib/modules/<replaceable>KERNEL_VERSION</replaceable>/</filename>, and
+      initrds are in <filename>/boot/initrd-<replaceable>KERNEL_VERSION</replaceable></filename>.
+      <phrase os="sles4nvidia">The kernel image file is named
+      <filename>Image</filename>.</phrase><phrase os="sles;sles4sap">The name of the kernel
+      image file, <replaceable>IMAGE_NAME</replaceable>, depends on the architecture:</phrase>
+    </para>
+    <itemizedlist os="sles;sles4sap">
+      <listitem>
+        <para>
+          &x86-64;: <filename>vmlinuz</filename>
+        </para>
+      </listitem>
+      <listitem os="sles">
+        <para>
+          &aarch64;: <filename>Image</filename>
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          &power;: <filename>vmlinux</filename>
+        </para>
+      </listitem>
+      <listitem os="sles">
+        <para>
+          &zseries;: <filename>image</filename>
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      To reuse the kernel options of the running system, use <option>--reuse-cmdline</option>
+      instead of <option>--append</option>.
     </para>
     <example>
       <title>Loading the running kernel again with its current options</title>
-      <screen>&prompt.sudo; kexec -l /usr/lib/modules/$(uname -r)/vmlinuz     --initrd=/boot/initrd-$(uname -r) --reuse-cmdline</screen>
+      <screen os="sles;sles4sap">&prompt.sudo; kexec -l /usr/lib/modules/$(uname -r)/<replaceable>IMAGE_NAME</replaceable> \
+    --initrd=/boot/initrd-$(uname -r) --reuse-cmdline</screen>
+      <screen os="sles4nvidia">&prompt.sudo; kexec -l /usr/lib/modules/$(uname -r)/Image \
+    --initrd=/boot/initrd-$(uname -r) --reuse-cmdline</screen>
     </example>
     <para>
       Then reboot with <command>systemctl kexec</command>, which shuts down the system cleanly

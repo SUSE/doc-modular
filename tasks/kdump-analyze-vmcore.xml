@@ -38,14 +38,17 @@
       </step>
       <step>
         <para>
-          Install <command>crash</command> and the debuginfo package matching your running
-          kernel exactly:
+          Install <command>crash</command> and the debuginfo package of the running kernel. The
+          package name contains the kernel flavor, the last part of the
+          <command>uname -r</command> output. For the <literal>default</literal> flavor, this
+          is <literal>kernel-default-debuginfo</literal>. The following command inserts the
+          flavor automatically:
         </para>
-        <screen>&prompt.sudo; zypper install crash kernel-default-debuginfo</screen>
+        <screen>&prompt.sudo; zypper install crash kernel-$(uname -r | sed 's/.*-//')-debuginfo</screen>
         <note>
           <title>The debuginfo package version must match the running kernel exactly</title>
           <para>
-            If <literal>kernel-default-debuginfo</literal> installs a version newer than the
+            If the debuginfo package installs a version newer than the
             kernel you crashed (for example, because an update arrived after the crash but
             before you reboot), <command>crash</command> refuses to load it with a version
             mismatch error. Reboot onto the newest installed kernel first, and confirm
@@ -58,12 +61,29 @@
         <para>
           The debuginfo package alone is not enough: on &productnameshort;, its
           <filename>vmlinux.debug</filename> file contains only debug symbols, not the actual
-          kernel code and data <command>crash</command> needs alongside them. Decompress the
-          real kernel image from the matching kernel package and place it next to
-          <filename>vmlinux.debug</filename>:
+          kernel code and data <command>crash</command> needs alongside them. Place the real
+          kernel image from the matching kernel package next to
+          <filename>vmlinux.debug</filename>. <phrase os="sles;sles4sap">On <phrase
+          os="sles">&x86-64;, &aarch64; and &zseries;</phrase><phrase
+          os="sles4sap">&x86-64;</phrase>, the kernel package contains it compressed, so
+          decompress it:</phrase><phrase os="sles4nvidia">The kernel package contains it
+          compressed, so decompress it:</phrase>
         </para>
         <screen>&prompt.user; xz -dc /usr/lib/modules/$(uname -r)/vmlinux.xz | \
     sudo tee /usr/lib/debug/usr/lib/modules/$(uname -r)/vmlinux &gt; /dev/null</screen>
+        <para os="sles;sles4sap">
+          On &power;, the kernel package contains <filename>vmlinux</filename> uncompressed.
+          Copy it instead:
+        </para>
+        <screen os="sles;sles4sap">&prompt.sudo; cp /usr/lib/modules/$(uname -r)/vmlinux \
+    /usr/lib/debug/usr/lib/modules/$(uname -r)/vmlinux</screen>
+        <remark>ssarkar: the per-architecture layout is from the kernel-default and
+        kernel-default-debuginfo package file lists (6.12.0-160000.26.1) and the SL-16.1
+        kernel spec: vmlinux.xz on x86-64, AArch64 and IBM Z, uncompressed vmlinux and no
+        vmlinux.xz on POWER, vmlinux.debug in /usr/lib/debug/usr/lib/modules/VERSION/ on all
+        of them. The cp variant was not run on POWER. The kernel built for the NVIDIA product
+        (SL-16.1-NV branch) has the flavor nvidia64kb, hence the flavor-independent debuginfo
+        package name.</remark>
       </step>
     </procedure>
   </section>

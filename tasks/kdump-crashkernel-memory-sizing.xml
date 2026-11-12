@@ -39,8 +39,8 @@
     <example>
       <title>Determining the recommended crash kernel memory size</title>
       <screen>&prompt.sudo; kdumptool calibrate</screen>
-      <para>Sample output:</para>
-      <screen>Total: 4095
+      <para os="sles;sles4sap">Sample output from an &x86-64; system:</para>
+      <screen os="sles;sles4sap">Total: 4095
 Low: 72
 High: 384
 MinLow: 72
@@ -51,15 +51,19 @@ NonCMA: 300
 CMA: 640</screen>
     </example>
     <para>
-      All values are given in megabytes. On &x86-64;, <literal>Low</literal> is the
-      recommended reservation in the DMA32 zone (memory up to the 4&nbsp;GiB mark), and
-      <literal>High</literal> is the recommended reservation from the remaining available
-      memory. On the other architectures, the whole reservation is reported as
-      <literal>Low</literal>, and <literal>High</literal> is 0. <literal>MinLow</literal>/
-      <literal>MaxLow</literal> and <literal>MinHigh</literal>/<literal>MaxHigh</literal> give
-      the valid range around those recommendations. <literal>NonCMA</literal> and
-      <literal>CMA</literal> are the suggested sizes for the two parts of the reservation when
-      <literal>KDUMP_USE_CMA</literal> is enabled. See <xref linkend="kdump-sysconfig-options"/>.
+      All values are given in megabytes. <phrase os="sles;sles4sap">On &x86-64;,
+      <literal>Low</literal> is the recommended reservation in the DMA32 zone (memory up to
+      the 4&nbsp;GiB mark), and <literal>High</literal> is the recommended reservation from
+      the remaining available memory. On <phrase os="sles">&aarch64;, &power; and
+      &zseries;</phrase><phrase os="sles4sap">&power;</phrase>, the whole reservation is
+      reported as <literal>Low</literal>, and <literal>High</literal> is 0.</phrase><phrase
+      os="sles4nvidia">On &aarch64;, the whole reservation is reported as
+      <literal>Low</literal>, and <literal>High</literal> is 0.</phrase>
+      <literal>MinLow</literal>/<literal>MaxLow</literal> and
+      <literal>MinHigh</literal>/<literal>MaxHigh</literal> give the valid range around those
+      recommendations. <literal>NonCMA</literal> and <literal>CMA</literal> are the suggested
+      sizes for the two parts of the reservation when <literal>KDUMP_USE_CMA</literal> is
+      enabled. See <xref linkend="kdump-sysconfig-options"/>.
     </para>
     <note>
       <title>Calibrated values depend on the system</title>
@@ -83,11 +87,13 @@ CMA: 640</screen>
         <listitem>
           <para>
             <literal>crashkernel=<replaceable>SIZE</replaceable>[@<replaceable>OFFSET</replaceable>]</literal>
-            reserves a fixed amount of memory, for example <literal>crashkernel=256M</literal>.
+            reserves a fixed amount of memory, for example, <literal>crashkernel=256M</literal>.
             The optional offset is the physical address where the reserved area starts. A
             suitable size is the sum of the <literal>Low</literal> and <literal>High</literal>
-            values from <command>kdumptool calibrate</command>. On architectures other than
-            &x86-64;, <literal>auto</literal> produces this form.
+            values from <command>kdumptool calibrate</command>. On <phrase
+            os="sles">&aarch64;, &power; and &zseries;</phrase><phrase
+            os="sles4sap">&power;</phrase><phrase os="sles4nvidia">&aarch64;</phrase>,
+            <literal>auto</literal> produces this form.
           </para>
         </listitem>
       </varlistentry>
@@ -97,11 +103,13 @@ CMA: 640</screen>
           <para>
             <literal>crashkernel=<replaceable>SIZE_LOW</replaceable>M,low
             crashkernel=<replaceable>SIZE_HIGH</replaceable>M,high</literal> reserves one area
-            below the 4&nbsp;GiB mark and one from the remaining memory, for example
-            <literal>crashkernel=72M,low crashkernel=384M,high</literal>. On &x86-64;,
-            <literal>auto</literal> produces this form when <command>kdumptool calibrate</command>
-            reports a <literal>Low</literal> value above 0. Otherwise, it sets only the
-            <literal>,high</literal> value.
+            below the 4&nbsp;GiB mark and one from the remaining memory, for example,
+            <literal>crashkernel=72M,low crashkernel=384M,high</literal>. <phrase
+            os="sles">The kernel accepts this form on &x86-64; and &aarch64; only.</phrase><phrase
+            os="sles4sap">The kernel accepts this form on &x86-64; only.</phrase> <phrase
+            os="sles;sles4sap">On &x86-64;, <literal>auto</literal> produces this form when
+            <command>kdumptool calibrate</command> reports a <literal>Low</literal> value above
+            0. Otherwise, it sets only the <literal>,high</literal> value.</phrase>
           </para>
         </listitem>
       </varlistentry>
@@ -136,57 +144,49 @@ CMA: 640</screen>
       </varlistentry>
     </variablelist>
   </section>
-  <section xml:id="kdump-crashkernel-memory-sizing-manual" arch="x86_64">
-    <title>Setting a manual value on &x86-64;</title>
+  <section xml:id="kdump-crashkernel-memory-sizing-manual">
+    <title>Setting a manual value</title>
     <para>
       Override the automatically calculated reservation manually if it is not sufficient, for
-      example, if &kdump; still runs out of memory while capturing a dump. Take the
-      <literal>High</literal> value reported by <command>kdumptool calibrate</command> and, if
-      the system has multiple LUN kernel paths (paths to storage devices) attached, add roughly
-      half the number of LUNs to it:
+      example, if &kdump; still runs out of memory while capturing a dump. Take the value that
+      <command>kdumptool calibrate</command> recommends and, if the system has multiple LUN
+      kernel paths (paths to storage devices) attached, add roughly half the number of LUNs to
+      it:
     </para>
-    <screen>SIZE_HIGH = <replaceable>RECOMMENDATION</replaceable> + (<replaceable>LUNS</replaceable> / 2)</screen>
+    <screen><replaceable>SIZE</replaceable> = <replaceable>RECOMMENDATION</replaceable> + (<replaceable>LUNS</replaceable> / 2)</screen>
     <para>
-      Where <replaceable>RECOMMENDATION</replaceable> is the <literal>High</literal> value from
-      <command>kdumptool calibrate</command>, and <replaceable>LUNS</replaceable> is the maximum
-      number of LUN kernel paths you expect the system to ever have (excluding multipath
-      devices, which are ignored). To count the LUNs currently visible:
+      Where <replaceable>LUNS</replaceable> is the maximum number of LUN kernel paths you
+      expect the system to ever have (excluding multipath devices, which are ignored). To count
+      the LUNs currently visible:
     </para>
     <screen>&prompt.user; grep -c Lun /proc/scsi/scsi</screen>
-    <para>
-      Set the result, together with the unmodified <literal>Low</literal> value, in
+    <para os="sles;sles4sap">
+      On &x86-64;, use the <literal>High</literal> value as
+      <replaceable>RECOMMENDATION</replaceable>. Set the result, together with the unmodified
+      <literal>Low</literal> value as <replaceable>LOW</replaceable>, in
       <filename>/etc/sysconfig/kdump</filename>:
     </para>
-    <screen>KDUMP_CRASHKERNEL="crashkernel=<replaceable>SIZE_HIGH</replaceable>M,high crashkernel=<replaceable>SIZE_LOW</replaceable>M,low"</screen>
-    <para>
+    <screen os="sles;sles4sap">KDUMP_CRASHKERNEL="crashkernel=<replaceable>SIZE</replaceable>M,high crashkernel=<replaceable>LOW</replaceable>M,low"</screen>
+    <para os="sles;sles4sap">
       When the reservation is placed above 4&nbsp;GiB, <literal>Low</literal> is at least
       72&nbsp;MiB. Of these, 64&nbsp;MiB are for software I/O TLB (<literal>swiotlb</literal>)
       bounce buffers and 8&nbsp;MiB for overflow and other DMA buffers.
     </para>
+    <para>
+      On <phrase os="sles">&aarch64;, &power; and &zseries;</phrase><phrase
+      os="sles4sap">&power;</phrase><phrase os="sles4nvidia">&aarch64;</phrase>, only the
+      <literal>Low</literal> value applies. Use it as <replaceable>RECOMMENDATION</replaceable>
+      and set the result in <filename>/etc/sysconfig/kdump</filename>:
+    </para>
+    <screen>KDUMP_CRASHKERNEL="crashkernel=<replaceable>SIZE</replaceable>M"</screen>
     <remark>ssarkar: the LUN-based adjustment is carried forward from the SLE 15 tuning guide.
     kdumptool calibrate does not count LUNs and man 7 kdump does not mention them, so nothing
     in the current tools backs the formula. Asked the kdump SME on PR #802 whether it is still
-    valid.</remark>
+    valid. That the whole reservation is reported as Low on every architecture other than
+    x86-64 is confirmed from the kdumptool calibrate source and the kdumptool script; not run on
+    AArch64, POWER or IBM Z.</remark>
   </section>
-  <section xml:id="kdump-crashkernel-memory-sizing-power-zseries" arch="aarch64;power;zseries">
-    <title>Setting a manual value on &aarch64;, &power; and &zseries;</title>
-    <para>
-      On &aarch64;, &power; and &zseries;, only the <literal>Low</literal> value applies. Adjust
-      it for the number of LUN kernel paths the same way as on &x86-64;:
-    </para>
-    <screen>SIZE_LOW = <replaceable>RECOMMENDATION</replaceable> + (<replaceable>LUNS</replaceable> / 2)</screen>
-    <para>
-      Where <replaceable>RECOMMENDATION</replaceable> is the <literal>Low</literal> value from
-      <command>kdumptool calibrate</command>. Set the result in
-      <filename>/etc/sysconfig/kdump</filename>:
-    </para>
-    <screen>KDUMP_CRASHKERNEL="crashkernel=<replaceable>SIZE_LOW</replaceable>M"</screen>
-    <remark>ssarkar: that the whole reservation is reported as Low on every architecture other
-    than x86-64 is confirmed from the kdumptool calibrate source and the kdumptool script. The
-    LUN adjustment is carried forward from the SLE 15 tuning guide and was not run on AArch64,
-    POWER or IBM Z. Asked the kdump SME on PR #802 whether it is still valid.</remark>
-  </section>
-  <section xml:id="kdump-crashkernel-memory-sizing-cio-ignore" arch="zseries">
+  <section xml:id="kdump-crashkernel-memory-sizing-cio-ignore" os="sles" arch="zseries">
     <title>Reducing the required memory by excluding unused devices on &zseries;</title>
     <para>
       Depending on the number of available devices, the calculated crash kernel memory may not
