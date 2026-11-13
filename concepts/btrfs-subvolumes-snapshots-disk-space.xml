@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+<!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+%entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="btrfs-subvolumes-snapshots-disk-space"
+       role="concept" xml:lang="en"
+       xmlns="http://docbook.org/ns/docbook" version="5.2"
+       xmlns:its="http://www.w3.org/2005/11/its"
+       xmlns:xi="http://www.w3.org/2001/XInclude"
+       xmlns:xlink="http://www.w3.org/1999/xlink"
+       xmlns:trans="http://docbook.org/ns/transclusion">
+    <info>
+        <title>Disk space usage of snapshots</title>
+        <meta name="maintainer" content="daria.vladykina@suse.com" its:translate="no"/>
+   
+    <abstract><para>Snapshots occupy no additional space when you create them. Their space usage grows as the
+      data of the original subvolume or of the snapshot changes. 
+        </para></abstract>
+    </info>
+    <section xml:id="btrfs-snapshots-space-growth">
+        <title>How do snapshots consume space?</title>
+        <para>
+            When the system creates a snapshot, the snapshot and the original point to the same
+            blocks in the file system. Initially, a snapshot therefore occupies almost no additional
+            disk space, apart from its metadata.
+        </para>
+        <para>
+            If data in the original file system is modified, Btrfs copies the changed blocks and
+            keeps the old blocks for the snapshot. Therefore, a snapshot occupies the same amount of
+            space as the data modified. Over time, the space that a snapshot allocates grows
+            constantly.
+        </para>
+        <para>
+            As a consequence, deleting files from a Btrfs file system that contains snapshots might
+            not free disk space. Btrfs releases a block only when no snapshot and no subvolume
+            references it anymore.
+        </para>
+    </section>
+
+    <section xml:id="btrfs-snapshots-space-check">
+        <title>Checking space usage</title>
+        <para>
+            On a Btrfs file system, the output of <command>df</command> can be misleading. In
+            addition to the space for raw data, a Btrfs file system allocates and uses space for
+            metadata. A Btrfs file system can report being out of space although plenty of space
+            seems to be available. In that case, all space allocated for metadata is used up.
+        </para>
+        <para>
+            Use the following commands to check the space of a Btrfs file system:
+        </para>
+        <variablelist xml:id="vl-btrfs-space-commands">
+            <title>Commands for checking Btrfs space usage</title>
+            <varlistentry>
+                <term><command>btrfs filesystem show</command></term>
+                <listitem>
+                    <para>
+                        Shows the total size of the file system and its usage. If the two values in the
+                        last line match, all space on the file system is allocated.
+                    </para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term><command>btrfs filesystem df</command></term>
+                <listitem>
+                    <para>
+                        Shows the allocated (<literal>total</literal>) and used space for data, metadata
+                        and system areas. If both values for metadata are almost equal, all space for
+                        metadata is allocated.
+                    </para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term><command>btrfs filesystem usage</command></term>
+                <listitem>
+                    <para>
+                        Shows the information of the two previous commands combined, including the
+                        unallocated space and an estimate of the free space.
+                    </para>
+                </listitem>
+            </varlistentry>
+            <varlistentry>
+                <term><command>btrfs filesystem du</command></term>
+                <listitem>
+                    <para>
+                        Shows how much data a subvolume shares with other subvolumes and how much data
+                        it holds exclusively.
+                    </para>
+                </listitem>
+            </varlistentry>
+        </variablelist>
+<screen>&prompt.sudo;<command>btrfs filesystem usage /mnt</command></screen>
+<screen>&prompt.sudo;<command>btrfs filesystem du --summarize /mnt/projects-snapshot</command>
+Total   Exclusive  Set shared  Filename
+[...]</screen>
+        <para>
+            The <literal>Exclusive</literal> value is the amount of space that Btrfs frees when you
+            delete the snapshot.
+        </para>
+    </section>
+
+    <section xml:id="btrfs-snapshots-space-free">
+        <title>Freeing space</title>
+        <para>
+            To free space on a Btrfs file system that contains snapshots, delete snapshots that you
+            no longer need. Delete the oldest snapshots first. The older a snapshot is, the more
+            disk space it occupies.
+        </para>
+        <para>
+            Btrfs reclaims the space of deleted snapshots in a background process. As a result, the
+            free space can become visible with a delay.
+        </para>
+        <para>
+            If all space is allocated but data chunks are nearly empty, relocate the data with a
+            balance operation. The following command balances data block groups with a usage of
+            5% or less:
+        </para>
+<screen>&prompt.sudo;<command>btrfs balance start -dusage=5 /</command></screen>
+        <para>
+            The operation can take many hours on large file systems. The system stays usable during
+            this time. On SUSE Linux Enterprise Server, the timer
+            <filename>btrfs-balance.timer</filename> cleans up unused block groups every month. You
+            can configure the behavior in the file
+            <filename>/etc/sysconfig/btrfsmaintenance</filename>.
+        </para>
+    </section>
+
+    <section xml:id="btrfs-snapshots-space-quota">
+        <title>Limiting the space of subvolumes</title>
+        <para>
+            Subvolumes can use all available disk space during normal operation, which can cause
+            a system malfunction. To prevent this, limit the size of a subvolume with quota groups.
+        </para>
+        <procedure xml:id="pro-btrfs-quota">
+            <title>Setting a quota for a subvolume</title>
+            <step>
+                <para>
+                    Enable quota support for the file system:
+                </para>
+<screen>&prompt.sudo;<command>btrfs quota enable /mnt</command></screen>
+            </step>
+            <step>
+                <para>
+                    Display the existing subvolumes. You can only set quotas for existing subvolumes:
+                </para>
+<screen>&prompt.sudo;<command>btrfs subvolume list /mnt</command></screen>
+            </step>
+            <step>
+                <para>
+                    Set the limit for a subvolume, for example, 5 GB for <filename>projects</filename>:
+                </para>
+<screen>&prompt.sudo;<command>btrfs qgroup limit 5G /mnt/projects</command></screen>
+            </step>
+            <step>
+                <para>
+                    Display the quotas. The column <literal>max_rfer</literal> shows the limit in bytes:
+                </para>
+<screen>&prompt.sudo;<command>btrfs qgroup show -r /mnt</command></screen>
+            </step>
+        </procedure>
+        <para>
+            To remove a limit, set its size to <literal>none</literal>. To disable quota support
+            for the file system and all subvolumes, run <command>btrfs quota disable</command>.
+            Quota groups add accounting work. On file systems with many snapshots, they can affect
+            performance.
+        </para>
+    </section>
+
+    <section xml:id="btrfs-snapshots-space-planning">
+        <title>Planning disk space</title>
+        <para>
+            Snapshots always reside on the same partition or subvolume where the snapshot was taken.
+            As a result, partitions that contain snapshots must be larger than partitions without
+            snapshots. The exact amount depends strongly on the number of snapshots that you keep
+            and the amount of data modifications.
+        </para>
+        <para>
+            As a guideline, plan for twice as much space as you normally would. Automatic tools,
+            such as Snapper, remove old snapshots according to rules.
+        </para>
+        <para>
+            Before you upgrade a system with a Btrfs root file system, check the free space. In the
+            worst case, the upgrade needs as much disk space as the current root file system for
+            a new snapshot. We recommend having twice as much free space as the current installation
+            uses. The space of old packages becomes free only after Btrfs installs the new packages.
+        </para>
+    </section>
+</topic>
