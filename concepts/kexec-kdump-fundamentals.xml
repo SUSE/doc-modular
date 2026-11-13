@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sle/blob/main/xml/tuning_kexec.xml -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="kexec-kdump-fundamentals"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>What is &kdump; and how does it use &kexec;?</title>
+    <meta name="maintainer" content="ssarkar@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        &kdump; is a crash-dumping mechanism used to capture a system memory image at the
+        moment a kernel panics or crashes, allowing administrators to perform debugging after a
+        crash. It does not save the dump from the crashed kernel itself. Instead, it starts a
+        second kernel via &kexec; and captures the dump from there.
+      </para>
+    </abstract>
+  </info>
+  <section xml:id="kexec-kdump-fundamentals-dual-kernel">
+    <title>The dual-kernel model</title>
+    <para>
+      To save the memory of a crashed kernel, &kdump; relies on two kernels:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <emphasis role="bold">The production kernel</emphasis> is the kernel that normally
+          runs your system and its workloads.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <emphasis role="bold">The capture kernel</emphasis> (also called the crash kernel or
+          &kdump; kernel) is a second, minimal kernel image with its own
+          <filename>initramfs</filename>. It runs in an area of memory that is reserved for it.
+          &kdump; builds the <filename>initramfs</filename> so that it contains the drivers and
+          tools, such as <command>makedumpfile</command>, needed to save the dump.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      When the production kernel panics, it can no longer be trusted to write its own crash
+      information to disk: its data structures may be corrupted, and a normal reboot would
+      overwrite the memory you are trying to inspect. Because the capture kernel runs from its
+      own reserved memory region, the production kernel's memory contents remain intact and
+      readable while the capture kernel is running.
+    </para>
+  </section>
+  <section xml:id="kexec-kdump-fundamentals-relation">
+    <title>How &kdump; uses &kexec;</title>
+    <para>
+      &kexec; is the mechanism that starts the capture kernel: a system call and the
+      <command>kexec</command> command, which load a kernel into memory and start it directly,
+      without going through the firmware (BIOS/UEFI) and the boot loader. &kdump; is the
+      service built around this mechanism. It reserves the memory for the capture kernel,
+      builds its <filename>initramfs</filename> and defines how and where the dump is saved.
+    </para>
+    <para>
+      When the system boots and later crashes, the following happens:
+    </para>
+    <orderedlist>
+      <listitem>
+        <para>
+          At boot, the kernel reserves an area of memory for the capture kernel. The size comes
+          from the <literal>crashkernel=</literal> option on the kernel command line.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <literal>kdump.service</literal> loads the capture kernel and its
+          <filename>initramfs</filename> into the reserved area with <command>kexec -p</command>.
+          The capture kernel stays idle.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          When the production kernel panics, it uses &kexec; to start the capture kernel. The
+          firmware and the boot loader do not run, so the memory of the crashed kernel stays
+          intact.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          The capture kernel saves that memory to a vmcore file, together with the kernel log,
+          and reboots the system.
+        </para>
+      </listitem>
+    </orderedlist>
+    <para>
+      Enabling &kdump; does not change normal reboots. &kdump; loads the capture kernel only for
+      a crash, so a normal reboot still goes through the firmware and the boot loader. You can
+      also use &kexec; on its own to reboot faster, as described in the separate article
+      <quote>Using Kexec for Faster Reboots</quote>.
+    </para>
+  </section>
+  <section xml:id="kexec-kdump-fundamentals-services">
+    <title>The &kdump; services and configuration file</title>
+    <para>
+      &kdump; runs as four systemd services. Enabling <literal>kdump.service</literal> also
+      enables the other three. The services read their settings from
+      <filename>/etc/sysconfig/kdump</filename>, where comments describe each option. For the
+      frequently used options and how to apply changes, see
+      <xref linkend="kdump-sysconfig-options"/>.
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><literal>kdump-early.service</literal></term>
+        <listitem>
+          <para>
+            Loads the capture kernel early during boot, before
+            <literal>kdump.service</literal> runs.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>kdump.service</literal></term>
+        <listitem>
+          <para>
+            Rebuilds the capture <filename>initramfs</filename> if necessary and loads the
+            capture kernel into the reserved memory. The service fails if no memory is reserved.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>kdump-commandline.service</literal></term>
+        <listitem>
+          <para>
+            Runs after <literal>kdump.service</literal> and checks whether the kernel command
+            line contains the expected <literal>crashkernel=</literal> values. If they are
+            missing or different, it updates the boot loader configuration, unless
+            <literal>KDUMP_UPDATE_BOOTLOADER</literal> is set to <literal>false</literal>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><literal>kdump-notify.service</literal></term>
+        <listitem>
+          <para>
+            Sends an e-mail notification about new crash dumps at boot, using
+            <command>mailx</command>. It only does this if <literal>KDUMP_NOTIFICATION_TO</literal>
+            contains an e-mail address and the dumps are saved locally.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+  <section xml:id="kexec-kdump-fundamentals-vmcore">
+    <title>What does a captured vmcore file contain?</title>
+    <para>
+      Once the capture kernel is running, it writes the production kernel's memory contents to
+      a file called <filename>vmcore</filename>, together with a copy of the kernel's ring
+      buffer log (<filename>dmesg</filename>) from the moment of the crash. Depending on the
+      dump level set in <literal>KDUMP_DUMPLEVEL</literal>, a vmcore file can contain:
+    </para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          <emphasis role="bold">Kernel state:</emphasis> active kernel data structures, global
+          variables and the call stack that was executing at the moment of the crash.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <emphasis role="bold">Process information:</emphasis> the list of processes that were
+          running, along with their individual stacks and registers.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <emphasis role="bold">Memory pages:</emphasis> the actual data held in RAM by the
+          kernel and by user-space applications.
+        </para>
+      </listitem>
+      <listitem>
+        <para>
+          <emphasis role="bold">VMCOREINFO:</emphasis> a section that records how the kernel's
+          memory was laid out, such as the kernel release, the page size and the addresses of
+          kernel symbols, so that analysis tools can interpret the raw memory.
+        </para>
+      </listitem>
+    </itemizedlist>
+    <para>
+      You analyze this file after the system has rebooted, using tools such as
+      <command>crash</command> or GDB. See <xref linkend="kdump-analyze-vmcore"/> for details.
+    </para>
+  </section>
+</topic>
