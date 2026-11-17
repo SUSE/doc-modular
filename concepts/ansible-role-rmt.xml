@@ -16,7 +16,7 @@
  xmlns:xlink="http://www.w3.org/1999/xlink"
  xmlns:trans="http://docbook.org/ns/transclusion">
   <info>
-    <title>About the &rmt; Linux system role</title>
+    <title>About the &rmt; role in Ansible</title>
     <meta name="maintainer" content="amrita.sakthivel@suse.com" its:translate="no"/>
     <abstract>
       <para>
@@ -32,54 +32,89 @@
   <listitem><para>Define security types for non-standard network ports, allowing services to listen on them without violating the policy.</para></listitem>
   <listitem><para>Manage the mapping between Linux user accounts and specific &selnx; user identities.</para></listitem>
   </itemizedlist>
-<example><title>Reset the &selnx; context </title>
+<example><title>Deploy and Configure the &suse; &rmt; Server</title>
 <screen>
 ---
-- name: Reset the selinux context
-  hosts: managed_nodes
+- name: Deploy and Configure SUSE RMT Server
+  hosts: rmt_servers
   become: true
 
   tasks:
-    - name: reset the selinux context
-      vars:
-        selinux_restore_dirs:
-          - /var/www/
-          - /etc/
-      ansible.builtin.include_role:
-        name: suse.linux_system_roles.selinux
+    - name: Install rmt-server and MariaDB packages
+      community.general.zypper:
+        name:
+          - rmt-server
+          - mariadb
+        state: present
+
+    - name: Ensure MariaDB service is started and enabled
+      ansible.builtin.systemd:
+        name: mariadb
+        state: started
+        enabled: true
+
+    - name: Create RMT database in MariaDB
+      community.mysql.mysql_db:
+        name: rmt
+        state: present
+        login_unix_socket: /run/mysql/mysql.sock
+
+    - name: Create RMT database user and grant privileges
+      community.mysql.mysql_user:
+        name: "{{ rmt_db_username }}"
+        password: "{{ rmt_db_password }}"
+        priv: "rmt.*:ALL"
+        host: "localhost"
+        state: present
+        login_unix_socket: /run/mysql/mysql.sock
+
+    - name: Configure /etc/rmt.conf
+      ansible.builtin.copy:
+        dest: /etc/rmt.conf
+        owner: _rmt
+        group: nginx
+        mode: "0640"
+        content: |
+          database:
+            host: localhost
+            database: rmt
+            username: {{ rmt_db_username }}
+            password: {{ rmt_db_password }}
+
+          scc:
+            username: {{ rmt.RMT_ORGANIZATION_USERNAME }}
+            password: {{ rmt.RMT_ORGANIZATION_PASSWORD }}
+            sync_systems: true
+
+          log_level:
+            rails: info
+      notify: Restart RMT services
+
+    - name: Run initial RMT database migration
+      ansible.builtin.command:
+        cmd: rmt-cli sync
+      register: rmt_sync_result
+      changed_when: rmt_sync_result.rc == 0
+
+    - name: Enable and start RMT and Nginx services and timers
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+      loop:
+        - rmt-server.service
+        - rmt-server-sync.timer
+        - rmt-server-mirror.timer
+        - nginx.service
+
+  handlers:
+    - name: Restart RMT services
+      ansible.builtin.systemd:
+        name: rmt-server.service
+        state: restarted
    </screen>
-<itemizedlist>
- <listitem><para><literal>selinux_restore_dirs</literal>: specifies file system paths on the managed node where the &selnx; contexts should be immediately reapplied or corrected (using the equivalent of the <literal>restorecon</literal> utility).
-  It is a list of strings, where each string is a file system tree where you want to run <literal>restorecon</literal>.</para></listitem>
-</itemizedlist>
 </example>
-<example><title>Set a &selnx; network port label</title>
-<screen>
----
-- name: set a selinux port label
-  hosts: managed_nodes
-  become: true
-
-  tasks:
-    - name: set a selinux port label
-      vars:
-        selinux_ports:
-          - ports: 8080
-            proto: tcp
-            setype: http_port_t
-            state: present
-      ansible.builtin.include_role:
-        name: suse.linux_system_roles.selinux
-</screen>
-  <itemizedlist>
-   <listitem><para><literal>selinux_ports</literal>: manages the &selnx; port labeling policy on a managed node.
-  It is a list of dictionaries  with each dictionary defining a specific port rule. <literal>ports</literal> are strings or a list
-  and define port numbers to which you want to assign the &selnx; label. Multiple values separated by a comma are accepted.
- <literal>proto</literal> is a <literal>string</literal> datatype and defines the network protocol. <literal>setype</literal> is a <literal>string</literal> datatype and defines the &selnx; type (label) to assign to the port.
-</para></listitem>
-     </itemizedlist>
-  </example>
-<para>For more details about all the variables in the &selnx; Linux system role,
-  refer to the specific <literal>REDADME.md</literal> file on the control node:</para>
-  <screen>/usr/share/ansible/collections/ansible_collections/suse/linux_system_roles/docs</screen>
+<para>For more details about all the variables in the &rmt; role,
+  refer to:</para>
+  <screen>ansible/group_vars/all.yml</screen>
 </topic>
