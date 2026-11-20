@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file originates from the project https://github.com/openSUSE/doc-kit -->
+<!-- This file can be edited downstream. -->
+<!DOCTYPE topic
+[
+<!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+%entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="btrfs-subvolumes-snapshots-incremental-backups"
+       role="task" xml:lang="en"
+       xmlns="http://docbook.org/ns/docbook" version="5.2"
+       xmlns:its="http://www.w3.org/2005/11/its"
+       xmlns:xi="http://www.w3.org/2001/XInclude"
+       xmlns:xlink="http://www.w3.org/1999/xlink"
+       xmlns:trans="http://docbook.org/ns/transclusion">
+    <info>
+        <title>Creating incremental backups with send and receive</title>
+        <meta name="maintainer" content="daria.vladykina@suse.com" its:translate="no"/>
+  
+    <abstract><para>Snapshots become a basis for backups when you combine them with the Btrfs send and
+      receive feature. The command <command>btrfs send</command> calculates the difference
+      between two read-only snapshots of the same subvolume and writes it to a file or to
+      standard output. The command <command>btrfs receive</command> applies the result to a
+      snapshot on the target side. 
+        </para>
+    </abstract>
+    </info>
+    <para>
+        The following requirements apply:
+    </para>
+    <itemizedlist>
+        <listitem>
+            <para>
+                Btrfs file systems exist on the source side and on the target side.
+            </para>
+        </listitem>
+        <listitem>
+            <para>
+                The data resides in a Btrfs subvolume.
+            </para>
+        </listitem>
+        <listitem>
+            <para>
+                The snapshots on the source side are read-only.
+            </para>
+        </listitem>
+    </itemizedlist>
+
+    <section xml:id="btrfs-send-receive-initial">
+        <title>Performing the initial transfer</title>
+        <para>
+            The initial transfer sends the complete snapshot. The following procedure uses the
+            subvolume <filename>/data</filename> on the source side and the directory
+            <filename>/backup</filename> on the target side.
+        </para>
+        <procedure xml:id="pro-btrfs-send-initial">
+            <title>Performing the initial backup</title>
+            <step>
+                <para>
+                    Create a read-only snapshot on the source side and write it to the disk:
+                </para>
+<screen>&prompt.sudo;<command>btrfs subvolume snapshot -r /data /data/bkp_data</command>
+&prompt.sudo;<command>sync</command></screen>
+            </step>
+            <step>
+                <para>
+                    Send the snapshot to the target side:
+                </para>
+<screen>&prompt.sudo;<command>bash -c 'btrfs send /data/bkp_data | btrfs receive /backup'</command></screen>
+                <para>
+                    Btrfs creates the subvolume <filename>/backup/bkp_data</filename> on the target
+                    side. Keep the snapshot <filename>/data/bkp_data</filename> as the reference for
+                    the next incremental backup.
+                </para>
+            </step>
+        </procedure>
+    </section>
+
+    <section xml:id="btrfs-send-receive-incremental">
+        <title>Performing an incremental backup</title>
+        <para>
+            After the initial transfer, send only the differences between the current and the
+            previous snapshot.
+        </para>
+        <procedure xml:id="pro-btrfs-send-incremental">
+            <title>Performing an incremental backup</title>
+            <step>
+                <para>
+                    Create a new read-only snapshot with the current date in its name:
+                </para>
+<screen>&prompt.sudo;<command>btrfs subvolume snapshot -r /data /data/bkp_data_$(date +%F)</command>
+&prompt.sudo;<command>sync</command></screen>
+            </step>
+            <step>
+                <para>
+                    Send the difference to the previous snapshot. The option <option>-p</option>
+                    specifies the previous snapshot. Replace <replaceable>DATE</replaceable> with the
+                    date of the new snapshot.
+                </para>
+<screen>&prompt.sudo;<command>bash -c 'btrfs send -p /data/bkp_data \
+/data/bkp_data_<replaceable>DATE</replaceable> | btrfs receive /backup'</command></screen>
+            </step>
+            <step>
+                <para>
+                    Decide which snapshots to keep. To keep only the latest snapshot on a side, delete
+                    the previous snapshot and rename the new one to <filename>bkp_data</filename>:
+                </para>
+<screen>&prompt.sudo;<command>btrfs subvolume delete /data/bkp_data</command>
+&prompt.sudo;<command>mv /data/bkp_data_<replaceable>DATE</replaceable> /data/bkp_data</command></screen>
+                <para>
+                    Perform the same commands on the target side with the path
+                    <filename>/backup</filename>.
+                </para>
+            </step>
+        </procedure>
+        <para>
+            If you keep all snapshots on both sides, you can roll back to any snapshot. In this
+            case, use the next-to-last snapshot as the parent for the next send operation.
+        </para>
+        <para>
+            To send the snapshots to a remote machine, pipe the output through SSH:
+        </para>
+<screen>&prompt.sudo;<command>bash -c 'btrfs send /data/bkp_data | ssh tux@earth.example.com \
+btrfs receive /backup'</command></screen>
+    </section>
+</topic>
