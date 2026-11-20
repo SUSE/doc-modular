@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+  <!ENTITY snapper "entity-value">
+  <!ENTITY productname "entity-value">
+  <!ENTITY yast "entity-value">
+  <!ENTITY zypper "entity-value">
+]>
+<!-- refers to legacy doc: https://documentation.suse.com/sles/15-SP5/single-html/SLES-administration/#cha-snapper -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="snapper-undo-changes-intro"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Default snapshot configuration</title>
+      <meta name="maintainer" content="daria.vladykina@suse.com" its:translate="no"/>
+    <abstract>
+     <para>
+      &snapper; on &suselinux; is preconfigured to serve as a tool that lets you
+      undo changes made by <command>zypper</command> and &yast;. It does this
+      by creating a pair of snapshots before and after each run of <command>zypper</command> 
+      and &yast;.</para>
+    </abstract>
+  </info>
+    <para>When the root partition is set up with <literal>Btrfs</literal> during the
+      installation, &snapper; is installed automatically and is preconfigured for 
+      doing rollbacks of &yast; and &zypper; changes. Every time you start
+      a &yast; module or a &zypper; transaction, two snapshots are created: a
+      <quote>pre</quote> snapshot capturing the state of the file system before
+      the start of the module, and a <quote>post</quote> snapshot after the module
+      has been finished.</para>
+  <para>
+    Taking snapshot pairs upon installing packages with &yast; or &zypper; is
+    handled by <systemitem class="resource">snapper-zypp-plugin</systemitem>. An XML
+    configuration file, <filename>/etc/snapper/zypp-plugin.conf</filename>, defines 
+    when to make snapshots. By default, the file looks like the following:
+   </para>
+<screen linenumbering="numbered">
+&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;snapper-zypp-plugin-conf&gt;
+&lt;solvables&gt;
+&lt;solvable match="w"<co xml:id="zypp-conf-match"/> important="true"<co xml:id="zypp-conf-important"/>&gt;kernel-*<co xml:id="zypp-conf-kernel"/>&lt;/solvable&gt;
+&lt;solvable match="w" important="true"&gt;dracut&lt;/solvable&gt;
+&lt;solvable match="w" important="true"&gt;glibc&lt;/solvable&gt;
+&lt;solvable match="w" important="true"&gt;systemd*&lt;/solvable&gt;
+&lt;solvable match="w" important="true"&gt;udev&lt;/solvable&gt;
+&lt;solvable match="w"&gt;*&lt;/solvable&gt;<co xml:id="zypp-conf-packages"/>
+&lt;/solvables&gt;
+&lt;/snapper-zypp-plugin-conf&gt;</screen>
+   <calloutlist>
+    <callout arearefs="zypp-conf-match">
+     <para>
+      The match attribute defines whether the pattern is a Unix shell-style
+      wild card (<literal>w</literal>) or a Python regular expression
+      (<literal>re</literal>). For more information about regular expressions in Python,
+      refer to <link xlink:href="https://docs.python.org/3/library/re.html">Regular expression operations</link>.
+     </para>
+    </callout>
+    <callout arearefs="zypp-conf-important">
+     <para>
+      If the pattern matches and the corresponding package is marked as
+      important (for example, kernel packages), the snapshot will also be
+      marked as important.
+     </para>
+    </callout>
+    <callout arearefs="zypp-conf-kernel">
+     <para>
+      Pattern to match a package name. Based on the setting of the
+      <literal>match</literal> attribute, special characters are
+      interpreted as shell wild cards or regular expressions. This pattern
+      matches all package names, starting with <literal>kernel-</literal>.
+     </para>
+    </callout>
+    <callout arearefs="zypp-conf-packages">
+     <para>
+      This line unconditionally matches all packages without marking the snapshot important.
+     </para>
+    </callout>
+   </calloutlist>
+   <para>
+    With this configuration, snapshot pairs are made whenever a package is
+    installed (see <xref linkend="zypp-conf-packages"/>). When the kernel, dracut, glibc, systemd, or udev packages
+    marked as important are installed, the snapshot pair will also be marked
+    as important. All rules are evaluated.
+   </para>
+   <!--<para>By default, automatic snapshots as described above are configured for the
+    root partition and its subvolumes. To make snapshots available for other
+    partitions such as <filename>/home</filename>, for example, you can create
+    custom configurations.
+   </para> -->
+   <para>&snapper; also lets you restore system files that have been accidentally
+     deleted or modified. Timeline snapshots for the root partition need to be 
+     enabled for this purpose.</para>
+      
+</topic>
