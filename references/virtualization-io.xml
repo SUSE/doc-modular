@@ -22,119 +22,82 @@
  </info>
 
  <para>
-  &vmguest;s not only share CPU and memory resources of the host system, but
-  also the I/O subsystem. Because software I/O virtualization techniques
-  deliver less performance than bare metal, hardware solutions that deliver
-  almost <quote>native</quote> performance have been developed recently.
-  &productname; supports the following I/O virtualization techniques:
+  In addition to CPU and memory, &vmguest;s share the &vmhost;'s physical I/O
+  subsystems such as network interfaces, storage controllers and GPUs. Because
+  purely software-based I/O introduces latency and CPU overhead, &productname;
+  provides a choice of I/O virtualization techniques that trade off hardware
+  compatibility against near-native performance:
  </para>
 
  <variablelist>
-  <varlistentry xml:id="vt-io-fullv">
-   <term>Full virtualization</term>
+  <varlistentry xml:id="vt-io-emu">
+   <term>Device emulation</term>
    <listitem>
     <para>
-     Fully Virtualized (FV) drivers emulate widely supported real devices,
-     which can be used with an existing driver in the &vmguest;. The guest is
-     also called <emphasis>Hardware Virtual Machine</emphasis> (HVM).
-     Since the physical device on the &vmhost; may differ from the emulated
-     one, the hypervisor needs to process all I/O operations before handing
-     them over to the physical device. Therefore all I/O operations need to
-     traverse two software layers, a process that not only significantly
-     impacts I/O performance, but also consumes CPU time.
+     The &vmhost; emulates well-known, legacy physical hardware, such as an
+     Intel e1000 network adapter or an IDE/SATA disk controller. Because the
+     virtualized device behaves identically to real hardware, the &vmguest;
+     can use its built-in operating system drivers without modification.
+     However, every I/O operation must be intercepted and translated by the
+     &vmhost;, causing significant CPU overhead and higher latency. Device
+     emulation is primarily used for booting legacy operating systems or
+     during initial OS installation before paravirtualized drivers are loaded.
     </para>
    </listitem>
   </varlistentry>
-  <varlistentry xml:id="vt-io-parav">
-   <term>Paravirtualization</term>
+  <varlistentry xml:id="vt-io-virtio">
+   <term>Paravirtualized I/O</term>
    <listitem>
     <para>
-     Paravirtualization (PV) allows direct communication between the hypervisor
-     and the &vmguest;. With less overhead involved, performance is much better
-     than with full virtualization. However, paravirtualization requires either
-     the guest operating system to be modified to support the
-	    paravirtualization API, or availability of paravirtualized drivers. <phrase
-     os="sles;sles4sap"> For a list of guest operating systems supporting paravirtualization, refer to
-     the section <emphasis>Availability of paravirtualized drivers</emphasis> in the article <link
-	    xlink:href="https://documentation.suse.com/sles/&productnumber;/html/SLES-virtualization-support/">Virtualization
-	    Limits and Support</link>.</phrase>
-    </para>
-   </listitem>
-  </varlistentry>
-  <varlistentry xml:id="vt-io-pvhvm">
-   <term>PVHVM</term>
-   <listitem>
-    <para>
-     This type of virtualization enhances HVM (see
-     <xref linkend="vt-io-fullv"/>) with paravirtualized (PV) drivers, and PV
-     interrupt and timer handling.
+     Instead of emulating physical hardware, paravirtualized I/O exposes a
+     standardized, hypervisor-aware virtual device interface (virtio) directly
+     to the &vmguest;. The guest OS uses virtio drivers (included in Linux and
+     available for Windows) to communicate efficiently with the &vmhost; via
+     shared memory ring buffers. Combining virtio with kernel-space or user-space
+     offloading (vhost/vhost-user) eliminates costly context switches,
+     delivering high throughput and low latency while preserving live migration
+     and full hardware independence.
     </para>
    </listitem>
   </varlistentry>
   <varlistentry xml:id="vt-io-vfio">
-   <term>VFIO</term>
+   <term>Direct device assignment (VFIO)</term>
    <listitem>
     <para>
-     VFIO stands for <emphasis>Virtual Function I/O</emphasis> and is a new
-     user-level driver framework for Linux. It replaces the traditional &kvm;
-     &pciback; device assignment. The VFIO driver exposes direct device access
-     to user space in a secure memory Input/Output Memory Management Unit (IOMMU)
-     protected environment.
-     With VFIO, a &vmguest; can directly access hardware devices on the
-     &vmhost; (pass-through), avoiding performance issues caused by emulation
-     in performance critical paths. This method does not allow to share
-     devices&mdash;each device can only be assigned to a single &vmguest;. VFIO
-     needs to be supported by the &vmhost; CPU, chipset and the BIOS/EFI.
+     Virtual Function I/O (VFIO) assigns an entire physical &vmhost; device
+     (such as a PCIe NVMe drive, NIC or GPU) directly to a single &vmguest;.
+     Using the hardware IOMMU, VFIO isolates device memory access and allows
+     the &vmguest;'s native vendor driver to interact directly with the
+     hardware, completely bypassing the &vmhost; I/O stack. While VFIO
+     delivers near-native performance, a passed-through device cannot be
+     shared with the &vmhost; or other &vmguest;s, and live migration is
+     generally unsupported.
     </para>
-    <para>
-     Compared to the legacy &kvm; PCI device assignment, VFIO has the following
-     advantages:
-    </para>
-    <itemizedlist mark="bullet" spacing="normal">
-     <listitem>
-      <para>
-       Resource access is compatible with &uefisecboot;.
-      </para>
-     </listitem>
-     <listitem>
-      <para>
-       Device is isolated and its memory access protected.
-      </para>
-     </listitem>
-     <listitem>
-      <para>
-       Offers a user space device driver with more flexible device ownership
-       model.
-      </para>
-     </listitem>
-     <listitem>
-      <para>
-       Is independent of &kvm; technology, and not bound to x86 architecture
-       only.
-      </para>
-     </listitem>
-    </itemizedlist>
-    <para>
-     In &productname; the USB and PCI pass-through methods of device assignment
-     are considered deprecated and are superseded by the VFIO model.
-   </para>
    </listitem>
   </varlistentry>
   <varlistentry xml:id="vt-io-sriov">
-   <term>SR-IOV</term>
+   <term>Single Root I/O Virtualization (SR-IOV)</term>
    <listitem>
     <para>
-     The latest I/O virtualization technique, Single Root I/O Virtualization
-     SR-IOV combines the benefits of the aforementioned
-     techniques&mdash;performance and the ability to share a device with
-     several &vmguest;s. SR-IOV requires special I/O devices, that are capable
-     of replicating resources so they appear as multiple separate devices. Each
-     such <quote>pseudo</quote> device can be directly used by a single guest.
-     However, for network cards for example the number of concurrent queues
-     that can be used is limited, potentially reducing performance for the
-     &vmguest; compared to paravirtualized drivers. On the &vmhost;, SR-IOV
-     must be supported by the I/O device, the CPU and chipset, the BIOS/EFI and
-     the hypervisor&mdash;.
+     SR-IOV is a PCIe hardware standard that allows a single physical device
+     to partition itself into multiple lightweight Virtual Functions (VFs).
+     Each VF appears as an independent PCIe device that can be assigned
+     directly to a separate &vmguest; via VFIO. SR-IOV combines the near-native
+     performance of direct device assignment with the ability to share a
+     single physical device across multiple &vmguest;s. SR-IOV requires
+     explicit support from the PCIe device, CPU/chipset, BIOS/EFI and host
+     kernel.
+    </para>
+   </listitem>
+  </varlistentry>
+  <varlistentry xml:id="vt-io-mdev">
+   <term>Mediated devices (mdev/vGPU)</term>
+   <listitem>
+    <para>
+     For devices that lack SR-IOV hardware partitioning, such as certain
+     enterprise GPUs, the Linux mediated device framework allows a
+     &vmhost; driver to split a single physical device into multiple
+     software-defined virtual devices exposed through VFIO.
     </para>
    </listitem>
   </varlistentry>
@@ -155,15 +118,13 @@
    <listitem>
     <para>
      For Intel CPUs, the kernel parameter <literal>intel_iommu=on</literal>
-     needs to be provided on the kernel command line. For more information, see
-     <link xlink:href="https://github.com/torvalds/linux/blob/master/Documentation/admin-guide/kernel-parameters.txt#L1951"/>.
+     needs to be provided on the kernel command line.
     </para>
    </listitem>
    <listitem>
     <para>
-     The VFIO infrastructure needs to be available. This can be achieved by
-     loading the kernel module
-    <systemitem class="resource">vfio_pci</systemitem>.
+     The <systemitem class="resource">vfio_pci</systemitem> kernel module needs
+     to be loaded.
     </para>
    </listitem>
   </itemizedlist>
