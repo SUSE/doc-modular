@@ -33,33 +33,41 @@
     <para>We strongly recommend deciding whether you need snapshots before you start the installation.</para>
     </warning>
   
-    <para>To install the system without snapshots, disable Btrfs snapshots for the
-      root partition in the storage settings of the installer. In this case, you
-      can still create snapshots manually. Keep an eye on the available disk space.</para>
-  
+    <para>To install a standard system without snapshots, disable Btrfs snapshots for the
+    root partition in the storage settings of the installer. In this case, you can still create snapshots manually. 
+    Keep an eye on the available disk space.</para>
+
+  <warning>
+    <title>Never disable snapshots on immutable systems</title>
+    <para>Snapshots are essential for immutable systems. Every <command>transactional-update</command> 
+      run creates a new snapshot, and the system relies on these snapshots to apply changes and to roll back. Do not disable 
+      Btrfs snapshots for the root partition on these systems. For more information, see <xref linkend="snapper-snapshot-types-installation"/>.</para>
+  </warning>
+
     <section xml:id="snapper-default-settings">
     <title>What does the default configuration include?</title>
- <para>Certain directories are excluded from snapshots by means of subvolumes. For the list of excluded subvolumes,
-  see <xref linkend="snapper-subvolumes"/>. For detailed information about the types
-      of snapshots, the time and occasions of their creation, see <xref linkend="snapshot-types-by-event"/> and
-        <xref linkend="snapshot-types-by-time"/>.</para>
-    <para>Each partition or Btrfs subvolume has its own configuration file that defines the default behavior of &snapper;. 
-      These files reside in <filename>/etc/snapper/configs/</filename>.</para>
-    <para>The size of the root partition is product-specific. To check the size and usage of the root partition, run:</para>
+    <para>The default configuration for the root partition is stored in <filename>/etc/snapper/configs/root</filename>. 
+      Each partition or Btrfs subvolume managed by &snapper; has its own file in this directory. The file defines whether 
+      timeline snapshots are created (<literal>TIMELINE_CREATE</literal>) and the cleanup limits (for example, 
+      <literal>NUMBER_LIMIT</literal> or <literal>TIMELINE_LIMIT_HOURLY</literal>). Installation snapshots are enabled 
+      are not controlled by this file. For more information, see <xref linkend="snapper-snapshot-types-installation"/>.</para>
+    <para>To view or change values, edit the file directly or run <command>sudo snapper -c root get-config</command> and 
+      <command>sudo snapper -c root set-config "KEY=value"</command>.</para>
+<para>Which directories are excluded is not set in this file. It is determined by the subvolume layout created at installation.
+      For the list of excluded subvolumes, see <xref linkend="snapper-subvolumes"/>. For detailed information about the types
+      of snapshots and when they are created, see <xref linkend="snapper-snapshot-types"/>. For more information on the cleanup 
+      parameters, see <xref linkend="snapper-snapshot-cleanup"/>.</para>
+      <para>The size of the root partition is product-specific. To check the size and usage of the root partition, run:</para>
 <screen>&prompt.user;<command>df -h /</command></screen>
-   
-     
   </section>
 
   <section xml:id="snapper-subvolumes">
     <title>Subvolumes excluded from snapshots</title>
-    <para>When &snapper; is configured to operate on root, every Btrfs subvolume is excluded by default. 
-      The primary use case for snapshots is to roll back the system to a previous state. 
-      Therefore, snapshotting is disabled for certain subvolumes (directories).</para>
-    <para>The following list contains directories that are excluded from snapshots.
-      Depending on your product, version, architecture and boot loader, not all of them
-      may be available on your system.
-    </para>
+    <para>When &snapper; is configured to operate on root, the subvolumes listed below are excluded from snapshots by default. 
+      A rollback restores everything contained in the snapshot. If data such as user files, logs, databases or virtual 
+      machine images were part of it, a rollback would revert them to the snapshot's state, and any newer data would be lost. 
+      A rollback of the boot loader configuration could also leave the system unable to boot. 
+      Therefore, directories that hold such data are placed on separate subvolumes, which are excluded from snapshots.</para>
     <variablelist>
       <varlistentry>
         <term><filename>/boot/grub2/i386-pc</filename>,
