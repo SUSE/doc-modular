@@ -50,6 +50,50 @@ Create subvolume '/mnt/projects'</screen>
         </procedure>
     </section>
 
+    <section xml:id="btrfs-subvolumes-mounting">
+        <title>Mounting subvolumes</title>
+        <para>
+            You can mount each subvolume at a separate mount point. To select a subvolume, pass
+            the <option>subvol</option> or <option>subvolid</option> mount option. Mounted
+            subvolumes of the same file system share the underlying device.
+        </para>
+<screen>&prompt.sudo;<command>mount --options subvol=projects /dev/sdb1 /srv/projects</command></screen>
+        <para>
+            To mount a subvolume permanently, add the mount option to the entry of the
+            <filename>/etc/fstab</filename> file:
+        </para>
+<screen>/dev/sdb1 /srv/projects btrfs subvol=projects 0 0</screen>
+        <para>
+            To access the top level of the file system, mount the subvolume with the ID
+            <literal>5</literal>:
+        </para>
+<screen>&prompt.sudo;<command>mount --options subvolid=5 /dev/sdb1 /mnt</command></screen>
+    </section>
+
+    <section xml:id="btrfs-subvolumes-compression">
+        <title>Enabling compression</title>
+              <para>
+                    To compress new file data, mount the file system with the <option>compress</option>
+                    mount option. To compress all data regardless of its compressibility, use the option
+                    <option>compress-force</option> instead. Select one of the algorithms
+                    <literal>zstd</literal>, <literal>lzo</literal> or <literal>zlib</literal>. The following
+                    example enables the algorithm <literal>zstd</literal>:
+                </para>
+<screen>&prompt.sudo;<command>mount --options compress=zstd /dev/sdb1 /mnt</command></screen>
+                <para>
+                    Compression applies to new files only.
+                </para>
+           </section>
+   
+       <section xml:id="btrfs-manage-nocow">
+        <title>Disabling copy-on-write for a directory</title>
+        <para>
+            To disable copy-on-write for the files in a directory, set the <literal>C</literal>
+            attribute on the empty directory. New files in this directory inherit the attribute:
+        </para>
+<screen>&prompt.sudo;<command>chattr +C /srv/projects/images</command></screen>
+   </section>
+
     <section xml:id="btrfs-manage-snapshot">
         <title>Creating a snapshot of a subvolume</title>
         <para>
@@ -91,14 +135,15 @@ ID 257 gen 14 top level 5 path projects-snapshot</screen>
     <section xml:id="btrfs-manage-delete">
         <title>Deleting a subvolume or snapshot</title>
         <para>
-            Deleting a subvolume removes its data and all nested subvolumes.
+            Deleting a subvolume removes its data. Btrfs does not delete a subvolume that contains
+            nested subvolumes, unless you delete the nested subvolumes first or use the option
+            <option>--recursive</option>.
         </para>
         <warning>
             <title>Deleting a subvolume removes its data</title>
-            <para>
-                Deleting a subvolume destroys all files in it and in its nested subvolumes. You cannot
-                undo this action.
-            </para>
+            <para>Deleting a subvolume destroys all files in it. With the option
+                <option>--recursive</option>, Btrfs also destroys all files in its nested subvolumes.
+                You cannot undo this action.</para>
             <para>
                 Before you delete a subvolume, make sure that a backup exists or that you no longer
                 need the data.
@@ -119,6 +164,10 @@ ID 257 gen 14 top level 5 path projects-snapshot</screen>
                 </para>
             </step>
         </procedure>
+        <para>
+             To delete a subvolume together with its nested subvolumes, add the option
+             <option>--recursive</option>:</para>
+<screen>&prompt.sudo;<command>btrfs subvolume delete --recursive /mnt/projects</command></screen>
         <para>
             Btrfs frees the space of a deleted subvolume in the background. The free space can
             increase for some time after the command finishes.
