@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: <add github link to legacy doc piece, if applicable> -->
+<!-- point back to this document with a similar comment added to your legacy doc piece -->
+<!-- refer to README.md for file and id naming conventions -->
+<!-- metadata is dealt with on the assembly level -->
+<topic xml:id="concept-about-tracing-tools"
+ role="concept" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>About tracing tools</title>
+    <meta name="maintainer" content="shalaka.harne@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+       System and application tracing provides deep insight into how binaries interact with the &sles; kernel and user-space libraries. By monitoring execution patterns, system administrators can isolate configuration defects, permission errors, and performance regressions.
+      </para>
+    </abstract>
+  </info>
+  <para> Tracing utilities introduce execution overhead by intercepting execution states. Avoid running continuous traces on high-throughput production environments unless executing short, focused diagnostic captures.</para>
+<section>
+  <title>Tracing system calls with strace</title>
+  <para>
+      The <command>strace</command> utility intercepts and records system calls made by a process and the signals it receives. It is ideal for identifying missing files, blocked I/O operations, or network communication failures.
+    </para>
+      <procedure xml:id="strace-analyze">
+      <title>Analyzing an Active Process</title>
+      <step>
+        <para>
+          Locate the Process ID (PID) of the service you want to monitor.
+        </para>
+      </step>
+      <step>
+        <para>
+          Attach <command>strace</command> to the running process using the <option>-p</option> flag:
+        </para>
+<screen>strace -p 1234</screen>
+      </step>
+      <step>
+        <para>
+          Alternatively, capture summary statistics by running the process directly from launch with the <command>-c</command> flag:
+        </para>
+<screen>strace -c ./my-application</screen>
+      </step>
+      <step>
+        <para>
+          Stop the capture at any time by pressing <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo>. Review the generated table for a breakdown of errors, call counts, and execution time percentages.
+        </para>
+      </step>
+    </procedure>
+  </section>
+ <section xml:id="sec-tracing-ltrace">
+    <title>Monitoring library intersections with itrace</title>
+    <para>
+      While <command>strace</command> captures kernel-level interactions, <command>ltrace</command> intercepts and logs dynamic library calls called by user-space programs. Use this to verify that a binary is invoking the correct functions within shared libraries (<filename class="extension">.so</filename> files).
+    </para>
+    <procedure xml:id="ltrace-filter">
+      <title>Filtering Specific Library Calls</title>
+      <step>
+        <para>
+          Run <command>ltrace</command> directly against an executable file.</para>
+      </step>
+      <step>
+        <para>
+          To narrow down the output, use the <command>-e</command> flag followed by the function or library pattern to isolate specific symbols:
+        </para>
+<screen>ltrace -e malloc,free ./my-application</screen>
+      </step>
+      <step>
+        <para>
+          Redirect complex output strings to an external log file for historical post-mortem analysis:
+        </para>
+<screen>ltrace -o /tmp/ltrace_output.log ./my-application</screen>
+      </step>
+    </procedure>
+  </section>
+
+  <section xml:id="sec-tracing-valgrind">
+    <title>Detecting Memory Leakages with Valgrind</title>
+    <para>
+      <command>Valgrind</command> acts as an abstraction framework providing an array of profiling engines. The default engine, <parameter>memcheck</parameter>, serves as an instrumentation tool to uncover memory corruption, buffer overflows, and unreleased pointers.
+    </para>
+    <procedure xml:id="valgrind-leak">
+      <title>Evaluating Memory Integrity</title>
+      <step>
+        <para>
+          Compile your debugging binary with debug symbols enabled (<command>-g</command>) whenever possible for precise line-number mapping.
+        </para>
+      </step>
+      <step>
+        <para>
+          Launch the application inside the Valgrind virtualization layer using the memory check flag:
+        </para>
+<screen>valgrind --tool=memcheck --leak-check=full ./my-application</screen>
+      </step>
+      <step>
+        <para>
+          Inspect the printed termination manifest. Review the <literal>LEAK SUMMARY</literal> section to verify the exact bytes categorization categorized as <phrase role="italic">definitely lost</phrase>, <phrase role="italic">indirectly lost</phrase>, or <phrase role="italic">still reachable</phrase>.
+        </para>
+      </step>
+    </procedure>
+  </section>
+  <section xml:id="sec-tracing-troubleshooting">
+    <title>Troubleshooting</title>
+    <variablelist>
+      <varlistentry>
+        <term>Ptrace Authorization Failures</term>
+        <listitem>
+          <para>Problem:When attempting to attach to a process via <command>strace -p</command> or <command>ltrace -p</command>, you receive an error: <literal>attach: ptrace(PTRACE_ATTACH, ...): Operation not permitted</literal>.
+          </para>
+          <para>Solution: &productnameshort; tightens default security properties via the <literal>ptrace_scope</literal> kernel control. Temporarily permit standard process attachments by adjusting the runtime control:
+          </para>
+<screen>sysctl -w kernel.yama.ptrace_scope=0</screen>
+          <para>
+            To persist this modification across reboots, update <filename>/etc/sysctl.d/99-tuning.conf</filename>.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </section>
+</topic>
