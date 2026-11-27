@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic
+[
+  <!ENTITY % entities SYSTEM "../common/generic-entities.ent">
+    %entities;
+]>
+<!-- refers to legacy doc: https://github.com/SUSE/doc-sleha/blob/main/xml/ha_storage_basics.xml -->
+
+<topic xml:id="ha-dlm-configuring-cluster-resource-with-base-group"
+ role="task" xml:lang="en"
+ xmlns="http://docbook.org/ns/docbook" version="5.2"
+ xmlns:its="http://www.w3.org/2005/11/its"
+ xmlns:xi="http://www.w3.org/2001/XInclude"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:trans="http://docbook.org/ns/transclusion">
+  <info>
+    <title>Configuring a &dlm; cluster resource with a base group</title>
+    <meta name="maintainer" content="tahlia.richardson@suse.com" its:translate="no"/>
+    <abstract>
+      <para>
+        &dlm; uses the cluster membership services from &pace; which run in user space. Therefore, &dlm; needs to be configured as a clone resource that is present on each node in the cluster.
+      </para>
+    </abstract>
+  </info>
+
+  <para>
+    This configuration consists of a base group that includes several primitives
+    and a base clone. Both base group and base clone can be used in different
+    scenarios afterward (for both &gfs; and &clvm;, for example). You only need
+    to extend the base group with the respective primitives as needed. As the
+    base group has internal colocation and ordering, this simplifies the
+    overall setup as you do not need to specify several individual groups,
+    clones and their dependencies.
+  </para>
+  <procedure>
+   <step>
+    <para>
+      Log in either as the &rootuser; user or as a user with <command>sudo</command> privileges.
+    </para>
+   </step>
+   <step>
+    <para>
+     Run <command>crm configure</command>.
+    </para>
+   </step>
+   <step>
+    <para>
+     Create the primitive resource for &dlm;:
+    </para>
+<screen>&prompt.crm.conf;<command>primitive dlm ocf:pacemaker:controld \
+  op monitor interval="60" timeout="60"</command></screen>
+   </step>
+   <step>
+    <para>
+     Create a base group for the <literal>dlm</literal> resource and further storage-related
+     resources:
+    </para>
+<screen>&prompt.crm.conf;<command>group g-storage dlm</command></screen>
+   </step>
+   <step>
+    <para>
+     Clone the <literal>g-storage</literal> group so that it runs on all nodes:
+    </para>
+<screen>&prompt.crm.conf;<command>clone cl-storage g-storage \
+  meta interleave=true target-role=Started</command></screen>
+   </step>
+   <step>
+    <para>
+     Review your changes with <command>show</command>.
+    </para>
+   </step>
+   <step>
+    <para>
+     If everything is correct, submit your changes with
+     <command>commit</command> and leave the crm live configuration with
+     <command>quit</command>.
+    </para>
+   </step>
+  </procedure>
+</topic>
